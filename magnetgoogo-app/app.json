@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "MagGoogo",
+    "slug": "magnetgoogo-app",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "magnetgoogo",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#fffdfb"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.magnetgoogo.app"
+    },
+    "android": {
+      "package": "com.magnetgoogo.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#fffdfb"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9f312496-11bc-4e6b-8a92-9b281670c0df"
+      }
+    }
+  }
+}

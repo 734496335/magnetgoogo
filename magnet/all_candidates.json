@@ -1,0 +1,5740 @@
+{
+  "beian.miit.gov.cn": {
+    "url": "http://www.beian.miit.gov.cn",
+    "domain": "beian.miit.gov.cn",
+    "sources": [
+      "cilihezi:",
+      "cilihezi-full:",
+      "nav-www.cilihezi.top:鲁ICP备17054087号-15"
+    ]
+  },
+  "cilihezi.com": {
+    "url": "https://www.cilihezi.com",
+    "domain": "cilihezi.com",
+    "sources": [
+      "cilihezi-full:",
+      "curated:",
+      "curated:"
+    ]
+  },
+  "iq.com": {
+    "url": "https://iq.com",
+    "domain": "iq.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "wetv.vip": {
+    "url": "https://wetv.vip",
+    "domain": "wetv.vip",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "cilihezi.top": {
+    "url": "https://cilihezi.top",
+    "domain": "cilihezi.top",
+    "sources": [
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "curated:"
+    ]
+  },
+  "zzzfun.com": {
+    "url": "http://www.zzzfun.com",
+    "domain": "zzzfun.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "space.bilibili.com": {
+    "url": "https://space.bilibili.com",
+    "domain": "space.bilibili.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "docuchina.cn": {
+    "url": "http://www.docuchina.cn",
+    "domain": "docuchina.cn",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "lsjlp8.com": {
+    "url": "https://www.lsjlp8.com",
+    "domain": "lsjlp8.com",
+    "sources": [
+      "nav-www.cilihezi.top:",
+      "curated:"
+    ]
+  },
+  "tv.cctv.com": {
+    "url": "http://tv.cctv.com",
+    "domain": "tv.cctv.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "bilibili.com": {
+    "url": "https://www.bilibili.com",
+    "domain": "bilibili.com",
+    "sources": [
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "douban.com": {
+    "url": "https://www.douban.com",
+    "domain": "douban.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "tool.liumingye.cn": {
+    "url": "http://tool.liumingye.cn",
+    "domain": "tool.liumingye.cn",
+    "sources": [
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:",
+      "curated:"
+    ]
+  },
+  "itingwa.com": {
+    "url": "https://www.itingwa.com",
+    "domain": "itingwa.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "kuwo.cn": {
+    "url": "http://www.kuwo.cn",
+    "domain": "kuwo.cn",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "music.taihe.com": {
+    "url": "http://music.taihe.com",
+    "domain": "music.taihe.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "music.163.com": {
+    "url": "https://music.163.com",
+    "domain": "music.163.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "y.qq.com": {
+    "url": "https://y.qq.com",
+    "domain": "y.qq.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "cdbao.net": {
+    "url": "https://www.cdbao.net",
+    "domain": "cdbao.net",
+    "sources": [
+      "nav-www.cilihezi.top:",
+      "curated:"
+    ]
+  },
+  "music.liuzhijin.cn": {
+    "url": "https://music.liuzhijin.cn",
+    "domain": "music.liuzhijin.cn",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "dengshe.com": {
+    "url": "http://www.dengshe.com",
+    "domain": "dengshe.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "yinfans.me": {
+    "url": "http://www.yinfans.me",
+    "domain": "yinfans.me",
+    "sources": [
+      "nav-www.cilihezi.top:",
+      "curated:"
+    ]
+  },
+  "tokyotosho.info": {
+    "url": "https://www.tokyotosho.info",
+    "domain": "tokyotosho.info",
+    "sources": [
+      "nav-www.cilihezi.top:",
+      "curated:"
+    ]
+  },
+  "bitcq.com": {
+    "url": "https://bitcq.com",
+    "domain": "bitcq.com",
+    "sources": [
+      "nav-www.cilihezi.top:",
+      "curated:"
+    ]
+  },
+  "u3c3.org": {
+    "url": "https://u3c3.org",
+    "domain": "u3c3.org",
+    "sources": [
+      "nav-www.cilihezi.top:",
+      "curated:"
+    ]
+  },
+  "1337x.gd": {
+    "url": "https://1337x.gd",
+    "domain": "1337x.gd",
+    "sources": [
+      "nav-www.cilihezi.top:",
+      "curated:"
+    ]
+  },
+  "thepiratebay.se.net": {
+    "url": "http://thepiratebay.se.net",
+    "domain": "thepiratebay.se.net",
+    "sources": [
+      "nav-www.cilihezi.top:",
+      "curated:"
+    ]
+  },
+  "icezmz.com": {
+    "url": "http://www.icezmz.com",
+    "domain": "icezmz.com",
+    "sources": [
+      "nav-www.cilihezi.top:",
+      "curated:"
+    ]
+  },
+  "subs.kamigami.org": {
+    "url": "https://subs.kamigami.org",
+    "domain": "subs.kamigami.org",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "subscene.com": {
+    "url": "https://subscene.com",
+    "domain": "subscene.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "assrt.net": {
+    "url": "https://assrt.net",
+    "domain": "assrt.net",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "bilibili.iiilab.com": {
+    "url": "https://bilibili.iiilab.com",
+    "domain": "bilibili.iiilab.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "jijidown.com": {
+    "url": "https://www.jijidown.com",
+    "domain": "jijidown.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "jiexi.bqrdh.com": {
+    "url": "https://jiexi.bqrdh.com",
+    "domain": "jiexi.bqrdh.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "parse.bqrdh.com": {
+    "url": "https://parse.bqrdh.com",
+    "domain": "parse.bqrdh.com",
+    "sources": [
+      "nav-www.cilihezi.top:",
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "motrix.app": {
+    "url": "https://motrix.app",
+    "domain": "motrix.app",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "xdown.org": {
+    "url": "https://xdown.org",
+    "domain": "xdown.org",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "freedownloadmanager.org": {
+    "url": "https://www.freedownloadmanager.org",
+    "domain": "freedownloadmanager.org",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "kinhdown.kinh.cc": {
+    "url": "https://kinhdown.kinh.cc",
+    "domain": "kinhdown.kinh.cc",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "imdb.com": {
+    "url": "https://www.imdb.com",
+    "domain": "imdb.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "rottentomatoes.com": {
+    "url": "https://www.rottentomatoes.com",
+    "domain": "rottentomatoes.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "mtime.com": {
+    "url": "http://www.mtime.com",
+    "domain": "mtime.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "open.163.com": {
+    "url": "https://open.163.com",
+    "domain": "open.163.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "yixi.tv": {
+    "url": "https://yixi.tv",
+    "domain": "yixi.tv",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "yiketalks.com": {
+    "url": "http://www.yiketalks.com",
+    "domain": "yiketalks.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "icourses.cn": {
+    "url": "http://www.icourses.cn",
+    "domain": "icourses.cn",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "next.xuetangx.com": {
+    "url": "https://next.xuetangx.com",
+    "domain": "next.xuetangx.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "open.nlc.cn": {
+    "url": "http://open.nlc.cn",
+    "domain": "open.nlc.cn",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "erya.mooc.chaoxing.com": {
+    "url": "http://erya.mooc.chaoxing.com",
+    "domain": "erya.mooc.chaoxing.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "yxgapp.com": {
+    "url": "https://www.yxgapp.com",
+    "domain": "yxgapp.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "ted.com": {
+    "url": "https://www.ted.com",
+    "domain": "ted.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "crashcourse.club": {
+    "url": "https://crashcourse.club",
+    "domain": "crashcourse.club",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "om.qq.com": {
+    "url": "https://om.qq.com",
+    "domain": "om.qq.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "365yg.com": {
+    "url": "http://www.365yg.com",
+    "domain": "365yg.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "huoshanzhibo.com": {
+    "url": "https://www.huoshanzhibo.com",
+    "domain": "huoshanzhibo.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "mp.toutiao.com": {
+    "url": "https://mp.toutiao.com",
+    "domain": "mp.toutiao.com",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "xddh.cn": {
+    "url": "https://www.xddh.cn",
+    "domain": "xddh.cn",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "wawadh.cn": {
+    "url": "https://www.wawadh.cn",
+    "domain": "wawadh.cn",
+    "sources": [
+      "nav-www.cilihezi.top:"
+    ]
+  },
+  "cilimao.im": {
+    "url": "https://cilimao.im",
+    "domain": "cilimao.im",
+    "sources": [
+      "nav-cilimao.biz:cilimao.im",
+      "curated:"
+    ]
+  },
+  "cilimao.biz": {
+    "url": "https://cilimao.biz",
+    "domain": "cilimao.biz",
+    "sources": [
+      "nav-cilimao.biz:cilimao.biz",
+      "curated:"
+    ]
+  },
+  "clm8.top": {
+    "url": "https://clm8.top",
+    "domain": "clm8.top",
+    "sources": [
+      "nav-cilimao.biz:clm8.top",
+      "curated:"
+    ]
+  },
+  "12580.org": {
+    "url": "http://12580.org",
+    "domain": "12580.org",
+    "sources": [
+      "nav-cilimao.biz:bs5.org 巴士资源",
+      "curated:"
+    ]
+  },
+  "ezhentang.com": {
+    "url": "https://www.ezhentang.com",
+    "domain": "ezhentang.com",
+    "sources": [
+      "nav-ezhentang.com:",
+      "nav-ezhentang.com:",
+      "nav-ezhentang.com:网站提交",
+      "nav-ezhentang.com:",
+      "nav-ezhentang.com:首页",
+      "nav-ezhentang.com:blog",
+      "nav-ezhentang.com:关于",
+      "nav-ezhentang.com:搜磁力搜磁力-搜一搜发现精彩世界!",
+      "nav-ezhentang.com:磁力猫磁力猫提供快速、准确的磁力链接搜索服务。涵盖广泛的资源",
+      "nav-ezhentang.com:磁力多多磁力多多是一个提供海量磁力链接搜索服务的网站，用户可",
+      "nav-ezhentang.com:磁力狗磁力狗是一款专注于磁力链接搜索的工具，它能够让用户快速",
+      "nav-ezhentang.com:磁力海磁力海是一种基于磁力链接的搜索引擎，专门用于寻找和检索",
+      "nav-ezhentang.com:无限磁力无限磁力是一个在线搜索平台，主要提供磁力链接和Tor",
+      "nav-ezhentang.com:天天磁力天天磁力是一个网络磁力链接搜索工具，专注于提供每日更",
+      "nav-ezhentang.com:BT磁力资源BT磁力资源是指使用BitTorrent协议分享",
+      "nav-ezhentang.com:BT种子搜索BT种子搜索是一种网络服务，允许用户通过关键词搜",
+      "nav-ezhentang.com:磁力熊猫磁力熊猫是一个网络平台，提供简单直观的界面帮助用户搜",
+      "nav-ezhentang.com:磁力熊猫磁力熊猫是一个用户友好的磁力链接搜索平台",
+      "nav-ezhentang.com:磁力搜索引擎磁力搜索引擎是一种专门用于查找并索引磁力链接的网",
+      "nav-ezhentang.com:115网盘115，一生相伴",
+      "nav-ezhentang.com:阿里云盘阿里云盘是一款速度快的个人网盘",
+      "nav-ezhentang.com:百度网盘百度网盘是一款国民级产品",
+      "nav-ezhentang.com:Google云盘轻松安全地访问您的所有内容",
+      "nav-ezhentang.com:天翼云盘珍藏美好生活 家庭云",
+      "nav-ezhentang.com:盘它云网盘盘它云网盘是向广大用户提供上传空间和技术的信息存储",
+      "nav-ezhentang.com:微云微云是腾讯公司为用户精心打造的一项智能云服务",
+      "nav-ezhentang.com:OneDriveStore photos and docs ",
+      "nav-ezhentang.com:边乐云网盘边乐云网盘致力于为用户提供安全稳定的云存储产品",
+      "nav-ezhentang.com:WordPress大学WordPress大学专注于wordp",
+      "nav-ezhentang.com:站长资讯平台站长资讯平台为个人站长与企业网络提供全面的站长资",
+      "nav-ezhentang.com:优阁网UI设计师学习交流社区",
+      "nav-ezhentang.com:产品壹佰为产品经理爱好者提供最优质的产品资讯、原创内容和相关",
+      "nav-ezhentang.com:猎云网互联网创业项目推荐和创业创新资讯",
+      "nav-ezhentang.com:数英网数字媒体及职业招聘网站",
+      "nav-ezhentang.com:36kr创业资讯、科技新闻",
+      "nav-ezhentang.com:雷锋网人工智能和智能硬件领域的互联网科技媒体",
+      "nav-ezhentang.com:vanschneiderColor Claim was cr",
+      "nav-ezhentang.com:klartBeautiful colors and desi",
+      "nav-ezhentang.com:trianglifyTrianglify Generator",
+      "nav-ezhentang.com:flatui color pickerBest Flat C",
+      "nav-ezhentang.com:colorhuntBeautiful Color Palet",
+      "nav-ezhentang.com:coolorsThe super fast color sc",
+      "nav-ezhentang.com:flatuicolorsCopy Paste Color P",
+      "nav-ezhentang.com:thedayscolorThe daily color di",
+      "nav-ezhentang.com:grabient2017 Grabient by unfol",
+      "nav-ezhentang.com:webgradientsWebGradients is a ",
+      "nav-ezhentang.com:CoolestCoolest handpicked Grad",
+      "nav-ezhentang.com:gradientsCurated gradients for",
+      "nav-ezhentang.com:uigradientsBeautiful colored g",
+      "nav-ezhentang.com:khromaKhroma is the fastest wa",
+      "nav-ezhentang.com:站酷中国人气设计师互动平台",
+      "nav-ezhentang.com:BehanceAdobe旗下的设计师交流平台，来自世界各地的",
+      "nav-ezhentang.com:Dribbble全球UI设计师作品分享平台。",
+      "nav-ezhentang.com:mustseeDiscover the world's mo",
+      "nav-ezhentang.com:csspeeperSmart CSS viewer tail",
+      "nav-ezhentang.com:sizzyoverflowClip_2\">A tool fo",
+      "nav-ezhentang.com:PandaA smart news reader built",
+      "nav-ezhentang.com:wappalyzerIdentify technology ",
+      "nav-ezhentang.com:Pinterest全球美图收藏采集站",
+      "nav-ezhentang.com:ProtoPie高保真交互原型设计",
+      "nav-ezhentang.com:framerDesign everything from d",
+      "nav-ezhentang.com:flintoFlinto is a Mac app used",
+      "nav-ezhentang.com:principleAnimate Your Ideas, D",
+      "nav-ezhentang.com:BlenderBlender is the free and",
+      "nav-ezhentang.com:3ds-max3D modeling, animation,",
+      "nav-ezhentang.com:cinema-4dCinema 4D is the perf",
+      "nav-ezhentang.com:indesign页面设计、布局和出版。",
+      "nav-ezhentang.com:Illustrator矢量图形和插图。",
+      "nav-ezhentang.com:Affinity Designer专业创意软件",
+      "nav-ezhentang.com:photoshopPhotoshop不需要解释",
+      "nav-ezhentang.com:稿定抠图免费在线抠图软件,图片快速换背景-抠白底图",
+      "nav-ezhentang.com:svgomgSVG在线压缩平台",
+      "nav-ezhentang.com:screen sizesViewport Sizes and",
+      "nav-ezhentang.com:Android 9 patchAndroid 9-patch",
+      "nav-ezhentang.com:ezgifsimple online GIF maker a",
+      "nav-ezhentang.com:goqrcreate QR codes for free (",
+      "nav-ezhentang.com:tinypngOptimize your images wi",
+      "nav-ezhentang.com:figmaDesign, prototype, and ga",
+      "nav-ezhentang.com:Muse CC无需利用编码即可进行网站设计。",
+      "nav-ezhentang.com:marvelappSimple design, protot",
+      "nav-ezhentang.com:invisionappPowerful design pro",
+      "nav-ezhentang.com:SketchThe digital design toolk",
+      "nav-ezhentang.com:快图网快图网提供免费的PNG元素和高清背景图片素材免费下载",
+      "nav-ezhentang.com:图虫图库海量图库,涵盖创意图片和矢量素材等",
+      "nav-ezhentang.com:素材中国免费素材共享平台",
+      "nav-ezhentang.com:PS饭团网不一样的设计素材库！让自己的设计与众不同！",
+      "nav-ezhentang.com:素材搜索设计素材搜索聚合",
+      "nav-ezhentang.com:懒人图库懒人图库专注于提供网页素材下载",
+      "nav-ezhentang.com:昵图网原创素材共享平台",
+      "nav-ezhentang.com:90设计电商设计（淘宝美工）千图免费淘宝素材库",
+      "nav-ezhentang.com:我图网我图网,提供图片素材及模板下载,专注正版设计作品交易",
+      "nav-ezhentang.com:千库网免费png图片背景素材下载",
+      "nav-ezhentang.com:千图网专注免费设计素材下载的网站",
+      "nav-ezhentang.com:MedialootFree &amp; Premium De",
+      "nav-ezhentang.com:365PSDFree PSD &amp; Graphics,",
+      "nav-ezhentang.com:wallhallaFind awesome high qua",
+      "nav-ezhentang.com:freepikMore than a million fre",
+      "nav-ezhentang.com:Instant Logo SearchSearch & do",
+      "nav-ezhentang.com:World Vector LogoBrand logos f",
+      "nav-ezhentang.com:iOS Icon GalleryShowcasing bea",
+      "nav-ezhentang.com:IconsfeedLooking for iOS icon ",
+      "nav-ezhentang.com:For Graphic TMHigh Quality PSD",
+      "nav-ezhentang.com:pixedenfree web resources and ",
+      "nav-ezhentang.com:LstoreExclusive mindblowing fr",
+      "nav-ezhentang.com:Mockup WorldThe best free Mock",
+      "nav-ezhentang.com:ThreedGenerate 3D Mockups righ",
+      "nav-ezhentang.com:GraphberryFree design resource",
+      "nav-ezhentang.com:DunnnkGenerate Product Mockups",
+      "nav-ezhentang.com:MockupZoneMockup Zone is an on",
+      "nav-ezhentang.com:5百丁中国领先的PPT模板共享平台",
+      "nav-ezhentang.com:tretarsThe best free Mockups f",
+      "nav-ezhentang.com:PPTMind分享高端ppt模板与keynote模板的数字作",
+      "nav-ezhentang.com:PPT+PPT加直播、录制和分享—PPT+语音内容分享平台",
+      "nav-ezhentang.com:优品PPT高质量的模版，而且还有PPT图表，PPT背景图等资",
+      "nav-ezhentang.com:OfficePLUSOfficePLUS，微软Office官",
+      "nav-ezhentang.com:SketchcastsLearn Sketch Train ",
+      "nav-ezhentang.com:Awesome Sketch PluginsA collec",
+      "nav-ezhentang.com:Sketch中文网分享最新的Sketch中文手册",
+      "nav-ezhentang.com:Sketch HuntSketch Hunt is an i",
+      "nav-ezhentang.com:Sketch App SourcesFree design ",
+      "nav-ezhentang.com:Sketch MeasureFriendly user in",
+      "nav-ezhentang.com:SketchThe digital design toolk",
+      "nav-ezhentang.com:Simpleline IconsSimple line Ic",
+      "nav-ezhentang.com:Font Awesome IconThe complete ",
+      "nav-ezhentang.com:Material iconsAccess over 900 ",
+      "nav-ezhentang.com:UICloudThe largest user interf",
+      "nav-ezhentang.com:flaticon634,000+ Free vector i",
+      "nav-ezhentang.com:easyiconPNG、ICO、ICNS格式图标搜索、图标下",
+      "nav-ezhentang.com:IcoMoonAppIcon Font, SVG, PDF ",
+      "nav-ezhentang.com:FindIconsSearch through 300,00",
+      "nav-ezhentang.com:Icon ArchiveSearch 590,912 fre",
+      "nav-ezhentang.com:iconmonstrFree simple icons fo",
+      "nav-ezhentang.com:iconfont阿里巴巴矢量图标库",
+      "nav-ezhentang.com:Iconfinder2,100,000+ free and ",
+      "nav-ezhentang.com:UI中国图形交互与界面设计交流、作品展示、学习平台。",
+      "nav-ezhentang.com:UI自用导航UI设计师自用导航",
+      "nav-ezhentang.com:PrincipleRepoFree, High Qualit",
+      "nav-ezhentang.com:FribbbleFree PSD files and oth",
+      "nav-ezhentang.com:UIkit.me最便捷新鲜的uikit资源下载网站",
+      "nav-ezhentang.com:uplabsDaily resources for prod",
+      "nav-ezhentang.com:ui8UI Kits, Wireframe Kits, Te",
+      "nav-ezhentang.com:稀土区优质设计开发资源分享",
+      "nav-ezhentang.com:DesignmodoWeb Design Blog and ",
+      "nav-ezhentang.com:云瑞优秀设计资源的分享网站",
+      "nav-ezhentang.com:Freebie SupplyFree Resources F",
+      "nav-ezhentang.com:FreebiesbugHand-picked resourc",
+      "nav-ezhentang.com:Abstract FontsAbstract Fonts (",
+      "nav-ezhentang.com:OnlineWebFontsWEB Free Fonts f",
+      "nav-ezhentang.com:Da FontArchive of freely downl",
+      "nav-ezhentang.com:My FontsFonts for Print, Produ",
+      "nav-ezhentang.com:FontMFree Fonts",
+      "nav-ezhentang.com:FontexFree Fonts to Download +",
+      "nav-ezhentang.com:FONTS2UDownload free fonts for",
+      "nav-ezhentang.com:Lost TypeLost Type is a Collab",
+      "nav-ezhentang.com:Urban FontsDownload Free Fonts",
+      "nav-ezhentang.com:FontsquirrelFREE fonts for gra",
+      "nav-ezhentang.com:私藏字体优质字体免费下载站",
+      "nav-ezhentang.com:字体传奇网中国首个字体品牌设计师交流网",
+      "nav-ezhentang.com:方正字库方正字库官方网站",
+      "nav-ezhentang.com:TypekitQuality fonts from the ",
+      "nav-ezhentang.com:Google FontMaking the web more",
+      "nav-ezhentang.com:ion iconsThe premium icon font",
+      "nav-ezhentang.com:more+",
+      "nav-ezhentang.com:publicdomainarchiveNew 100% Fr",
+      "nav-ezhentang.com:hdwallpapersHigh Definition Wa",
+      "nav-ezhentang.com:jeshootsNew Free Photos & Mock",
+      "nav-ezhentang.com:magdeleineHAND-PICKED FREE PHO",
+      "nav-ezhentang.com:skitterphotoa place to find, s",
+      "nav-ezhentang.com:mmtstockFree photos for commer",
+      "nav-ezhentang.com:skitterphotoFree Stock Photos ",
+      "nav-ezhentang.com:lifeofpixFree high resolution ",
+      "nav-ezhentang.com:imcreatorA curated collection ",
+      "nav-ezhentang.com:gratisographyFree high-resolut",
+      "nav-ezhentang.com:negativespaceBeautiful, High-R",
+      "nav-ezhentang.com:freenaturestockExclusive mindb",
+      "nav-ezhentang.com:thestocksUse our FREE photos t",
+      "nav-ezhentang.com:55mmUse our FREE photos to tel",
+      "nav-ezhentang.com:stokpicFree Stock Photos For C",
+      "nav-ezhentang.com:papersWallpapers Every Hour!Ha",
+      "nav-ezhentang.com:NotaselfiePhotos that happen a",
+      "nav-ezhentang.com:myphotopackA free photo pack j",
+      "nav-ezhentang.com:albumariumThe best place to fi",
+      "nav-ezhentang.com:StockSnapBeautiful free stock ",
+      "nav-ezhentang.com:U一点阿里巴巴（中国站）用户体验设计部博客U一点设计 UED",
+      "nav-ezhentang.com:腾讯CDC腾讯CDC关注于互联网视觉设计、交互设计、用户研究",
+      "nav-ezhentang.com:京东设计中心京东设计中心",
+      "nav-ezhentang.com:WordPress主题君精选免费WordPress主题模板下",
+      "nav-ezhentang.com:携程设计委员会携程设计委员会-Ctrip Design Co",
+      "nav-ezhentang.com:百度企业产品用户体验中心百度企业产品用户体验中心",
+      "nav-ezhentang.com:百度用户体验中心百度用户体验中心",
+      "nav-ezhentang.com:ISUX腾讯社交用户体验设计部",
+      "nav-ezhentang.com:TGideasTGideas隶属于腾讯公司互动娱乐业务系统的",
+      "nav-ezhentang.com:nice designnicedesign奈思设计是领先的用",
+      "nav-ezhentang.com:eico design数字化咨询与产品专家",
+      "nav-ezhentang.com:Google DesignGoogle Design",
+      "nav-ezhentang.com:Facebook DesignFacebook Design",
+      "nav-ezhentang.com:Airbnb DesignAirbnb Design",
+      "nav-ezhentang.com:磁力搜索",
+      "nav-ezhentang.com:科技",
+      "nav-ezhentang.com:资讯",
+      "nav-ezhentang.com:网站提交",
+      "curated:"
+    ]
+  },
+  "cilimao.com": {
+    "url": "https://cilimao.com",
+    "domain": "cilimao.com",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.cc": {
+    "url": "https://cilimao.cc",
+    "domain": "cilimao.cc",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.top": {
+    "url": "https://cilimao.top",
+    "domain": "cilimao.top",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.fun": {
+    "url": "https://cilimao.fun",
+    "domain": "cilimao.fun",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.one": {
+    "url": "https://cilimao.one",
+    "domain": "cilimao.one",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.vip": {
+    "url": "https://cilimao.vip",
+    "domain": "cilimao.vip",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.xyz": {
+    "url": "https://cilimao.xyz",
+    "domain": "cilimao.xyz",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.me": {
+    "url": "https://cilimao.me",
+    "domain": "cilimao.me",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.net": {
+    "url": "https://cilimao.net",
+    "domain": "cilimao.net",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.org": {
+    "url": "https://cilimao.org",
+    "domain": "cilimao.org",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.info": {
+    "url": "https://cilimao.info",
+    "domain": "cilimao.info",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.io": {
+    "url": "https://cilimao.io",
+    "domain": "cilimao.io",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.app": {
+    "url": "https://cilimao.app",
+    "domain": "cilimao.app",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.pro": {
+    "url": "https://cilimao.pro",
+    "domain": "cilimao.pro",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.work": {
+    "url": "https://cilimao.work",
+    "domain": "cilimao.work",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.site": {
+    "url": "https://cilimao.site",
+    "domain": "cilimao.site",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.online": {
+    "url": "https://cilimao.online",
+    "domain": "cilimao.online",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.club": {
+    "url": "https://cilimao.club",
+    "domain": "cilimao.club",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.live": {
+    "url": "https://cilimao.live",
+    "domain": "cilimao.live",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.pw": {
+    "url": "https://cilimao.pw",
+    "domain": "cilimao.pw",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.la": {
+    "url": "https://cilimao.la",
+    "domain": "cilimao.la",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.tv": {
+    "url": "https://cilimao.tv",
+    "domain": "cilimao.tv",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cilimao.moe": {
+    "url": "https://cilimao.moe",
+    "domain": "cilimao.moe",
+    "sources": [
+      "brute:cilimao",
+      "brute:cilimao"
+    ]
+  },
+  "cili.com": {
+    "url": "https://cili.com",
+    "domain": "cili.com",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.cc": {
+    "url": "https://cili.cc",
+    "domain": "cili.cc",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.top": {
+    "url": "https://cili.top",
+    "domain": "cili.top",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.fun": {
+    "url": "https://cili.fun",
+    "domain": "cili.fun",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.one": {
+    "url": "https://cili.one",
+    "domain": "cili.one",
+    "sources": [
+      "brute:cili",
+      "brute:cili",
+      "curated:"
+    ]
+  },
+  "cili.vip": {
+    "url": "https://cili.vip",
+    "domain": "cili.vip",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.xyz": {
+    "url": "https://cili.xyz",
+    "domain": "cili.xyz",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.me": {
+    "url": "https://cili.me",
+    "domain": "cili.me",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.net": {
+    "url": "https://cili.net",
+    "domain": "cili.net",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.org": {
+    "url": "https://cili.org",
+    "domain": "cili.org",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.info": {
+    "url": "https://cili.info",
+    "domain": "cili.info",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.io": {
+    "url": "https://cili.io",
+    "domain": "cili.io",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.app": {
+    "url": "https://cili.app",
+    "domain": "cili.app",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.pro": {
+    "url": "https://cili.pro",
+    "domain": "cili.pro",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.work": {
+    "url": "https://cili.work",
+    "domain": "cili.work",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.site": {
+    "url": "https://cili.site",
+    "domain": "cili.site",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.online": {
+    "url": "https://cili.online",
+    "domain": "cili.online",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.club": {
+    "url": "https://cili.club",
+    "domain": "cili.club",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.live": {
+    "url": "https://cili.live",
+    "domain": "cili.live",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.pw": {
+    "url": "https://cili.pw",
+    "domain": "cili.pw",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.la": {
+    "url": "https://cili.la",
+    "domain": "cili.la",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.tv": {
+    "url": "https://cili.tv",
+    "domain": "cili.tv",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "cili.moe": {
+    "url": "https://cili.moe",
+    "domain": "cili.moe",
+    "sources": [
+      "brute:cili",
+      "brute:cili"
+    ]
+  },
+  "btsow.com": {
+    "url": "https://btsow.com",
+    "domain": "btsow.com",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow",
+      "curated:"
+    ]
+  },
+  "btsow.cc": {
+    "url": "https://btsow.cc",
+    "domain": "btsow.cc",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.top": {
+    "url": "https://btsow.top",
+    "domain": "btsow.top",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.fun": {
+    "url": "https://btsow.fun",
+    "domain": "btsow.fun",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.one": {
+    "url": "https://btsow.one",
+    "domain": "btsow.one",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.vip": {
+    "url": "https://btsow.vip",
+    "domain": "btsow.vip",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow",
+      "curated:"
+    ]
+  },
+  "btsow.xyz": {
+    "url": "https://btsow.xyz",
+    "domain": "btsow.xyz",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.me": {
+    "url": "https://btsow.me",
+    "domain": "btsow.me",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.net": {
+    "url": "https://btsow.net",
+    "domain": "btsow.net",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.org": {
+    "url": "https://btsow.org",
+    "domain": "btsow.org",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.info": {
+    "url": "https://btsow.info",
+    "domain": "btsow.info",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.io": {
+    "url": "https://btsow.io",
+    "domain": "btsow.io",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.app": {
+    "url": "https://btsow.app",
+    "domain": "btsow.app",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.pro": {
+    "url": "https://btsow.pro",
+    "domain": "btsow.pro",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.work": {
+    "url": "https://btsow.work",
+    "domain": "btsow.work",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.site": {
+    "url": "https://btsow.site",
+    "domain": "btsow.site",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.online": {
+    "url": "https://btsow.online",
+    "domain": "btsow.online",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.club": {
+    "url": "https://btsow.club",
+    "domain": "btsow.club",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.live": {
+    "url": "https://btsow.live",
+    "domain": "btsow.live",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.pw": {
+    "url": "https://btsow.pw",
+    "domain": "btsow.pw",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.la": {
+    "url": "https://btsow.la",
+    "domain": "btsow.la",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.tv": {
+    "url": "https://btsow.tv",
+    "domain": "btsow.tv",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btsow.moe": {
+    "url": "https://btsow.moe",
+    "domain": "btsow.moe",
+    "sources": [
+      "brute:btsow",
+      "brute:btsow"
+    ]
+  },
+  "btdb.com": {
+    "url": "https://btdb.com",
+    "domain": "btdb.com",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.cc": {
+    "url": "https://btdb.cc",
+    "domain": "btdb.cc",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.top": {
+    "url": "https://btdb.top",
+    "domain": "btdb.top",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.fun": {
+    "url": "https://btdb.fun",
+    "domain": "btdb.fun",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.one": {
+    "url": "https://btdb.one",
+    "domain": "btdb.one",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.vip": {
+    "url": "https://btdb.vip",
+    "domain": "btdb.vip",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.xyz": {
+    "url": "https://btdb.xyz",
+    "domain": "btdb.xyz",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.me": {
+    "url": "https://btdb.me",
+    "domain": "btdb.me",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.net": {
+    "url": "https://btdb.net",
+    "domain": "btdb.net",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.org": {
+    "url": "https://btdb.org",
+    "domain": "btdb.org",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.info": {
+    "url": "https://btdb.info",
+    "domain": "btdb.info",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.io": {
+    "url": "https://btdb.io",
+    "domain": "btdb.io",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.app": {
+    "url": "https://btdb.app",
+    "domain": "btdb.app",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.pro": {
+    "url": "https://btdb.pro",
+    "domain": "btdb.pro",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.work": {
+    "url": "https://btdb.work",
+    "domain": "btdb.work",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.site": {
+    "url": "https://btdb.site",
+    "domain": "btdb.site",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.online": {
+    "url": "https://btdb.online",
+    "domain": "btdb.online",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.club": {
+    "url": "https://btdb.club",
+    "domain": "btdb.club",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.live": {
+    "url": "https://btdb.live",
+    "domain": "btdb.live",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.pw": {
+    "url": "https://btdb.pw",
+    "domain": "btdb.pw",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.la": {
+    "url": "https://btdb.la",
+    "domain": "btdb.la",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.tv": {
+    "url": "https://btdb.tv",
+    "domain": "btdb.tv",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btdb.moe": {
+    "url": "https://btdb.moe",
+    "domain": "btdb.moe",
+    "sources": [
+      "brute:btdb",
+      "brute:btdb"
+    ]
+  },
+  "btso.com": {
+    "url": "https://btso.com",
+    "domain": "btso.com",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.cc": {
+    "url": "https://btso.cc",
+    "domain": "btso.cc",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.top": {
+    "url": "https://btso.top",
+    "domain": "btso.top",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.fun": {
+    "url": "https://btso.fun",
+    "domain": "btso.fun",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.one": {
+    "url": "https://btso.one",
+    "domain": "btso.one",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.vip": {
+    "url": "https://btso.vip",
+    "domain": "btso.vip",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.xyz": {
+    "url": "https://btso.xyz",
+    "domain": "btso.xyz",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.me": {
+    "url": "https://btso.me",
+    "domain": "btso.me",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.net": {
+    "url": "https://btso.net",
+    "domain": "btso.net",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.org": {
+    "url": "https://btso.org",
+    "domain": "btso.org",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.info": {
+    "url": "https://btso.info",
+    "domain": "btso.info",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.io": {
+    "url": "https://btso.io",
+    "domain": "btso.io",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.app": {
+    "url": "https://btso.app",
+    "domain": "btso.app",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.pro": {
+    "url": "https://btso.pro",
+    "domain": "btso.pro",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.work": {
+    "url": "https://btso.work",
+    "domain": "btso.work",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.site": {
+    "url": "https://btso.site",
+    "domain": "btso.site",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.online": {
+    "url": "https://btso.online",
+    "domain": "btso.online",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.club": {
+    "url": "https://btso.club",
+    "domain": "btso.club",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.live": {
+    "url": "https://btso.live",
+    "domain": "btso.live",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.pw": {
+    "url": "https://btso.pw",
+    "domain": "btso.pw",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.la": {
+    "url": "https://btso.la",
+    "domain": "btso.la",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.tv": {
+    "url": "https://btso.tv",
+    "domain": "btso.tv",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "btso.moe": {
+    "url": "https://btso.moe",
+    "domain": "btso.moe",
+    "sources": [
+      "brute:btso",
+      "brute:btso"
+    ]
+  },
+  "cilijun.com": {
+    "url": "https://cilijun.com",
+    "domain": "cilijun.com",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.cc": {
+    "url": "https://cilijun.cc",
+    "domain": "cilijun.cc",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.top": {
+    "url": "https://cilijun.top",
+    "domain": "cilijun.top",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.fun": {
+    "url": "https://cilijun.fun",
+    "domain": "cilijun.fun",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.one": {
+    "url": "https://cilijun.one",
+    "domain": "cilijun.one",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.vip": {
+    "url": "https://cilijun.vip",
+    "domain": "cilijun.vip",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.xyz": {
+    "url": "https://cilijun.xyz",
+    "domain": "cilijun.xyz",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.me": {
+    "url": "https://cilijun.me",
+    "domain": "cilijun.me",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.net": {
+    "url": "https://cilijun.net",
+    "domain": "cilijun.net",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.org": {
+    "url": "https://cilijun.org",
+    "domain": "cilijun.org",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.info": {
+    "url": "https://cilijun.info",
+    "domain": "cilijun.info",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.io": {
+    "url": "https://cilijun.io",
+    "domain": "cilijun.io",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.app": {
+    "url": "https://cilijun.app",
+    "domain": "cilijun.app",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.pro": {
+    "url": "https://cilijun.pro",
+    "domain": "cilijun.pro",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.work": {
+    "url": "https://cilijun.work",
+    "domain": "cilijun.work",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.site": {
+    "url": "https://cilijun.site",
+    "domain": "cilijun.site",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.online": {
+    "url": "https://cilijun.online",
+    "domain": "cilijun.online",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.club": {
+    "url": "https://cilijun.club",
+    "domain": "cilijun.club",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.live": {
+    "url": "https://cilijun.live",
+    "domain": "cilijun.live",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.pw": {
+    "url": "https://cilijun.pw",
+    "domain": "cilijun.pw",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.la": {
+    "url": "https://cilijun.la",
+    "domain": "cilijun.la",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.tv": {
+    "url": "https://cilijun.tv",
+    "domain": "cilijun.tv",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "cilijun.moe": {
+    "url": "https://cilijun.moe",
+    "domain": "cilijun.moe",
+    "sources": [
+      "brute:cilijun",
+      "brute:cilijun"
+    ]
+  },
+  "ciliss.com": {
+    "url": "https://ciliss.com",
+    "domain": "ciliss.com",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.cc": {
+    "url": "https://ciliss.cc",
+    "domain": "ciliss.cc",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss",
+      "curated:"
+    ]
+  },
+  "ciliss.top": {
+    "url": "https://ciliss.top",
+    "domain": "ciliss.top",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.fun": {
+    "url": "https://ciliss.fun",
+    "domain": "ciliss.fun",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.one": {
+    "url": "https://ciliss.one",
+    "domain": "ciliss.one",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.vip": {
+    "url": "https://ciliss.vip",
+    "domain": "ciliss.vip",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.xyz": {
+    "url": "https://ciliss.xyz",
+    "domain": "ciliss.xyz",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.me": {
+    "url": "https://ciliss.me",
+    "domain": "ciliss.me",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.net": {
+    "url": "https://ciliss.net",
+    "domain": "ciliss.net",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.org": {
+    "url": "https://ciliss.org",
+    "domain": "ciliss.org",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.info": {
+    "url": "https://ciliss.info",
+    "domain": "ciliss.info",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.io": {
+    "url": "https://ciliss.io",
+    "domain": "ciliss.io",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.app": {
+    "url": "https://ciliss.app",
+    "domain": "ciliss.app",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.pro": {
+    "url": "https://ciliss.pro",
+    "domain": "ciliss.pro",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.work": {
+    "url": "https://ciliss.work",
+    "domain": "ciliss.work",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.site": {
+    "url": "https://ciliss.site",
+    "domain": "ciliss.site",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.online": {
+    "url": "https://ciliss.online",
+    "domain": "ciliss.online",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.club": {
+    "url": "https://ciliss.club",
+    "domain": "ciliss.club",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.live": {
+    "url": "https://ciliss.live",
+    "domain": "ciliss.live",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.pw": {
+    "url": "https://ciliss.pw",
+    "domain": "ciliss.pw",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.la": {
+    "url": "https://ciliss.la",
+    "domain": "ciliss.la",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.tv": {
+    "url": "https://ciliss.tv",
+    "domain": "ciliss.tv",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "ciliss.moe": {
+    "url": "https://ciliss.moe",
+    "domain": "ciliss.moe",
+    "sources": [
+      "brute:ciliss",
+      "brute:ciliss"
+    ]
+  },
+  "zhongzi.com": {
+    "url": "https://zhongzi.com",
+    "domain": "zhongzi.com",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.cc": {
+    "url": "https://zhongzi.cc",
+    "domain": "zhongzi.cc",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.top": {
+    "url": "https://zhongzi.top",
+    "domain": "zhongzi.top",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.fun": {
+    "url": "https://zhongzi.fun",
+    "domain": "zhongzi.fun",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.one": {
+    "url": "https://zhongzi.one",
+    "domain": "zhongzi.one",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.vip": {
+    "url": "https://zhongzi.vip",
+    "domain": "zhongzi.vip",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.xyz": {
+    "url": "https://zhongzi.xyz",
+    "domain": "zhongzi.xyz",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.me": {
+    "url": "https://zhongzi.me",
+    "domain": "zhongzi.me",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.net": {
+    "url": "https://zhongzi.net",
+    "domain": "zhongzi.net",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.org": {
+    "url": "https://zhongzi.org",
+    "domain": "zhongzi.org",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.info": {
+    "url": "https://zhongzi.info",
+    "domain": "zhongzi.info",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.io": {
+    "url": "https://zhongzi.io",
+    "domain": "zhongzi.io",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.app": {
+    "url": "https://zhongzi.app",
+    "domain": "zhongzi.app",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.pro": {
+    "url": "https://zhongzi.pro",
+    "domain": "zhongzi.pro",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.work": {
+    "url": "https://zhongzi.work",
+    "domain": "zhongzi.work",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.site": {
+    "url": "https://zhongzi.site",
+    "domain": "zhongzi.site",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.online": {
+    "url": "https://zhongzi.online",
+    "domain": "zhongzi.online",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.club": {
+    "url": "https://zhongzi.club",
+    "domain": "zhongzi.club",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.live": {
+    "url": "https://zhongzi.live",
+    "domain": "zhongzi.live",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.pw": {
+    "url": "https://zhongzi.pw",
+    "domain": "zhongzi.pw",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.la": {
+    "url": "https://zhongzi.la",
+    "domain": "zhongzi.la",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.tv": {
+    "url": "https://zhongzi.tv",
+    "domain": "zhongzi.tv",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "zhongzi.moe": {
+    "url": "https://zhongzi.moe",
+    "domain": "zhongzi.moe",
+    "sources": [
+      "brute:zhongzi",
+      "brute:zhongzi"
+    ]
+  },
+  "sousuo.com": {
+    "url": "https://sousuo.com",
+    "domain": "sousuo.com",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.cc": {
+    "url": "https://sousuo.cc",
+    "domain": "sousuo.cc",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.top": {
+    "url": "https://sousuo.top",
+    "domain": "sousuo.top",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.fun": {
+    "url": "https://sousuo.fun",
+    "domain": "sousuo.fun",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.one": {
+    "url": "https://sousuo.one",
+    "domain": "sousuo.one",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.vip": {
+    "url": "https://sousuo.vip",
+    "domain": "sousuo.vip",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.xyz": {
+    "url": "https://sousuo.xyz",
+    "domain": "sousuo.xyz",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.me": {
+    "url": "https://sousuo.me",
+    "domain": "sousuo.me",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.net": {
+    "url": "https://sousuo.net",
+    "domain": "sousuo.net",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.org": {
+    "url": "https://sousuo.org",
+    "domain": "sousuo.org",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.info": {
+    "url": "https://sousuo.info",
+    "domain": "sousuo.info",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.io": {
+    "url": "https://sousuo.io",
+    "domain": "sousuo.io",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.app": {
+    "url": "https://sousuo.app",
+    "domain": "sousuo.app",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.pro": {
+    "url": "https://sousuo.pro",
+    "domain": "sousuo.pro",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.work": {
+    "url": "https://sousuo.work",
+    "domain": "sousuo.work",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.site": {
+    "url": "https://sousuo.site",
+    "domain": "sousuo.site",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.online": {
+    "url": "https://sousuo.online",
+    "domain": "sousuo.online",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.club": {
+    "url": "https://sousuo.club",
+    "domain": "sousuo.club",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.live": {
+    "url": "https://sousuo.live",
+    "domain": "sousuo.live",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.pw": {
+    "url": "https://sousuo.pw",
+    "domain": "sousuo.pw",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.la": {
+    "url": "https://sousuo.la",
+    "domain": "sousuo.la",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.tv": {
+    "url": "https://sousuo.tv",
+    "domain": "sousuo.tv",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "sousuo.moe": {
+    "url": "https://sousuo.moe",
+    "domain": "sousuo.moe",
+    "sources": [
+      "brute:sousuo",
+      "brute:sousuo"
+    ]
+  },
+  "btdigg.com": {
+    "url": "https://btdigg.com",
+    "domain": "btdigg.com",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.cc": {
+    "url": "https://btdigg.cc",
+    "domain": "btdigg.cc",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.top": {
+    "url": "https://btdigg.top",
+    "domain": "btdigg.top",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.fun": {
+    "url": "https://btdigg.fun",
+    "domain": "btdigg.fun",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.one": {
+    "url": "https://btdigg.one",
+    "domain": "btdigg.one",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.vip": {
+    "url": "https://btdigg.vip",
+    "domain": "btdigg.vip",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.xyz": {
+    "url": "https://btdigg.xyz",
+    "domain": "btdigg.xyz",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.me": {
+    "url": "https://btdigg.me",
+    "domain": "btdigg.me",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.net": {
+    "url": "https://btdigg.net",
+    "domain": "btdigg.net",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.org": {
+    "url": "https://btdigg.org",
+    "domain": "btdigg.org",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg",
+      "curated:"
+    ]
+  },
+  "btdigg.info": {
+    "url": "https://btdigg.info",
+    "domain": "btdigg.info",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.io": {
+    "url": "https://btdigg.io",
+    "domain": "btdigg.io",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.app": {
+    "url": "https://btdigg.app",
+    "domain": "btdigg.app",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.pro": {
+    "url": "https://btdigg.pro",
+    "domain": "btdigg.pro",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.work": {
+    "url": "https://btdigg.work",
+    "domain": "btdigg.work",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.site": {
+    "url": "https://btdigg.site",
+    "domain": "btdigg.site",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.online": {
+    "url": "https://btdigg.online",
+    "domain": "btdigg.online",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.club": {
+    "url": "https://btdigg.club",
+    "domain": "btdigg.club",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.live": {
+    "url": "https://btdigg.live",
+    "domain": "btdigg.live",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.pw": {
+    "url": "https://btdigg.pw",
+    "domain": "btdigg.pw",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.la": {
+    "url": "https://btdigg.la",
+    "domain": "btdigg.la",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.tv": {
+    "url": "https://btdigg.tv",
+    "domain": "btdigg.tv",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "btdigg.moe": {
+    "url": "https://btdigg.moe",
+    "domain": "btdigg.moe",
+    "sources": [
+      "brute:btdigg",
+      "brute:btdigg"
+    ]
+  },
+  "torrentkitty.com": {
+    "url": "https://torrentkitty.com",
+    "domain": "torrentkitty.com",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.cc": {
+    "url": "https://torrentkitty.cc",
+    "domain": "torrentkitty.cc",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.top": {
+    "url": "https://torrentkitty.top",
+    "domain": "torrentkitty.top",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.fun": {
+    "url": "https://torrentkitty.fun",
+    "domain": "torrentkitty.fun",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.one": {
+    "url": "https://torrentkitty.one",
+    "domain": "torrentkitty.one",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.vip": {
+    "url": "https://torrentkitty.vip",
+    "domain": "torrentkitty.vip",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.xyz": {
+    "url": "https://torrentkitty.xyz",
+    "domain": "torrentkitty.xyz",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.me": {
+    "url": "https://torrentkitty.me",
+    "domain": "torrentkitty.me",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.net": {
+    "url": "https://torrentkitty.net",
+    "domain": "torrentkitty.net",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty",
+      "curated:"
+    ]
+  },
+  "torrentkitty.org": {
+    "url": "https://torrentkitty.org",
+    "domain": "torrentkitty.org",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.info": {
+    "url": "https://torrentkitty.info",
+    "domain": "torrentkitty.info",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.io": {
+    "url": "https://torrentkitty.io",
+    "domain": "torrentkitty.io",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.app": {
+    "url": "https://torrentkitty.app",
+    "domain": "torrentkitty.app",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.pro": {
+    "url": "https://torrentkitty.pro",
+    "domain": "torrentkitty.pro",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.work": {
+    "url": "https://torrentkitty.work",
+    "domain": "torrentkitty.work",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.site": {
+    "url": "https://torrentkitty.site",
+    "domain": "torrentkitty.site",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.online": {
+    "url": "https://torrentkitty.online",
+    "domain": "torrentkitty.online",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.club": {
+    "url": "https://torrentkitty.club",
+    "domain": "torrentkitty.club",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.live": {
+    "url": "https://torrentkitty.live",
+    "domain": "torrentkitty.live",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.pw": {
+    "url": "https://torrentkitty.pw",
+    "domain": "torrentkitty.pw",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.la": {
+    "url": "https://torrentkitty.la",
+    "domain": "torrentkitty.la",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "torrentkitty.tv": {
+    "url": "https://torrentkitty.tv",
+    "domain": "torrentkitty.tv",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty",
+      "curated:"
+    ]
+  },
+  "torrentkitty.moe": {
+    "url": "https://torrentkitty.moe",
+    "domain": "torrentkitty.moe",
+    "sources": [
+      "brute:torrentkitty",
+      "brute:torrentkitty"
+    ]
+  },
+  "mag.com": {
+    "url": "https://mag.com",
+    "domain": "mag.com",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.cc": {
+    "url": "https://mag.cc",
+    "domain": "mag.cc",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.top": {
+    "url": "https://mag.top",
+    "domain": "mag.top",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.fun": {
+    "url": "https://mag.fun",
+    "domain": "mag.fun",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.one": {
+    "url": "https://mag.one",
+    "domain": "mag.one",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.vip": {
+    "url": "https://mag.vip",
+    "domain": "mag.vip",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.xyz": {
+    "url": "https://mag.xyz",
+    "domain": "mag.xyz",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.me": {
+    "url": "https://mag.me",
+    "domain": "mag.me",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.net": {
+    "url": "https://mag.net",
+    "domain": "mag.net",
+    "sources": [
+      "brute:mag",
+      "brute:mag",
+      "curated:"
+    ]
+  },
+  "mag.org": {
+    "url": "https://mag.org",
+    "domain": "mag.org",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.info": {
+    "url": "https://mag.info",
+    "domain": "mag.info",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.io": {
+    "url": "https://mag.io",
+    "domain": "mag.io",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.app": {
+    "url": "https://mag.app",
+    "domain": "mag.app",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.pro": {
+    "url": "https://mag.pro",
+    "domain": "mag.pro",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.work": {
+    "url": "https://mag.work",
+    "domain": "mag.work",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.site": {
+    "url": "https://mag.site",
+    "domain": "mag.site",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.online": {
+    "url": "https://mag.online",
+    "domain": "mag.online",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.club": {
+    "url": "https://mag.club",
+    "domain": "mag.club",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.live": {
+    "url": "https://mag.live",
+    "domain": "mag.live",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.pw": {
+    "url": "https://mag.pw",
+    "domain": "mag.pw",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.la": {
+    "url": "https://mag.la",
+    "domain": "mag.la",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.tv": {
+    "url": "https://mag.tv",
+    "domain": "mag.tv",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "mag.moe": {
+    "url": "https://mag.moe",
+    "domain": "mag.moe",
+    "sources": [
+      "brute:mag",
+      "brute:mag"
+    ]
+  },
+  "cilibili.com": {
+    "url": "https://cilibili.com",
+    "domain": "cilibili.com",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.cc": {
+    "url": "https://cilibili.cc",
+    "domain": "cilibili.cc",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.top": {
+    "url": "https://cilibili.top",
+    "domain": "cilibili.top",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.fun": {
+    "url": "https://cilibili.fun",
+    "domain": "cilibili.fun",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili",
+      "curated:"
+    ]
+  },
+  "cilibili.one": {
+    "url": "https://cilibili.one",
+    "domain": "cilibili.one",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.vip": {
+    "url": "https://cilibili.vip",
+    "domain": "cilibili.vip",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.xyz": {
+    "url": "https://cilibili.xyz",
+    "domain": "cilibili.xyz",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.me": {
+    "url": "https://cilibili.me",
+    "domain": "cilibili.me",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.net": {
+    "url": "https://cilibili.net",
+    "domain": "cilibili.net",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili",
+      "curated:"
+    ]
+  },
+  "cilibili.org": {
+    "url": "https://cilibili.org",
+    "domain": "cilibili.org",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.info": {
+    "url": "https://cilibili.info",
+    "domain": "cilibili.info",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.io": {
+    "url": "https://cilibili.io",
+    "domain": "cilibili.io",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.app": {
+    "url": "https://cilibili.app",
+    "domain": "cilibili.app",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.pro": {
+    "url": "https://cilibili.pro",
+    "domain": "cilibili.pro",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.work": {
+    "url": "https://cilibili.work",
+    "domain": "cilibili.work",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.site": {
+    "url": "https://cilibili.site",
+    "domain": "cilibili.site",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.online": {
+    "url": "https://cilibili.online",
+    "domain": "cilibili.online",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.club": {
+    "url": "https://cilibili.club",
+    "domain": "cilibili.club",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.live": {
+    "url": "https://cilibili.live",
+    "domain": "cilibili.live",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.pw": {
+    "url": "https://cilibili.pw",
+    "domain": "cilibili.pw",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.la": {
+    "url": "https://cilibili.la",
+    "domain": "cilibili.la",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.tv": {
+    "url": "https://cilibili.tv",
+    "domain": "cilibili.tv",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "cilibili.moe": {
+    "url": "https://cilibili.moe",
+    "domain": "cilibili.moe",
+    "sources": [
+      "brute:cilibili",
+      "brute:cilibili"
+    ]
+  },
+  "btfans.com": {
+    "url": "https://btfans.com",
+    "domain": "btfans.com",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.cc": {
+    "url": "https://btfans.cc",
+    "domain": "btfans.cc",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.top": {
+    "url": "https://btfans.top",
+    "domain": "btfans.top",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.fun": {
+    "url": "https://btfans.fun",
+    "domain": "btfans.fun",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.one": {
+    "url": "https://btfans.one",
+    "domain": "btfans.one",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.vip": {
+    "url": "https://btfans.vip",
+    "domain": "btfans.vip",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.xyz": {
+    "url": "https://btfans.xyz",
+    "domain": "btfans.xyz",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.me": {
+    "url": "https://btfans.me",
+    "domain": "btfans.me",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.net": {
+    "url": "https://btfans.net",
+    "domain": "btfans.net",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.org": {
+    "url": "https://btfans.org",
+    "domain": "btfans.org",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.info": {
+    "url": "https://btfans.info",
+    "domain": "btfans.info",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.io": {
+    "url": "https://btfans.io",
+    "domain": "btfans.io",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.app": {
+    "url": "https://btfans.app",
+    "domain": "btfans.app",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.pro": {
+    "url": "https://btfans.pro",
+    "domain": "btfans.pro",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.work": {
+    "url": "https://btfans.work",
+    "domain": "btfans.work",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.site": {
+    "url": "https://btfans.site",
+    "domain": "btfans.site",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.online": {
+    "url": "https://btfans.online",
+    "domain": "btfans.online",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.club": {
+    "url": "https://btfans.club",
+    "domain": "btfans.club",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.live": {
+    "url": "https://btfans.live",
+    "domain": "btfans.live",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.pw": {
+    "url": "https://btfans.pw",
+    "domain": "btfans.pw",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.la": {
+    "url": "https://btfans.la",
+    "domain": "btfans.la",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.tv": {
+    "url": "https://btfans.tv",
+    "domain": "btfans.tv",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btfans.moe": {
+    "url": "https://btfans.moe",
+    "domain": "btfans.moe",
+    "sources": [
+      "brute:btfans",
+      "brute:btfans"
+    ]
+  },
+  "btcake.com": {
+    "url": "https://btcake.com",
+    "domain": "btcake.com",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.cc": {
+    "url": "https://btcake.cc",
+    "domain": "btcake.cc",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.top": {
+    "url": "https://btcake.top",
+    "domain": "btcake.top",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.fun": {
+    "url": "https://btcake.fun",
+    "domain": "btcake.fun",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.one": {
+    "url": "https://btcake.one",
+    "domain": "btcake.one",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.vip": {
+    "url": "https://btcake.vip",
+    "domain": "btcake.vip",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.xyz": {
+    "url": "https://btcake.xyz",
+    "domain": "btcake.xyz",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.me": {
+    "url": "https://btcake.me",
+    "domain": "btcake.me",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.net": {
+    "url": "https://btcake.net",
+    "domain": "btcake.net",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.org": {
+    "url": "https://btcake.org",
+    "domain": "btcake.org",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.info": {
+    "url": "https://btcake.info",
+    "domain": "btcake.info",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.io": {
+    "url": "https://btcake.io",
+    "domain": "btcake.io",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.app": {
+    "url": "https://btcake.app",
+    "domain": "btcake.app",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.pro": {
+    "url": "https://btcake.pro",
+    "domain": "btcake.pro",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.work": {
+    "url": "https://btcake.work",
+    "domain": "btcake.work",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.site": {
+    "url": "https://btcake.site",
+    "domain": "btcake.site",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.online": {
+    "url": "https://btcake.online",
+    "domain": "btcake.online",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.club": {
+    "url": "https://btcake.club",
+    "domain": "btcake.club",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.live": {
+    "url": "https://btcake.live",
+    "domain": "btcake.live",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.pw": {
+    "url": "https://btcake.pw",
+    "domain": "btcake.pw",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.la": {
+    "url": "https://btcake.la",
+    "domain": "btcake.la",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.tv": {
+    "url": "https://btcake.tv",
+    "domain": "btcake.tv",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btcake.moe": {
+    "url": "https://btcake.moe",
+    "domain": "btcake.moe",
+    "sources": [
+      "brute:btcake",
+      "brute:btcake"
+    ]
+  },
+  "btbtt.com": {
+    "url": "https://btbtt.com",
+    "domain": "btbtt.com",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.cc": {
+    "url": "https://btbtt.cc",
+    "domain": "btbtt.cc",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.top": {
+    "url": "https://btbtt.top",
+    "domain": "btbtt.top",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.fun": {
+    "url": "https://btbtt.fun",
+    "domain": "btbtt.fun",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.one": {
+    "url": "https://btbtt.one",
+    "domain": "btbtt.one",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.vip": {
+    "url": "https://btbtt.vip",
+    "domain": "btbtt.vip",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.xyz": {
+    "url": "https://btbtt.xyz",
+    "domain": "btbtt.xyz",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.me": {
+    "url": "https://btbtt.me",
+    "domain": "btbtt.me",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.net": {
+    "url": "https://btbtt.net",
+    "domain": "btbtt.net",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.org": {
+    "url": "https://btbtt.org",
+    "domain": "btbtt.org",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.info": {
+    "url": "https://btbtt.info",
+    "domain": "btbtt.info",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.io": {
+    "url": "https://btbtt.io",
+    "domain": "btbtt.io",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.app": {
+    "url": "https://btbtt.app",
+    "domain": "btbtt.app",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.pro": {
+    "url": "https://btbtt.pro",
+    "domain": "btbtt.pro",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.work": {
+    "url": "https://btbtt.work",
+    "domain": "btbtt.work",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.site": {
+    "url": "https://btbtt.site",
+    "domain": "btbtt.site",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.online": {
+    "url": "https://btbtt.online",
+    "domain": "btbtt.online",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.club": {
+    "url": "https://btbtt.club",
+    "domain": "btbtt.club",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.live": {
+    "url": "https://btbtt.live",
+    "domain": "btbtt.live",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.pw": {
+    "url": "https://btbtt.pw",
+    "domain": "btbtt.pw",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.la": {
+    "url": "https://btbtt.la",
+    "domain": "btbtt.la",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.tv": {
+    "url": "https://btbtt.tv",
+    "domain": "btbtt.tv",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "btbtt.moe": {
+    "url": "https://btbtt.moe",
+    "domain": "btbtt.moe",
+    "sources": [
+      "brute:btbtt",
+      "brute:btbtt"
+    ]
+  },
+  "limetorrent.com": {
+    "url": "https://limetorrent.com",
+    "domain": "limetorrent.com",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.cc": {
+    "url": "https://limetorrent.cc",
+    "domain": "limetorrent.cc",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.top": {
+    "url": "https://limetorrent.top",
+    "domain": "limetorrent.top",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.fun": {
+    "url": "https://limetorrent.fun",
+    "domain": "limetorrent.fun",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.one": {
+    "url": "https://limetorrent.one",
+    "domain": "limetorrent.one",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.vip": {
+    "url": "https://limetorrent.vip",
+    "domain": "limetorrent.vip",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.xyz": {
+    "url": "https://limetorrent.xyz",
+    "domain": "limetorrent.xyz",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.me": {
+    "url": "https://limetorrent.me",
+    "domain": "limetorrent.me",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.net": {
+    "url": "https://limetorrent.net",
+    "domain": "limetorrent.net",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.org": {
+    "url": "https://limetorrent.org",
+    "domain": "limetorrent.org",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.info": {
+    "url": "https://limetorrent.info",
+    "domain": "limetorrent.info",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.io": {
+    "url": "https://limetorrent.io",
+    "domain": "limetorrent.io",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.app": {
+    "url": "https://limetorrent.app",
+    "domain": "limetorrent.app",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.pro": {
+    "url": "https://limetorrent.pro",
+    "domain": "limetorrent.pro",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.work": {
+    "url": "https://limetorrent.work",
+    "domain": "limetorrent.work",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.site": {
+    "url": "https://limetorrent.site",
+    "domain": "limetorrent.site",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.online": {
+    "url": "https://limetorrent.online",
+    "domain": "limetorrent.online",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.club": {
+    "url": "https://limetorrent.club",
+    "domain": "limetorrent.club",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.live": {
+    "url": "https://limetorrent.live",
+    "domain": "limetorrent.live",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.pw": {
+    "url": "https://limetorrent.pw",
+    "domain": "limetorrent.pw",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.la": {
+    "url": "https://limetorrent.la",
+    "domain": "limetorrent.la",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.tv": {
+    "url": "https://limetorrent.tv",
+    "domain": "limetorrent.tv",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "limetorrent.moe": {
+    "url": "https://limetorrent.moe",
+    "domain": "limetorrent.moe",
+    "sources": [
+      "brute:limetorrent",
+      "brute:limetorrent"
+    ]
+  },
+  "kickass.com": {
+    "url": "https://kickass.com",
+    "domain": "kickass.com",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.cc": {
+    "url": "https://kickass.cc",
+    "domain": "kickass.cc",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.top": {
+    "url": "https://kickass.top",
+    "domain": "kickass.top",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.fun": {
+    "url": "https://kickass.fun",
+    "domain": "kickass.fun",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.one": {
+    "url": "https://kickass.one",
+    "domain": "kickass.one",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.vip": {
+    "url": "https://kickass.vip",
+    "domain": "kickass.vip",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.xyz": {
+    "url": "https://kickass.xyz",
+    "domain": "kickass.xyz",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.me": {
+    "url": "https://kickass.me",
+    "domain": "kickass.me",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.net": {
+    "url": "https://kickass.net",
+    "domain": "kickass.net",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.org": {
+    "url": "https://kickass.org",
+    "domain": "kickass.org",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.info": {
+    "url": "https://kickass.info",
+    "domain": "kickass.info",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.io": {
+    "url": "https://kickass.io",
+    "domain": "kickass.io",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.app": {
+    "url": "https://kickass.app",
+    "domain": "kickass.app",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.pro": {
+    "url": "https://kickass.pro",
+    "domain": "kickass.pro",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.work": {
+    "url": "https://kickass.work",
+    "domain": "kickass.work",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.site": {
+    "url": "https://kickass.site",
+    "domain": "kickass.site",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.online": {
+    "url": "https://kickass.online",
+    "domain": "kickass.online",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.club": {
+    "url": "https://kickass.club",
+    "domain": "kickass.club",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.live": {
+    "url": "https://kickass.live",
+    "domain": "kickass.live",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.pw": {
+    "url": "https://kickass.pw",
+    "domain": "kickass.pw",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.la": {
+    "url": "https://kickass.la",
+    "domain": "kickass.la",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.tv": {
+    "url": "https://kickass.tv",
+    "domain": "kickass.tv",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "kickass.moe": {
+    "url": "https://kickass.moe",
+    "domain": "kickass.moe",
+    "sources": [
+      "brute:kickass",
+      "brute:kickass"
+    ]
+  },
+  "nyaa.com": {
+    "url": "https://nyaa.com",
+    "domain": "nyaa.com",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.cc": {
+    "url": "https://nyaa.cc",
+    "domain": "nyaa.cc",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.top": {
+    "url": "https://nyaa.top",
+    "domain": "nyaa.top",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.fun": {
+    "url": "https://nyaa.fun",
+    "domain": "nyaa.fun",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.one": {
+    "url": "https://nyaa.one",
+    "domain": "nyaa.one",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.vip": {
+    "url": "https://nyaa.vip",
+    "domain": "nyaa.vip",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.xyz": {
+    "url": "https://nyaa.xyz",
+    "domain": "nyaa.xyz",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.me": {
+    "url": "https://nyaa.me",
+    "domain": "nyaa.me",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.net": {
+    "url": "https://nyaa.net",
+    "domain": "nyaa.net",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.org": {
+    "url": "https://nyaa.org",
+    "domain": "nyaa.org",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.info": {
+    "url": "https://nyaa.info",
+    "domain": "nyaa.info",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.io": {
+    "url": "https://nyaa.io",
+    "domain": "nyaa.io",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.app": {
+    "url": "https://nyaa.app",
+    "domain": "nyaa.app",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.pro": {
+    "url": "https://nyaa.pro",
+    "domain": "nyaa.pro",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.work": {
+    "url": "https://nyaa.work",
+    "domain": "nyaa.work",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.site": {
+    "url": "https://nyaa.site",
+    "domain": "nyaa.site",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.online": {
+    "url": "https://nyaa.online",
+    "domain": "nyaa.online",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.club": {
+    "url": "https://nyaa.club",
+    "domain": "nyaa.club",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.live": {
+    "url": "https://nyaa.live",
+    "domain": "nyaa.live",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.pw": {
+    "url": "https://nyaa.pw",
+    "domain": "nyaa.pw",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.la": {
+    "url": "https://nyaa.la",
+    "domain": "nyaa.la",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.tv": {
+    "url": "https://nyaa.tv",
+    "domain": "nyaa.tv",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "nyaa.moe": {
+    "url": "https://nyaa.moe",
+    "domain": "nyaa.moe",
+    "sources": [
+      "brute:nyaa",
+      "brute:nyaa"
+    ]
+  },
+  "dmhy.com": {
+    "url": "https://dmhy.com",
+    "domain": "dmhy.com",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.cc": {
+    "url": "https://dmhy.cc",
+    "domain": "dmhy.cc",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.top": {
+    "url": "https://dmhy.top",
+    "domain": "dmhy.top",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.fun": {
+    "url": "https://dmhy.fun",
+    "domain": "dmhy.fun",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.one": {
+    "url": "https://dmhy.one",
+    "domain": "dmhy.one",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.vip": {
+    "url": "https://dmhy.vip",
+    "domain": "dmhy.vip",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.xyz": {
+    "url": "https://dmhy.xyz",
+    "domain": "dmhy.xyz",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.me": {
+    "url": "https://dmhy.me",
+    "domain": "dmhy.me",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.net": {
+    "url": "https://dmhy.net",
+    "domain": "dmhy.net",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.org": {
+    "url": "https://dmhy.org",
+    "domain": "dmhy.org",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.info": {
+    "url": "https://dmhy.info",
+    "domain": "dmhy.info",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.io": {
+    "url": "https://dmhy.io",
+    "domain": "dmhy.io",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.app": {
+    "url": "https://dmhy.app",
+    "domain": "dmhy.app",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.pro": {
+    "url": "https://dmhy.pro",
+    "domain": "dmhy.pro",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.work": {
+    "url": "https://dmhy.work",
+    "domain": "dmhy.work",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.site": {
+    "url": "https://dmhy.site",
+    "domain": "dmhy.site",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.online": {
+    "url": "https://dmhy.online",
+    "domain": "dmhy.online",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.club": {
+    "url": "https://dmhy.club",
+    "domain": "dmhy.club",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.live": {
+    "url": "https://dmhy.live",
+    "domain": "dmhy.live",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.pw": {
+    "url": "https://dmhy.pw",
+    "domain": "dmhy.pw",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.la": {
+    "url": "https://dmhy.la",
+    "domain": "dmhy.la",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.tv": {
+    "url": "https://dmhy.tv",
+    "domain": "dmhy.tv",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "dmhy.moe": {
+    "url": "https://dmhy.moe",
+    "domain": "dmhy.moe",
+    "sources": [
+      "brute:dmhy",
+      "brute:dmhy"
+    ]
+  },
+  "acg.com": {
+    "url": "https://acg.com",
+    "domain": "acg.com",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.cc": {
+    "url": "https://acg.cc",
+    "domain": "acg.cc",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.top": {
+    "url": "https://acg.top",
+    "domain": "acg.top",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.fun": {
+    "url": "https://acg.fun",
+    "domain": "acg.fun",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.one": {
+    "url": "https://acg.one",
+    "domain": "acg.one",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.vip": {
+    "url": "https://acg.vip",
+    "domain": "acg.vip",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.xyz": {
+    "url": "https://acg.xyz",
+    "domain": "acg.xyz",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.me": {
+    "url": "https://acg.me",
+    "domain": "acg.me",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.net": {
+    "url": "https://acg.net",
+    "domain": "acg.net",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.org": {
+    "url": "https://acg.org",
+    "domain": "acg.org",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.info": {
+    "url": "https://acg.info",
+    "domain": "acg.info",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.io": {
+    "url": "https://acg.io",
+    "domain": "acg.io",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.app": {
+    "url": "https://acg.app",
+    "domain": "acg.app",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.pro": {
+    "url": "https://acg.pro",
+    "domain": "acg.pro",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.work": {
+    "url": "https://acg.work",
+    "domain": "acg.work",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.site": {
+    "url": "https://acg.site",
+    "domain": "acg.site",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.online": {
+    "url": "https://acg.online",
+    "domain": "acg.online",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.club": {
+    "url": "https://acg.club",
+    "domain": "acg.club",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.live": {
+    "url": "https://acg.live",
+    "domain": "acg.live",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.pw": {
+    "url": "https://acg.pw",
+    "domain": "acg.pw",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.la": {
+    "url": "https://acg.la",
+    "domain": "acg.la",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.tv": {
+    "url": "https://acg.tv",
+    "domain": "acg.tv",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "acg.moe": {
+    "url": "https://acg.moe",
+    "domain": "acg.moe",
+    "sources": [
+      "brute:acg",
+      "brute:acg"
+    ]
+  },
+  "mikan.com": {
+    "url": "https://mikan.com",
+    "domain": "mikan.com",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.cc": {
+    "url": "https://mikan.cc",
+    "domain": "mikan.cc",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.top": {
+    "url": "https://mikan.top",
+    "domain": "mikan.top",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.fun": {
+    "url": "https://mikan.fun",
+    "domain": "mikan.fun",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.one": {
+    "url": "https://mikan.one",
+    "domain": "mikan.one",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.vip": {
+    "url": "https://mikan.vip",
+    "domain": "mikan.vip",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.xyz": {
+    "url": "https://mikan.xyz",
+    "domain": "mikan.xyz",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.me": {
+    "url": "https://mikan.me",
+    "domain": "mikan.me",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.net": {
+    "url": "https://mikan.net",
+    "domain": "mikan.net",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.org": {
+    "url": "https://mikan.org",
+    "domain": "mikan.org",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.info": {
+    "url": "https://mikan.info",
+    "domain": "mikan.info",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.io": {
+    "url": "https://mikan.io",
+    "domain": "mikan.io",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.app": {
+    "url": "https://mikan.app",
+    "domain": "mikan.app",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.pro": {
+    "url": "https://mikan.pro",
+    "domain": "mikan.pro",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.work": {
+    "url": "https://mikan.work",
+    "domain": "mikan.work",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.site": {
+    "url": "https://mikan.site",
+    "domain": "mikan.site",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.online": {
+    "url": "https://mikan.online",
+    "domain": "mikan.online",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.club": {
+    "url": "https://mikan.club",
+    "domain": "mikan.club",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.live": {
+    "url": "https://mikan.live",
+    "domain": "mikan.live",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.pw": {
+    "url": "https://mikan.pw",
+    "domain": "mikan.pw",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.la": {
+    "url": "https://mikan.la",
+    "domain": "mikan.la",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.tv": {
+    "url": "https://mikan.tv",
+    "domain": "mikan.tv",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "mikan.moe": {
+    "url": "https://mikan.moe",
+    "domain": "mikan.moe",
+    "sources": [
+      "brute:mikan",
+      "brute:mikan"
+    ]
+  },
+  "torrent.com": {
+    "url": "https://torrent.com",
+    "domain": "torrent.com",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.cc": {
+    "url": "https://torrent.cc",
+    "domain": "torrent.cc",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.top": {
+    "url": "https://torrent.top",
+    "domain": "torrent.top",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.fun": {
+    "url": "https://torrent.fun",
+    "domain": "torrent.fun",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.one": {
+    "url": "https://torrent.one",
+    "domain": "torrent.one",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.vip": {
+    "url": "https://torrent.vip",
+    "domain": "torrent.vip",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.xyz": {
+    "url": "https://torrent.xyz",
+    "domain": "torrent.xyz",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.me": {
+    "url": "https://torrent.me",
+    "domain": "torrent.me",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.net": {
+    "url": "https://torrent.net",
+    "domain": "torrent.net",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.org": {
+    "url": "https://torrent.org",
+    "domain": "torrent.org",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.info": {
+    "url": "https://torrent.info",
+    "domain": "torrent.info",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.io": {
+    "url": "https://torrent.io",
+    "domain": "torrent.io",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.app": {
+    "url": "https://torrent.app",
+    "domain": "torrent.app",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.pro": {
+    "url": "https://torrent.pro",
+    "domain": "torrent.pro",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.work": {
+    "url": "https://torrent.work",
+    "domain": "torrent.work",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.site": {
+    "url": "https://torrent.site",
+    "domain": "torrent.site",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.online": {
+    "url": "https://torrent.online",
+    "domain": "torrent.online",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.club": {
+    "url": "https://torrent.club",
+    "domain": "torrent.club",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.live": {
+    "url": "https://torrent.live",
+    "domain": "torrent.live",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.pw": {
+    "url": "https://torrent.pw",
+    "domain": "torrent.pw",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.la": {
+    "url": "https://torrent.la",
+    "domain": "torrent.la",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.tv": {
+    "url": "https://torrent.tv",
+    "domain": "torrent.tv",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "torrent.moe": {
+    "url": "https://torrent.moe",
+    "domain": "torrent.moe",
+    "sources": [
+      "brute:torrent",
+      "brute:torrent"
+    ]
+  },
+  "bitsearch.com": {
+    "url": "https://bitsearch.com",
+    "domain": "bitsearch.com",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.cc": {
+    "url": "https://bitsearch.cc",
+    "domain": "bitsearch.cc",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.top": {
+    "url": "https://bitsearch.top",
+    "domain": "bitsearch.top",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.fun": {
+    "url": "https://bitsearch.fun",
+    "domain": "bitsearch.fun",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.one": {
+    "url": "https://bitsearch.one",
+    "domain": "bitsearch.one",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.vip": {
+    "url": "https://bitsearch.vip",
+    "domain": "bitsearch.vip",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.xyz": {
+    "url": "https://bitsearch.xyz",
+    "domain": "bitsearch.xyz",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.me": {
+    "url": "https://bitsearch.me",
+    "domain": "bitsearch.me",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.net": {
+    "url": "https://bitsearch.net",
+    "domain": "bitsearch.net",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.org": {
+    "url": "https://bitsearch.org",
+    "domain": "bitsearch.org",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.info": {
+    "url": "https://bitsearch.info",
+    "domain": "bitsearch.info",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.io": {
+    "url": "https://bitsearch.io",
+    "domain": "bitsearch.io",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.app": {
+    "url": "https://bitsearch.app",
+    "domain": "bitsearch.app",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.pro": {
+    "url": "https://bitsearch.pro",
+    "domain": "bitsearch.pro",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.work": {
+    "url": "https://bitsearch.work",
+    "domain": "bitsearch.work",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.site": {
+    "url": "https://bitsearch.site",
+    "domain": "bitsearch.site",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.online": {
+    "url": "https://bitsearch.online",
+    "domain": "bitsearch.online",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.club": {
+    "url": "https://bitsearch.club",
+    "domain": "bitsearch.club",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.live": {
+    "url": "https://bitsearch.live",
+    "domain": "bitsearch.live",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.pw": {
+    "url": "https://bitsearch.pw",
+    "domain": "bitsearch.pw",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.la": {
+    "url": "https://bitsearch.la",
+    "domain": "bitsearch.la",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.tv": {
+    "url": "https://bitsearch.tv",
+    "domain": "bitsearch.tv",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "bitsearch.moe": {
+    "url": "https://bitsearch.moe",
+    "domain": "bitsearch.moe",
+    "sources": [
+      "brute:bitsearch",
+      "brute:bitsearch"
+    ]
+  },
+  "magnet.com": {
+    "url": "https://magnet.com",
+    "domain": "magnet.com",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.cc": {
+    "url": "https://magnet.cc",
+    "domain": "magnet.cc",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.top": {
+    "url": "https://magnet.top",
+    "domain": "magnet.top",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.fun": {
+    "url": "https://magnet.fun",
+    "domain": "magnet.fun",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.one": {
+    "url": "https://magnet.one",
+    "domain": "magnet.one",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.vip": {
+    "url": "https://magnet.vip",
+    "domain": "magnet.vip",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.xyz": {
+    "url": "https://magnet.xyz",
+    "domain": "magnet.xyz",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.me": {
+    "url": "https://magnet.me",
+    "domain": "magnet.me",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.net": {
+    "url": "https://magnet.net",
+    "domain": "magnet.net",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.org": {
+    "url": "https://magnet.org",
+    "domain": "magnet.org",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.info": {
+    "url": "https://magnet.info",
+    "domain": "magnet.info",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.io": {
+    "url": "https://magnet.io",
+    "domain": "magnet.io",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.app": {
+    "url": "https://magnet.app",
+    "domain": "magnet.app",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.pro": {
+    "url": "https://magnet.pro",
+    "domain": "magnet.pro",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.work": {
+    "url": "https://magnet.work",
+    "domain": "magnet.work",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.site": {
+    "url": "https://magnet.site",
+    "domain": "magnet.site",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.online": {
+    "url": "https://magnet.online",
+    "domain": "magnet.online",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.club": {
+    "url": "https://magnet.club",
+    "domain": "magnet.club",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.live": {
+    "url": "https://magnet.live",
+    "domain": "magnet.live",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.pw": {
+    "url": "https://magnet.pw",
+    "domain": "magnet.pw",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.la": {
+    "url": "https://magnet.la",
+    "domain": "magnet.la",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.tv": {
+    "url": "https://magnet.tv",
+    "domain": "magnet.tv",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "magnet.moe": {
+    "url": "https://magnet.moe",
+    "domain": "magnet.moe",
+    "sources": [
+      "brute:magnet",
+      "brute:magnet"
+    ]
+  },
+  "bitsearch.to": {
+    "url": "https://bitsearch.to",
+    "domain": "bitsearch.to",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "solidtorrents.to": {
+    "url": "https://solidtorrents.to",
+    "domain": "solidtorrents.to",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "aiosearch.com": {
+    "url": "https://aiosearch.com",
+    "domain": "aiosearch.com",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "snowfl.com": {
+    "url": "https://snowfl.com",
+    "domain": "snowfl.com",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "idope.se": {
+    "url": "https://idope.se",
+    "domain": "idope.se",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "zooqle.com": {
+    "url": "https://zooqle.com",
+    "domain": "zooqle.com",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "yourbittorrent.com": {
+    "url": "https://yourbittorrent.com",
+    "domain": "yourbittorrent.com",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "btscene.org": {
+    "url": "https://btscene.org",
+    "domain": "btscene.org",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "demonoid.is": {
+    "url": "https://demonoid.is",
+    "domain": "demonoid.is",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "rutor.info": {
+    "url": "https://rutor.info",
+    "domain": "rutor.info",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "anidex.info": {
+    "url": "https://anidex.info",
+    "domain": "anidex.info",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "acg.rip": {
+    "url": "https://acg.rip",
+    "domain": "acg.rip",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "share.dmhy.org": {
+    "url": "https://share.dmhy.org",
+    "domain": "share.dmhy.org",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "nyaa.si": {
+    "url": "https://nyaa.si",
+    "domain": "nyaa.si",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "animetosho.org": {
+    "url": "https://animetosho.org",
+    "domain": "animetosho.org",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "mikanani.me": {
+    "url": "https://mikanani.me",
+    "domain": "mikanani.me",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "nyafun.com": {
+    "url": "https://nyafun.com",
+    "domain": "nyafun.com",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "clmaoc.top": {
+    "url": "https://clmaoc.top",
+    "domain": "clmaoc.top",
+    "sources": [
+      "curated:",
+      "curated:"
+    ]
+  },
+  "cilibra.org": {
+    "url": "https://cilibra.org",
+    "domain": "cilibra.org",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "magbot.xyz": {
+    "url": "https://magbot.xyz",
+    "domain": "magbot.xyz",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "cili123.com": {
+    "url": "https://cili123.com",
+    "domain": "cili123.com",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "cili.date": {
+    "url": "https://cili.date",
+    "domain": "cili.date",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "xiguasousou.com": {
+    "url": "https://xiguasousou.com",
+    "domain": "xiguasousou.com",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "souxung.com": {
+    "url": "https://souxung.com",
+    "domain": "souxung.com",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "cili8.biz": {
+    "url": "https://cili8.biz",
+    "domain": "cili8.biz",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "cilimaocili.com": {
+    "url": "https://cilimaocili.com",
+    "domain": "cilimaocili.com",
+    "sources": [
+      "curated:",
+      "curated:"
+    ]
+  },
+  "btcat.bid": {
+    "url": "https://www.btcat.bid",
+    "domain": "btcat.bid",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "souzhongzi.com": {
+    "url": "https://souzhongzi.com",
+    "domain": "souzhongzi.com",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "zhongziso.in": {
+    "url": "https://www.zhongziso.in",
+    "domain": "zhongziso.in",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "cili5.net": {
+    "url": "https://www.cili5.net",
+    "domain": "cili5.net",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "cilishenqi.me": {
+    "url": "https://cilishenqi.me",
+    "domain": "cilishenqi.me",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "wuqianaa.xyz": {
+    "url": "https://wuqianaa.xyz",
+    "domain": "wuqianaa.xyz",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "bashi5.com": {
+    "url": "https://bashi5.com",
+    "domain": "bashi5.com",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "cldq.cc": {
+    "url": "https://cldq.cc",
+    "domain": "cldq.cc",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "cilitiantang.vip": {
+    "url": "https://www.cilitiantang.vip",
+    "domain": "cilitiantang.vip",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "6v520.com": {
+    "url": "https://www.6v520.com",
+    "domain": "6v520.com",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "seedhub.cc": {
+    "url": "https://www.seedhub.cc",
+    "domain": "seedhub.cc",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "torrentdownload.info": {
+    "url": "https://www.torrentdownload.info",
+    "domain": "torrentdownload.info",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "btfox.xyz": {
+    "url": "https://btfox.xyz",
+    "domain": "btfox.xyz",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "btfox12.top": {
+    "url": "https://btfox12.top",
+    "domain": "btfox12.top",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "btbus.app": {
+    "url": "https://btbus.app",
+    "domain": "btbus.app",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "btav.xyz": {
+    "url": "https://btav.xyz",
+    "domain": "btav.xyz",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "btdig.com": {
+    "url": "https://www.btdig.com",
+    "domain": "btdig.com",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "1337x.to": {
+    "url": "https://1337x.to",
+    "domain": "1337x.to",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "thepiratebay.org": {
+    "url": "https://thepiratebay.org",
+    "domain": "thepiratebay.org",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "rarbg.to": {
+    "url": "https://rarbg.to",
+    "domain": "rarbg.to",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "torrentgalaxy.to": {
+    "url": "https://torrentgalaxy.to",
+    "domain": "torrentgalaxy.to",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "magnetdl.com": {
+    "url": "https://magnetdl.com",
+    "domain": "magnetdl.com",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "yts.mx": {
+    "url": "https://yts.mx",
+    "domain": "yts.mx",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "eztv.re": {
+    "url": "https://eztv.re",
+    "domain": "eztv.re",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "limetorrents.lol": {
+    "url": "https://limetorrents.lol",
+    "domain": "limetorrents.lol",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "limetorrents.info": {
+    "url": "https://limetorrents.info",
+    "domain": "limetorrents.info",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "extratorrent.ag": {
+    "url": "https://extratorrent.ag",
+    "domain": "extratorrent.ag",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "extratorrent.st": {
+    "url": "https://extratorrent.st",
+    "domain": "extratorrent.st",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "kickasstorrents.to": {
+    "url": "https://kickasstorrents.to",
+    "domain": "kickasstorrents.to",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "katcr.co": {
+    "url": "https://katcr.co",
+    "domain": "katcr.co",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "glodls.to": {
+    "url": "https://glodls.to",
+    "domain": "glodls.to",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "bitport.io": {
+    "url": "https://bitport.io",
+    "domain": "bitport.io",
+    "sources": [
+      "curated:"
+    ]
+  },
+  "moerats.com": {
+    "url": "https://www.moerats.com",
+    "domain": "moerats.com",
+    "sources": [
+      "curated:"
+    ]
+  }
+}

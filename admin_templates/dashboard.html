@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MagGoogo 运营后台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .fade-in { animation: fadeIn 0.3s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .glass { background: rgba(255,255,255,0.8); backdrop-filter: blur(12px); }
+  </style>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: {
+        brand: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' }
+      }}}
+    }
+  </script>
+</head>
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 min-h-screen"
+      x-data="adminApp()" x-init="init()">
+
+  <!-- Header -->
+  <header class="glass border-b border-slate-200 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">M</div>
+        <div>
+          <h1 class="text-lg font-bold text-slate-800">MagGoogo 运营后台</h1>
+          <p class="text-xs text-slate-400">本地管理面板</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium" x-show="!loading">在线</span>
+        <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium" x-show="loading">加载中...</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="max-w-7xl mx-auto px-4 sm:px-6 mt-4">
+    <div class="flex gap-1 bg-white/60 rounded-xl p-1 border border-slate-200">
+      <template x-for="tab in tabs" :key="tab.id">
+        <button @click="activeTab = tab.id"
+                :class="activeTab === tab.id ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:text-slate-700'"
+                class="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                x-text="tab.label"></button>
+      </template>
+    </div>
+  </nav>
+
+  <!-- Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+
+    <!-- Tab: Overview -->
+    <div x-show="activeTab === 'overview'" x-cloak class="fade-in space-y-6">
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+          <p class="text-xs text-slate-400 uppercase tracking-wider">总源数</p>
+          <p class="text-3xl font-bold text-slate-800 mt-1" x-text="overview.sources?.total || 0"></p>
+        </div>
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+          <p class="text-xs text-slate-400 uppercase tracking-wider">可用 (Green)</p>
+          <p class="text-3xl font-bold text-green-600 mt-1" x-text="overview.sources?.green || 0"></p>
+        </div>
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+          <p class="text-xs text-slate-400 uppercase tracking-wider">当前版本</p>
+          <p class="text-3xl font-bold text-brand-600 mt-1" x-text="overview.config?.latest_version || '-'"></p>
+        </div>
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+          <p class="text-xs text-slate-400 uppercase tracking-wider">APK 大小</p>
+          <p class="text-3xl font-bold text-slate-800 mt-1">
+            <span x-text="overview.apk?.exists ? overview.apk.size_mb + ' MB' : '未构建'"></span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Quick Info -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+          <h3 class="font-semibold text-slate-700 mb-3">分发信息</h3>
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between">
+              <span class="text-slate-400">GitHub 仓库</span>
+              <a :href="'https://github.com/' + overview.github_repo" target="_blank" class="text-brand-600 hover:underline" x-text="overview.github_repo"></a>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">CDN 地址</span>
+              <span class="text-slate-600 text-xs font-mono truncate max-w-[280px]" x-text="overview.jsdelivr_base"></span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">加密文件</span>
+              <span class="text-slate-600" x-text="overview.encrypted?.exists ? overview.encrypted.size_kb + ' KB' : '未生成'"></span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">源有效期</span>
+              <span class="text-slate-600" x-text="(overview.config?.source_expiry_hours || 72) + ' 小时'"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+          <h3 class="font-semibold text-slate-700 mb-3">快速操作</h3>
+          <div class="space-y-3">
+            <button @click="publishAll()" :disabled="publishing"
+                    class="w-full py-3 px-4 bg-gradient-to-r from-brand-500 to-indigo-600 text-white rounded-xl font-medium hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+              <svg x-show="publishing" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              <span x-text="publishing ? '发布中...' : '一键发布（加密 + 推送）'"></span>
+            </button>
+            <button @click="encryptOnly()" :disabled="publishing"
+                    class="w-full py-2.5 px-4 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-all disabled:opacity-50">
+              仅加密（不推送）
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity Log -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+        <h3 class="font-semibold text-slate-700 mb-3">操作日志</h3>
+        <div class="space-y-2 max-h-64 overflow-y-auto" x-show="logs.length > 0">
+          <template x-for="(log, i) in logs" :key="i">
+            <div class="flex items-start gap-2 text-sm py-1.5 border-b border-slate-50 last:border-0">
+              <span :class="log.ok ? 'text-green-500' : 'text-red-500'" class="mt-0.5">
+                <template x-if="log.ok"><span>&#10003;</span></template>
+                <template x-if="!log.ok"><span>&#10007;</span></template>
+              </span>
+              <div>
+                <span class="text-slate-600" x-text="log.message"></span>
+                <span class="text-slate-300 text-xs ml-2" x-text="log.time"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+        <p x-show="logs.length === 0" class="text-slate-400 text-sm">暂无操作记录</p>
+      </div>
+    </div>
+
+    <!-- Tab: Version Control -->
+    <div x-show="activeTab === 'version'" x-cloak class="fade-in space-y-6">
+      <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+        <h3 class="font-semibold text-slate-700 mb-4">版本控制</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">最新版本号</label>
+            <input type="text" x-model="configForm.latest_version"
+                   class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none text-sm"
+                   placeholder="1.0.0">
+            <p class="text-xs text-slate-400 mt-1">用户看到的最新版本提示</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">最低版本号 <span class="text-red-400">(强制更新线)</span></label>
+            <input type="text" x-model="configForm.min_version"
+                   class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none text-sm"
+                   placeholder="1.0.0">
+            <p class="text-xs text-slate-400 mt-1">低于此版本的 App 将被强制要求更新</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">源有效期（小时）</label>
+            <input type="number" x-model.number="configForm.source_expiry_hours"
+                   class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none text-sm"
+                   placeholder="72" min="1">
+            <p class="text-xs text-slate-400 mt-1">源过期后 App 会强制重新拉取</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">源 Schema 版本</label>
+            <input type="number" x-model.number="configForm.source_schema_version"
+                   class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none text-sm"
+                   placeholder="1" min="1">
+            <p class="text-xs text-slate-400 mt-1">大版本更换密钥时递增</p>
+          </div>
+        </div>
+
+        <div class="mt-6">
+          <label class="block text-sm font-medium text-slate-600 mb-1">公告内容</label>
+          <textarea x-model="configForm.announcement" rows="2"
+                    class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none text-sm resize-none"
+                    placeholder="输入紧急公告（留空则不显示）"></textarea>
+        </div>
+
+        <div class="mt-6">
+          <label class="block text-sm font-medium text-slate-600 mb-1">下载地址（主）</label>
+          <input type="url" x-model="configForm.download_primary"
+                 class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none text-sm"
+                 placeholder="https://github.com/.../releases/latest">
+        </div>
+
+        <div class="mt-6">
+          <label class="block text-sm font-medium text-slate-600 mb-1">备用下载地址（每行一个）</label>
+          <textarea x-model="configForm.download_mirrors" rows="3"
+                    class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none text-sm resize-none font-mono"
+                    placeholder="https://wwxx.lanzoul.com/xxxx&#10;https://t.me/maggoogo/xx"></textarea>
+        </div>
+
+        <div class="flex gap-3 mt-6">
+          <button @click="saveConfig()" :disabled="saving"
+                  class="px-6 py-2.5 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700 transition-all disabled:opacity-50">
+            <span x-text="saving ? '保存中...' : '保存配置'"></span>
+          </button>
+          <button @click="saveAndPush()" :disabled="saving"
+                  class="px-6 py-2.5 bg-slate-800 text-white rounded-xl font-medium hover:bg-slate-900 transition-all disabled:opacity-50">
+            <span x-text="saving ? '推送中...' : '保存并推送到 GitHub'"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Sources -->
+    <div x-show="activeTab === 'sources'" x-cloak class="fade-in space-y-6">
+      <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold text-slate-700">数据源列表</h3>
+          <div class="flex gap-2">
+            <button @click="filterStatus = ''" :class="filterStatus === '' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'" class="px-3 py-1 rounded-lg text-xs font-medium">全部</button>
+            <button @click="filterStatus = 'green'" :class="filterStatus === 'green' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700'" class="px-3 py-1 rounded-lg text-xs font-medium">可用</button>
+            <button @click="filterStatus = 'yellow'" :class="filterStatus === 'yellow' ? 'bg-yellow-600 text-white' : 'bg-yellow-50 text-yellow-700'" class="px-3 py-1 rounded-lg text-xs font-medium">警告</button>
+            <button @click="filterStatus = 'gray'" :class="filterStatus === 'gray' ? 'bg-gray-600 text-white' : 'bg-gray-100 text-gray-600'" class="px-3 py-1 rounded-lg text-xs font-medium">离线</button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-slate-100">
+                <th class="text-left py-2 px-3 text-slate-400 font-medium">站点</th>
+                <th class="text-left py-2 px-3 text-slate-400 font-medium">品牌</th>
+                <th class="text-left py-2 px-3 text-slate-400 font-medium">域名</th>
+                <th class="text-center py-2 px-3 text-slate-400 font-medium">状态</th>
+                <th class="text-left py-2 px-3 text-slate-400 font-medium">详情</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="rule in filteredRules" :key="rule.id">
+                <tr class="border-b border-slate-50 hover:bg-slate-25">
+                  <td class="py-2 px-3 font-medium text-slate-700" x-text="rule.site_name"></td>
+                  <td class="py-2 px-3 text-slate-500" x-text="rule.brand"></td>
+                  <td class="py-2 px-3 text-slate-500 font-mono text-xs" x-text="rule.base_url"></td>
+                  <td class="py-2 px-3 text-center">
+                    <span :class="{
+                      'bg-green-100 text-green-700': rule.status === 'green',
+                      'bg-yellow-100 text-yellow-700': rule.status === 'yellow',
+                      'bg-gray-100 text-gray-500': rule.status === 'gray'
+                    }" class="px-2 py-0.5 rounded-full text-xs font-medium" x-text="rule.status"></span>
+                  </td>
+                  <td class="py-2 px-3 text-slate-400 text-xs" x-text="rule.status_detail"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+        <p x-show="filteredRules.length === 0" class="text-center text-slate-400 py-8">暂无数据</p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Toast -->
+  <div x-show="toast.show" x-cloak
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="opacity-0 translate-y-4"
+       x-transition:enter-end="opacity-100 translate-y-0"
+       x-transition:leave="transition ease-in duration-200"
+       x-transition:leave-start="opacity-100 translate-y-0"
+       x-transition:leave-end="opacity-0 translate-y-4"
+       :class="toast.ok ? 'bg-green-600' : 'bg-red-500'"
+       class="fixed bottom-6 right-6 text-white px-5 py-3 rounded-xl shadow-2xl text-sm font-medium z-50 max-w-sm">
+    <span x-text="toast.message"></span>
+  </div>
+
+  <script>
+    function adminApp() {
+      return {
+        activeTab: 'overview',
+        tabs: [
+          { id: 'overview', label: '概览' },
+          { id: 'version', label: '版本控制' },
+          { id: 'sources', label: '数据源' },
+        ],
+        loading: true,
+        publishing: false,
+        saving: false,
+        overview: {},
+        logs: [],
+        rules: [],
+        filterStatus: '',
+        toast: { show: false, ok: true, message: '' },
+
+        // Version config form
+        configForm: {
+          latest_version: '1.0.0',
+          min_version: '1.0.0',
+          source_expiry_hours: 72,
+          source_schema_version: 1,
+          announcement: '',
+          download_primary: '',
+          download_mirrors: '',
+        },
+
+        get filteredRules() {
+          if (!this.filterStatus) return this.rules;
+          return this.rules.filter(r => r.status === this.filterStatus);
+        },
+
+        async init() {
+          await this.loadOverview();
+          await this.loadSources();
+          this.loading = false;
+        },
+
+        async loadOverview() {
+          try {
+            const res = await fetch('/api/overview');
+            this.overview = await res.json();
+            // Populate form
+            const c = this.overview.config || {};
+            this.configForm.latest_version = c.latest_version || '1.0.0';
+            this.configForm.min_version = c.min_version || '1.0.0';
+            this.configForm.source_expiry_hours = c.source_expiry_hours || 72;
+            this.configForm.source_schema_version = c.source_schema_version || 1;
+            this.configForm.announcement = c.announcement || '';
+            this.configForm.download_primary = c.download?.primary || '';
+            this.configForm.download_mirrors = (c.download?.mirrors || []).join('\n');
+          } catch (e) {
+            this.showToast(false, '加载失败: ' + e.message);
+          }
+        },
+
+        async loadSources() {
+          try {
+            const res = await fetch('/api/sources/details');
+            const data = await res.json();
+            this.rules = data.rules || [];
+          } catch (e) { /* ignore */ }
+        },
+
+        async publishAll() {
+          this.publishing = true;
+          try {
+            const res = await fetch('/api/publish', { method: 'POST' });
+            const data = await res.json();
+            this.addLog(data.ok, data.message || '发布完成');
+            this.showToast(data.ok, data.ok ? '发布成功!' : data.message);
+            if (data.ok) await this.loadOverview();
+          } catch (e) {
+            this.addLog(false, e.message);
+            this.showToast(false, e.message);
+          }
+          this.publishing = false;
+        },
+
+        async encryptOnly() {
+          this.publishing = true;
+          try {
+            const res = await fetch('/api/encrypt', { method: 'POST' });
+            const data = await res.json();
+            this.addLog(data.ok, data.ok ? '加密完成' : '加密失败');
+            this.showToast(data.ok, data.ok ? '加密完成' : data.output);
+            if (data.ok) await this.loadOverview();
+          } catch (e) {
+            this.showToast(false, e.message);
+          }
+          this.publishing = false;
+        },
+
+        async saveConfig() {
+          this.saving = true;
+          try {
+            const body = {
+              ...this.configForm,
+              download: {
+                primary: this.configForm.download_primary,
+                mirrors: this.configForm.download_mirrors.split('\n').map(s => s.trim()).filter(Boolean),
+              },
+            };
+            const res = await fetch('/api/config', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            });
+            const data = await res.json();
+            this.addLog(data.ok, '配置已保存');
+            this.showToast(data.ok, '配置已保存');
+          } catch (e) {
+            this.showToast(false, e.message);
+          }
+          this.saving = false;
+        },
+
+        async saveAndPush() {
+          await this.saveConfig();
+          this.saving = true;
+          try {
+            const res = await fetch('/api/push-config', { method: 'POST' });
+            const data = await res.json();
+            this.addLog(data.ok, data.message);
+            this.showToast(data.ok, data.ok ? '已推送到 GitHub' : data.message);
+          } catch (e) {
+            this.showToast(false, e.message);
+          }
+          this.saving = false;
+        },
+
+        addLog(ok, message) {
+          const now = new Date();
+          const time = now.toLocaleTimeString('zh-CN', { hour12: false });
+          this.logs.unshift({ ok, message, time });
+          if (this.logs.length > 50) this.logs.pop();
+        },
+
+        showToast(ok, message) {
+          this.toast = { show: true, ok, message };
+          setTimeout(() => { this.toast.show = false; }, 3000);
+        },
+      };
+    }
+  </script>
+</body>
+</html>

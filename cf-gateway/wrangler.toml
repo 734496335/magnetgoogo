@@ -1,0 +1,16 @@
+name = "maggoogo-gateway"
+main = "src/index.js"
+compatibility_date = "2024-09-01"
+
+[vars]
+# GitHub raw base URL for upstream content
+GITHUB_RAW = "https://raw.githubusercontent.com/734496335/maggoogo-sources/main"
+# Cache TTL in seconds (5 minutes — balance between freshness and performance)
+CACHE_TTL = "300"
+
+# KV namespace for anonymous feedback
+# Create with: npx wrangler kv:namespace create FEEDBACK
+# Then paste the id below
+[[kv_namespaces]]
+binding = "FEEDBACK"
+id = "f243ed0ab6b64f3a8e28fc636d3dcc38"

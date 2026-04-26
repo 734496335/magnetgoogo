@@ -1,0 +1,54 @@
+# ── Dependencies ──
+node_modules/
+.expo/
+
+# ── Build outputs ──
+magnetgoogo-app/android/app/build/
+magnetgoogo-app/android/.gradle/
+magnetgoogo-app/android/build/
+magnetgoogo-app/ios/build/
+web/.next/
+web/node_modules/
+
+# ── Temporary probe/discovery JSONs (root level) ──
+/*.json
+!sources.json
+!package.json
+!package-lock.json
+!tsconfig.json
+run.log
+
+# ── One-off scripts (root level, prefixed with _) ──
+/_*.py
+/_*.js
+/_*.mjs
+/_*.ts
+
+# ── Misc temp ──
+/fix-json.mjs
+/start-app.bat
+/_*.html
+/test_*.py
+.claude/
+.windsurf/
+
+# ── Encrypted dist (generated) ──
+sources.enc.json
+maggoogo-sources/sources.enc.json
+
+# ── OS / IDE ──
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.log
+
+# ── Python ──
+__pycache__/
+*.pyc
+.env
+
+# ── Legado reference (not our code) ──
+legado-master/

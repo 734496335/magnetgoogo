@@ -1,0 +1,21 @@
+{
+  "app_config": {
+    "latest_version": "1.0.5",
+    "force_update_url": "https://your-seo-website.com/download"
+  },
+  "sources": [
+    {
+      "url": "https://animetosho.org",
+      "search_path": "/search?q={query}",
+      "requires_waf_bypass": false,
+      "selectors": {
+        "list_item": "tr.torrent_row",
+        "title": "a[href^=\"/view/\"]",
+        "magnet": "a[href^=\"magnet:\"]",
+        "size": "td:nth-child(4)",
+        "date": "td:nth-child(5)"
+      },
+      "weight": 103
+    }
+  ]
+}

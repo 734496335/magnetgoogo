@@ -1,0 +1,44 @@
+{
+  "generated_at": "2026-04-12T11:24:31.087259+00:00",
+  "queries": [
+    "Ubuntu",
+    "ubuntu 22.04",
+    "Big Buck Bunny",
+    "ubuntu iso"
+  ],
+  "write_back": false,
+  "results": [
+    {
+      "url": "https://animetosho.org",
+      "ok": false,
+      "healed": true,
+      "listing_url": "https://animetosho.org/search?q=ubuntu%20iso",
+      "error": "no nodes for list_item: '.home_list .list_item'",
+      "sample": null,
+      "inferred_rules": {
+        "search_path": "/search?q={query}",
+        "selectors": {
+          "list_item": ".home_list .list_item",
+          "title": ".home_list .list_item a",
+          "magnet": ".home_list .list_item a[href^='magnet:']",
+          "size": ".home_list .list_item .size",
+          "date": ".home_list .list_item .date"
+        },
+        "requires_waf_bypass": false
+      },
+      "merged_after_heal": {
+        "url": "https://animetosho.org",
+        "search_path": "/search?q={query}",
+        "requires_waf_bypass": false,
+        "selectors": {
+          "list_item": ".home_list .list_item",
+          "title": ".home_list .list_item a",
+          "magnet": ".home_list .list_item a[href^='magnet:']",
+          "size": ".home_list .list_item .size",
+          "date": ".home_list .list_item .date"
+        },
+        "weight": 103
+      }
+    }
+  ]
+}

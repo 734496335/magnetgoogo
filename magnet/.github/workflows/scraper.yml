@@ -1,0 +1,49 @@
+name: Magnet Source Scraper
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Run daily at midnight
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Set environment variables
+        run: |
+          echo "BING_API_KEY=${{ secrets.BING_API_KEY }}" >> .env
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
+          echo "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" >> .env
+          echo "VOLCES_API_KEY=${{ secrets.VOLCES_API_KEY }}" >> .env
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+          echo "DEEPSEEK_API_KEY=${{ secrets.DEEPSEEK_API_KEY }}" >> .env
+          echo "GEMINI_MODEL=gemini-2.0-flash" >> .env
+          echo "NEBULA_HEADLESS=1" >> .env
+          echo "TIMEOUT=3000" >> .env
+          echo "MAX_SOURCES=50" >> .env
+      
+      - name: Run scraper
+        run: python pipeline_runner.py
+      
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add sources.json
+          if [ -f magnet_sources.json ]; then git add magnet_sources.json; fi
+          git diff --staged --quiet || git commit -m "Update sources.json with latest magnet sources"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

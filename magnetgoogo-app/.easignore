@@ -1,0 +1,11 @@
+# EAS Build ignore file
+node_modules/
+.expo/
+.venv/
+__pycache__/
+*.pyc
+.git/
+.github/
+scripts/
+*.log
+*.enc.json
