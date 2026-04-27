@@ -2,6 +2,8 @@
  * HTTP Client for local source fetching.
  * Runs on the user's device — no server proxy needed.
  */
+import iconv from 'iconv-lite';
+import { Buffer } from 'buffer';
 
 const FETCH_HEADERS: Record<string, string> = {
   'User-Agent':
@@ -87,6 +89,40 @@ function detectChallenge(
   return undefined;
 }
 
+// ── Charset-aware response decoding ─────────────────────────────────
+// Many Asian torrent sites serve Shift-JIS, GB2312, or EUC-JP pages.
+// Default `resp.text()` assumes UTF-8, causing mojibake.
+
+async function decodeResponse(resp: Response): Promise<string> {
+  // 1) Check Content-Type header for charset
+  const ct = resp.headers.get('content-type') || '';
+  const headerCharset = ct.match(/charset\s*=\s*["']?([^\s;"']+)/i)?.[1]?.toLowerCase();
+
+  // 2) If header says UTF-8 or no charset, try text() first (fast path)
+  if (!headerCharset || headerCharset === 'utf-8' || headerCharset === 'utf8') {
+    const buf = Buffer.from(await resp.arrayBuffer());
+    // Quick sniff: check for <meta charset="xxx"> in first 2KB
+    const head = buf.slice(0, 2048).toString('ascii');
+    const metaCharset = head.match(
+      /charset\s*=\s*["']?([^\s;"'/>]+)/i,
+    )?.[1]?.toLowerCase();
+
+    if (metaCharset && metaCharset !== 'utf-8' && metaCharset !== 'utf8' && iconv.encodingExists(metaCharset)) {
+      return iconv.decode(buf, metaCharset);
+    }
+    // Check for mojibake indicators: if bytes look like non-UTF-8
+    return buf.toString('utf-8');
+  }
+
+  // 3) Explicit non-UTF-8 charset from header
+  const buf = Buffer.from(await resp.arrayBuffer());
+  const enc = headerCharset.replace(/^x-/, '');
+  if (iconv.encodingExists(enc)) {
+    return iconv.decode(buf, enc);
+  }
+  return buf.toString('utf-8');
+}
+
 /**
  * Fetch a page with automatic cookie management and challenge detection.
  */
@@ -114,7 +150,7 @@ export async function fetchPage(
     });
     clearTimeout(timer);
 
-    const html = await resp.text();
+    const html = await decodeResponse(resp);
 
     // Challenge detection
     const challenge = detectChallenge(resp.status, html, url);
@@ -183,7 +219,7 @@ export async function fetchPageManual(
     });
     clearTimeout(timer);
 
-    const html = await resp.text();
+    const html = await decodeResponse(resp);
     const cookies = extractCookies(resp);
     return { html, cookies, status: resp.status };
   } catch {

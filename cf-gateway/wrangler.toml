@@ -4,7 +4,7 @@ compatibility_date = "2024-09-01"
 
 [vars]
 # GitHub raw base URL for upstream content
-GITHUB_RAW = "https://raw.githubusercontent.com/734496335/maggoogo-sources/main"
+GITHUB_RAW = "https://raw.githubusercontent.com/734496335/mg-data/main"
 # Cache TTL in seconds (5 minutes — balance between freshness and performance)
 CACHE_TTL = "300"
 

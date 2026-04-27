@@ -20,8 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLang } from '../src/core/LangContext';
 import { useTheme } from '../src/core/ThemeContext';
 import { getHistory, addHistory, removeHistory, clearHistory, type HistoryItem } from '../src/core/searchHistory';
-import { getFavorites, removeFavorite, type FavoriteItem } from '../src/core/favorites';
-import * as Clipboard from 'expo-clipboard';
+import { getFavorites, type FavoriteItem } from '../src/core/favorites';
 import FeedbackFAB from '../src/components/FeedbackFAB';
 
 const SCREEN_W = Dimensions.get('window').width;
@@ -128,7 +127,7 @@ export default function HomeScreen() {
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { lang, t } = useLang();
+  const { t } = useLang();
   const { colors } = useTheme();
   const hideToast = useCallback(() => setToast(''), []);
 
@@ -248,40 +247,18 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Favorites (only if non-empty) */}
+      {/* Favorites entry (only if non-empty) */}
       {favorites.length > 0 && (
-        <View style={styles.historyWrap}>
-          <View style={styles.historyHeader}>
-            <Text style={[styles.historyTitle, { color: colors.textTertiary }]}>
-              <Ionicons name="star" size={13} color="#f59e0b" />{' '}{t.favoritesTitle}
-            </Text>
-            <TouchableOpacity onPress={() => router.push('/favorites')}>
-              <Text style={styles.historyClear}>{lang === 'zh' ? '全部' : 'All'}</Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.historyScroll}
-          >
-            {favorites.slice(0, 10).map((fav) => (
-              <TouchableOpacity
-                key={fav.magnet}
-                style={[styles.favChip, { backgroundColor: colors.chipBg }]}
-                onPress={() => {
-                  Clipboard.setStringAsync(fav.magnet);
-                  setToast(t.copied);
-                }}
-                onLongPress={() => {
-                  removeFavorite(fav.magnet).then(loadFavorites);
-                }}
-              >
-                <Text style={[styles.favChipTitle, { color: colors.text }]} numberOfLines={1}>{fav.title}</Text>
-                <Text style={[styles.favChipMeta, { color: colors.textTertiary }]} numberOfLines={1}>{fav.size}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+        <TouchableOpacity
+          style={[styles.favEntry, { backgroundColor: colors.chipBg }]}
+          onPress={() => router.push('/favorites')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="bookmark" size={16} color="#6366f1" />
+          <Text style={[styles.favEntryText, { color: colors.text }]}>{t.favoritesTitle}</Text>
+          <Text style={[styles.favEntryCount, { color: colors.textTertiary }]}>{favorites.length}</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+        </TouchableOpacity>
       )}
 
       <View style={{ flex: 5 }} />
@@ -450,22 +427,23 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#5d6578',
   },
-  favChip: {
-    backgroundColor: '#f4f2ef',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    maxWidth: 200,
+  favEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    gap: 8,
   },
-  favChipTitle: {
-    fontSize: 13,
+  favEntryText: {
+    flex: 1,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#262b35',
   },
-  favChipMeta: {
-    fontSize: 11,
-    fontWeight: '400',
-    color: '#9aa3b4',
-    marginTop: 2,
+  favEntryCount: {
+    fontSize: 13,
+    fontWeight: '500',
   },
 });

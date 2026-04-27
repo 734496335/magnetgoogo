@@ -209,6 +209,46 @@
       </div>
     </div>
 
+    <!-- Tab: Feedback -->
+    <div x-show="activeTab === 'feedback'" x-cloak class="fade-in space-y-6">
+      <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold text-slate-700">用户反馈 <span class="text-sm font-normal text-slate-400" x-text="'(' + feedbackList.length + '条)'" x-show="feedbackList.length > 0"></span></h3>
+          <button @click="loadFeedback()" class="px-3 py-1.5 bg-brand-50 text-brand-600 rounded-lg text-xs font-medium hover:bg-brand-100 transition-all">
+            刷新
+          </button>
+        </div>
+
+        <div x-show="feedbackLoading" class="text-center py-8 text-slate-400">加载中...</div>
+
+        <div x-show="!feedbackLoading && feedbackList.length === 0" class="text-center py-12">
+          <div class="text-4xl mb-2">📭</div>
+          <p class="text-slate-400">暂无用户反馈</p>
+        </div>
+
+        <div x-show="!feedbackLoading && feedbackList.length > 0" class="space-y-3">
+          <template x-for="fb in feedbackList" :key="fb.id">
+            <div class="border border-slate-100 rounded-xl p-4 hover:border-slate-200 transition-all">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm text-slate-700 whitespace-pre-wrap break-words" x-text="fb.text"></p>
+                  <div class="flex items-center gap-3 mt-2 text-xs text-slate-400">
+                    <span x-text="formatTime(fb.createdAt)"></span>
+                    <span x-show="fb.appVersion" class="bg-slate-100 px-1.5 py-0.5 rounded" x-text="'v' + fb.appVersion"></span>
+                    <span x-show="fb.platform" class="bg-slate-100 px-1.5 py-0.5 rounded" x-text="fb.platform"></span>
+                    <span x-show="fb.country" class="bg-slate-100 px-1.5 py-0.5 rounded" x-text="fb.country"></span>
+                  </div>
+                </div>
+                <button @click="deleteFeedback(fb.id)" class="shrink-0 p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="删除">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
     <!-- Tab: Sources -->
     <div x-show="activeTab === 'sources'" x-cloak class="fade-in space-y-6">
       <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
@@ -278,6 +318,7 @@
         tabs: [
           { id: 'overview', label: '概览' },
           { id: 'version', label: '版本控制' },
+          { id: 'feedback', label: '用户反馈' },
           { id: 'sources', label: '数据源' },
         ],
         loading: true,
@@ -287,6 +328,8 @@
         logs: [],
         rules: [],
         filterStatus: '',
+        feedbackList: [],
+        feedbackLoading: false,
         toast: { show: false, ok: true, message: '' },
 
         // Version config form
@@ -308,6 +351,7 @@
         async init() {
           await this.loadOverview();
           await this.loadSources();
+          await this.loadFeedback();
           this.loading = false;
         },
 
@@ -335,6 +379,40 @@
             const data = await res.json();
             this.rules = data.rules || [];
           } catch (e) { /* ignore */ }
+        },
+
+        async loadFeedback() {
+          this.feedbackLoading = true;
+          try {
+            const res = await fetch('/api/feedback');
+            const data = await res.json();
+            this.feedbackList = data.items || [];
+          } catch (e) {
+            this.showToast(false, '加载反馈失败: ' + e.message);
+          }
+          this.feedbackLoading = false;
+        },
+
+        async deleteFeedback(id) {
+          if (!confirm('确定删除此条反馈？')) return;
+          try {
+            const res = await fetch('/api/feedback/' + id, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.ok) {
+              this.feedbackList = this.feedbackList.filter(f => f.id !== id);
+              this.showToast(true, '已删除');
+            } else {
+              this.showToast(false, data.error || '删除失败');
+            }
+          } catch (e) {
+            this.showToast(false, e.message);
+          }
+        },
+
+        formatTime(iso) {
+          if (!iso) return '';
+          const d = new Date(iso);
+          return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
         },
 
         async publishAll() {

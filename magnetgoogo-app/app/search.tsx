@@ -139,11 +139,15 @@ export default function SearchScreen() {
       resultAccum.current = [];
       setDoneCount(0);
 
-      // Sort: non-verification sources first, verification sources last
+      // Sort: high-quality sources first, verification/browser sources last
       const allSources = [...sources].sort((a, b) => {
         const aV = (a as any).search?.requires_browser ? 1 : VerifyManager.isVerifyOrigin((a as any).site?.origin) ? 1 : 0;
         const bV = (b as any).search?.requires_browser ? 1 : VerifyManager.isVerifyOrigin((b as any).site?.origin) ? 1 : 0;
-        return aV - bV;
+        if (aV !== bV) return aV - bV;
+        // Within same tier, sort by quality score descending
+        const aScore = (a as any).quality?.score ?? 50;
+        const bScore = (b as any).quality?.score ?? 50;
+        return bScore - aScore;
       });
       setSourceCount(allSources.length);
 
@@ -274,7 +278,9 @@ export default function SearchScreen() {
       return (
         <View style={styles.relevanceDivider}>
           <View style={styles.relevanceLine} />
-          <Text style={styles.relevanceLabel}>{t.lowRelevanceHint}</Text>
+          <View style={styles.relevancePill}>
+            <Text style={styles.relevanceLabel}>{t.lowRelevanceHint}</Text>
+          </View>
           <View style={styles.relevanceLine} />
         </View>
       );
@@ -296,10 +302,7 @@ export default function SearchScreen() {
             </LinearGradient>
             <View style={styles.cardContent}>
               <View style={styles.titleRow}>
-                <Text style={[styles.cardTitle, { flex: 1, color: colors.text }]} numberOfLines={2}>{item.title}</Text>
-                <TouchableOpacity onPress={() => handleToggleFav(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Ionicons name={isFav ? 'star' : 'star-outline'} size={18} color={isFav ? '#f59e0b' : '#d0d5dd'} />
-                </TouchableOpacity>
+                <Text style={[styles.cardTitle, { flex: 1, color: colors.text }]} numberOfLines={3} ellipsizeMode="tail">{item.title}</Text>
               </View>
               <View style={styles.cardMetaRow}>
                 <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>
@@ -323,6 +326,13 @@ export default function SearchScreen() {
             <View style={styles.btnGroup}>
               {hasMagnet && (
                 <>
+                  <TouchableOpacity
+                    onPress={() => handleToggleFav(item)}
+                    activeOpacity={0.8}
+                    style={[styles.favBtn, { borderColor: isFav ? '#6366f1' : colors.border }]}
+                  >
+                    <Ionicons name={isFav ? 'bookmark' : 'bookmark-outline'} size={14} color={isFav ? '#6366f1' : '#d0d5dd'} />
+                  </TouchableOpacity>
                   <TouchableOpacity onPress={() => handleCopy(item)} activeOpacity={0.8}>
                     <LinearGradient colors={['#4e8aff', '#2c63f4']} style={styles.actionBtn}>
                       <Ionicons name="copy-outline" size={13} color="#fff" />
@@ -545,10 +555,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#262b35',
-    lineHeight: 19,
+    lineHeight: 18,
     marginBottom: 4,
   },
   titleRow: {
@@ -620,17 +630,36 @@ const styles = StyleSheet.create({
   relevanceDivider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 12,
+    marginVertical: 16,
+    paddingHorizontal: 4,
     gap: 10,
   },
   relevanceLine: {
     flex: 1,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#e0dcd6',
+    height: 1,
+    backgroundColor: '#e8a84c',
+    opacity: 0.4,
+  },
+  favBtn: {
+    width: 30,
+    height: 26,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  relevancePill: {
+    backgroundColor: '#FFF3E0',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFCC80',
   },
   relevanceLabel: {
-    fontSize: 11,
-    color: '#b0b8c8',
-    fontWeight: '500',
+    fontSize: 12,
+    color: '#E65100',
+    fontWeight: '600',
   },
 });

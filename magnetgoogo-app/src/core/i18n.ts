@@ -42,7 +42,21 @@ const zh = {
   sectionAbout: '关于',
   version: '版本',
 
-  // ── Kind labels ──
+  // ── Kind labels (Tier 1: content types) ──
+  kindMovie: '电影',
+  kindTvUs: '美剧',
+  kindTvJp: '日剧',
+  kindTvKr: '韩剧',
+  kindTvCn: '国产剧',
+  kindTv: '剧集',
+  kindAnime: '动漫',
+  kindVariety: '综艺',
+  kindDocumentary: '纪录片',
+  kindMusic: '音乐',
+  kindGame: '游戏',
+  kindEbook: '电子书',
+  kindManga: '漫画',
+  // ── Kind labels (Tier 2: format types) ──
   kindVideo: '视频',
   kindAudio: '音频',
   kindArchive: '压缩包',
@@ -111,7 +125,21 @@ const en: typeof zh = {
   sectionAbout: 'About',
   version: 'Version',
 
-  // ── Kind labels ──
+  // ── Kind labels (Tier 1: content types) ──
+  kindMovie: 'Movie',
+  kindTvUs: 'US TV',
+  kindTvJp: 'JP Drama',
+  kindTvKr: 'KR Drama',
+  kindTvCn: 'CN Drama',
+  kindTv: 'TV Series',
+  kindAnime: 'Anime',
+  kindVariety: 'Variety',
+  kindDocumentary: 'Documentary',
+  kindMusic: 'Music',
+  kindGame: 'Game',
+  kindEbook: 'eBook',
+  kindManga: 'Manga',
+  // ── Kind labels (Tier 2: format types) ──
   kindVideo: 'Video',
   kindAudio: 'Audio',
   kindArchive: 'Archive',

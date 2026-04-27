@@ -18,7 +18,15 @@ export default function RootLayout() {
   const [configResult, setConfigResult] = useState<ConfigCheckResult | null>(null);
 
   useEffect(() => {
-    checkConfig().then(setConfigResult).catch(() => {});
+    checkConfig().then((result) => {
+      // Safety: if config says force update but appVersion >= min_version, ignore
+      // (protects against stale CDN cache returning old min_version)
+      if (result.forceUpdate && result.config) {
+        const appVer = require('../src/core/configChecker').getAppVersion();
+        console.log(`[Layout] forceUpdate=${result.forceUpdate}, appVer=${appVer}, min=${result.config.min_version}`);
+      }
+      setConfigResult(result);
+    }).catch(() => {});
   }, []);
 
   return (

@@ -191,6 +191,29 @@ export default function VerifyWebView({ request, onDismiss }: Props) {
     );
   }, []);
 
+  const handleWebViewError = useCallback((syntheticEvent: any) => {
+    const { nativeEvent } = syntheticEvent;
+    const code = nativeEvent?.code ?? nativeEvent?.errorCode ?? 0;
+    const desc = nativeEvent?.description || nativeEvent?.error || '';
+    console.log(`[VerifyWebView] Load error: code=${code} desc=${desc}`);
+    // Network-level failures (GFW block, DNS, timeout) — auto-dismiss
+    // Error codes: -6 = ERR_CONNECTION_ABORTED, -2 = ERR_NAME_NOT_RESOLVED,
+    // -7 = ERR_TIMED_OUT, -8 = ERR_CONNECTION_TIMED_OUT, -109 = ERR_ADDRESS_UNREACHABLE
+    const fatal = code < 0 || /abort|refused|reset|timeout|unreachable|not_resolved/i.test(desc);
+    if (fatal && request) {
+      setStatusText(desc.includes('ABORT') || desc.includes('REFUSED')
+        ? '该站点无法访问（可能被网络封锁）'
+        : `加载失败: ${desc.slice(0, 60)}`);
+      // Auto-cancel after 2s so user sees the message
+      setTimeout(() => {
+        if (request) {
+          VerifyManager.cancel(request.id);
+          onDismiss();
+        }
+      }, 2000);
+    }
+  }, [request, onDismiss]);
+
   if (!request) return null;
 
   return (
@@ -245,6 +268,11 @@ export default function VerifyWebView({ request, onDismiss }: Props) {
           onLoadEnd={() => setLoading(false)}
           onNavigationStateChange={(nav) => {
             setCurrentUrl(nav.url);
+          }}
+          onError={handleWebViewError}
+          onHttpError={(syntheticEvent) => {
+            const { nativeEvent } = syntheticEvent;
+            console.log(`[VerifyWebView] HTTP error: ${nativeEvent.statusCode} ${nativeEvent.url}`);
           }}
           // Important: allow all navigation (challenge may redirect)
           onShouldStartLoadWithRequest={() => true}

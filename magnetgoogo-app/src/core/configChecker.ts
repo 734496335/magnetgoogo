@@ -9,10 +9,21 @@
 
 import Constants from 'expo-constants';
 
-// Primary: CF Worker gateway (handles version/membership logic)
-// Fallback: jsDelivr CDN (static, no logic, but fast in China)
+// Endpoints raced in parallel — first valid response wins.
+const CDN_BASE = 'https://cdn.jsdelivr.net/gh/734496335/mg-data@main';
+const RAW_BASE = 'https://raw.githubusercontent.com/734496335/mg-data/main';
 const GATEWAY_BASE = 'https://maggoogo-gateway.734496335lp.workers.dev';
-const CDN_BASE = 'https://cdn.jsdelivr.net/gh/734496335/maggoogo-sources@main';
+
+/** Fetch with timeout (default 6s — short because we race). */
+function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 6000): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => { ctrl.abort(); reject(new Error('timeout')); }, timeoutMs);
+    fetch(url, { ...options, signal: ctrl.signal })
+      .then(r => { clearTimeout(timer); resolve(r); })
+      .catch(e => { clearTimeout(timer); reject(e); });
+  });
+}
 
 export interface RemoteConfig {
   latest_version: string;
@@ -55,32 +66,39 @@ function compareSemver(a: string, b: string): number {
   return 0;
 }
 
-/** Fetch config.json and check version constraints. */
+/** Fetch config.json and check version constraints. Race all endpoints. */
 export async function checkConfig(): Promise<ConfigCheckResult> {
   const appVersion = getAppVersion();
 
-  // Try gateway first (has logic), then static CDN fallback
-  const urls = [`${GATEWAY_BASE}/config.json`, `${CDN_BASE}/config.json`];
+  // Race all endpoints in parallel
+  const urls = [
+    `${CDN_BASE}/config.json`,
+    `${RAW_BASE}/config.json`,
+    `${GATEWAY_BASE}/config.json`,
+  ];
+
+  const headers = {
+    'Cache-Control': 'no-cache',
+    'X-App-Version': appVersion,
+  };
+
   let config: RemoteConfig | null = null;
   let error: string | null = null;
 
-  for (const url of urls) {
-    try {
-      const resp = await fetch(url, {
-        headers: {
-          'Cache-Control': 'no-cache',
-          'X-App-Version': appVersion,
-        },
-      });
-      if (resp.ok) {
-        config = await resp.json();
-        console.log(`[ConfigChecker] Loaded config from ${url}`);
-        break;
-      }
-    } catch (e: any) {
-      error = e.message || String(e);
-      console.log(`[ConfigChecker] Failed ${url}: ${error}`);
-    }
+  try {
+    const result = await Promise.any(
+      urls.map(async (url) => {
+        const resp = await fetchWithTimeout(url, { headers });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        console.log(`[ConfigChecker] ✓ Loaded config from ${url}`);
+        return data as RemoteConfig;
+      }),
+    );
+    config = result;
+  } catch (e: any) {
+    error = e.message || String(e);
+    console.log(`[ConfigChecker] All endpoints failed: ${error}`);
   }
 
   if (!config) {

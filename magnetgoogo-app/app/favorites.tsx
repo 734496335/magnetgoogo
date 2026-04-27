@@ -61,7 +61,7 @@ export default function FavoritesScreen() {
 
       {items.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="star-outline" size={48} color="#e0e0e0" />
+          <Ionicons name="bookmark-outline" size={48} color="#e0e0e0" />
           <Text style={styles.emptyText}>{t.noFavorites}</Text>
         </View>
       ) : (
@@ -76,7 +76,7 @@ export default function FavoritesScreen() {
                 <View style={styles.titleRow}>
                   <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>{item.title}</Text>
                   <TouchableOpacity onPress={() => handleRemove(item.magnet)}>
-                    <Ionicons name="star" size={18} color="#f59e0b" />
+                    <Ionicons name="bookmark" size={18} color="#6366f1" />
                   </TouchableOpacity>
                 </View>
                 <Text style={[styles.meta, { color: colors.textTertiary }]}>

@@ -87,7 +87,23 @@ function cleanDate(raw: string): string {
 function extractTitleFromMagnet(magnet: string): string {
   try {
     const m = magnet.match(/[?&]dn=([^&]+)/);
-    if (m) return decodeURIComponent(m[1].replace(/\+/g, ' ')).trim();
+    if (m) {
+      const decoded = decodeURIComponent(m[1].replace(/\+/g, ' ')).trim();
+      // Detect mojibake: if decoded string has common Latin-1→UTF-8 mojibake
+      // patterns (e.g. Ã¤, Ã¥, Ã£ for CJK chars), try re-decoding as Shift-JIS
+      if (/[\u00c0-\u00ff]{2,}/.test(decoded) && decoded.length > 4) {
+        try {
+          const iconv = require('iconv-lite');
+          const { Buffer } = require('buffer');
+          // Encode back to Latin-1 bytes, then decode as Shift-JIS
+          const raw = Buffer.from(decoded, 'latin1');
+          const sjis = iconv.decode(raw, 'shift_jis');
+          // If Shift-JIS produces CJK chars, prefer it
+          if (/[\u3000-\u9fff\uff00-\uffef]/.test(sjis)) return sjis;
+        } catch {}
+      }
+      return decoded;
+    }
   } catch {}
   return '';
 }

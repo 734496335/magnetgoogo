@@ -18,8 +18,8 @@
 function corsHeaders() {
   return {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-App-Version, X-Device-Id, X-Member-Token',
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-App-Version, X-Device-Id, X-Member-Token, X-Admin-Secret',
     'Access-Control-Max-Age': '86400',
   };
 }
@@ -123,12 +123,12 @@ async function handleSources(request, env) {
   const meta = parseRequestMeta(request);
 
   // ── Step 1: Fetch config to get min_version ──
-  let minVersion = '1.0.0';
+  let minVersion = '0.0.0';
   try {
     const configResp = await fetchUpstream(env, '/config.json', env.CACHE_TTL);
     if (configResp.ok) {
       const config = await configResp.clone().json();
-      minVersion = config.min_version || '1.0.0';
+      minVersion = config.min_version || '0.0.0';
     }
   } catch { /* use default */ }
 
@@ -176,8 +176,8 @@ async function handleCheck(request, env) {
     if (configResp.ok) config = await configResp.json();
   } catch { /* ignore */ }
 
-  const minVersion = config.min_version || '1.0.0';
-  const latestVersion = config.latest_version || '1.0.0';
+  const minVersion = config.min_version || '0.0.0';
+  const latestVersion = config.latest_version || '0.0.0';
 
   const forceUpdate = meta.appVersion
     ? semverCompare(meta.appVersion, minVersion) < 0
@@ -281,6 +281,23 @@ async function handleFeedbackList(request, env) {
   return jsonResponse({ count: items.length, items });
 }
 
+async function handleFeedbackDelete(request, env, path) {
+  const secret = request.headers.get('X-Admin-Secret') || '';
+  const adminSecret = env.ADMIN_SECRET || 'maggoogo-admin-2026';
+  if (secret !== adminSecret) {
+    return jsonResponse({ error: 'unauthorized' }, 401);
+  }
+  if (!env.FEEDBACK) {
+    return jsonResponse({ error: 'kv_not_configured' }, 500);
+  }
+  const id = path.replace('/api/feedback/', '');
+  if (!id || !id.startsWith('fb_')) {
+    return jsonResponse({ error: 'invalid_id' }, 400);
+  }
+  await env.FEEDBACK.delete(id);
+  return jsonResponse({ ok: true, deleted: id });
+}
+
 // ────────────────────────────────────────────────────────────────────
 // Router
 // ────────────────────────────────────────────────────────────────────
@@ -310,6 +327,10 @@ export default {
           if (request.method === 'GET') return await handleFeedbackList(request, env);
           return jsonResponse({ error: 'method_not_allowed' }, 405);
         default:
+          // Handle /api/feedback/:id DELETE
+          if (path.startsWith('/api/feedback/') && request.method === 'DELETE') {
+            return await handleFeedbackDelete(request, env, path);
+          }
           return jsonResponse({ error: 'not_found' }, 404);
       }
     } catch (err) {

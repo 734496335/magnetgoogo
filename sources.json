@@ -8162,11 +8162,11 @@
             ]
           },
           "health": {
-            "status": "green",
-            "status_detail": "ok",
-            "last_checked_at": "2026-04-23T14:01:19.176929+00:00",
-            "magnets_found": 20,
-            "sample_title": "G-MODEアーカイブス+ DIGITAL DEVIL SAGA A's TEST Server"
+            "status": "gray",
+            "status_detail": "unreachable",
+            "last_checked_at": "2026-04-27T09:30:00.000000+00:00",
+            "magnets_found": 0,
+            "sample_title": ""
           }
         },
         {

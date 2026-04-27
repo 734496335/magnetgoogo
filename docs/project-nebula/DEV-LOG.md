@@ -1,4 +1,73 @@
 ---
+日期/时间：2026-04-27 18:20（UTC+8）
+本次版本：v0.2.0
+本次范围：**乱码修复 + 验证弹窗容错 + 反馈系统修复 + UI 优化**
+涉及模块：src/core/httpClient.ts, src/core/searchEngine.ts, src/components/VerifyWebView.tsx, src/components/FeedbackFAB.tsx, app/search.tsx, app/favorites.tsx, app/index.tsx, cf-gateway/src/index.js, sources.json
+
+### 变更内容
+
+1. **乱码修复：charset-aware 响应解码**
+   - `httpClient.ts` 新增 `decodeResponse()` — `resp.arrayBuffer()` + `iconv-lite`
+   - 三级检测：Content-Type header → `<meta charset>` → UTF-8 兜底
+   - 安装 `string_decoder` polyfill 解决 RN Metro 兼容
+   - `searchEngine.ts` — `extractTitleFromMagnet()` 增加 Latin-1→Shift-JIS 重新解码
+
+2. **VerifyWebView 网络错误容错**
+   - 新增 `onError` / `onHttpError` 回调
+   - 检测 GFW 封锁（ERR_CONNECTION_ABORTED/-6/-2/-7 等），显示"该站点无法访问"
+   - 2 秒后自动关闭验证弹窗，避免用户被卡住
+
+3. **反馈提交系统修复**
+   - CF Worker 重新部署（之前代码从未部署），API 验证通过
+   - `FeedbackFAB.tsx` 重构为 fire-and-forget：立即关闭弹窗 + 后台异步提交 + toast 提示
+   - CORS 添加 Authorization header
+
+4. **UI 优化**
+   - 收藏图标 star → bookmark（更高级感），颜色 gold → indigo
+   - CF Worker `GITHUB_RAW` 更新为 mg-data 仓库
+
+5. **sources.json**
+   - 1337xx.to 降级 gray/unreachable（GFW 封锁）
+   - 源统计：58 green / 0 yellow / 136 gray
+
+---
+---
+日期/时间：2026-04-27 11:30（UTC+8）
+本次版本：v0.9.32
+本次范围：**新架构** — mg-data 仓库迁移 + 并行竞争拉取 + 两层类型识别 + 收藏夹重构 + 会员鉴权预留
+涉及模块：src/core/secureSourceStore.ts, src/core/configChecker.ts, src/core/types.ts, src/core/i18n.ts, app/search.tsx, app/index.tsx, encrypt_sources.py
+
+### 变更内容
+
+1. **仓库迁移 maggoogo-sources → mg-data**
+   - 新仓库 `734496335/mg-data`，旧仓库可通过 config.json min_version 强制淘汰
+   - jsDelivr CDN + GitHub Raw + CF Worker 三端点
+
+2. **拉取速度优化：Promise.any 并行竞争**
+   - 旧：串行 fallback，最慢 4×15s = 60s
+   - 新：并行竞争，最慢 8s（谁先响应用谁）
+   - configChecker 同步改为并行
+
+3. **会员鉴权预留**
+   - `getAuthToken()` / `setAuthToken()` / `clearAuthToken()` API
+   - 请求自动带 `Authorization: Bearer <token>`（当前无 token 则跳过）
+   - CF Worker 未来可验证 token 返回 premium 源
+
+4. **两层类型识别系统（Tier 1 内容 + Tier 2 格式）**
+   - Tier 1: movie/tv_us/tv_jp/tv_kr/tv_cn/tv/anime/variety/documentary/music/game/ebook/manga
+   - Tier 2: video/audio/archive/image/document/software/other
+   - 每种类型独立图标+配色
+
+5. **收藏按钮 → 按钮组第一位**（复制磁力左边）
+6. **源搜索排序：quality.score 降序**（高质量源先搜）
+7. **首页收藏夹 → 入口按钮**（点击进独立页面）
+8. **视频类型补全**（rmvb/rm/divx/3gp/mts 等 20+ 新扩展名）
+
+### 迁移文档
+详见 `docs/project-nebula/MIGRATION-mg-data.md`
+
+---
+---
 日期/时间：2026-04-26 22:00（UTC+8）
 本次版本：v0.9.31
 本次范围：**第二批优化** — 相关度分隔线 + 验证优化 + 深色模式 + 崩溃上报 + 反馈入口

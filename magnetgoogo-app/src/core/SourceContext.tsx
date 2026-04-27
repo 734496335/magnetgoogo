@@ -32,18 +32,32 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load cached sources on mount
+  // Load cached sources on mount; auto-sync if no disk cache
   useEffect(() => {
     (async () => {
       try {
         const cached = await loadSources();
         const m = await loadMeta();
-        if (cached) setSources(cached);
-        if (m) setMeta(m);
+        if (cached && cached.length > 0) {
+          setSources(cached);
+          if (m) setMeta(m);
+          setLoading(false);
+          return;
+        }
+      } catch (e: any) {
+        console.log(`[SourceContext] Cache load error: ${e.message}`);
+      }
+      // No cached sources → auto-sync from network
+      setLoading(false);
+      setSyncing(true);
+      try {
+        const { sources: fresh, meta: m } = await syncSources();
+        setSources(fresh);
+        setMeta(m);
       } catch (e: any) {
         setError(e.message);
       } finally {
-        setLoading(false);
+        setSyncing(false);
       }
     })();
   }, []);

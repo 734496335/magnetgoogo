@@ -21,6 +21,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from functools import wraps
 
+import requests as http_requests
 from flask import Flask, render_template, request, jsonify, send_from_directory
 
 # ── Paths ──
@@ -35,6 +36,8 @@ SETTINGS_FILE = BASE_DIR / ".admin_settings.json"
 
 GITHUB_REPO = "734496335/maggoogo-sources"
 JSDELIVR_BASE = f"https://cdn.jsdelivr.net/gh/{GITHUB_REPO}@main"
+GATEWAY_BASE = "https://maggoogo-gateway.734496335lp.workers.dev"
+ADMIN_SECRET = "maggoogo-admin-2026"
 
 app = Flask(__name__, template_folder=str(BASE_DIR / "admin_templates"))
 
@@ -253,6 +256,34 @@ def api_source_details():
         })
 
     return jsonify({"rules": summary})
+
+
+@app.route("/api/feedback")
+def api_feedback_list():
+    """Proxy feedback list from CF Worker KV."""
+    try:
+        resp = http_requests.get(
+            f"{GATEWAY_BASE}/api/feedback",
+            params={"secret": ADMIN_SECRET},
+            timeout=10,
+        )
+        return jsonify(resp.json())
+    except Exception as e:
+        return jsonify({"error": str(e), "items": [], "count": 0})
+
+
+@app.route("/api/feedback/<fb_id>", methods=["DELETE"])
+def api_feedback_delete(fb_id):
+    """Delete a feedback entry from CF Worker KV."""
+    try:
+        resp = http_requests.delete(
+            f"{GATEWAY_BASE}/api/feedback/{fb_id}",
+            headers={"X-Admin-Secret": ADMIN_SECRET},
+            timeout=10,
+        )
+        return jsonify(resp.json())
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
 
 
 # ── Main ──

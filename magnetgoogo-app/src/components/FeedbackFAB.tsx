@@ -1,8 +1,10 @@
 /**
  * Floating feedback button — anonymous submission via CF Worker KV.
  * No login, no email, just type and submit.
+ *
+ * Submit is fire-and-forget: close modal immediately, show toast later.
  */
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   TouchableOpacity,
   Text,
@@ -10,10 +12,10 @@ import {
   Modal,
   View,
   TextInput,
-  Alert,
   Platform,
   KeyboardAvoidingView,
-  ActivityIndicator,
+  Animated,
+  Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLang } from '../core/LangContext';
@@ -27,38 +29,72 @@ export default function FeedbackFAB() {
   const { colors } = useTheme();
   const [visible, setVisible] = useState(false);
   const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
   const isZh = lang === 'zh';
 
-  const handleSubmit = async () => {
+  // ── Toast state ──
+  const [toastMsg, setToastMsg] = useState('');
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastY = useRef(new Animated.Value(30)).current;
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    toastOpacity.setValue(0);
+    toastY.setValue(30);
+    Animated.parallel([
+      Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.timing(toastY, { toValue: 0, duration: 200, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+    ]).start();
+    setTimeout(() => {
+      Animated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setToastMsg(''));
+    }, 2500);
+  };
+
+  const handleSubmit = () => {
     const trimmed = text.trim();
     if (!trimmed) return;
-    setSending(true);
-    try {
-      const resp = await fetch(FEEDBACK_API, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-App-Version': getAppVersion(),
-        },
-        body: JSON.stringify({
-          text: trimmed,
-          platform: Platform.OS,
-        }),
+
+    // Close modal immediately — fire and forget
+    setText('');
+    setVisible(false);
+    showToast(isZh ? '反馈提交中…' : 'Submitting…');
+
+    // Background submit
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+    fetch(FEEDBACK_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-App-Version': getAppVersion(),
+      },
+      body: JSON.stringify({
+        text: trimmed,
+        platform: Platform.OS,
+        ts: Date.now(),
+      }),
+      signal: ctrl.signal,
+    })
+      .then(async (resp) => {
+        clearTimeout(timer);
+        if (!resp.ok) {
+          const body = await resp.text().catch(() => '');
+          console.log(`[Feedback] HTTP ${resp.status}: ${body}`);
+          showToast(isZh ? '提交失败，稍后再试' : 'Submit failed, try later');
+          return;
+        }
+        const json = await resp.json().catch(() => ({ ok: false }));
+        if (json.ok) {
+          showToast(isZh ? '✓ 已收到反馈，感谢！' : '✓ Feedback received, thanks!');
+        } else {
+          console.log(`[Feedback] API error:`, json);
+          showToast(isZh ? '提交失败' : 'Submit failed');
+        }
+      })
+      .catch((e: any) => {
+        clearTimeout(timer);
+        console.log(`[Feedback] Network error: ${e.message}`);
+        showToast(isZh ? '网络错误，稍后再试' : 'Network error, try later');
       });
-      const json = await resp.json();
-      if (json.ok) {
-        Alert.alert(isZh ? '感谢反馈' : 'Thanks!', isZh ? '已收到你的反馈' : 'Your feedback has been submitted.');
-        setText('');
-        setVisible(false);
-      } else {
-        Alert.alert(isZh ? '提交失败' : 'Failed', json.error || 'Unknown error');
-      }
-    } catch (e: any) {
-      Alert.alert(isZh ? '网络错误' : 'Network Error', e.message || String(e));
-    } finally {
-      setSending(false);
-    }
   };
 
   return (
@@ -99,19 +135,22 @@ export default function FeedbackFAB() {
               <TouchableOpacity
                 style={[styles.submitBtn, !text.trim() && styles.submitBtnDisabled]}
                 onPress={handleSubmit}
-                disabled={!text.trim() || sending}
+                disabled={!text.trim()}
                 activeOpacity={0.8}
               >
-                {sending ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.submitBtnText}>{isZh ? '提交' : 'Submit'}</Text>
-                )}
+                <Text style={styles.submitBtnText}>{isZh ? '提交' : 'Submit'}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Lightweight toast */}
+      {!!toastMsg && (
+        <Animated.View style={[styles.toast, { opacity: toastOpacity, transform: [{ translateY: toastY }] }]} pointerEvents="none">
+          <Text style={styles.toastText}>{toastMsg}</Text>
+        </Animated.View>
+      )}
     </>
   );
 }
@@ -198,5 +237,21 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 14,
+  },
+  toast: {
+    position: 'absolute',
+    bottom: 80,
+    left: 24,
+    right: 24,
+    backgroundColor: 'rgba(30,30,30,0.92)',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

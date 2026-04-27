@@ -28,7 +28,7 @@ KEY_HEX = "0986e63db310b07bffd3ef35c94c8f6d91561588ddaf98db7faa7907106b34de"
 # Paths
 SCRIPT_DIR = Path(__file__).parent
 SOURCES_JSON = SCRIPT_DIR / "sources.json"
-DIST_DIR = SCRIPT_DIR / "maggoogo-sources"  # GitHub Pages repo folder
+DIST_DIR = SCRIPT_DIR / "mg-data"  # GitHub repo folder (new: mg-data)
 DIST_FILE = DIST_DIR / "sources.enc.json"
 
 
@@ -235,7 +235,7 @@ def deploy_to_github():
         subprocess.run(["git", "branch", "-M", "main"], check=True)
         print("\n⚠  Git repo initialized. You need to add a remote:")
         print(f"  cd {DIST_DIR}")
-        print("  git remote add origin https://github.com/<YOUR_USER>/maggoogo-sources.git")
+        print("  git remote add origin https://github.com/734496335/mg-data.git")
         print("  Then re-run: python encrypt_sources.py --deploy")
         return
 

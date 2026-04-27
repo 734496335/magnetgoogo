@@ -35,6 +35,10 @@ run.log
 # ── Encrypted dist (generated) ──
 sources.enc.json
 maggoogo-sources/sources.enc.json
+mg-data/
+
+# ── Wrangler local state ──
+cf-gateway/.wrangler/
 
 # ── OS / IDE ──
 .DS_Store

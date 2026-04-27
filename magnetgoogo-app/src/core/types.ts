@@ -14,7 +14,16 @@ export interface SearchResult {
   site_name?: string;
 }
 
-export type Kind = 'video' | 'audio' | 'archive' | 'image' | 'document' | 'software' | 'other';
+// ── Two-tier Kind system ──
+// Tier 1 — Content type: detected from title keywords (what it IS)
+// Tier 2 — Format type:  detected from file extension (what format it's in)
+export type Kind =
+  // Tier 1: content types
+  | 'movie' | 'tv_us' | 'tv_jp' | 'tv_kr' | 'tv_cn' | 'tv'
+  | 'anime' | 'variety' | 'documentary'
+  | 'music' | 'game' | 'ebook' | 'manga'
+  // Tier 2: format fallback types
+  | 'video' | 'audio' | 'archive' | 'image' | 'document' | 'software' | 'other';
 
 export interface ResultCardModel {
   id: string;
@@ -40,49 +49,114 @@ export interface KindTheme {
 }
 
 export const KIND_THEMES: Record<Kind, KindTheme> = {
-  video:    { iconName: 'play-circle-outline',    tileColors: ['#ffeef0', '#ffd6dc'], iconColor: '#e85d75' },
-  audio:    { iconName: 'musical-notes-outline',  tileColors: ['#fff3e0', '#ffe0b2'], iconColor: '#f57c00' },
-  archive:  { iconName: 'file-tray-stacked-outline', tileColors: ['#e3f2fd', '#bbdefb'], iconColor: '#1e88e5' },
-  image:    { iconName: 'image-outline',          tileColors: ['#f3e5f5', '#e1bee7'], iconColor: '#8e24aa' },
-  document: { iconName: 'document-text-outline',  tileColors: ['#fff8e1', '#ffecb3'], iconColor: '#ffa000' },
-  software: { iconName: 'cube-outline',           tileColors: ['#e8f5e9', '#c8e6c9'], iconColor: '#43a047' },
-  other:    { iconName: 'help-circle-outline',    tileColors: ['#f5f5f5', '#e0e0e0'], iconColor: '#757575' },
+  // ── Tier 1: content types ──
+  movie:       { iconName: 'film-outline',             tileColors: ['#ffeef0', '#ffd6dc'], iconColor: '#e85d75' },
+  tv_us:       { iconName: 'tv-outline',               tileColors: ['#e3f2fd', '#bbdefb'], iconColor: '#1565c0' },
+  tv_jp:       { iconName: 'tv-outline',               tileColors: ['#fce4ec', '#f8bbd0'], iconColor: '#c62828' },
+  tv_kr:       { iconName: 'tv-outline',               tileColors: ['#f3e5f5', '#e1bee7'], iconColor: '#7b1fa2' },
+  tv_cn:       { iconName: 'tv-outline',               tileColors: ['#ffebee', '#ffcdd2'], iconColor: '#d32f2f' },
+  tv:          { iconName: 'tv-outline',               tileColors: ['#e0f2f1', '#b2dfdb'], iconColor: '#00796b' },
+  anime:       { iconName: 'color-palette-outline',    tileColors: ['#fce4ec', '#f8bbd0'], iconColor: '#d81b60' },
+  variety:     { iconName: 'mic-outline',              tileColors: ['#fff3e0', '#ffe0b2'], iconColor: '#ef6c00' },
+  documentary: { iconName: 'earth-outline',            tileColors: ['#e8eaf6', '#c5cae9'], iconColor: '#283593' },
+  music:       { iconName: 'musical-notes-outline',    tileColors: ['#fff3e0', '#ffe0b2'], iconColor: '#f57c00' },
+  game:        { iconName: 'game-controller-outline',  tileColors: ['#e8f5e9', '#c8e6c9'], iconColor: '#2e7d32' },
+  ebook:       { iconName: 'book-outline',             tileColors: ['#fff8e1', '#ffecb3'], iconColor: '#ff8f00' },
+  manga:       { iconName: 'library-outline',          tileColors: ['#fce4ec', '#f8bbd0'], iconColor: '#ad1457' },
+  // ── Tier 2: format fallback types ──
+  video:       { iconName: 'play-circle-outline',      tileColors: ['#ffeef0', '#ffd6dc'], iconColor: '#e85d75' },
+  audio:       { iconName: 'musical-notes-outline',    tileColors: ['#fff3e0', '#ffe0b2'], iconColor: '#f57c00' },
+  archive:     { iconName: 'file-tray-stacked-outline', tileColors: ['#e3f2fd', '#bbdefb'], iconColor: '#1e88e5' },
+  image:       { iconName: 'image-outline',            tileColors: ['#f3e5f5', '#e1bee7'], iconColor: '#8e24aa' },
+  document:    { iconName: 'document-text-outline',    tileColors: ['#fff8e1', '#ffecb3'], iconColor: '#ffa000' },
+  software:    { iconName: 'cube-outline',             tileColors: ['#e8f5e9', '#c8e6c9'], iconColor: '#43a047' },
+  other:       { iconName: 'help-circle-outline',      tileColors: ['#f5f5f5', '#e0e0e0'], iconColor: '#757575' },
 };
 
-/** Detect file format kind from title (by file extension or format hints).
- *  If multiple files, the largest is typically named in the title. */
+/**
+ * Two-tier kind detection:
+ *   Tier 1 — Content type from title keywords (电影/美剧/动漫/漫画/…)
+ *   Tier 2 — File format from extension (.mp4/.mkv/.rmvb/…)
+ */
 export function guessKind(title: string): Kind {
   const t = title.toLowerCase();
 
+  // ═══════════════════════════════════════════════════════════════════
+  // TIER 1: Content-based detection (what the resource IS)
+  // ═══════════════════════════════════════════════════════════════════
+
+  // ── Anime / 动漫 ── (check before TV, many anime have S/E patterns)
+  if (/动[漫画]片?|anime|ova|oad|番剧|新番|旧番/.test(t)) return 'anime';
+  if (/\[.*(?:字幕[组組队隊]|fansub|sub)\]|fansu[bp]/i.test(t)) return 'anime';
+  if (/\b(?:mikan|nyaa|acg\.rip|dmhy|bangumi|animetime)\b/i.test(t)) return 'anime';
+  if (/\[\d{2,3}(?:v\d)?\]|\[\d{2,3}-\d{2,3}\]/.test(t) && /[\u4e00-\u9fff]|[\u3040-\u309f\u30a0-\u30ff]/.test(t)) return 'anime';
+
+  // ── Manga / 漫画 ──
+  if (/漫画|manga|comic|同人志|同人誌|doujin|コミック|まんが/.test(t)) return 'manga';
+  if (/\.(cbr|cbz)\b/.test(t)) return 'manga';
+
+  // ── eBook / 电子书 ──
+  if (/电子书|小说|ebook|kindle|文库|轻小说|light\s*novel/.test(t)) return 'ebook';
+  if (/\.(epub|mobi|azw3?|fb2)\b/.test(t)) return 'ebook';
+
+  // ── Music / 音乐 ──
+  if (/专辑|album|discography|无损|lossless|hi-?res|演唱会|concert|live\s*(?:tour|album)/i.test(t)) return 'music';
+
+  // ── Game / 游戏 ──
+  // "游戏" alone is ambiguous (鱿鱼游戏=TV, 权力的游戏=TV), require stronger context
+  if (/\bgame\b|switch|ps[345]|xbox|nintendo|steam|gog\b|fitgirl|repack/i.test(t)) return 'game';
+  if (/游戏/.test(t) && !/鱿鱼游戏|权力.*游戏|饥饿游戏|致命游戏|游戏人生|模仿游戏|电影|电视|剧/.test(t)) return 'game';
+
+  // ── TV sub-types (specific regions) ──
+  if (/美剧|american\s*(?:tv|drama|series)/i.test(t)) return 'tv_us';
+  if (/日剧|日本电视|japanese\s*(?:tv|drama)|jdrama/i.test(t)) return 'tv_jp';
+  if (/韩剧|韩国电视|korean\s*(?:tv|drama)|kdrama/i.test(t)) return 'tv_kr';
+  if (/国产剧|大陆剧|内地剧|国产电视|华语剧/.test(t)) return 'tv_cn';
+
+  // ── Variety / 综艺 ──
+  if (/综艺|variety|真人秀|reality\s*show|脱口秀|talk\s*show/i.test(t)) return 'variety';
+
+  // ── Documentary / 纪录片 ──
+  if (/纪录片|纪实|documentary|bbc.{0,10}(?:纪录|记录)|national\s*geographic/i.test(t)) return 'documentary';
+
+  // ── Generic TV (S01E01, 第X季/集) ──
+  if (/s\d{2}e\d{2}/i.test(t)) return 'tv';
+  if (/第.{1,4}[季部]|season\s*\d/i.test(t)) return 'tv';
+  if (/连续剧|电视剧|剧集|tvshow|tv\s*series/i.test(t)) return 'tv';
+  if (/第.{1,4}集|episode\s*\d|ep\.?\s*\d/i.test(t)) return 'tv';
+
+  // ── Movie / 电影 ──
+  if (/电影|movie|film/i.test(t)) return 'movie';
+  if (/[a-z]{2,6}-?\d{3,5}/.test(t)) return 'movie'; // JAV codes
+  // Year + quality hints without S/E → likely a movie
+  if (/(19|20)\d{2}.{0,20}(1080p|720p|2160p|4k|bluray|blu-?ray|remux|web-?dl)/i.test(t)
+    && !/s\d{2}e\d{2}/i.test(t) && !/第.{1,4}[季集部]/i.test(t)) return 'movie';
+
+  // ═══════════════════════════════════════════════════════════════════
+  // TIER 2: Format-based detection (from file extension / encoding hints)
+  // ═══════════════════════════════════════════════════════════════════
+
   // ── Video formats ──
-  if (/\.(mp4|mkv|avi|rmvb|wmv|flv|mov|ts|m4v|webm|mpg|mpeg|vob|m2ts)\b/.test(t)) return 'video';
-  if (/1080p|720p|2160p|4k|bluray|blu-ray|web-?dl|remux|x264|x265|hevc|hdtv|bdrip|brrip|dvdrip/.test(t)) return 'video';
+  if (/\.(mp4|mkv|avi|rmvb|rm|wmv|flv|mov|ts|m4v|webm|mpg|mpeg|vob|m2ts|mts|divx|3gp|3g2|f4v|ogv|asf|tp|trp)\b/.test(t)) return 'video';
+  if (/1080p|720p|2160p|4k|bluray|blu-ray|web-?dl|remux|x264|x265|hevc|hdtv|bdrip|brrip|dvdrip|hdrip|webrip|cam-?rip/.test(t)) return 'video';
 
   // ── Audio formats ──
-  if (/\.(mp3|flac|ape|wav|aac|ogg|wma|m4a|opus|alac|dsd|dsf)\b/.test(t)) return 'audio';
-  if (/专辑|album|\bflac\b|\bape\b|\bmp3\b|无损/.test(t)) return 'audio';
+  if (/\.(mp3|flac|ape|wav|aac|ogg|wma|m4a|opus|alac|dsd|dsf|dff|tak|tta|aiff?|ac3|dts|mka|pcm|cue)\b/.test(t)) return 'audio';
 
   // ── Archive formats ──
-  if (/\.(zip|rar|7z|tar|gz|bz2|xz|iso|img|bin|cue)\b/.test(t)) return 'archive';
+  if (/\.(zip|rar|7z|tar|gz|bz2|xz|zst|lz|lzma|cab|iso|img|bin|nrg|mdf|mds|udf)\b/.test(t)) return 'archive';
 
   // ── Image formats ──
-  if (/\.(jpg|jpeg|png|gif|bmp|webp|tiff?|psd|raw|svg|heic)\b/.test(t)) return 'image';
-  if (/写真|画集|图集|photoset|imageset/.test(t)) return 'image';
+  if (/\.(jpg|jpeg|png|gif|bmp|webp|tiff?|psd|raw|svg|heic|heif|avif|ico|cr2|nef|arw|dng|jxl)\b/.test(t)) return 'image';
+  if (/写真|画集|图集|photoset|imageset|壁纸|wallpaper/.test(t)) return 'image';
 
   // ── Document formats ──
-  if (/\.(pdf|epub|mobi|azw3?|txt|doc|docx|rtf|srt|ass|ssa|djvu|chm)\b/.test(t)) return 'document';
-  if (/电子书|小说|字幕|subtitle/.test(t)) return 'document';
+  if (/\.(pdf|txt|doc|docx|rtf|srt|ass|ssa|djvu|chm|xls|xlsx|ppt|pptx|csv|odt|ods|odp)\b/.test(t)) return 'document';
+  if (/字幕|subtitle/.test(t)) return 'document';
 
   // ── Software / App ──
-  if (/\.(exe|dmg|apk|msi|deb|rpm|appimage)\b/.test(t)) return 'software';
-  if (/软件|crack|keygen|portable|安装包/.test(t)) return 'software';
-
-  // ── Fallback heuristics (no extension found) ──
-  // Video is the most common torrent type, so if we see video-related keywords...
-  if (/s\d{2}e\d{2}|第.+[季集]|连续剧|美剧|韩剧|日剧|电影|movie|film/.test(t)) return 'video';
-  if (/动[漫画]|anime|ova|oad/.test(t)) return 'video';
-  if (/[a-z]{2,6}-?\d{3,5}/.test(t)) return 'video'; // JAV codes are video
-  if (/游戏|game|switch|ps[345]|xbox/.test(t)) return 'archive'; // games are usually archives
+  if (/\.(exe|dmg|apk|msi|deb|rpm|appimage|pkg|ipa|xapk|snap|flatpak)\b/.test(t)) return 'software';
+  if (/软件|crack|keygen|portable|安装包|patch|activat/.test(t)) return 'software';
 
   return 'other';
 }
@@ -132,12 +206,23 @@ export function parseSizeLabel(sizeStr?: string): string {
 function kindLabelText(kind: Kind, t?: Translations): string {
   if (t) {
     const map: Record<Kind, string> = {
+      // Tier 1
+      movie: t.kindMovie, tv_us: t.kindTvUs, tv_jp: t.kindTvJp,
+      tv_kr: t.kindTvKr, tv_cn: t.kindTvCn, tv: t.kindTv,
+      anime: t.kindAnime, variety: t.kindVariety, documentary: t.kindDocumentary,
+      music: t.kindMusic, game: t.kindGame, ebook: t.kindEbook, manga: t.kindManga,
+      // Tier 2
       video: t.kindVideo, audio: t.kindAudio, archive: t.kindArchive,
       image: t.kindImage, document: t.kindDocument, software: t.kindSoftware, other: t.kindOther,
     };
     return map[kind];
   }
   const fallback: Record<Kind, string> = {
+    // Tier 1
+    movie: '电影', tv_us: '美剧', tv_jp: '日剧', tv_kr: '韩剧',
+    tv_cn: '国产剧', tv: '剧集', anime: '动漫', variety: '综艺',
+    documentary: '纪录片', music: '音乐', game: '游戏', ebook: '电子书', manga: '漫画',
+    // Tier 2
     video: '视频', audio: '音频', archive: '压缩包',
     image: '图片', document: '文档', software: '程序', other: '其他',
   };
