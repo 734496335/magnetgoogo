@@ -1,6 +1,6 @@
 {
   "schema_version": "0.1",
-  "generated_at": "2026-04-23T15:01:08.202889+00:00",
+  "generated_at": "2026-04-29T16:17:55.806984+00:00",
   "rulesets": [
     {
       "ruleset_id": "base",
@@ -54,9 +54,10 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-18T06:10:28.376365+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 3,
-            "sample_title": "Torrent"
+            "sample_title": "Torrent",
+            "fail_streak": 0
           }
         },
         {
@@ -674,9 +675,10 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-04-23T13:18:41.480146+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 2,
-            "sample_title": "2026恐怖《准备好了没2》"
+            "sample_title": "2026恐怖《准备好了没2》",
+            "fail_streak": 0
           }
         },
         {
@@ -779,9 +781,10 @@
           "health": {
             "status": "green",
             "status_detail": "healed",
-            "last_checked_at": "2026-04-23T13:18:41.480146+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 19,
-            "sample_title": "[shincaps] Baka to Test to Shoukanjuu - 13 (BS-NTV 1440x1080 MPEG2 AAC).ts"
+            "sample_title": "[shincaps] Baka to Test to Shoukanjuu - 13 (BS-NTV 1440x1080 MPEG2 AAC).ts",
+            "fail_streak": 0
           }
         },
         {
@@ -872,9 +875,10 @@
           "health": {
             "status": "green",
             "status_detail": "healed",
-            "last_checked_at": "2026-04-19T07:00:00Z",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 12,
-            "sample_title": "The Witcher 3"
+            "sample_title": "The Witcher 3",
+            "fail_streak": 0
           }
         },
         {
@@ -925,9 +929,10 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-04-23T13:18:41.480146+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 50,
-            "sample_title": "Big Buck Bunny"
+            "sample_title": "Big Buck Bunny",
+            "fail_streak": 0
           }
         },
         {
@@ -979,9 +984,10 @@
           "health": {
             "status": "green",
             "status_detail": "healed",
-            "last_checked_at": "2026-04-23T13:28:11.374334+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 96,
-            "sample_title": "FutileStruggles.Gianna.Loves.Test-Part.2.XXX.720p.WMV-hUSHhUSH[rarbg]"
+            "sample_title": "FutileStruggles.Gianna.Loves.Test-Part.2.XXX.720p.WMV-hUSHhUSH[rarbg]",
+            "fail_streak": 0
           }
         },
         {
@@ -2476,10 +2482,11 @@
           "health": {
             "status": "green",
             "status_detail": "healed",
-            "last_checked_at": "2026-04-20T14:14:20.384588+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 75,
             "sample_title": "Sukebei Sukebei Nyaa  是一个BitTorrent社区，专注于分享东亚媒体，包括动漫、漫画、音乐等相关磁力链接和BT种子。Sukebei 目",
-            "diagnosis": "首页探测超时/连接失败，标记不可达"
+            "diagnosis": "首页探测超时/连接失败，标记不可达",
+            "fail_streak": 0
           }
         },
         {
@@ -2869,10 +2876,11 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T08:02:04.308239+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 0,
             "sample_title": "东京图书馆 国外知名磁力搜索站点，主要是岛国的资源，Tokyo Toshokan Torrent Listing",
-            "diagnosis": "首页探测超时/连接失败，标记不可达"
+            "diagnosis": "首页探测超时/连接失败，标记不可达",
+            "fail_streak": 0
           }
         },
         {
@@ -4225,10 +4233,11 @@
           "health": {
             "status": "green",
             "status_detail": "healed",
-            "last_checked_at": "2026-04-21T09:12:09.425686+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 4,
             "sample_title": "盗梦空间 Inception 2010 Bluray 2160p DTS-HDMA5.1 HDR x265 10bit-DreamHD",
-            "diagnosis": "导航站dh0.cn发现候选，待自动验证"
+            "diagnosis": "导航站dh0.cn发现候选，待自动验证",
+            "fail_streak": 0
           }
         },
         {
@@ -4681,12 +4690,13 @@
           "health": {
             "status": "green",
             "status_detail": "healed",
-            "last_checked_at": "2026-04-21T15:19:37.482107+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 9,
             "sample_title": "Hash D44713B7...",
             "diagnosis": "搜索验证通过: 9 magnets (path=/s/{query} q=Avatar)",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
-            "note": "evidence_found_via_http_search"
+            "note": "evidence_found_via_http_search",
+            "fail_streak": 0
           }
         },
         {
@@ -5521,10 +5531,11 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-22T03:24:29.894646+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 1,
             "sample_title": "Get this torrent",
-            "note": "evidence_found_via_http_search"
+            "note": "evidence_found_via_http_search",
+            "fail_streak": 0
           }
         },
         {
@@ -5574,10 +5585,11 @@
           "health": {
             "status": "green",
             "status_detail": "healed",
-            "last_checked_at": "2026-04-23T01:51:02.535388+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 1,
             "sample_title": "",
-            "note": "evidence_found_via_interactive_detail_follow"
+            "note": "evidence_found_via_interactive_detail_follow",
+            "fail_streak": 0
           }
         },
         {
@@ -5664,9 +5676,10 @@
           "health": {
             "status": "green",
             "status_detail": "healed",
-            "last_checked_at": "2026-04-23T13:13:13.808957+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 22,
-            "sample_title": "Football Manager 2016 [Test Game] - Update Version"
+            "sample_title": "Football Manager 2016 [Test Game] - Update Version",
+            "fail_streak": 0
           }
         },
         {
@@ -5709,10 +5722,11 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T05:12:34.094520+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 1,
             "sample_title": "Get this torrent",
-            "note": "evidence_found_via_http_search"
+            "note": "evidence_found_via_http_search",
+            "fail_streak": 0
           }
         },
         {
@@ -5755,10 +5769,11 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T05:12:34.095520+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 1,
             "sample_title": "Get this torrent",
-            "note": "evidence_found_via_http_search"
+            "note": "evidence_found_via_http_search",
+            "fail_streak": 0
           }
         },
         {
@@ -5801,10 +5816,11 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T05:12:34.095520+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 1,
             "sample_title": "Get this torrent",
-            "note": "evidence_found_via_http_search"
+            "note": "evidence_found_via_http_search",
+            "fail_streak": 0
           }
         },
         {
@@ -5855,9 +5871,10 @@
           "health": {
             "status": "green",
             "status_detail": "healed",
-            "last_checked_at": "2026-04-23T13:10:32.712549+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 100,
-            "sample_title": "Hell P., Nesetril J. Graphs and Homomorphisms 2ed 2026"
+            "sample_title": "Hell P., Nesetril J. Graphs and Homomorphisms 2ed 2026",
+            "fail_streak": 0
           }
         },
         {
@@ -6116,10 +6133,11 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T05:19:05.655172+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 1,
             "sample_title": "Get this torrent",
-            "note": "evidence_found_via_http_search"
+            "note": "evidence_found_via_http_search",
+            "fail_streak": 0
           }
         },
         {
@@ -6162,10 +6180,11 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T05:19:05.656168+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 1,
             "sample_title": "Get this torrent",
-            "note": "evidence_found_via_http_search"
+            "note": "evidence_found_via_http_search",
+            "fail_streak": 0
           }
         },
         {
@@ -6208,10 +6227,11 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T05:19:05.656168+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 1,
             "sample_title": "Get this torrent",
-            "note": "evidence_found_via_http_search"
+            "note": "evidence_found_via_http_search",
+            "fail_streak": 0
           }
         },
         {
@@ -6254,10 +6274,11 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T05:19:05.656168+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 1,
             "sample_title": "Get this torrent",
-            "note": "evidence_found_via_http_search"
+            "note": "evidence_found_via_http_search",
+            "fail_streak": 0
           }
         },
         {
@@ -6300,10 +6321,11 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T05:19:05.657168+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 1,
             "sample_title": "Get this torrent",
-            "note": "evidence_found_via_http_search"
+            "note": "evidence_found_via_http_search",
+            "fail_streak": 0
           }
         },
         {
@@ -6354,10 +6376,11 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-24T03:40:00.000Z",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 4,
             "sample_title": "Test (2025)",
-            "note": "evidence_found_via_http_search"
+            "note": "evidence_found_via_http_search",
+            "fail_streak": 0
           }
         },
         {
@@ -6407,10 +6430,11 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-24T03:45:00.000Z",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 10,
             "sample_title": "This Is Not a Test (2025)",
-            "note": "evidence_found_via_http_detail_follow"
+            "note": "evidence_found_via_http_detail_follow",
+            "fail_streak": 0
           }
         },
         {
@@ -6445,9 +6469,10 @@
           "health": {
             "status": "green",
             "status_detail": "healed",
-            "last_checked_at": "2026-04-23T13:10:32.712549+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 10,
-            "sample_title": "The Alpha Test (2020) (720p)"
+            "sample_title": "The Alpha Test (2020) (720p)",
+            "fail_streak": 0
           }
         },
         {
@@ -6482,9 +6507,10 @@
           "health": {
             "status": "green",
             "status_detail": "healed",
-            "last_checked_at": "2026-04-23T13:10:32.712549+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 10,
-            "sample_title": "The Alpha Test (2020) (720p)"
+            "sample_title": "The Alpha Test (2020) (720p)",
+            "fail_streak": 0
           }
         },
         {
@@ -6517,7 +6543,8 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T07:59:34.912503+00:00"
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "fail_streak": 1
           }
         },
         {
@@ -6552,7 +6579,8 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T07:59:34.912503+00:00"
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "fail_streak": 0
           }
         },
         {
@@ -6588,7 +6616,8 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T08:10:15.811157+00:00"
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "fail_streak": 0
           }
         },
         {
@@ -6624,7 +6653,8 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T08:10:15.811157+00:00"
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "fail_streak": 0
           }
         },
         {
@@ -6660,7 +6690,8 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T08:10:15.811157+00:00"
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "fail_streak": 0
           }
         },
         {
@@ -6696,7 +6727,8 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T08:10:15.811157+00:00"
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "fail_streak": 0
           }
         },
         {
@@ -6732,7 +6764,8 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T08:10:15.811157+00:00"
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "fail_streak": 0
           }
         },
         {
@@ -6768,7 +6801,8 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T08:10:15.811157+00:00"
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "fail_streak": 0
           }
         },
         {
@@ -6804,7 +6838,8 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T08:10:15.811157+00:00"
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "fail_streak": 0
           }
         },
         {
@@ -6840,7 +6875,8 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T08:10:15.811157+00:00"
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "fail_streak": 0
           }
         },
         {
@@ -6876,7 +6912,8 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T08:10:15.811157+00:00"
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "fail_streak": 0
           }
         },
         {
@@ -6912,7 +6949,8 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T08:10:15.811157+00:00"
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "fail_streak": 0
           }
         },
         {
@@ -6948,7 +6986,8 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T08:10:15.811157+00:00"
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "fail_streak": 0
           }
         },
         {
@@ -7603,27 +7642,36 @@
             "origin": "https://529072.xyz"
           },
           "search": {
-            "request_template": "POST /search {query}",
-            "request_method": "POST",
-            "request_body": {
-              "search": "{query}"
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
             },
-            "requires_csrf": true,
+            "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.search-item",
-                "title": "a[href*=\"/hash/\"]",
-                "magnet": "a[href^=\"magnet:\"]",
-                "size": "span"
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
               }
             }
           },
           "capabilities": {
-            "supports_search": true,
             "supports_detail": true
           },
           "quality": {
-            "score": 65,
+            "score": 50,
             "tags": [
               "chinese",
               "52bt",
@@ -7633,9 +7681,10 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-04-23T08:36:10.224922+00:00"
+            "status": "green",
+            "status_detail": "healed",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "fail_streak": 0
           }
         },
         {
@@ -7645,27 +7694,36 @@
             "origin": "https://529073.xyz"
           },
           "search": {
-            "request_template": "POST /search {query}",
-            "request_method": "POST",
-            "request_body": {
-              "search": "{query}"
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
             },
-            "requires_csrf": true,
+            "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.search-item",
-                "title": "a[href*=\"/hash/\"]",
-                "magnet": "a[href^=\"magnet:\"]",
-                "size": "span"
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
               }
             }
           },
           "capabilities": {
-            "supports_search": true,
             "supports_detail": true
           },
           "quality": {
-            "score": 65,
+            "score": 50,
             "tags": [
               "chinese",
               "52bt",
@@ -7675,9 +7733,10 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-04-23T08:36:10.224922+00:00"
+            "status": "green",
+            "status_detail": "healed",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "fail_streak": 0
           }
         },
         {
@@ -7729,9 +7788,10 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T11:00:00+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 33,
-            "sample_title": "HUNT-238"
+            "sample_title": "HUNT-238",
+            "fail_streak": 0
           }
         },
         {
@@ -7774,9 +7834,10 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T11:30:00+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 100,
-            "sample_title": "ubuntu-24.04.1-desktop-amd64.iso"
+            "sample_title": "ubuntu-24.04.1-desktop-amd64.iso",
+            "fail_streak": 0
           }
         },
         {
@@ -7819,9 +7880,10 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T11:30:00+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 2,
-            "sample_title": "ubuntu-10.04-desktop-i386.iso"
+            "sample_title": "ubuntu-10.04-desktop-i386.iso",
+            "fail_streak": 1
           }
         },
         {
@@ -7865,8 +7927,9 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T11:30:00+00:00",
-            "magnets_found": 2
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "magnets_found": 2,
+            "fail_streak": 0
           }
         },
         {
@@ -7909,8 +7972,9 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T11:30:00+00:00",
-            "magnets_found": 1
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "magnets_found": 1,
+            "fail_streak": 0
           }
         },
         {
@@ -7954,9 +8018,10 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T13:10:32.712549+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 434,
-            "sample_title": "[ANi] Fate/strange Fake - 13 [1080P][Baha][WEB-DL]"
+            "sample_title": "[ANi] Fate/strange Fake - 13 [1080P][Baha][WEB-DL]",
+            "fail_streak": 0
           }
         },
         {
@@ -8008,9 +8073,10 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T13:10:32.712549+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 30,
-            "sample_title": "【漫画】笨蛋，测验，召唤兽"
+            "sample_title": "【漫画】笨蛋，测验，召唤兽",
+            "fail_streak": 0
           }
         },
         {
@@ -8054,9 +8120,10 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-24T03:30:00.000Z",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 30,
-            "sample_title": "The Lesbian Cock Test"
+            "sample_title": "The Lesbian Cock Test",
+            "fail_streak": 0
           }
         },
         {
@@ -8073,6 +8140,7 @@
             "supports_detail": true
           },
           "search": {
+            "handler": "1337x",
             "request_template": "/search/{query}/1/",
             "timeout_ms": 12000,
             "retries": {
@@ -8109,9 +8177,10 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-23T13:39:49.871289+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 20,
-            "sample_title": "G-MODEアーカイブス+ DIGITAL DEVIL SAGA A's TEST Server"
+            "sample_title": "G-MODEアーカイブス+ DIGITAL DEVIL SAGA A's TEST Server",
+            "fail_streak": 0
           }
         },
         {
@@ -8128,6 +8197,7 @@
             "supports_detail": true
           },
           "search": {
+            "handler": "1337x",
             "request_template": "/search/{query}/1/",
             "timeout_ms": 12000,
             "retries": {
@@ -8218,9 +8288,10 @@
           "health": {
             "status": "green",
             "status_detail": "healed",
-            "last_checked_at": "2026-04-23T14:01:19.176929+00:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 96,
-            "sample_title": "FutileStruggles.Gianna.Loves.Test-Part.2.XXX.720p.WMV-hUSHhUSH"
+            "sample_title": "FutileStruggles.Gianna.Loves.Test-Part.2.XXX.720p.WMV-hUSHhUSH",
+            "fail_streak": 0
           }
         },
         {
@@ -8274,9 +8345,10 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-24T02:10:00.000Z",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 15,
-            "sample_title": "test-drive-unlimited-2.7z"
+            "sample_title": "test-drive-unlimited-2.7z",
+            "fail_streak": 0
           }
         },
         {
@@ -8322,9 +8394,10 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-24T14:30:00.000Z",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 4,
-            "sample_title": "蜘蛛侠全家桶九部合集"
+            "sample_title": "蜘蛛侠全家桶九部合集",
+            "fail_streak": 0
           }
         },
         {
@@ -8371,9 +8444,10 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-24T14:30:00.000Z",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 299,
-            "sample_title": "蛛蛛侠"
+            "sample_title": "蛛蛛侠",
+            "fail_streak": 0
           }
         },
         {
@@ -8421,9 +8495,10 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-24T16:30:00.000Z",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 20,
-            "sample_title": "ubuntu"
+            "sample_title": "ubuntu",
+            "fail_streak": 0
           }
         },
         {
@@ -8516,9 +8591,10 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-24T16:30:00.000Z",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 10,
-            "sample_title": "ubuntu"
+            "sample_title": "ubuntu",
+            "fail_streak": 0
           }
         },
         {
@@ -8562,10 +8638,11 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-24T22:00:00+08:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "response_time_ms": 800,
             "magnets_found": 100,
-            "sample_title": "Spider-Man S03E07"
+            "sample_title": "Spider-Man S03E07",
+            "fail_streak": 0
           }
         },
         {
@@ -8608,10 +8685,11 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-24T22:00:00+08:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "response_time_ms": 1200,
             "magnets_found": 2,
-            "sample_title": "Worst Christmas Ever 2025 1080p"
+            "sample_title": "Worst Christmas Ever 2025 1080p",
+            "fail_streak": 0
           }
         },
         {
@@ -8653,10 +8731,11 @@
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-24T22:00:00+08:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "response_time_ms": 3000,
             "magnets_found": 10,
-            "sample_title": "IENF-448"
+            "sample_title": "IENF-448",
+            "fail_streak": 0
           }
         },
         {
@@ -8664,10 +8743,15 @@
           "site": {
             "name": "磁力帝",
             "origin": "https://cld140.buzz",
-            "mirrors": ["https://cld123.com", "https://cld124.com"],
+            "mirrors": [
+              "https://cld123.com",
+              "https://cld124.com"
+            ],
             "release_page": "https://xn--tfrs1ysrv.xyz/",
             "release_page_alt": "https://cilidi.cyou/",
-            "countries": ["china"]
+            "countries": [
+              "china"
+            ]
           },
           "capabilities": {
             "supports_detail": false
@@ -8693,14 +8777,19 @@
           },
           "quality": {
             "score": 65,
-            "tags": ["chinese", "general", "zyscj-discovery"]
+            "tags": [
+              "chinese",
+              "general",
+              "zyscj-discovery"
+            ]
           },
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-26T01:00:00+08:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 20,
-            "sample_title": "spider"
+            "sample_title": "spider",
+            "fail_streak": 0
           }
         },
         {
@@ -8709,7 +8798,9 @@
             "name": "BTSOW",
             "origin": "https://btsow.pics",
             "release_page": "https://tellme.pw/btsow",
-            "countries": ["china"]
+            "countries": [
+              "china"
+            ]
           },
           "capabilities": {
             "supports_detail": true
@@ -8744,15 +8835,22 @@
           },
           "quality": {
             "score": 55,
-            "tags": ["chinese", "general", "zyscj-discovery", "detail-follow", "spa-js-render"]
+            "tags": [
+              "chinese",
+              "general",
+              "zyscj-discovery",
+              "detail-follow",
+              "spa-js-render"
+            ]
           },
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-26T11:00:00+08:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 2,
             "sample_title": "spider",
-            "note": "SPA: requires_browser=true, rendered via WebView (VerifyManager). Detail-follow works after HTML extraction."
+            "note": "SPA: requires_browser=true, rendered via WebView (VerifyManager). Detail-follow works after HTML extraction.",
+            "fail_streak": 0
           }
         },
         {
@@ -8760,8 +8858,13 @@
           "site": {
             "name": "种子吧",
             "origin": "https://zzb01.top",
-            "aliases": ["zhongziba.cc", "seed8.org"],
-            "countries": ["china"]
+            "aliases": [
+              "zhongziba.cc",
+              "seed8.org"
+            ],
+            "countries": [
+              "china"
+            ]
           },
           "capabilities": {
             "supports_detail": true
@@ -8795,14 +8898,21 @@
           },
           "quality": {
             "score": 50,
-            "tags": ["chinese", "general", "zyscj-discovery", "detail-follow", "base64-query"]
+            "tags": [
+              "chinese",
+              "general",
+              "zyscj-discovery",
+              "detail-follow",
+              "base64-query"
+            ]
           },
           "health": {
             "status": "green",
             "status_detail": "ok",
-            "last_checked_at": "2026-04-26T01:00:00+08:00",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 1,
-            "sample_title": "In the Spider's Web [2007].avi"
+            "sample_title": "In the Spider's Web [2007].avi",
+            "fail_streak": 0
           }
         },
         {
@@ -8811,7 +8921,9 @@
             "name": "磁力猫 (magnetcatcat)",
             "origin": "https://magnetcatcat.com",
             "release_page": "https://xn--vur557cbpe6y0c.lol/",
-            "countries": ["china"]
+            "countries": [
+              "china"
+            ]
           },
           "capabilities": {
             "supports_detail": false
@@ -8837,12 +8949,21 @@
           },
           "quality": {
             "score": 40,
-            "tags": ["chinese", "general", "zyscj-discovery", "cloudflare"]
+            "tags": [
+              "chinese",
+              "general",
+              "zyscj-discovery",
+              "cloudflare"
+            ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "waf",
-            "last_checked_at": "2026-04-26T01:00:00+08:00"
+            "status": "green",
+            "status_detail": "healed",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "fail_streak": 0,
+            "magnets_found": 0,
+            "sample_title": "",
+            "note": "Auto health check: yellow→green. cloudflare_search"
           }
         },
         {
@@ -8851,12 +8972,45 @@
             "name": "磁力狗(真实域名)",
             "origin": "https://clgclg.com",
             "release_page": "https://xn--tfr036ez7d.xyz/",
-            "countries": ["china"]
+            "countries": [
+              "china"
+            ]
           },
-          "capabilities": { "supports_detail": false },
-          "search": { "request_template": "", "timeout_ms": 8000, "retries": { "max_attempts": 2, "backoff_ms": 1000 }, "requires_waf_bypass": false, "parse_metadata": { "selectors": { "list_item": "", "title": "", "magnet": "", "size": "", "date": "" } } },
-          "quality": { "score": 0, "tags": ["chinese", "general", "zyscj-discovery"] },
-          "health": { "status": "gray", "status_detail": "unreachable", "last_checked_at": "2026-04-26T01:00:00+08:00", "note": "data:, empty; discovered from release page 磁力狗.xyz; alt domain ciligougo.xyz also referenced" }
+          "capabilities": {
+            "supports_detail": false
+          },
+          "search": {
+            "request_template": "",
+            "timeout_ms": 8000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "",
+                "title": "",
+                "magnet": "",
+                "size": "",
+                "date": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 0,
+            "tags": [
+              "chinese",
+              "general",
+              "zyscj-discovery"
+            ]
+          },
+          "health": {
+            "status": "gray",
+            "status_detail": "unreachable",
+            "last_checked_at": "2026-04-26T01:00:00+08:00",
+            "note": "data:, empty; discovered from release page 磁力狗.xyz; alt domain ciligougo.xyz also referenced"
+          }
         },
         {
           "id": "zyscj_btsao",
@@ -8864,12 +9018,45 @@
             "name": "磁力爬(btsao)",
             "origin": "https://btsao.com",
             "release_page": "https://btmirror.neocities.org/",
-            "countries": ["china"]
+            "countries": [
+              "china"
+            ]
           },
-          "capabilities": { "supports_detail": false },
-          "search": { "request_template": "", "timeout_ms": 8000, "retries": { "max_attempts": 2, "backoff_ms": 1000 }, "requires_waf_bypass": false, "parse_metadata": { "selectors": { "list_item": "", "title": "", "magnet": "", "size": "", "date": "" } } },
-          "quality": { "score": 0, "tags": ["chinese", "general", "zyscj-discovery"] },
-          "health": { "status": "gray", "status_detail": "unreachable", "last_checked_at": "2026-04-26T01:00:00+08:00", "note": "domain parked/redirects to game ad; mirrors cl.btm103.xyz, mk.btm104.xyz, lk.btm102.xyz all dead" }
+          "capabilities": {
+            "supports_detail": false
+          },
+          "search": {
+            "request_template": "",
+            "timeout_ms": 8000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "",
+                "title": "",
+                "magnet": "",
+                "size": "",
+                "date": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 0,
+            "tags": [
+              "chinese",
+              "general",
+              "zyscj-discovery"
+            ]
+          },
+          "health": {
+            "status": "gray",
+            "status_detail": "unreachable",
+            "last_checked_at": "2026-04-26T01:00:00+08:00",
+            "note": "domain parked/redirects to game ad; mirrors cl.btm103.xyz, mk.btm104.xyz, lk.btm102.xyz all dead"
+          }
         },
         {
           "id": "zyscj_52bt",
@@ -8877,36 +9064,135 @@
             "name": "52BT种子搜索",
             "origin": "https://52btbt.icu",
             "release_page": "https://xn--i8sq8r6zst7c.com/",
-            "countries": ["china"]
+            "countries": [
+              "china"
+            ]
           },
-          "capabilities": { "supports_detail": false },
-          "search": { "request_template": "", "timeout_ms": 8000, "retries": { "max_attempts": 2, "backoff_ms": 1000 }, "requires_waf_bypass": false, "parse_metadata": { "selectors": { "list_item": "", "title": "", "magnet": "", "size": "", "date": "" } } },
-          "quality": { "score": 0, "tags": ["chinese", "general", "zyscj-discovery"] },
-          "health": { "status": "gray", "status_detail": "unreachable", "last_checked_at": "2026-04-26T01:00:00+08:00", "note": "52btbt.icu and 种子搜索.xyz both return 404 nginx; 529072.xyz/529073.xyz are relay domains" }
+          "capabilities": {
+            "supports_detail": false
+          },
+          "search": {
+            "request_template": "",
+            "timeout_ms": 8000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "",
+                "title": "",
+                "magnet": "",
+                "size": "",
+                "date": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 0,
+            "tags": [
+              "chinese",
+              "general",
+              "zyscj-discovery"
+            ]
+          },
+          "health": {
+            "status": "gray",
+            "status_detail": "unreachable",
+            "last_checked_at": "2026-04-26T01:00:00+08:00",
+            "note": "52btbt.icu and 种子搜索.xyz both return 404 nginx; 529072.xyz/529073.xyz are relay domains"
+          }
         },
         {
           "id": "zyscj_clzhizhu",
           "site": {
             "name": "磁力蜘蛛(新)",
             "origin": "https://clzhizhu.com",
-            "countries": ["china"]
+            "countries": [
+              "china"
+            ]
           },
-          "capabilities": { "supports_detail": false },
-          "search": { "request_template": "", "timeout_ms": 8000, "retries": { "max_attempts": 2, "backoff_ms": 1000 }, "requires_waf_bypass": false, "parse_metadata": { "selectors": { "list_item": "", "title": "", "magnet": "", "size": "", "date": "" } } },
-          "quality": { "score": 0, "tags": ["chinese", "general", "zyscj-discovery"] },
-          "health": { "status": "gray", "status_detail": "unreachable", "last_checked_at": "2026-04-26T01:00:00+08:00", "note": "404 nginx; search form exists but returns nothing" }
+          "capabilities": {
+            "supports_detail": false
+          },
+          "search": {
+            "request_template": "",
+            "timeout_ms": 8000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "",
+                "title": "",
+                "magnet": "",
+                "size": "",
+                "date": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 0,
+            "tags": [
+              "chinese",
+              "general",
+              "zyscj-discovery"
+            ]
+          },
+          "health": {
+            "status": "gray",
+            "status_detail": "unreachable",
+            "last_checked_at": "2026-04-26T01:00:00+08:00",
+            "note": "404 nginx; search form exists but returns nothing"
+          }
         },
         {
           "id": "zyscj_lianjierenwu",
           "site": {
             "name": "链接任务(新域名)",
             "origin": "https://www.lianjierenwu.org",
-            "countries": ["china"]
+            "countries": [
+              "china"
+            ]
           },
-          "capabilities": { "supports_detail": false },
-          "search": { "request_template": "", "timeout_ms": 8000, "retries": { "max_attempts": 2, "backoff_ms": 1000 }, "requires_waf_bypass": false, "parse_metadata": { "selectors": { "list_item": "", "title": "", "magnet": "", "size": "", "date": "" } } },
-          "quality": { "score": 0, "tags": ["chinese", "general", "zyscj-discovery"] },
-          "health": { "status": "gray", "status_detail": "unreachable", "last_checked_at": "2026-04-26T01:00:00+08:00", "note": "Site alive but search returns 404 page; title='链接任务搜索引擎'" }
+          "capabilities": {
+            "supports_detail": false
+          },
+          "search": {
+            "request_template": "",
+            "timeout_ms": 8000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "",
+                "title": "",
+                "magnet": "",
+                "size": "",
+                "date": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 0,
+            "tags": [
+              "chinese",
+              "general",
+              "zyscj-discovery"
+            ]
+          },
+          "health": {
+            "status": "gray",
+            "status_detail": "unreachable",
+            "last_checked_at": "2026-04-26T01:00:00+08:00",
+            "note": "Site alive but search returns 404 page; title='链接任务搜索引擎'"
+          }
         },
         {
           "id": "zyscj_dobt",
@@ -8914,12 +9200,45 @@
             "name": "搜番(dobt)",
             "origin": "https://dobt.top",
             "release_page": "https://goto.sofan.in/",
-            "countries": ["china"]
+            "countries": [
+              "china"
+            ]
           },
-          "capabilities": { "supports_detail": false },
-          "search": { "request_template": "", "timeout_ms": 8000, "retries": { "max_attempts": 2, "backoff_ms": 1000 }, "requires_waf_bypass": false, "parse_metadata": { "selectors": { "list_item": "", "title": "", "magnet": "", "size": "", "date": "" } } },
-          "quality": { "score": 0, "tags": ["chinese", "general", "zyscj-discovery"] },
-          "health": { "status": "gray", "status_detail": "unreachable", "last_checked_at": "2026-04-26T01:00:00+08:00", "note": "dobt.top redirects to baidu.com; sofan.in→ke.dobt.top→baidu" }
+          "capabilities": {
+            "supports_detail": false
+          },
+          "search": {
+            "request_template": "",
+            "timeout_ms": 8000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "",
+                "title": "",
+                "magnet": "",
+                "size": "",
+                "date": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 0,
+            "tags": [
+              "chinese",
+              "general",
+              "zyscj-discovery"
+            ]
+          },
+          "health": {
+            "status": "gray",
+            "status_detail": "unreachable",
+            "last_checked_at": "2026-04-26T01:00:00+08:00",
+            "note": "dobt.top redirects to baidu.com; sofan.in→ke.dobt.top→baidu"
+          }
         },
         {
           "id": "zyscj_cltt",
@@ -8927,12 +9246,45 @@
             "name": "磁力天堂(真实域名待发现)",
             "origin": "https://xn--tfrq9jjzak83g.com",
             "release_page": "https://xn--tfrq9jjzak83g.com/",
-            "countries": ["china"]
+            "countries": [
+              "china"
+            ]
           },
-          "capabilities": { "supports_detail": false },
-          "search": { "request_template": "", "timeout_ms": 8000, "retries": { "max_attempts": 2, "backoff_ms": 1000 }, "requires_waf_bypass": false, "parse_metadata": { "selectors": { "list_item": "", "title": "", "magnet": "", "size": "", "date": "" } } },
-          "quality": { "score": 0, "tags": ["chinese", "general", "zyscj-discovery"] },
-          "health": { "status": "gray", "status_detail": "unreachable", "last_checked_at": "2026-04-26T01:00:00+08:00", "note": "Release page only; relay domains 770679.xyz, 7706775.xyz; no working search domain found" }
+          "capabilities": {
+            "supports_detail": false
+          },
+          "search": {
+            "request_template": "",
+            "timeout_ms": 8000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "",
+                "title": "",
+                "magnet": "",
+                "size": "",
+                "date": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 0,
+            "tags": [
+              "chinese",
+              "general",
+              "zyscj-discovery"
+            ]
+          },
+          "health": {
+            "status": "gray",
+            "status_detail": "unreachable",
+            "last_checked_at": "2026-04-26T01:00:00+08:00",
+            "note": "Release page only; relay domains 770679.xyz, 7706775.xyz; no working search domain found"
+          }
         },
         {
           "id": "zyscj_btmayi_real",
@@ -8940,12 +9292,1452 @@
             "name": "BT蚂蚁(真实域名待发现)",
             "origin": "https://btbtmayi.com",
             "release_page": "https://btbtmayi.com/",
-            "countries": ["china"]
+            "countries": [
+              "china"
+            ]
           },
-          "capabilities": { "supports_detail": false },
-          "search": { "request_template": "", "timeout_ms": 8000, "retries": { "max_attempts": 2, "backoff_ms": 1000 }, "requires_waf_bypass": false, "parse_metadata": { "selectors": { "list_item": "", "title": "", "magnet": "", "size": "", "date": "" } } },
-          "quality": { "score": 0, "tags": ["chinese", "general", "zyscj-discovery"] },
-          "health": { "status": "gray", "status_detail": "unreachable", "last_checked_at": "2026-04-26T01:00:00+08:00", "note": "Release page only; relay domains 1230151.xyz, 1230150.xyz; no working search domain found" }
+          "capabilities": {
+            "supports_detail": false
+          },
+          "search": {
+            "request_template": "",
+            "timeout_ms": 8000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "",
+                "title": "",
+                "magnet": "",
+                "size": "",
+                "date": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 0,
+            "tags": [
+              "chinese",
+              "general",
+              "zyscj-discovery"
+            ]
+          },
+          "health": {
+            "status": "gray",
+            "status_detail": "unreachable",
+            "last_checked_at": "2026-04-26T01:00:00+08:00",
+            "note": "Release page only; relay domains 1230151.xyz, 1230150.xyz; no working search domain found"
+          }
+        },
+        {
+          "id": "10498ce1e29e",
+          "site": {
+            "name": "nyaa.si",
+            "origin": "https://nyaa.si"
+          },
+          "capabilities": {
+            "supports_search": true,
+            "supports_detail": false
+          },
+          "search": {
+            "request_template": "?q={query}",
+            "timeout_ms": 15000,
+            "retries": {
+              "max_attempts": 3,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "NEED_MANUAL_CONFIG",
+                "title": "NEED_MANUAL_CONFIG",
+                "magnet": "a[href^=\"magnet:\"]",
+                "size": "NEED_MANUAL_CONFIG",
+                "date": "NEED_MANUAL_CONFIG"
+              }
+            }
+          },
+          "quality": {
+            "score": 60,
+            "tags": [
+              "dht-discovered"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "healed",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "fail_streak": 0,
+            "magnets_found": 5,
+            "sample_title": "[HAYAKU][2016.12.14] Fo'xTails - INCEPTION [CD][FLAC+CUE+LOG+BK+ISO][LACA-35615]",
+            "note": "Auto health check: yellow→green."
+          }
+        },
+        {
+          "id": "9215b10a5270",
+          "site": {
+            "name": "磁力宝(clb21)",
+            "origin": "https://clb21.top",
+            "brand": "磁力宝",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "05e23f1276a2",
+          "site": {
+            "name": "磁力宝(clb22)",
+            "origin": "https://clb22.top",
+            "brand": "磁力宝",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "e468e52535c1",
+          "site": {
+            "name": "磁力宝(clb23)",
+            "origin": "https://clb23.top",
+            "brand": "磁力宝",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "593d0b9adb4e",
+          "site": {
+            "name": "磁力宝(clb24)",
+            "origin": "https://clb24.top",
+            "brand": "磁力宝",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "42ea42fbfd0a",
+          "site": {
+            "name": "磁力宝(clb25)",
+            "origin": "https://clb25.top",
+            "brand": "磁力宝",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "7841fb9f1c93",
+          "site": {
+            "name": "磁力宝(clb26)",
+            "origin": "https://clb26.top",
+            "brand": "磁力宝",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "6ff6d8ef4b6b",
+          "site": {
+            "name": "SOBT(sobt19)",
+            "origin": "https://sobt19.top",
+            "brand": "SOBT",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "8afd38befcca",
+          "site": {
+            "name": "SOBT(sobt22)",
+            "origin": "https://sobt22.top",
+            "brand": "SOBT",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "61882ff23bc3",
+          "site": {
+            "name": "SOBT(sobt23)",
+            "origin": "https://sobt23.top",
+            "brand": "SOBT",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "75a062726465",
+          "site": {
+            "name": "SOBT(sobt24)",
+            "origin": "https://sobt24.top",
+            "brand": "SOBT",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "aa3eb9d89a82",
+          "site": {
+            "name": "磁力猫(clm50)",
+            "origin": "https://clm50.top",
+            "brand": "磁力猫",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "eb2b0be5f97a",
+          "site": {
+            "name": "磁力猫(clm52)",
+            "origin": "https://clm52.top",
+            "brand": "磁力猫",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "d62459f328f3",
+          "site": {
+            "name": "磁力猫(clm58)",
+            "origin": "https://clm58.top",
+            "brand": "磁力猫",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "a78aee07917d",
+          "site": {
+            "name": "磁力猫(clm59)",
+            "origin": "https://clm59.top",
+            "brand": "磁力猫",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "5eed7e028a66",
+          "site": {
+            "name": "种子吧(zzb04)",
+            "origin": "https://zzb04.top",
+            "brand": "种子吧",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.media-body",
+                "title": "a[href*='/seed/']",
+                "magnet": "",
+                "size": "span.label-warning",
+                "date": "span.label-primary",
+                "detail_link": "a[href*='/seed/']"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": "span.label-warning"
+              }
+            }
+          },
+          "quality": {
+            "score": 55,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "7ac53523da71",
+          "site": {
+            "name": "种子吧(zzb05)",
+            "origin": "https://zzb05.top",
+            "brand": "种子吧",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.media-body",
+                "title": "a[href*='/seed/']",
+                "magnet": "",
+                "size": "span.label-warning",
+                "date": "span.label-primary",
+                "detail_link": "a[href*='/seed/']"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": "span.label-warning"
+              }
+            }
+          },
+          "quality": {
+            "score": 55,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "d7ef211ae49f",
+          "site": {
+            "name": "种子吧(zzb06)",
+            "origin": "https://zzb06.top",
+            "brand": "种子吧",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.media-body",
+                "title": "a[href*='/seed/']",
+                "magnet": "",
+                "size": "span.label-warning",
+                "date": "span.label-primary",
+                "detail_link": "a[href*='/seed/']"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": "span.label-warning"
+              }
+            }
+          },
+          "quality": {
+            "score": 55,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "24ffc03d99fb",
+          "site": {
+            "name": "种子吧(zzb07)",
+            "origin": "https://zzb07.top",
+            "brand": "种子吧",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.media-body",
+                "title": "a[href*='/seed/']",
+                "magnet": "",
+                "size": "span.label-warning",
+                "date": "span.label-primary",
+                "detail_link": "a[href*='/seed/']"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": "span.label-warning"
+              }
+            }
+          },
+          "quality": {
+            "score": 55,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "b5fad478c5d7",
+          "site": {
+            "name": "种子吧(zhongziba)",
+            "origin": "https://zhongziba.cc",
+            "brand": "种子吧",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.media-body",
+                "title": "a[href*='/seed/']",
+                "magnet": "",
+                "size": "span.label-warning",
+                "date": "span.label-primary",
+                "detail_link": "a[href*='/seed/']"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": "span.label-warning"
+              }
+            }
+          },
+          "quality": {
+            "score": 55,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "82de83ea6346",
+          "site": {
+            "name": "种子吧(seed8)",
+            "origin": "https://seed8.org",
+            "brand": "种子吧",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.media-body",
+                "title": "a[href*='/seed/']",
+                "magnet": "",
+                "size": "span.label-warning",
+                "date": "span.label-primary",
+                "detail_link": "a[href*='/seed/']"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": "span.label-warning"
+              }
+            }
+          },
+          "quality": {
+            "score": 55,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "8f62389f26d2",
+          "site": {
+            "name": "磁力天堂(cltt03)",
+            "origin": "https://cltt03.sbs",
+            "brand": "磁力天堂",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "db3422c10fba",
+          "site": {
+            "name": "老王磁力(laowangzo)",
+            "origin": "https://laowangzo.top",
+            "brand": "老王磁力",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": false
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            }
+          },
+          "quality": {
+            "score": 40,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "3037af800533",
+          "site": {
+            "name": "老王磁力(laowangcili)",
+            "origin": "https://laowangcili.top",
+            "brand": "老王磁力",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": false
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            }
+          },
+          "quality": {
+            "score": 40,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "fail_streak": 1,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "f2dbfa7a0efe",
+          "site": {
+            "name": "BTSearch",
+            "origin": "https://btsearch.org",
+            "brand": "BTSearch",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": false
+          },
+          "search": {
+            "request_template": "/search/{query}",
+            "handler": "",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "requires_browser": true,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.search-result",
+                "title": "h5 a",
+                "magnet": "a[href^='magnet:']",
+                "size": "",
+                "date": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 45,
+            "tags": [
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "healed",
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "fail_streak": 0,
+            "magnets_found": 0,
+            "sample_title": "",
+            "note": "Auto health check: yellow→green."
+          }
+        },
+        {
+          "id": "5be0171154ca",
+          "site": {
+            "name": "磁力多(btdo)",
+            "origin": "https://btdo.top",
+            "brand": "磁力多",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": false
+          },
+          "search": {
+            "request_template": "/search?keyword={query}",
+            "handler": "",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "requires_browser": true,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.search-item",
+                "title": "a.item-title",
+                "magnet": "",
+                "size": "span.item-size",
+                "date": "span.item-date"
+              }
+            }
+          },
+          "quality": {
+            "score": 45,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "yellow",
+            "status_detail": "waf",
+            "fail_streak": 1,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+          }
+        },
+        {
+          "id": "f5b8d3e20a47",
+          "site": {
+            "name": "阿狸搜",
+            "origin": "https://cache.foxs.top",
+            "brand": "磁力狐/阿狸搜",
+            "mirrors": [
+              "https://s83.foxso.top"
+            ],
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?word={query}",
+            "referer": "https://s83.foxso.top/",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.layui-colla-item.search-box",
+                "title": "a[href^=\"/doc/\"]",
+                "magnet": "",
+                "size": "",
+                "date": "",
+                "detail_link": "a[href^=\"/doc/\"]"
+              },
+              "notes": "SSR search engine. 15 results/page. Requires Referer: s83.foxso.top."
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^=\"magnet:\"]",
+                "title": "h1",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 65,
+            "tags": [
+              "chinese",
+              "general",
+              "xhs-discovery"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "magnets_found": 15,
+            "sample_title": "Avengers",
+            "note": "Real backend of 磁力狐. SSR HTML, detail-follow. Requires Referer header."
+          }
         }
       ]
     }
@@ -8953,33 +10745,117 @@
   "discovery_metadata": {
     "_note": "Below are non-search resources: release pages, navigation sites, and tools discovered during zyscj.com probing. These are NOT search sources but are useful for domain rotation tracking.",
     "release_pages": [
-      {"brand": "BTSOW", "url": "https://tellme.pw/btsow", "note": "Official release page for BTSOW"},
-      {"brand": "skrbt", "url": "https://skrso.link/", "note": "Password-protected (72.chat)"},
-      {"brand": "老王磁力", "url": "https://laowangso.link/", "note": "Password-protected (72.chat)"},
-      {"brand": "种子搜/种子帝", "url": "https://www.zhongzidizhi.com/", "note": "Also functions as hao123-style navigation"},
-      {"brand": "磁力爬", "url": "https://btmirror.neocities.org/", "note": "Lists btsao.com and btm103/104 mirrors"},
-      {"brand": "搜番", "url": "https://goto.sofan.in/", "note": "Redirects to dobt.top → baidu"},
-      {"brand": "磁力帝", "url": "https://xn--tfrs1ysrv.xyz/", "note": "IDN: 磁力帝.xyz → cld140.buzz"},
-      {"brand": "磁力帝备用", "url": "https://cilidi.cyou/", "note": "Same as 磁力帝.xyz"},
-      {"brand": "磁力猫", "url": "https://xn--vur557cbpe6y0c.lol/", "note": "IDN: 魔法猫咪.lol → magnetcatcat.com"},
-      {"brand": "磁力狗", "url": "https://xn--tfr036ez7d.xyz/", "note": "IDN: 磁力狗.xyz → clgclg.com (dead)"},
-      {"brand": "磁力天堂", "url": "https://xn--tfrq9jjzak83g.com/", "note": "IDN: 磁力天堂.com; no working search domain found"},
-      {"brand": "BT蚂蚁", "url": "https://btbtmayi.com/", "note": "Release page only; 1230151.xyz dead"},
-      {"brand": "52BT", "url": "https://xn--i8sq8r6zst7c.com/", "note": "IDN: 种子搜索.com → 52btbt.icu (404)"}
+      {
+        "brand": "BTSOW",
+        "url": "https://tellme.pw/btsow",
+        "note": "Official release page for BTSOW"
+      },
+      {
+        "brand": "skrbt",
+        "url": "https://skrso.link/",
+        "note": "Password-protected (72.chat)"
+      },
+      {
+        "brand": "老王磁力",
+        "url": "https://laowangso.link/",
+        "note": "Password-protected (72.chat)"
+      },
+      {
+        "brand": "种子搜/种子帝",
+        "url": "https://www.zhongzidizhi.com/",
+        "note": "Also functions as hao123-style navigation"
+      },
+      {
+        "brand": "磁力爬",
+        "url": "https://btmirror.neocities.org/",
+        "note": "Lists btsao.com and btm103/104 mirrors"
+      },
+      {
+        "brand": "搜番",
+        "url": "https://goto.sofan.in/",
+        "note": "Redirects to dobt.top → baidu"
+      },
+      {
+        "brand": "磁力帝",
+        "url": "https://xn--tfrs1ysrv.xyz/",
+        "note": "IDN: 磁力帝.xyz → cld140.buzz"
+      },
+      {
+        "brand": "磁力帝备用",
+        "url": "https://cilidi.cyou/",
+        "note": "Same as 磁力帝.xyz"
+      },
+      {
+        "brand": "磁力猫",
+        "url": "https://xn--vur557cbpe6y0c.lol/",
+        "note": "IDN: 魔法猫咪.lol → magnetcatcat.com"
+      },
+      {
+        "brand": "磁力狗",
+        "url": "https://xn--tfr036ez7d.xyz/",
+        "note": "IDN: 磁力狗.xyz → clgclg.com (dead)"
+      },
+      {
+        "brand": "磁力天堂",
+        "url": "https://xn--tfrq9jjzak83g.com/",
+        "note": "IDN: 磁力天堂.com; no working search domain found"
+      },
+      {
+        "brand": "BT蚂蚁",
+        "url": "https://btbtmayi.com/",
+        "note": "Release page only; 1230151.xyz dead"
+      },
+      {
+        "brand": "52BT",
+        "url": "https://xn--i8sq8r6zst7c.com/",
+        "note": "IDN: 种子搜索.com → 52btbt.icu (404)"
+      }
     ],
     "navigation_sites": [
-      {"name": "TorrentSites", "url": "https://torrentsites.com/", "note": "导航站"},
-      {"name": "TorrentBay", "url": "https://torrentbay.st/"},
-      {"name": "Torrends", "url": "https://torrends.to/"},
-      {"name": "海盗湾proxy列表", "url": "https://piratebayproxy.info/"},
-      {"name": "Rarbg Live", "url": "https://rarbg.live/rarbg-proxy/"},
-      {"name": "种子导航/种子搜", "url": "https://www.zhongzidizhi.com/", "note": "hao123-style; NOT a search engine"}
+      {
+        "name": "TorrentSites",
+        "url": "https://torrentsites.com/",
+        "note": "导航站"
+      },
+      {
+        "name": "TorrentBay",
+        "url": "https://torrentbay.st/"
+      },
+      {
+        "name": "Torrends",
+        "url": "https://torrends.to/"
+      },
+      {
+        "name": "海盗湾proxy列表",
+        "url": "https://piratebayproxy.info/"
+      },
+      {
+        "name": "Rarbg Live",
+        "url": "https://rarbg.live/rarbg-proxy/"
+      },
+      {
+        "name": "种子导航/种子搜",
+        "url": "https://www.zhongzidizhi.com/",
+        "note": "hao123-style; NOT a search engine"
+      }
     ],
     "tools": [
-      {"name": "磁力助手", "url": "https://bt.js.org/"},
-      {"name": "M2T(磁力转种子)", "url": "https://m2t.lolicon.app/"},
-      {"name": "BTCache", "url": "https://btcache.me/"},
-      {"name": "Magnet2Torrent", "url": "https://magnet2torrent.com/"}
+      {
+        "name": "磁力助手",
+        "url": "https://bt.js.org/"
+      },
+      {
+        "name": "M2T(磁力转种子)",
+        "url": "https://m2t.lolicon.app/"
+      },
+      {
+        "name": "BTCache",
+        "url": "https://btcache.me/"
+      },
+      {
+        "name": "Magnet2Torrent",
+        "url": "https://magnet2torrent.com/"
+      }
     ],
     "last_updated": "2026-04-26T01:00:00+08:00"
   },
@@ -8988,6 +10864,126 @@
       "latest_version": "1.0.5",
       "force_update_url": "https://your-seo-website.com/download"
     },
-    "total_rules": 194
-  }
+    "total_rules": 221
+  },
+  "brand_registry": [
+    {
+      "brand": "磁力宝",
+      "status": "green",
+      "category": "china",
+      "backend": "clb",
+      "green_domains": [
+        "clb12.xyz",
+        "clb21.top",
+        "clb22.top",
+        "clb23.top",
+        "clb24.top",
+        "clb25.top",
+        "clb26.top"
+      ]
+    },
+    {
+      "brand": "SOBT",
+      "status": "green",
+      "category": "china",
+      "backend": "sobt",
+      "green_domains": [
+        "sobt19.top",
+        "sobt22.top",
+        "sobt23.top",
+        "sobt24.top"
+      ]
+    },
+    {
+      "brand": "磁力猫",
+      "status": "green",
+      "category": "china",
+      "backend": "clm",
+      "green_domains": [
+        "clm50.top",
+        "clm52.top",
+        "clm58.top",
+        "clm59.top"
+      ],
+      "yellow_domains": [
+        "magnetcatcat.com"
+      ]
+    },
+    {
+      "brand": "种子吧",
+      "status": "green",
+      "category": "china",
+      "backend": "zzb",
+      "green_domains": [
+        "zzb01.top",
+        "zzb04.top",
+        "zzb05.top",
+        "zzb06.top",
+        "zzb07.top",
+        "zhongziba.cc",
+        "seed8.org"
+      ]
+    },
+    {
+      "brand": "磁力天堂",
+      "status": "green",
+      "category": "china",
+      "backend": "cltt",
+      "green_domains": [
+        "cltt03.sbs"
+      ]
+    },
+    {
+      "brand": "52BT/磁力帝",
+      "status": "green",
+      "category": "china",
+      "backend": "52bt",
+      "green_domains": [
+        "cld140.buzz",
+        "529072.xyz",
+        "529073.xyz"
+      ]
+    },
+    {
+      "brand": "磁力狐/阿狸搜",
+      "status": "green",
+      "category": "china",
+      "backend": "foxso",
+      "green_domains": [
+        "cache.foxs.top"
+      ],
+      "yellow_domains": [
+        "s83.foxso.top"
+      ],
+      "note": "Requires Referer: s83.foxso.top"
+    },
+    {
+      "brand": "老王磁力",
+      "status": "yellow",
+      "category": "china",
+      "backend": "laowang",
+      "yellow_domains": [
+        "laowangzo.top",
+        "laowangcili.top"
+      ]
+    },
+    {
+      "brand": "BTSearch",
+      "status": "yellow",
+      "category": "international",
+      "backend": "btsearch",
+      "yellow_domains": [
+        "btsearch.org"
+      ]
+    },
+    {
+      "brand": "磁力多",
+      "status": "yellow",
+      "category": "china",
+      "backend": "btdo",
+      "yellow_domains": [
+        "btdo.top"
+      ]
+    }
+  ]
 }

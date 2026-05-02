@@ -1,4 +1,704 @@
 ---
+日期/时间：2026-05-03 00:35（UTC+8）
+本次版本：v0.4.7
+本次范围：**源健康自动巡检系统 + 降级保护机制**
+涉及模块：scripts/health_check.py, .github/workflows/health-check.yml, sources.json
+
+关键改动摘要（可检索）：
+  - **新增 health_check.py 巡检脚本**：并发探测所有 green/yellow 源的首页+搜索能力，自动更新 health 状态
+  - **降级保护机制 (2 层)**：
+    - Layer 1：单次巡检内 3 次重试 + 递增退避 (2s, 4s)
+    - Layer 2：跨巡检 fail_streak 计数，连续 3 次失败才降级，一次成功即清零
+  - **sources.json 新字段 health.fail_streak**：持久化连续失败计数
+  - **GitHub Actions 定时 Cron**：每 8 小时巡检，变更自动 commit + 加密推送到 mg-data
+  - **sources.json 从 mg-data 恢复 + 镜像规则批量重建**：221 rules, 85 green, 3 yellow
+
+修改文件清单（新增/修改/删除）：
+  - `+ scripts/health_check.py` (巡检引擎：并发探测、重试、fail_streak、状态转换)
+  - `+ scripts/rebuild_mirrors.py` (批量重建镜像规则工具)
+  - `+ .github/workflows/health-check.yml` (GitHub Actions cron 每8h)
+  - `~ sources.json` (恢复 + 镜像重建 + 阿狸搜 + 品牌注册 + 健康更新)
+
+巡检策略：
+  - Step 1: GET origin → 200 + >200 bytes = homepage OK (失败重试 3 次)
+  - Step 2: GET search URL → 解析 list_item selector 或 btih 正则
+  - Custom handler / browser-required / CSRF 源：仅检测首页
+  - 支持 referer 字段（阿狸搜等）
+  - 并发 12 workers，timeout 10s
+
+降级保护（防误杀）：
+  - green + unreachable (streak < 3) → 保持 green, fail_streak++ [不降级]
+  - green + unreachable (streak >= 3) → yellow [实际降级, 需24h持续不可达]
+  - yellow + unreachable (streak >= 3) → gray
+  - 任意成功 → fail_streak=0, yellow→green 即时回升
+
+关键契约变更：
+  - sources.json 新字段: `health.fail_streak` — 连续失败巡检计数 (整数, 默认0)
+
+风险与未决事项：
+  - GitHub Actions 需要 MG_DATA_TOKEN secret 才能推送 mg-data 仓库
+  - 动漫花园/tokyotosho 搜索页 GFW 超时是正常行为，不影响 green 状态
+  - CLB/SOBT/CLM 搜索 "spider" 可能无结果（中文源），但首页正常不扣分
+
+验证方式：
+  - `python scripts/health_check.py` → 巡检报告 + fail_streak 显示
+  - `python scripts/health_check.py --update` → sources.json 自动更新
+  - `python validate_enum.py` → ALL VALID
+  - 验证降级保护: tokyotosho.org timeout → streak=1/3, 未降级 ✅
+
+---
+---
+日期/时间：2026-05-03 00:10（UTC+8）
+本次版本：v0.4.6
+本次范围：**新源阿狸搜上线 + fetchPage referer 支持**
+涉及模块：sources.json, web/route.ts, magnetgoogo-app/httpClient.ts, magnetgoogo-app/searchEngine.ts
+
+关键改动摘要（可检索）：
+  - **新 GREEN 源：阿狸搜 (cache.foxs.top)**：磁力狐品牌的真实后端，SSR DHT搜索引擎，detail-follow 模式，15结果/页，0.44s 均速
+  - **fetchPage 增加 referer 参数**：Web 端 route.ts 和 App 端 httpClient.ts 均支持 sources.json 中的 `search.referer` 字段
+  - **fetchDetailResults 增加 referer 参数**：detail 页面请求也携带自定义 Referer
+  - **sources.json 磁力狐条目 yellow→green 提升**：origin 从 s83.foxso.top 改为 cache.foxs.top，新增正确 selectors 和 detail config
+  - **brand registry 更新**：磁力狐/阿狸搜 status yellow→green
+
+修改文件清单（新增/修改/删除）：
+  - `~ sources.json` (磁力狐 rule 重写为阿狸搜 GREEN + brand registry 更新)
+  - `~ web/src/app/api/search/route.ts` (fetchPage +referer param, fetchDetailResults +referer, POST handler 提取 rule.search.referer)
+  - `~ magnetgoogo-app/src/core/httpClient.ts` (fetchPage +referer param)
+  - `~ magnetgoogo-app/src/core/searchEngine.ts` (customReferer 提取, fetchDetailResults +referer, 标准流程传递 referer)
+
+关键契约变更：
+  - sources.json 新字段: `search.referer` — 可选自定义 Referer 头
+  - fetchPage 签名: Web `(url, extraCookies?, referer?)` / App `(url, extraCookies?, timeoutMs?, referer?)`
+
+发现过程：
+  - 小红书 → BT蚂蚁导航站 → btfox.icu → 4层跳转追踪 → cache.foxs.top
+  - cache.foxs.top 返回 HTTP 104 (无 Referer) / 200 (有 Referer: s83.foxso.top)
+  - 搜索测试: 4 查询 × 15 结果 = 57 个磁力，全部有 size+date，详情页 magnet 验证通过
+
+风险与未决事项：
+  - cache.foxs.top 依赖 Referer 检查，如果服务端策略变化可能失效
+  - so.starcs.top (磁力星球) 当前返回 104，暂不可用
+  - BT1207 / SkrBT / 磁力柠檬需要 JS 渲染或 CF 绕过，未接入
+
+验证方式：
+  - `python validate_enum.py` → ALL VALID (阿狸搜 green/ok)
+  - `python test_foxs_with_referer.py` → 57 magnets, GREEN confirmed
+
+---
+---
+日期/时间：2026-05-02 22:25（UTC+8）
+本次版本：v0.4.5
+本次范围：**法务合规：隐私政策 + 用户协议 + 验证超时优化**
+涉及模块：magnetgoogo-app (privacy, terms, settings, i18n, VerifyManager)
+
+关键改动摘要（可检索）：
+  - **隐私政策全面重写**：披露匿名埋点数据收集、运营者信息、联系邮箱、数据保留期（30天）、用户权利（清除/删除）、未成年人保护声明
+  - **新增用户协议**（`app/terms.tsx`）：服务描述、年龄限制（18+）、合法使用条款、知识产权声明、版权投诉流程（DMCA）、免责声明、责任限制、适用法律（中国法）、管辖法院
+  - **设置页新增用户协议入口**：隐私政策 + 用户协议分开展示
+  - **验证超时优化**：SPA 渲染 20s / 人机验证 45s（原 120s），防止 GFW 阻断源拖长搜索
+  - **联系邮箱**：maggoogo@outlook.com
+
+修改文件清单（新增/修改/删除）：
+  - `~ magnetgoogo-app/app/privacy.tsx` (隐私政策全面重写，披露埋点)
+  - `+ magnetgoogo-app/app/terms.tsx` (用户协议，中英双语)
+  - `~ magnetgoogo-app/app/settings.tsx` (新增用户协议入口)
+  - `~ magnetgoogo-app/src/core/i18n.ts` (privacyTitle/termsTitle)
+  - `~ magnetgoogo-app/src/core/VerifyManager.ts` (超时拆分: _timeout_spa=20s, _timeout_challenge=45s)
+
+关键契约变更：
+  - i18n 新增 key: termsTitle
+  - 新路由: /terms
+
+风险与未决事项：
+  - 联系邮箱 maggoogo@outlook.com 需要实际创建并能收发邮件
+  - 国内应用商店上架可能需要 ICP 备案号和软著
+
+验证方式：
+  - 设置页 → 隐私政策、用户协议链接均可打开
+  - 中英文切换后内容正确
+  - 搜索不再卡住（超时从 120s 降到 20-45s）
+
+---
+---
+日期/时间：2026-05-02 22:00（UTC+8）
+本次版本：v0.4.4
+本次范围：**匿名数据埋点 + 验证策略修复**
+涉及模块：magnetgoogo-app (analytics, VerifyManager, VerifyWebView, search), cf-gateway
+
+关键改动摘要（可检索）：
+  - **新增 analytics.ts**：轻量匿名事件收集，本地队列 + 定期批量上报
+  - 事件类型：app_start, search(q/n), copy_magnet, open_magnet, src_ok/src_fail(src/n/ms/reason), verify(src/tier/result/ms)
+  - 匿名设备 ID（随机生成，AsyncStorage 持久化），不采集 PII
+  - 上报到 CF Worker `POST /api/events`，KV 存储 30 天 TTL
+  - 管理端 `GET /api/events?secret=` 返回聚合摘要（设备数/事件数/事件分布），`?raw=1` 返回原始批次
+  - **VerifyManager 请求队列**：一次只 emit 一个验证请求到 UI，其余排队；超时计时器仅在出队时启动
+  - **VerifyWebView 403 快速放弃**：连续 2 次 HTTP 403 自动取消（`HTTP_403_MAX=2`），避免 DDoS-Guard 源卡 2 分钟
+  - **VerifyWebView 视口修复**：注入 viewport meta + scalesPageToFit，修复验证页面在手机端显示过大
+  - **SPA 源缓存修复**：`spa_render` 类型请求跳过 originCache，每次搜索重新渲染（不同 query 需要不同 HTML）
+
+修改文件清单（新增/修改/删除）：
+  - `+ magnetgoogo-app/src/core/analytics.ts` (事件队列 + 批量上报 + 便捷 helpers)
+  - `~ magnetgoogo-app/app/_layout.tsx` (initAnalytics 启动调用)
+  - `~ magnetgoogo-app/app/search.tsx` (trackSearch/trackCopy/trackOpen/trackSourceResult 集成)
+  - `~ magnetgoogo-app/src/core/VerifyManager.ts` (请求队列 + 计时器 + trackVerify + SPA 缓存跳过)
+  - `~ magnetgoogo-app/src/components/VerifyWebView.tsx` (403 快速放弃 + viewport 注入)
+  - `~ cf-gateway/src/index.js` (POST/GET /api/events 路由)
+  - `~ cf-gateway/wrangler.toml` (EVENTS KV 绑定占位)
+
+关键契约变更：
+  - 新 API：POST /api/events（批量事件上报）、GET /api/events（管理端查看）
+  - 需创建 EVENTS KV namespace：`npx wrangler kv:namespace create EVENTS`
+
+风险与未决事项：
+  - KV 免费额度 1000 写/天，DAU 超过几十需换 D1/R2
+  - wrangler.toml 中 EVENTS KV id 为占位符，部署前需替换
+
+验证方式：
+  - App 启动 → 搜索 → 检查 Metro 日志 `[Analytics] Flushed N events`
+  - `GET /api/events?secret=maggoogo-admin-2026` 查看聚合数据
+  - 验证队列：多源搜索时日志显示 Queued/Dequeued 顺序处理
+  - 403 快速放弃：磁力帝等 DDoS-Guard 源 2 次 403 后自动取消
+
+---
+---
+日期/时间：2026-05-01 15:09（UTC+8）
+本次版本：v0.4.3
+本次范围：**品牌 Slogan 优化**
+涉及模块：magnetgoogo-app/src/core/i18n.ts, magnetgoogo-app/app/index.tsx
+
+关键改动摘要（可检索）：
+  - 中文 slogan 从「磁力古哥  最新 | 最全 | 最快」改为「搜全网磁力，上磁力古哥」
+  - 英文 slogan 从「MagnetGoogo — Latest | Fullest | Fastest」改为「Every Magnet. One Search.」
+  - i18n 字段 `slogan` 拆分为 `sloganPrefix` + `sloganBrand`，支持品牌名独立着色
+  - 首页渲染：品牌名部分使用 `colors.accent`（浅色 #4285F4 / 深色 #60a5fa）+ fontWeight 600
+
+修改文件清单（新增/修改/删除）：
+  - `~ magnetgoogo-app/src/core/i18n.ts` (slogan → sloganPrefix + sloganBrand，中英文更新)
+  - `~ magnetgoogo-app/app/index.tsx` (slogan 渲染拆分为普通文字+品牌色文字)
+
+关键契约变更：
+  - i18n 字典 key 变更：`slogan` 移除，新增 `sloganPrefix` + `sloganBrand`
+
+风险与未决事项：
+  - 无
+
+验证方式：
+  - 启动 App 查看首页 slogan 显示：前半句灰色，品牌名蓝色加粗
+  - 切换语言验证英文 slogan 正常显示
+
+---
+---
+日期/时间：2026-05-01 12:40（UTC+8）
+本次版本：v0.4.2
+本次范围：**UX 全面审计 + P0 修复**
+涉及模块：web/src/app/api/search/route.ts
+
+### UX 审计 v2（10 场景 × 30 关键词 × 11 源 = 330 次 API 调用）
+
+**测试场景**: 中文电影热门、英文电影、美剧、动漫、游戏、AV、短关键词、编码搜索、中英混合、特殊字符
+
+### 发现并修复 3 个新问题
+
+| # | 级别 | 问题 | 修复 | 验证 |
+|---|------|------|------|------|
+| 1 | P0 | **sobt/clb size 被标题污染** — 详情页 `div.fileDetail p` 的 `.first()` 命中 tag pills 而非大小 | size 提取增加正则校验 `\d\s*(GB\|MB\|KB\|TB)` — 不匹配则跳过，走 regex fallback | sobt: `3.79 GB` ✅, clb: `4.21 Gb` ✅ |
+| 2 | P0 | **u3c3 置顶广告** — 每次搜索夹带 `title="國產原创"` `size="999GB"` `date="2099-03-01"` | route.ts `cleaned` 过滤增加 size≥900GB / date>current+1 年规则 | 3 个查询全部 clean ✅ |
+| 3 | P2 | **首次搜索慢启动** 8-11s | FETCH_HEADERS 增加 `Connection: keep-alive` | sobt avg 1.3s, bitsearch avg 0.7s ✅ |
+
+### 诊断排除的问题
+
+| 原报告 | 诊断结论 |
+|--------|---------|
+| JavBus 30 条重复 | ✅ 30 条 btih 全部不同 — 同番号不同版本，不是重复 |
+| bitsearch/btsow/clb 重复标题 | ✅ 所有磁力链 btih 唯一 — 同名不同编码，不是重复 |
+| 0cili 返回不相关 | ✅ 搜索正常使用关键词，但源内容以成人为主 |
+| knaben 中文相关性低 | 通过 relevance 排序降权处理 |
+| JavBus 中文搜索无结果 | 上游不支持简体中文搜索，忽略 |
+
+### 代码变更
+
+**route.ts:**
+- `extractFromSearchPage` + `fetchDetailResults`: size 提取增加 `\d\s*(GB|MB|KB|TB)\b` 校验，防止非 size 文本污染
+- `cleaned` 过滤器: 增加 size≥900GB / date>currentYear+1 规则过滤广告/假结果
+- `FETCH_HEADERS`: 增加 `Connection: keep-alive`
+
+---
+日期/时间：2026-05-01 20:10（UTC+8）
+本次版本：v0.4.1
+本次范围：**相关性过滤策略修正 + P1 批量修复**
+涉及模块：web/src/core/orchestrator.ts, web/src/app/api/search/route.ts, sources.json
+
+### 策略修正：相关性过滤 → 相关性排序
+
+v0.4.0 硬过滤 relevance=0 的结果 → **替用户做了内容审查决定**。
+修正为纯排序策略：`sortResults`(relevance desc) + `slice(0,24)` 自然淘汰。
+- 电影搜索：u3c3 的随机色情结果沉底，被真正匹配的结果挤出 top-24
+- AV 搜索：u3c3/BTSOW 的匹配结果 relevance>0，正常显示
+
+### 修复 P1 痛点（6 个）
+
+| # | 问题 | 修复 | 验证 |
+|---|------|------|------|
+| 5 | JavBus 缺 size/date | AJAX 表格 regex 扫描 + 详情页日期提取 | `size: "2.02 GB"`, `date: "2021-02-18"` ✅ |
+| 7 | 1337x 返回不相关结果 | 搜索引擎限制，由 relevance 排序处理 | 部分匹配(Ring)降权至 0.45 ✅ |
+| 8 | 動漫花園标题截断 | 选择器 `td:nth-child(3) a` → `a[href*="/topics/view/"]` | 完整标题显示 ✅ |
+| 9 | tokyotosho 缺 size/date | GFW 阻断，无法测试 | 暂搁 |
+| 10 | rutor size 显示文件数 | `td:nth-child(3)` → `td:nth-child(4)` + seeders 选择器 | `size: "20.04 GB"`, `S:136` ✅ |
+| 6 | 美剧迷缺 size | 上游无数据（博客站非种子站） | 无法修复 |
+
+### 代码变更
+
+**orchestrator.ts:**
+- 去掉 `relevance > 0` 硬过滤 → 传递所有结果，由 sortResults 排序
+- `computeRelevance()` 保留双信号（关键词+Fuse），不做审查
+
+**route.ts (fetchJavBus):**
+- size：regex 扫描 tr 所有 td + parent/sibling fallback
+- date：详情页 `發行日期` 正则提取 + AJAX 表格 YYYY-MM-DD 提取
+
+**sources.json:**
+- 動漫花園 ×2：title `td:nth-child(3) a` → `a[href*="/topics/view/"]`
+- rutor ×2：size `td:nth-child(3)` → `td:nth-child(4)` + seeders `td:nth-child(5)`
+
+---
+日期/时间：2026-05-03 02:00（UTC+8）
+本次版本：v0.4.0
+本次范围：**搜索体验深度测试 + P0/P1 修复**
+涉及模块：web/src/core/orchestrator.ts, web/src/app/api/search/route.ts, sources.json
+
+### 搜索体验测试（6 场景 × 3 关键词 × 8 源 ≈ 144 次 API 调用）
+
+**测试场景**: 电影中文/英文、美剧中文、游戏英文、动漫、AV
+
+### 发现 14 个 UX 痛点 — 已修复 4 个 P0/P1
+
+| # | 级别 | 问题 | 状态 |
+|---|------|------|------|
+| 1 | P0 | **垃圾结果淹没** — u3c3/BTSOW 返回不相关色情内容 | ✅ 修复：orchestrator 新增关键词+Fuse双信号相关性过滤 |
+| 2 | P0 | **镜像分组缺失** — SOBT×4/CLM×4/ZZB×7/CLD×3 未分组，18 个冗余并发 | ✅ 修复：新增 sobt/clm/zzb/cld/nyaa 5 个 MIRROR_PATTERNS |
+| 3 | P0 | **0cili 全部 0 结果** — detail_link 是 `<a>` 自身，find() 找不到嵌套 `<a>` | ✅ 修复：item.is(selector) fallback |
+| 4 | P1 | **bitsearch size 解析坏** — `div.text-sm` 太宽泛 → "Other/Video 1.6GB" | ✅ 修复：改用 `div.stats div:nth-child(2/3)` |
+| 5 | P1 | JavBus 缺 size/date/seeders | ✅ v0.4.1 修复 |
+| 6 | P1 | 美剧迷缺 size，70% 不相关 | 无法修复（上游无数据） |
+| 7 | P1 | 1337x 返回完全不相关结果 | ✅ v0.4.1 由 relevance 排序缓解 |
+| 8 | P1 | 動漫花園标题截断 | ✅ v0.4.1 修复 |
+| 9 | P1 | tokyotosho 缺 size/date | 暂搁（GFW 阻断） |
+| 10 | P1 | rutor size 显示文件数 | ✅ v0.4.1 修复 |
+| 11 | P2 | 所有中国源 seeders=0 | 无法修复（上游无数据） |
+| 12 | P2 | 客户端无相关性排序 | ✅ 已有（sortResults 按 relevance 降序） |
+| 13 | P2 | sukebei 混入动漫搜索 | 低优 |
+| 14 | P2 | BT4G 始终超时 | CF Turnstile 阻断 |
+
+### 代码变更
+
+**orchestrator.ts:**
+- `MIRROR_PATTERNS` 新增 5 组：sobt/clm/zzb/cld/nyaa，修正 0cili→0magnet
+- `computeRelevance()` 重写：关键词包含 × 0.9 + Fuse.js(threshold=0.5) 双信号，CJK 兼容
+- `onResults` 过滤：仅传递 relevance>0 的结果（v0.4.1 改为纯排序）
+
+**route.ts:**
+- `extractFromSearchPage` title 提取：增加 item.attr('title')、item.text() fallback
+- detail_link 提取：增加 `item.is(selector)` 回退（修复 list_item=detail_link 的情况）
+
+**sources.json:**
+- bitsearch.to: size 选择器 `div.text-sm` → `div.stats div:nth-child(2)`，新增 date 选择器
+
+---
+日期/时间：2026-05-01 09:40（UTC+8）
+本次版本：v0.3.1
+本次范围：**品牌注册表 + 种子吧家族扫描 + CLB TLD 扩展**
+涉及模块：sources.json, docs/project-nebula/DEV-LOG.md
+
+### 变更内容
+
+1. **品牌注册表 (brands) — 核心功能 🎉**
+   - 新增 `sources.json > brands` 顶级字段
+   - 按独立数据后端去重，每个品牌有 green/yellow/gray/merged 状态
+   - **38 个独立品牌：31 green / 4 yellow / 3 gray**（+1 merged）
+   - 按 category 分类：china / international / acg
+   - 合并标记：cilisousuo ← ØMagnet（同后端不计重复）
+
+2. **种子吧 (ZZB) 家族扫描 — 6 个新 GREEN**
+   - 扫描 zzb01-14 × .top/.xyz/.cc + zhongziba.cc + seed8.org
+   - 新 GREEN：zzb04, 05, 06, 07.top + zhongziba.cc + seed8.org
+   - 总计 7 个活跃镜像（zzb01 已有）
+
+3. **CLB TLD 扩展 — 仅 .top 有效**
+   - clb21-26 × .xyz/.cc/.me — 全部不可达
+   - sobt19-24 × .xyz/.cc — 全部不可达
+   - clm51-69 × .top（排除已有）— 全部不可达
+   - 结论：仅 `.top` TLD 有效
+
+4. **磁力帝/磁力天堂 家族扩展 — 无新发现**
+   - cld120-144/200-209 × .buzz/.com/.top — 仅 cld121.buzz 返回 redirect
+   - cltt01-09 × .sbs/.top/.xyz — 仅 cltt03.sbs 存活
+
+5. **sources.json 最终统计**
+
+| 维度 | 数量 |
+|---|---|
+| Rules 总计 | **222** |
+| 🟢 Green rules | 82 |
+| 🟡 Yellow rules | 8 |
+| ⬜ Gray rules | 132 |
+| 独立品牌总计 | **38** |
+| 🟢 Green brands | 31 |
+| 🟡 Yellow brands | 4 |
+| ⬜ Gray brands | 3 |
+
+### 品牌分布（按类别）
+| 类别 | Green | Yellow | Gray |
+|---|---|---|---|
+| china | 12 | 4 | 3 |
+| international | 14 | 0 | 0 |
+| acg | 5 | 0 | 0 |
+
+---
+---
+日期/时间：2026-05-01 09:30（UTC+8）
+本次版本：v0.3.0
+本次范围：**CLB/SOBT/CLM 家族域名轮换大扫描 — +10 GREEN**
+涉及模块：sources.json, docs/project-nebula/DEV-LOG.md
+
+### 变更内容
+
+1. **CLB 家族域名轮换扫描 — 5 个新 GREEN**
+   - 扫描 clb21-39 × .top/.xyz/.cc — 发现 clb21-26.top 全部存活
+   - clb21, 22, 23, 25, 26.top → 新 GREEN（clb24 已有）
+   - 模板一致：`/s/{query_b64}` → `/detail/{40hex}.html`
+
+2. **SOBT 家族 — 2 个新 GREEN**
+   - 扫描 sobt15-29 × .top/.xyz — 发现 sobt22, 24.top 存活
+   - sobt22, 24.top → 新 GREEN（sobt19, 23 已有）
+   - 模板一致：`/q/{query_b64}` → `/torrent/{40hex}.html`
+
+3. **CLM (磁力猫) 家族 — 3 个新 GREEN**
+   - 扫描 clm50-69.top — 发现 clm50, 52, 59 存活
+   - 新 GREEN（clm58 已有）
+   - 模板一致：`/search?word={query_b64}` → `/information/{id}`
+
+4. **Gray 中国域名 JS 追踪**
+   - btmayi.com → HugeDomains（域名待售）
+   - btmayi.cc → 导航站（非磁力搜索）
+   - clzhizhu.com → `location='https://'`（空跳转）
+   - 其余全部不可达或非搜索站
+
+5. **sources.json 更新**
+   - 总计 **216 rules：76 green / 8 yellow / 132 gray**（+10 green）
+   - validate_enum ALL VALID
+
+### CLB 家族完整域名列表
+| 品牌 | 活跃域名 | 搜索模板 |
+|---|---|---|
+| 磁力宝 | clb21-26.top (6) | `/s/{query_b64}` |
+| SOBT | sobt19,22,23,24.top (4) | `/q/{query_b64}` |
+| 磁力猫 | clm50,52,58,59.top (4) | `/search?word={query_b64}` |
+
+---
+---
+日期/时间：2026-04-30 23:40（UTC+8）
+本次版本：v0.2.9
+本次范围：**cilisousuo.cc 发现 + 磁力帝克隆扫描 + 第六轮品牌发现**
+涉及模块：sources.json, docs/project-nebula/DEV-LOG.md
+
+### 变更内容
+
+1. **cilisousuo.cc (磁力搜索) — 新 GREEN 源 🎉**
+   - 搜索引擎发现，经探测确认为 ØMagnet 同后端不同皮肤
+   - 搜索：`/search?q={query}` → `ul.list > li.item`
+   - Detail：`/magnet/{shortid}` → `input#input-magnet` (3 magnets)
+   - 选择器：`li.item`（列表）、`div.result-title`（标题）、`div.size`（大小）、`a.link`（detail）
+   - 镜像：cilisousuo.net / cilisousuo.co（均返回相同结果）
+   - 与 0cili 共享数据：相同 ID 系统（`i903` = `/!i903` = `/magnet/i903`）
+
+2. **ØMagnet 家族总览**
+   - 0cili.org / 0cili.nl / 0cili.com — `/search?q=` → `/!{id}`
+   - wuji.me / cili.uk — 同上
+   - cilisousuo.cc/net/co — `/search?q=` → `/magnet/{id}`（新皮肤）
+   - 发布页：cili404.com
+   - 总索引量：2,563,428 磁力链接
+
+3. **磁力帝架构克隆扫描**
+   - 探测 cld141/142/139/150/125/126/130/200.buzz 等 — 全部不可达
+   - 确认仅 cld140.buzz + 529072/73.xyz 存活
+
+4. **第六轮品牌发现**（~25 候选）
+   - 5A磁力 (bt.iaaaaa.com) — 不可达
+   - SkrBT (skrbtso.top) — 重定向到安全检测
+   - 所有新中文品牌（磁力鸡/蚂蚁/熊/龙/种子猫等）— dead/parking/redirect
+   - 国际站 (TorrentGalaxy/BTMET/snowfl/idope) — 不可达/CF
+
+5. **sources.json 更新**
+   - 总计 **206 rules：66 green / 8 yellow / 132 gray**
+   - validate_enum ALL VALID
+
+---
+---
+日期/时间：2026-04-30 23:20（UTC+8）
+本次版本：v0.2.8
+本次范围：**Gray 源复活扫描 — 52BT x2 复活 + 天天磁力/磁力星球发现**
+涉及模块：sources.json, docs/project-nebula/DEV-LOG.md
+
+### 变更内容
+
+1. **52BT (529072.xyz + 529073.xyz) 复活 gray → green 🎉**
+   - 原配置错误（POST+CSRF），实际为标准 GET
+   - 搜索：`/search-{query}-0-0-1.html` → 20 magnets/page 直出
+   - 选择器与磁力帝 (cld140.buzz) 完全相同：`div.sbar`、`b.cpill.yellow-pill`、`a[href^='magnet:']`
+   - 中英文搜索均正常
+
+2. **Gray 源批量复活扫描**（134 个 → 28 个存活响应）
+   - 28 个存活中仅 52BT x2 为真正搜索引擎
+   - 其他存活：iframe 代理壳 / 导航站 / JS 跳转中转 / SPA 空壳
+
+3. **新品牌追踪**
+   - **BT1207 (bt1207.vip)** → 天天磁力发布站 ttbt.icu → d2/d3.ttbt.me → iframe(so.ttbt.top) — 后端 404
+   - **磁力搜索 (mv.so11.top)** → so9.xingqiu.icu (磁力星球) → iframe(div.xingqiu.icu) — 多级 iframe 代理
+   - **迅雷电影天堂 (xunlei8.org)** → 聚合搜索站（百度/搜狗/必应），非独立磁力源
+   - **磁力狐新域名 (btfox.cyou, btmovi.icu)** → 均跳转 jump.btfox.icu（已知链路）
+
+4. **sources.json 更新**
+   - 总计 **205 rules：65 green / 8 yellow / 132 gray**（+3 green via 复活/修正）
+   - validate_enum ALL VALID
+
+---
+---
+日期/时间：2026-04-30 23:10（UTC+8）
+本次版本：v0.2.7
+本次范围：**0cili 验证 + wuji.me 复活 + 第四轮品牌发现**
+涉及模块：sources.json, docs/project-nebula/DEV-LOG.md
+
+### 变更内容
+
+1. **0cili (ØMagnet 无极磁链) — 确认全系存活**
+   - `/search?q={query}` 返回 27KB 表格结果（健康检查误报：detail link 用 `/!{id}` 非标准路径）
+   - Detail `/!{id}` → `input#input-magnet` 取得 magnet link
+   - 选择器：`a[href^="/!"]`（列表项+链接）、`td.td-size`（大小）
+   - 已收录 2,563,428 个磁力链接
+
+2. **wuji.me 复活 gray → green**
+   - 修复 origin URL（去除 `?ref=eeenav.com`）
+   - 确认搜索/详情功能正常
+   - 所有 ØMagnet 域名：0cili.org / 0cili.nl / 0cili.com / wuji.me / cili.uk
+   - 发布页：cili404.com
+
+3. **第四轮新品牌探测**（30 个候选域名）
+   - 搜磁力 (soucili.org → soucili.cfd) — 搜索 404，无效
+   - EZTV (eztvx.to) — CF 阻断
+   - 磁力蛙/BT酷搜/磁力吧/种子搜/磁力云/BT兔子/磁力鱼/磁力侠 — 全部 dead/redirect/parking
+   - GloTorrents/LimeTorrents/SolidTorrents — GFW 封锁
+
+4. **sources.json 更新**
+   - 总计 **205 rules：63 green / 8 yellow / 134 gray**（+1 green via 复活）
+   - validate_enum ALL VALID
+
+---
+---
+日期/时间：2026-04-30 23:00（UTC+8）
+本次版本：v0.2.6
+本次范围：**磁力天堂 GREEN 突破 + 62 源批量健康检查**
+涉及模块：sources.json, docs/project-nebula/DEV-LOG.md
+
+### 变更内容
+
+1. **磁力天堂 (cltt03.sbs) — GREEN 🎉**
+   - 完整解码 4 层 JS 跳转：cltt.me → `gn{MMDD}.tx6.xn--55qx5dsz0a4mc.com/api.2.JS` → atob → `cltt03.sbs`
+   - 搜索：`/search?kw={query}` → 302 到 `/s?wd={hash}&x={token}`
+   - 详情：`/{40hex}.html` → `textarea#MagnetLink` + `a[href^='magnet:']`
+   - 选择器：`div.result > h3 a`（标题/链接）、`div.result-info span`（时间/大小）
+   - 数据新鲜：2026-04-29 的数据可搜到
+   - 有 Cloudflare 被动挑战（invisible iframe），不影响直接 HTTP
+
+2. **BTSOW (btsow.pics) 降级 green → yellow**
+   - 现在是纯 SPA shell：`<div id="bts-site-index"></div>` + bts.min.js
+   - 1333 字节，无服务端渲染内容
+   - 需要 `requires_browser=true`
+   - 另一个 BTSOW 域名 so2.btsow.top 仍为 GREEN（30 magnets/page）
+
+3. **62 源批量健康检查结果**
+   - ✅ **29 OK**：搜索返回结果（magnets/hashes/details）
+   - ⚠️ **7 Empty**：响应正常但无结果（custom handler 源 + SPA 源）
+   - ❌ **21 Unreachable**：连接失败（多为 GFW 封锁国际站）
+   - ❌ **5 HTTP Error**：403/404/500/502
+   - 重试后确认 0magnet.co 和 animetime.cc 仍存活
+   - 10 个不可达源全部为 GFW 封锁的国际站（TPB 代理/u3c3/移花宫等），保留 green
+
+4. **sources.json 更新**
+   - 总计 **205 rules：62 green / 8 yellow / 135 gray**（+1 green, +1 yellow via 降级）
+   - validate_enum ALL VALID
+
+---
+---
+日期/时间：2026-04-30 22:40（UTC+8）
+本次版本：v0.2.5
+本次范围：**深度逆向分析 — BTSearch RSC + 多级 JS 跳转追踪 + iframe 代理架构**
+涉及模块：sources.json, docs/project-nebula/DEV-LOG.md
+
+### 变更内容
+
+1. **BTSearch (btsearch.love) — Next.js RSC 深度分析**
+   - 使用 React Server Components (RSC) 流式传输，**不是** 传统 `__NEXT_DATA__`
+   - 4 个 RSC push chunks，仅含框架元数据（buildId、layout），搜索结果在客户端 JS 水合
+   - 确认为纯 YELLOW，需 `requires_browser=true`
+
+2. **磁力多 — 多级 JS 跳转完全追踪**
+   - 跳转链：ciliduo.org → cd.link5.top → `my.btdo.cc`（PC）/ `btduo.top`（移动）
+   - `my.btdo.cc` 架构：iframe 代理，`atob('aHR0cHM6Ly9kb2MyLmh0bWNkbi5jb206Mzk5ODg=')` → **doc2.htmcdn.com:39988**
+   - 后端需要前端混淆 JS 设置的 cookie 才能访问（直接 HTTP 全部拒绝）
+   - btduo.top → ciliduo.info → 又跳回 cd.link5.top（循环跳转！）
+
+3. **磁力狐 — iframe 代理架构追踪**
+   - 跳转链：btfox.icu → jump.btfox.icu → `s83.foxso.top`
+   - `s83.foxso.top` 架构：iframe 代理，`atob('aHR0cHM6Ly9jYWNoZS5mb3hzLnRvcA==')` → **cache.foxs.top**
+   - 后端同样需要 cookie 认证，直接 HTTP 不可达
+
+4. **iframe 代理架构共性发现**
+   - 磁力多和磁力狐使用**相同架构模式**：
+     1. 发布页（多级 atob 跳转）→ 着陆页
+     2. 着陆页通过混淆 JS 设置 cookie → iframe 加载 CDN 代理
+     3. CDN 代理校验 cookie → 返回真实搜索引擎 HTML
+   - ⚠️ App 的 VerifyWebView 提取 `document.documentElement.outerHTML` 不含 iframe 内容
+   - 需要修改注入 JS 以提取 `iframe.contentDocument` 或直接导航 iframe URL
+
+5. **sources.json 更新**
+   - 总计 **204 rules：62 green / 7 yellow / 135 gray**（+2 yellow）
+   - validate_enum ALL VALID
+
+---
+---
+日期/时间：2026-04-30 22:15（UTC+8）
+本次版本：v0.2.4
+本次范围：**第二轮批量域名发现 — SOBT/BTSearch + 导航站深度挖掘**
+涉及模块：sources.json, docs/project-nebula/DEV-LOG.md
+
+### 变更内容
+
+1. **第二轮批量探测**（12 个新候选域名）
+   - SkrBT (skrbtso.top) → 被"网址安全中心"拦截
+   - 磁力柠檬 (lemonuo.top) → 同上
+   - btant.xyz → dead
+   - 244442.xyz / cilisouou.com / eryi.org / torrent2.cc / jigecili.com → 全为导航聚合站
+
+2. **SOBT — GREEN ✅**（CLB 系列新品牌）
+   - 搜索：POST `/` → 302 到 `/q/{base64(query)}` 或直接 `GET /q/{query_b64}`
+   - 详情：`/torrent/{40hex}.html` → `a.download#down-url[href^='magnet:']`
+   - Selectors 与磁力宝 clb24.top 完全相同（div.search-item / b.cpill.yellow-pill）
+   - sobt23.top + sobt19.top 均确认 GREEN，sobt18.icu 也可用
+   - 备用域名：sobt.me, sobt.app, sobt5.com. 联系：888#clb.biz
+
+3. **BTSearch (btsearch.love) — YELLOW**
+   - Next.js SSR 应用，搜索 `/search?keyword={query}` 返回 49KB
+   - SSR 中含 1 个 hash，但结果需要 JS 水合才能完整解析
+   - 加为 YELLOW，待 `requires_browser` 适配
+
+4. **导航站深度挖掘**
+   - btmayi.cc 12 个子页面全部共享同一模板外链（14 个域名），无品牌特定域名
+   - ciliduo.org → 发布页，JS atob 跳转至 cd.link5.top → 再跳 ca.link4.top（多级跳转）
+   - btfox.icu → 发布页，JS 跳转至 jump.btfox.icu（需浏览器追踪）
+   - torrentkitty.de → 纯说明页面，无搜索功能
+   - cltt.me → 复杂 JS 跳转（动态子域名）
+
+5. **sources.json 更新**
+   - 总计 **202 rules：62 green / 5 yellow / 135 gray**（+2 green +1 yellow）
+   - validate_enum ALL VALID
+
+---
+---
+日期/时间：2026-04-30 21:50（UTC+8）
+本次版本：v0.2.3
+本次范围：**黄灯源深度分析 — SPA API 发现 + 磁力宝 GREEN 突破**
+涉及模块：sources.json, docs/project-nebula/DEV-LOG.md
+
+### 变更内容
+
+1. **SPA API 逆向分析**
+   - 对 3 个黄灯源（laowangzo.top、laowangcili.com、clb24.top）下载并分析 JS bundle
+   - laowangzo.top：仅 jQuery+Bootstrap+jquery.cookie，无自定义 JS，确认为纯 SPA 需浏览器渲染
+   - laowangcili.com：实为 OneNav WordPress 导航站主题，非搜索引擎
+   - clb24.top：发现真实搜索 API `/s/{base64_urlsafe(query)}`
+
+2. **磁力宝 clb24.top — YELLOW → GREEN 升级** ✅
+   - 搜索：`GET /s/{query_b64}` — "Inception" 213 结果，"流浪地球" 50 结果
+   - 详情：`/detail/{40hex}.html` → `a.download#down-url[href^='magnet:']` 直接出磁力链接
+   - Selectors: search=`div.search-item` / `div.item-title h3 a` / `b.cpill.yellow-pill`, detail=`h1.res-title` / `a.download#down-url`
+   - 备用域名：cilibao.top、clb.im、cilibao.app
+
+3. **老王磁力域名追踪**
+   - laowangsou.net = 地址发布页，非搜索引擎（只指向自身）
+   - laowangzo.top = 真 SPA，`/search?keyword={query}` 始终返回 7105 字节 shell
+   - 保持 YELLOW，待 `requires_browser=true` 适配
+
+4. **sources.json 更新**
+   - 总计 199 rules：**60 green** / 4 yellow / 135 gray（+1 green -1 yellow）
+   - validate_enum ALL VALID
+
+---
+---
+日期/时间：2026-04-30 21:30（UTC+8）
+本次版本：v0.2.2
+本次范围：**品牌域名发现与源扩展 — 批量品牌盘点 + 搜索引擎/导航站域名追踪**
+涉及模块：sources.json, docs/project-nebula/DEV-LOG.md
+
+### 变更内容
+
+1. **品牌盘点系统性扫描**
+   - 从 sources.json 提取 146 个独立品牌，其中 39 个有活域名、107 个全部失效
+   - gray 细分：74 unreachable（多为 GFW 封锁）、36 expired（域名过期/更换）、20 404、5 parsing_failed
+
+2. **搜索引擎 + 导航站批量域名追踪**
+   - 对 20+ 高价值失效品牌通过 Google/导航站（btmayi.cc）查找最新域名
+   - 发现候选域名 79 个，Stage0 并发探测后筛出 5 STRONG + 5 MEDIUM
+
+3. **Stage2 HTTP 搜索验证**
+   - **磁力猫 (clm58.top)** — ✅ GREEN 确认：POST `/kw` → GET `/search?word={query_b64}`，详情页 `/information/{id}` 直接出磁力链接（"Inception" 230 个结果，3 magnets/detail）
+   - **老王磁力 (laowangzo.top)** — 🟡 YELLOW：纯 JS SPA，所有 URL 返回相同 7105 字节 shell，需浏览器渲染
+   - **老王磁力 (laowangcili.com)** — 🟡 YELLOW：SPA 发布页 + 搜索门户
+   - **磁力宝 (clb24.top)** — 🟡 YELLOW：CLB 系列新域名（cilibao.top 重定向），需进一步 API 发现
+
+4. **sources.json 更新**
+   - 新增 4 条规则：1 green + 3 yellow
+   - 总计 199 rules：59 green / 5 yellow / 135 gray
+   - validate_enum ALL VALID
+
+5. **关键品牌域名映射（本轮发现）**
+
+   | 品牌 | 新域名 | 状态 |
+   |---|---|---|
+   | 磁力猫 | clm58.top（cilimao.click 重定向） | GREEN |
+   | 老王磁力 | laowangzo.top | YELLOW/SPA |
+   | 老王磁力 | laowangcili.com | YELLOW/SPA |
+   | 磁力宝 | clb24.top（cilibao.top 重定向） | YELLOW |
+   | 磁力盒子 | cilihezi.com（导航站非搜索引擎） | 排除 |
+   | 磁力天堂 | btlm.cc（导航站非搜索引擎） | 排除 |
+
+### 后续优化
+
+- 老王磁力需 `requires_browser=true` + VerifyWebView 渲染方案
+- 磁力宝(clb24) 需进一步 API 抓包发现搜索接口
+- 黑马磁力 heimamo.top/heimaai.top 被安全中心拦截，需直连或浏览器绕过
+- 磁力猫 clm58.top 的备用域名：clm.cc、clm.la、cilimao.biz
+
+---
+---
+日期/时间：2026-04-30 18:00（UTC+8）
+本次版本：v0.2.1
+本次范围：**1337x 深度解析修复 — 专用 custom handler**
+涉及模块：magnetgoogo-app/src/core/searchEngine.ts, web/src/app/api/search/route.ts, sources.json
+
+### 变更内容
+
+1. **1337x 专用 custom handler (`fetch1337x`)**
+   - **根因**：通用 detail-follow 流程在解析 1337x 详情页标题时失败，所有结果标题显示为站点名而非种子名；复制磁力链后迅雷显示的资源名称与搜索词无关
+   - **修复**：新增 `fetch1337x()` 自定义处理器，搜索页提取标题/大小/日期/做种数，详情页仅提取 magnet 链接
+   - **关键设计**：始终使用搜索页标题（100% 正确），不再依赖详情页标题解析
+   - **大小解析修复**：`td.coll-4` 含隐藏 `<span>` 导致文本拼接为 "1.6 GB1.6"，改用 regex 提取 `([\d.]+)\s*(TB|GB|MB|KB)`
+   - 同时更新 app (`searchEngine.ts`) 和 web (`route.ts`)
+
+2. **sources.json**
+   - 1377x.to + 1337xx.to 均添加 `"handler": "1337x"`，走专用处理器而非通用流程
+
+---
+---
 日期/时间：2026-04-27 18:20（UTC+8）
 本次版本：v0.2.0
 本次范围：**乱码修复 + 验证弹窗容错 + 反馈系统修复 + UI 优化**

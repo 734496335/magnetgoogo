@@ -1,0 +1,88 @@
+name: Source Health Check
+
+on:
+  schedule:
+    # Every 8 hours: 00:00, 08:00, 16:00 UTC
+    - cron: '0 0,8,16 * * *'
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Deploy after update'
+        required: false
+        default: 'true'
+        type: boolean
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout magnet repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4 lxml pycryptodome
+
+      - name: Run health check
+        run: python scripts/health_check.py --update
+        env:
+          PYTHONUNBUFFERED: '1'
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet sources.json; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No source status changes"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Source status changes detected!"
+            git diff --stat sources.json
+          fi
+
+      - name: Commit sources.json updates
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config user.name "health-check-bot"
+          git config user.email "health-check@maggoogo.local"
+          git add sources.json
+          git commit -m "chore: auto health check $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push
+
+      - name: Encrypt and deploy to mg-data
+        if: steps.check_changes.outputs.changed == 'true' && (github.event.inputs.deploy != 'false')
+        run: |
+          python encrypt_sources.py
+          # Clone mg-data repo
+          git clone https://x-access-token:${{ secrets.MG_DATA_TOKEN }}@github.com/734496335/mg-data.git mg-data-deploy
+          cp mg-data/sources.enc.json mg-data-deploy/sources.enc.json
+          cd mg-data-deploy
+          git config user.name "health-check-bot"
+          git config user.email "health-check@maggoogo.local"
+          git add sources.enc.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: auto health check update $(date -u '+%Y-%m-%d %H:%M')"
+            git push
+            echo "✓ Deployed to mg-data"
+          else
+            echo "No encryption changes"
+          fi
+
+      - name: Upload health report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-report
+          path: scripts/health_report.json
+          retention-days: 7
