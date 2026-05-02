@@ -1,4 +1,39 @@
 ---
+日期/时间：2026-05-03 01:00（UTC+8）
+本次版本：v0.4.8
+本次范围：**新源发现：知乎/导航站批量探测 + cilisousuo.co/cc 接入**
+涉及模块：sources.json, scripts/
+
+关键改动摘要（可检索）：
+  - **批量探测 44 个候选域名**：从知乎高赞帖、btlm.cc、btmayi.cc、iitang.com、16map.com、cilihezi.cn 等导航站提取候选
+  - **新 GREEN 源：磁力搜搜 cilisousuo.co + cilisousuo.cc**：ØMagnet 品牌的另一前端，li.item 布局，detail-follow 模式，56 results/page
+  - **sources.json: 223 rules, 87 green, 3 yellow**
+
+探测结论：
+  - 44 候选中 27 个 DNS 死亡（.top/.cc/.com 全线阵亡）
+  - 4 个有搜索表单但搜索功能实为 SPA/AJAX（黑马磁力 heimamo.top、磁力熊猫 xiongmaogb.top）或 CF 拦截（老王磁力 laowangso.top）
+  - 黑马磁力/磁力熊猫均为"地址发布页"壳站，真实搜索后端域名隐藏在 JS 中无法追踪
+  - AnimeTosho 75 magnets 但 2026-05-09 关站，不接入
+  - cilisousuo.co/cc 确认可用：与 0cili.org 共享同一 DHT 索引（56 条相同结果），不同前端
+
+新源详情：
+  - cilisousuo.co: `GET /search?q={query}`, sel=`li.item`, title=`div.result-title`, size=`div.size`, detail=`a.link[href^="/magnet/"]`
+  - Detail page: `/magnet/{shortcode}` → magnet hash + `a[href^="magnet:"]`
+
+修改文件清单：
+  - `~ sources.json` (+2 rules: cilisousuo.co/cc green + brand registry)
+
+风险与未决事项：
+  - 国内磁力搜索生态高度碎片化且域名轮换频繁，大部分 .top 域名生命周期 < 3 个月
+  - 黑马磁力等知名品牌实际搜索功能需要 JS 渲染，标准 handler 无法支持
+  - 小红书搜索需要登录态，无法自动化抓取推荐帖
+
+验证方式：
+  - `python validate_enum.py` → ALL VALID
+  - `python scripts/health_check.py` → cilisousuo.co/cc 应 green
+
+---
+---
 日期/时间：2026-05-03 00:35（UTC+8）
 本次版本：v0.4.7
 本次范围：**源健康自动巡检系统 + 降级保护机制**

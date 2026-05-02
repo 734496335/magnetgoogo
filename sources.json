@@ -10738,6 +10738,127 @@
             "sample_title": "Avengers",
             "note": "Real backend of 磁力狐. SSR HTML, detail-follow. Requires Referer header."
           }
+        },
+        {
+          "id": "a743ee35b789",
+          "site": {
+            "name": "磁力搜搜(co)",
+            "origin": "https://cilisousuo.co",
+            "brand": "ØMagnet/磁力搜搜",
+            "mirrors": [
+              "https://cilisousuo.cc",
+              "https://cilisousuo.net"
+            ],
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?q={query}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "li.item",
+                "title": "div.result-title",
+                "magnet": "",
+                "size": "div.size",
+                "date": "",
+                "detail_link": "a.link"
+              },
+              "notes": "56 results/page. Detail page at /magnet/{shortcode}."
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "div.result-title",
+                "size": "div.size"
+              }
+            }
+          },
+          "quality": {
+            "score": 60,
+            "tags": [
+              "chinese",
+              "general",
+              "zhihu-nav"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:56:56.657337+00:00",
+            "magnets_found": 56,
+            "sample_title": "The.Amazing.Spider-Man.2.2014.1080p.BluRay",
+            "note": "ØMagnet alternate frontend. li.item layout. Detail-follow /magnet/{shortcode}."
+          }
+        },
+        {
+          "id": "693be2796614",
+          "site": {
+            "name": "磁力搜搜(cc)",
+            "origin": "https://cilisousuo.cc",
+            "brand": "ØMagnet/磁力搜搜",
+            "mirrors": [
+              "https://cilisousuo.co"
+            ],
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?q={query}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "li.item",
+                "title": "div.result-title",
+                "magnet": "",
+                "size": "div.size",
+                "date": "",
+                "detail_link": "a.link"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "div.result-title",
+                "size": "div.size"
+              }
+            }
+          },
+          "quality": {
+            "score": 60,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:56:56.657337+00:00",
+            "magnets_found": 56,
+            "sample_title": "The.Amazing.Spider-Man.2.2014.1080p.BluRay",
+            "note": "ØMagnet alternate frontend mirror of cilisousuo.co."
+          }
         }
       ]
     }
@@ -10984,6 +11105,20 @@
       "yellow_domains": [
         "btdo.top"
       ]
+    },
+    {
+      "brand": "ØMagnet/磁力搜搜",
+      "status": "green",
+      "category": "china",
+      "backend": "cilisousuo",
+      "green_domains": [
+        "cilisousuo.co",
+        "cilisousuo.cc",
+        "0cili.org",
+        "0cili.com",
+        "0cili.nl"
+      ],
+      "note": "Two frontends: 0cili (table/tr layout) and cilisousuo (li.item layout). Same DHT index."
     }
   ]
 }
