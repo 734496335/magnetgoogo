@@ -3,70 +3,93 @@
 </p>
 
 <p align="center">
-  <img src="app-icon.png" width="100" height="100" alt="磁力古哥">
+  <img src="app-icon.png" width="100" height="100" alt="磁力古哥 - 免费聚合磁力搜索引擎 Android App">
 </p>
 
-<h1 align="center">磁力古哥 Magnet Googo</h1>
+<h1 align="center">磁力古哥 Magnet Googo — 聚合磁力搜索</h1>
 
 <p align="center">
-  搜全网磁力，上磁力古哥<br>
-  <em>Every Magnet. One Search.</em>
+  <strong>搜全网磁力，上磁力古哥</strong><br>
+  <em>免费 · 无广告 · 80+ 磁力源聚合搜索</em>
 </p>
 
 <p align="center">
   <a href="https://github.com/734496335/magnetgoogo/releases/latest">
     <img src="https://img.shields.io/github/v/release/734496335/magnetgoogo?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=4285F4" alt="Latest Release">
   </a>
+  <a href="https://github.com/734496335/magnetgoogo/releases">
+    <img src="https://img.shields.io/github/downloads/734496335/magnetgoogo/total?color=22c55e&label=%E4%B8%8B%E8%BD%BD%E9%87%8F" alt="Total Downloads">
+  </a>
   <img src="https://img.shields.io/badge/Android-7.0%2B-34A853" alt="Android 7.0+">
   <img src="https://img.shields.io/badge/%E4%BB%B7%E6%A0%BC-%E5%85%8D%E8%B4%B9-7c3aed" alt="免费">
-  <img src="https://img.shields.io/badge/license-Proprietary-gray" alt="Proprietary">
 </p>
 
 <p align="center">
   <a href="https://magnetgoogo.com"><strong>🌐 官网</strong></a> &nbsp;·&nbsp;
   <a href="https://github.com/734496335/magnetgoogo/releases/latest"><strong>📥 下载 APK</strong></a> &nbsp;·&nbsp;
-  <a href="https://wwbdy.lanzoue.com/icA4n3ol97te"><strong>☁️ 蓝奏云下载</strong></a>
+  <a href="https://wwbdy.lanzoue.com/icA4n3ol97te"><strong>☁️ 蓝奏云下载</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/734496335/magnetgoogo/issues"><strong>💬 反馈</strong></a>
 </p>
 
 ---
 
+## 磁力古哥是什么？
+
+**磁力古哥 (Magnet Googo)** 是一款免费的 Android 磁力搜索聚合App。它同时搜索全网 80+ 个磁力链接源，将电影、动漫、游戏、音乐、软件等资源的搜索结果统一展示。不用再逐个翻找磁力网站，一次搜索全部直达。
+
+**核心优势：** 无广告、无弹窗、无需注册、不收集个人信息。
+
 ## 📱 应用截图
 
 <p align="center">
-  <img src="screenshot-home.png" width="240" alt="首页">
+  <img src="screenshot-home.png" width="240" alt="磁力古哥首页 - 磁力搜索界面">
   &nbsp;&nbsp;&nbsp;
-  <img src="screenshot-results.png" width="240" alt="搜索结果">
+  <img src="screenshot-results.png" width="240" alt="磁力古哥搜索结果 - 聚合磁力链接">
 </p>
 
 ## ✨ 功能亮点
 
-- **🔍 全网聚合搜索** — 一次搜索，汇聚全网磁力资源
+- **🔍 全网聚合搜索** — 一次搜索 80+ 个磁力源，汇聚全网磁力资源
 - **⚡ 极速秒级响应** — 渐进式加载，第一条结果秒级呈现
-- **🛡️ 纯净无扰体验** — 无广告、无弹窗、无干扰
+- **🛡️ 纯净无广告** — 无广告、无弹窗、无追踪、无干扰
 - **🎨 精心设计** — 极简美观，收藏、历史、暗色模式一应俱全
 - **🔄 自动更新源** — 云端源规则自动同步，无需手动配置
 - **🌍 中英双语** — 完整的中文和英文界面支持
+- **📋 一键复制** — 磁力链接一键复制，打开你喜欢的下载工具
+- **🔒 隐私优先** — 搜索在本地执行，不收集任何个人信息
 
 ## 📥 下载安装
 
 | 渠道 | 链接 | 说明 |
 |------|------|------|
-| **GitHub Releases** | [下载最新版 APK](https://github.com/734496335/magnetgoogo/releases/latest) | 国外用户推荐 |
+| **GitHub Releases** | [下载最新版 APK](https://github.com/734496335/magnetgoogo/releases/latest) | 始终最新 |
 | **CDN 加速** | [快速下载](https://api.naoshiquan.com/download/v0.1.8/MagGoogo-v0.1.8.apk) | 全球 CDN 加速 |
 | **蓝奏云** | [备用下载](https://wwbdy.lanzoue.com/icA4n3ol97te) | 国内用户推荐（密码: 8888） |
+| **官网** | [magnetgoogo.com](https://magnetgoogo.com) | 截图和详细介绍 |
 
 > **系统要求**：Android 7.0 及以上
+
+## 🆚 为什么选择磁力古哥？
+
+| 对比项 | 磁力古哥 | 单个磁力站 | 浏览器搜索 |
+|--------|:---:|:---:|:---:|
+| 同时搜 80+ 个源 | ✅ | ❌ | ❌ |
+| 无广告 | ✅ | ❌ | ❌ |
+| 一键复制磁力链接 | ✅ | ⚠️ | ❌ |
+| 源自动更新 | ✅ | N/A | N/A |
+| 国内可用（无需翻墙）| ✅ | ⚠️ | ⚠️ |
+| 永久免费 | ✅ | ✅ | ✅ |
 
 ## 🔒 隐私与安全
 
 - 所有搜索请求均在本地发起，不经过我们的服务器
-- 不收集任何个人信息
-- 不要求任何敏感权限
+- 不收集任何个人信息，没有用户账号体系
+- 不要求任何敏感权限（无通讯录、无摄像头、无定位）
 - 收藏和历史记录仅存储在设备本地
 
 ## 💬 反馈与建议
 
-欢迎在 [Issues](https://github.com/734496335/magnetgoogo/issues) 中提交反馈和建议。
+欢迎在 [Issues](https://github.com/734496335/magnetgoogo/issues) 中提交 Bug 报告或功能建议，每条我们都会看。
 
 ## ⚠️ 免责声明
 
