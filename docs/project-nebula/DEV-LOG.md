@@ -1,36 +1,283 @@
 ---
-日期/时间：2026-05-03 01:00（UTC+8）
-本次版本：v0.4.8
-本次范围：**新源发现：知乎/导航站批量探测 + cilisousuo.co/cc 接入**
+日期/时间：2026-05-04 19:10（UTC+8）
+本次版本：v0.7.1
+本次范围：**灰色源批量复活 + 新镜像发现 + 选择器修复**
+涉及模块：sources.json
+
+### 关键变更
+
+**1. 灰色源批量复活（Green 93→120）**
+- 16x 磁力宝(CLB)镜像复活：clb1/2/3/6/12/13/15-20.top|cc|me|xyz 重新匹配绿色模板
+- 4x Pirate Bay 代理修复：isproxy.online/pics/space + mirrorbay.org
+  - URL模板从 `/?q=` 改为 `/search/keywords:{query}`
+  - 选择器从 `table#searchResult` 改为 `tr.text-nowrap` + `td.text-wrap a`
+- 1x knaben.org 修复：国际聚合站，100 magnets/page，`/search/?q={query}`
+
+**2. 新镜像发现（+6 green）**
+- SOBT: sobt21.top
+- 磁力猫: clm51/53/54/56/57.top
+
+**3. 灰色→黄色提升（7 个 thatcdn 平台站）**
+- soxiongmao.top, ilaowang06.xyz, wuqianyx.top, bt1207yx.top, lemonzc.top, laowang.fun, bitdao.me
+- 共用 thatcdn CDN 平台，搜索有 anti-bot challenge，需 Tier 2 浏览器渲染
+
+**4. 死站降级**
+- laowangcili.top, btdo.top → gray/unreachable
+- pirateproxy.tube → gray/404
+
+### 统计
+| 状态 | 数量 |
+|------|------|
+| Green | 120 |
+| Yellow | 12 |
+| Gray | 108 |
+| **Total** | **240** |
+
+### 方法论
+- 3 秒超时批量扫描 132 个灰色源 → 发现 82 个实际可达
+- 按响应体大小分组识别模板家族（2599B = 磁力宝 SPA）
+- 针对性探测搜索功能、提取 CSS 选择器、验证 magnet 返回
+
+---
+---
+日期/时间：2026-05-04 10:30（UTC+8）
+本次版本：v0.7.0
+本次范围：**正式签名 + 阿里云服务器部署 + App备案准备 + 协议外置**
+涉及模块：magnetgoogo-app, magnetgoogo-site, cf-gateway, admin-server, docs
+
+### 关键变更
+
+**1. 正式 Release 签名**
+- 新建 `magnetgoogo-release.keystore`（SHA256withRSA, 2048-bit, 10000天）
+- `build.gradle` signingConfigs 切换到 release keystore
+- 提取备案所需信息：包名、公钥十六进制、MD5/SHA1/SHA256 指纹
+- 文档化：`docs/project-nebula/APP-SIGNING.md`
+
+**2. 阿里云服务器部署（47.103.155.154, 华东2上海）**
+- Nginx 官网镜像 `cn.magnetgoogo.com`（百度 SEO 加速）
+- APK 国内直连下载 `cn.magnetgoogo.com/download/magnetgoogo.apk`
+- Admin Dashboard `http://IP:3000`（Nginx Basic Auth 保护）
+- Let's Encrypt SSL 证书自动续期
+- systemd 服务自启动
+- 文档化：`docs/project-nebula/SERVER-DEPLOY.md`
+
+**3. 协议页面外置化**
+- `privacy.tsx` / `terms.tsx` 从内联渲染改为 WebView 加载网页
+- 优先 `cn.magnetgoogo.com`（国内），fallback `magnetgoogo.com`（海外）
+- 以后修改协议只需更新网站 HTML，无需发新版 App
+
+**4. 下载链接统一更新**
+- 蓝奏云链接更新到最新地址
+- `config.json` 新增阿里云下载镜像
+- 推送到 maggoogo-sources + mg-data 仓库
+- Cloudflare Pages 重新部署
+
+---
+日期/时间：2026-05-03 18:50（UTC+8）
+本次版本：v0.6.0
+本次范围：**埋点数据管线修复 + KV→R2 迁移 + 运营数据分析面板**
+涉及模块：cf-gateway, admin-server, magnetgoogo-app, admin_templates
+
+### 关键变更
+
+**1. CF Gateway — 分析数据存储从 KV 迁移到 R2**
+- 新增 R2 bucket `maggoogo-analytics`（binding: `ANALYTICS`）
+- R2 key 结构: `events/{YYYY}/{MM}/{DD}/{did}_{ts}.json`（按日期分区，支持高效前缀列举）
+- 写入优先 R2，KV 降级为 fallback（平滑过渡，旧 KV 数据仍可读）
+- 读取使用 R2 `list()` + cursor 分页，**彻底消除 KV 200 条 list 硬限制**
+- 支持 `?days=N` 参数（默认30天，最大90天）
+- 数据永久保留（R2 无 TTL），可做历史趋势分析
+
+**2. 数据丢失修复（5 项）**
+- **KV list 200 上限** → R2 分页列举，无上限 ✅
+- **IP 速率限制** → 改为 device ID 维度 + 30s 间隔（NAT 环境不再互相挤占）✅
+- **payload 8KB 限制** → 提升到 32KB ✅
+- **events/batch 50 上限** → 提升到 100 ✅
+- **App 后台不 flush** → 添加 AppState 监听，切后台/inactive 时立即 flush ✅
+
+**3. 运营数据分析面板（admin dashboard 新 Tab）**
+- 9 个 KPI 卡片：独立设备、总事件、搜索、复制、打开、启动、源成功、源失败、验证
+- 5 个 Chart.js 图表：每日活跃趋势线图、事件类型环形图、72h 小时柱状图、版本分布、地区分布
+- 搜索热词 TOP 20（带进度条排名）
+- 源性能排行表（成功率、均耗时、进度条）
+- 最近事件流（实时 50 条，彩色标签分类）
+- 后端新增 `/api/events` 代理 + `/api/events/analytics` 聚合 API
+
+### 修改文件
+- `cf-gateway/src/index.js` — events 读写重构（R2 优先 + KV fallback + 速率限制修复）
+- `cf-gateway/wrangler.toml` — 新增 `ANALYTICS` R2 binding
+- `magnetgoogo-app/src/core/analytics.ts` — AppState 后台 flush
+- `admin-server/server.js` — 新增 /api/events, /api/events/analytics
+- `admin_templates/dashboard.html` — 新增「数据分析」Tab + Chart.js
+
+### 部署前置
+- 需先创建 R2 bucket: `npx wrangler r2 bucket create maggoogo-analytics`
+- 然后 `npx wrangler deploy`
+- App 侧需重新构建 APK（analytics.ts 改动）
+
+---
+---
+日期/时间：2026-05-03 19:00（UTC+8）
+本次版本：v0.5.1
+本次范围：**导航站深挖第2轮：发布页渲染发现真实域名 + 7 个新品牌总计入库**
+涉及模块：sources.json
+
+关键改动摘要（可检索）：
+  - **磁力熊猫** 🟡 NEW: `xiongmaogb.top` + 2 mirrors (xiongmaoun/xiongmaoso.top)。SPA+Captcha（/recaptcha/v4/challenge 自定义验证码）。发布页 xiongmaobt.org Playwright 渲染确认。
+  - **磁力柠檬** 🟡 NEW: `lemonun.top` + 1 mirror (lemonuo.top)。SPA+Captcha 同上。发布页 lemonso.net 确认。
+  - **吴签磁力** origin 更新: `wuqianox.top` → `wuqianso.org`（发布页 wuqiandizhi.net 确认最新）+ 备用 wuqiandb.cc
+  - **SBT磁力** yellow→gray: sbt2066.xyz 域名过期（"Buy this domain"）
+  
+  技术发现：
+  - 磁力熊猫/磁力柠檬/吴签磁力/CLB/SOBT 共用同一套 SPA 模板：Bootstrap 3.3.7 + jQuery + cookie auth + /recaptcha/v4/challenge 验证码
+  - 发布页均为 JS 渲染（技巧：Playwright + 5s 等待后 innerText 提取）
+  - DuckDuckGo 搜索 + 知乎文章 + wangdu.site 列表均可定位新品牌永久地址
+
+  探测后排除（24个域名）：
+  Round4: bthaha.com（广告重定向）| clpian.com（AV内容站）| cliniao.com/cilimayi.com/duoduocili.com/souduoduoso.top/bv21.xyz（全502）| btlm.org（宗教网站）| btlm.me（超时）| seedhub.cc（影视站）| xiongmaosc.top（安全中心跳转）
+  Round5: bt120so.top/ciliguanjia.com/bthaha.org/btchili.com（全502）| laoniubt.com→laoniubt.cc（403 WAP）| yhg.one（4K播放器，非雨花阁）
+  FinalBatch: bthaha.download/btlm.one/cilidao.cc/letbt.com/ciliyingyin.com/clguanjia.com/cilipian.top/ciliniao.cc/7torrents.cc（全502）| cilidao.com（Welcome parked）| btmet.com（1KB parked）
+  CLD_Family: 9966098.xyz（redirect页）| cld141-154.buzz/clb27-34.top/sobt25-29.top/cltt04-09.sbs（全dead）
+  Playwright: cy.btlm.one/btlm.info（空白SPA,0字符渲染）
+
+  新发现导航站（+12个）：btlm.cc(211KB) | cilishenqi.cc | btmayi.cc | wangdu.site | cxwl.com | 知乎×2 | HxjShare | GatherFind | 8kmm/无峰 | 365doc | A姐-雨花阁 | 9k9k
+  新发现发布页（+4个）：BT联盟(btlm.info) | 雨花阁(yuhuage.org→buzz) | 磁力熊猫(xiongmaobt.org) | 磁力柠檬(lemonso.net)
+  CLM新mirrors发现：clm54/56/57.top（活着但搜索需session，未加入rules）
+
+  sources.json 统计：234 rules / 93 green / 7 yellow / 134 gray
+  brand_registry：21 品牌 / 13 green / 6 yellow / 2 gray
+  discovery_metadata：29 release pages / 34 navigation sites
+
+---
+
+---
+日期/时间：2026-05-03 17:30（UTC+8）
+本次版本：v0.5.0
+本次范围：**B站+导航站侦查：磁力妹妹 GREEN 上线 + 4 个新品牌入库**
+涉及模块：sources.json, bilibili_client.py, magnet_source_scout.py
+
+关键改动摘要（可检索）：
+  - **磁力妹妹/CLMM** 🟢 NEW: `clmmbt.com` + 2 mirrors (9966097.xyz, 9966099.xyz)。`/search-{query}-0-0-1.html`，20 magnets/page，802 results，direct magnet links。同 CLD 后端家族。
+  - **吴签磁力** 🟡 NEW: `wuqianox.top`。SPA 需浏览器渲染。发布页 wuqianbt.com/wuqiandizhi.top。736K 浏览量。
+  - **磁力天堂新域名** 🟡 NEW: `clttone.top` + mirror `ddcl.me`。CF Turnstile 保护。`cltt.me` 发布页跳转到此。
+  - **91BT** ⚫ NEW: 发布页 91bt.icu/91bt.cyou/91btbt.com。真实搜索域名待发现。
+  - **SBT磁力** 🟡 NEW: `sbt2066.xyz`。SPA，JSON hash 搜索。
+
+  发现渠道：
+  - B站 Playwright 搜索 "磁力" → 43 视频 → 评论 API 深度爬取
+  - coderschool.cn/2532.html BT 导航站 → 244442.xyz 导航聚合
+  - cilihezi.top 磁力盒子导航站（B站评论发现）
+  - 8y-ad.com 90 站汇总 → 磁力妹妹/SBT/磁力湾/磁力树/磁力百科等
+  - DuckDuckGo 品牌名搜索 → 真实域名定位
+
+  修复：
+  - bilibili_client.py BV ID 正则：`BV[\w]{10,12}` → `\b(BV[a-zA-Z0-9]{10})\b`
+  - 评论 API：`/x/v2/reply/main` → `/x/v2/reply` (旧端点，无登录也返回多条)
+  - 限流检测：空响应检测 + 重试等待
+
+  sources.json 统计：232 rules / 93 green / 6 yellow / 133 gray
+  brand_registry：19 品牌 / 13 green / 5 yellow / 1 gray
+
+  新增导航站：技术拉近你我、244442导航、磁力盒子top/cn、八羊网90站、马哥导航、站联导航
+
+  探测后排除的域名：
+  - zhongziso.net（APP下载跳转）、btmayis.net/torrentkittyurl.com/bitcq.com（502死站）
+  - u3c3.org（广告重定向）、kinh.cc（KinhDown工具页）、vlink.cc/nxinxz.com（非磁力源）
+  - 八爪鱼磁搜 xn--u2u927b.com（CF Turnstile 完整保护）
+  - 磁力蜘蛛 clzhizhu.com + 镜像 5201082/5201083.xyz（全部 SPA/死站）
+
+---
+
+---
+日期/时间：2026-05-03 09:00（UTC+8）
+本次版本：v0.4.9
+本次范围：**知乎/导航站第二轮搜索：3 个全新独立后端 + 0magnet.com 镜像**
 涉及模块：sources.json, scripts/
 
 关键改动摘要（可检索）：
-  - **批量探测 44 个候选域名**：从知乎高赞帖、btlm.cc、btmayi.cc、iitang.com、16map.com、cilihezi.cn 等导航站提取候选
-  - **新 GREEN 源：磁力搜搜 cilisousuo.co + cilisousuo.cc**：ØMagnet 品牌的另一前端，li.item 布局，detail-follow 模式，56 results/page
-  - **sources.json: 223 rules, 87 green, 3 yellow**
+  - **CiliMo/磁力魔** 🟢 NEW BACKEND：`cilimo.com` JSON API `/api/search?q={query}`，6407 results，DHT 爬取
+  - **LuLuTang/噜噜糖** 🟢 NEW BACKEND：`lulutang.com` HTML 搜索，2509 results，Layui 框架，detail-follow `/search/detail/{id}`
+  - **磁力口袋/CLKD** 🟢 NEW BACKEND：`kd705.site` JSON API `/api/search?q={query}`，10000 results cap，发布页 clkd.org
+  - **0magnet.com** 添加为 0magnet.co 镜像（同后端，17469 字节完全一致）
+  - **sources.json: 227 rules, 92 green, 3 yellow | 20 release pages, 16 nav sites**
 
-探测结论：
-  - 44 候选中 27 个 DNS 死亡（.top/.cc/.com 全线阵亡）
-  - 4 个有搜索表单但搜索功能实为 SPA/AJAX（黑马磁力 heimamo.top、磁力熊猫 xiongmaogb.top）或 CF 拦截（老王磁力 laowangso.top）
-  - 黑马磁力/磁力熊猫均为"地址发布页"壳站，真实搜索后端域名隐藏在 JS 中无法追踪
-  - AnimeTosho 75 magnets 但 2026-05-09 关站，不接入
-  - cilisousuo.co/cc 确认可用：与 0cili.org 共享同一 DHT 索引（56 条相同结果），不同前端
+搜索来源：
+  - 知乎问答（zhihu.com/question/643060306）→ lulutang.com
+  - 知乎专栏 2026 磁力大合集 → 吴签磁力/磁力熊/ABCTorrents/磁力星球 等关键词
+  - 土爹爹 tudiedie.com BT引擎大全 → kd705.site/cilimo.com/0magnet.com
+  - go2think.com 20 个搜索引擎汇总 → 验证已有候选
+  - funletu.com 磁力索引 → 无新增
 
-新源详情：
-  - cilisousuo.co: `GET /search?q={query}`, sel=`li.item`, title=`div.result-title`, size=`div.size`, detail=`a.link[href^="/magnet/"]`
-  - Detail page: `/magnet/{shortcode}` → magnet hash + `a[href^="magnet:"]`
+探测总览（40+ 候选）：
+  - ✅ cilimo.com: JSON API 完美，DHT 数据独立后端
+  - ✅ lulutang.com: 20 items/page，detail-follow 出 magnet
+  - ✅ kd705.site: JSON API，hashInfo 字段可构造 magnet
+  - ✅ 0magnet.com: 已有 0magnet.co 镜像
+  - ❌ BTSearch.love: Next.js SPA 纯前端渲染，无 SSR 内容
+  - ❌ 吴签磁力: 所有域名均为发布页/安全跳转页
+  - ❌ 磁力熊 cilixiong.org: 帝国 CMS 影视下载站，非磁力搜索
+  - ❌ 磁力星球 xingqiu.icu: DNS 死亡
+  - ❌ 超人搜索/iDope/TorrentKitty: GFW 阻断
+  - ❌ cilizhai.net: 磁力搜索器 App 下载页
+  - ❌ btant.xyz/91bt.cyou/1024btbt.com: 发布页或死站
+  - ❌ 茶杯狐 cupfox.app: 影视聚合 SPA 非磁力搜索
+  - ❌ jigecili.com: 磁力导航站，嵌 iframe
 
 修改文件清单：
-  - `~ sources.json` (+2 rules: cilisousuo.co/cc green + brand registry)
-
-风险与未决事项：
-  - 国内磁力搜索生态高度碎片化且域名轮换频繁，大部分 .top 域名生命周期 < 3 个月
-  - 黑马磁力等知名品牌实际搜索功能需要 JS 渲染，标准 handler 无法支持
-  - 小红书搜索需要登录态，无法自动化抓取推荐帖
+  - `~ sources.json` (+3 rules: CiliMo/LuLuTang/磁力口袋, 0magnet.com mirror, brand registry +3, discovery +3 release +3 nav)
+  - `+ scripts/probe_zhihu_round2.py` (知乎/Web 候选批量探测)
 
 验证方式：
   - `python validate_enum.py` → ALL VALID
-  - `python scripts/health_check.py` → cilisousuo.co/cc 应 green
+  - `python -c "..."` → 227 rules, 92 green, 20 release pages, 16 nav sites
+
+---
+---
+日期/时间：2026-05-03 08:15（UTC+8）
+本次版本：v0.4.8
+本次范围：**发布页/导航站深度挖掘 + 磁力狗上线 + 磁力帝扩容 + discovery_metadata 补全**
+涉及模块：sources.json, scripts/
+
+关键改动摘要（可检索）：
+  - **系统性深挖 18 个发布页 + 13 个导航站**：从每个页面提取域名，逐个探测搜索能力
+  - **磁力狗 gray→green 🟢**：clg.im POST redirect → clg54.top 真实后端，base64 搜索，12 items/page，3700+ 结果
+  - **磁力帝扩容**：从发布页发现 1122137.xyz / 1122138.xyz 两个新 green 镜像，启用 detail 支持
+  - **新 GREEN 镜像：cililianjie.cc**（ØMagnet）+ **ciligou.app**（磁力狗）
+  - **discovery_metadata 补全**：+7 发布页、+7 导航站（btmayi.cc、btlm.cc、ahhhhfs.com、食铁兽blog 等）
+  - **sources.json: 224 rules, 89 green, 3 yellow | 18 release pages, 13 nav sites**
+
+Phase 1 探测——发布页域名提取：
+  - 磁力狗 clg.im → clg54.top: ciligou.app 🟢、0mag.biz→04mag.top 🟡（搜索未成功）
+  - 磁力帝 磁力帝.xyz → 1122137.xyz 🟢 20mag、1122138.xyz 🟢 20mag、cld123.com 🟢 20mag
+  - BT蚂蚁 btbtmayi.com → 1230150/1230151.xyz 🟡 有表单但超时
+  - 老王/SkrBT/柠檬/BT1207 → 全部"网址安全中心"跳转页
+  - 磁力天堂 → 7706775/770679.xyz 均不可达
+  - BTSOW → btsow.pics 不变、btmirror 全死
+  - 搜番 → dobt.top → baidu 重定向
+
+Phase 2 探测——导航站（btmayi.cc 101 域名、btlm.cc 164 域名、cilimiao.cn 704 域名）：
+  - 绝大部分为通用网站/工具站/CDN（误报）
+  - 无新磁力搜索引擎发现
+
+新源/改动详情：
+  - 磁力狗 clg54.top: `GET /search?word={query_b64}`, sel=`div.Search_title_wrapper`, detail `/information/{hash}`
+  - 磁力帝 1122137/1122138.xyz: 同 cld140.buzz 后端，`/search-{q}-0-0-1.html`, sel=`div.ssbox`, 20 mag/page, detail `/hash/{sha1}.html`
+  - cililianjie.cc: `GET /search?q={query}`, sel=`li.item`, 同 cilisousuo.co
+  - ciligou.app: 磁力狗镜像，同 clg54.top
+
+修改文件清单：
+  - `~ sources.json` (磁力帝 +2 mirrors + detail 支持, 磁力狗 +ciligou.app mirror, +cililianjie.cc rule, discovery_metadata 补全)
+  - `+ scripts/probe_release_deep.py` (发布页/导航站深度探测器)
+  - `+ scripts/probe_hits.py` (Phase 1 发现的候选域名搜索能力验证)
+
+风险与未决事项：
+  - 磁力狗 clg54.top 域名可能轮换（历史: clgclg.com→ciligougo.xyz→clg54.top）
+  - 0mag.biz→04mag.top（ØMagnet）有搜索表单但 POST 搜索未返回结果，可能需 JS 渲染
+  - BT蚂蚁 1230150/1230151.xyz 有表单但 HTTPS 超时，可能需 HTTP 或 JS 渲染
+
+验证方式：
+  - `python validate_enum.py` → ALL VALID
+  - `python -c "import json; ..."` → 224 rules, 89 green, 18 release pages, 13 nav sites
 
 ---
 ---
