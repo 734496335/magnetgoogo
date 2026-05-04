@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>MagGoogo 运营后台</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
   <style>
     [x-cloak] { display: none !important; }
@@ -140,6 +141,221 @@
       </div>
     </div>
 
+    <!-- Tab: Analytics -->
+    <div x-show="activeTab === 'analytics'" x-cloak class="fade-in space-y-6" x-init="$watch('activeTab', v => { if (v === 'analytics' && !analyticsData) loadAnalytics(); })">
+
+      <!-- Refresh bar -->
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold text-slate-800">实时数据分析</h2>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-slate-400" x-show="analyticsData" x-text="'数据窗口: 最近30天 · 上次刷新 ' + (analyticsData?._loadedAt || '')"></span>
+          <button @click="loadAnalytics()" :disabled="analyticsLoading"
+                  class="px-4 py-2 bg-brand-50 text-brand-600 rounded-xl text-sm font-medium hover:bg-brand-100 transition-all disabled:opacity-50">
+            <span x-text="analyticsLoading ? '加载中...' : '刷新数据'"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div x-show="analyticsLoading && !analyticsData" class="text-center py-16">
+        <div class="inline-flex items-center gap-2 text-slate-400">
+          <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+          正在从 CF Gateway 拉取埋点数据...
+        </div>
+      </div>
+
+      <!-- Analytics Content -->
+      <template x-if="analyticsData">
+        <div class="space-y-6">
+
+          <!-- KPI Cards Row 1 -->
+          <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+              <p class="text-xs text-slate-400 uppercase tracking-wider">独立设备</p>
+              <p class="text-3xl font-bold text-brand-600 mt-1" x-text="analyticsData.summary?.devices || 0"></p>
+              <p class="text-xs text-slate-400 mt-1">30天内活跃</p>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+              <p class="text-xs text-slate-400 uppercase tracking-wider">总事件数</p>
+              <p class="text-3xl font-bold text-slate-800 mt-1" x-text="analyticsData.summary?.totalEvents || 0"></p>
+              <p class="text-xs text-slate-400 mt-1" x-text="(analyticsData.summary?.batches || 0) + ' 批次'"></p>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+              <p class="text-xs text-slate-400 uppercase tracking-wider">搜索次数</p>
+              <p class="text-3xl font-bold text-indigo-600 mt-1" x-text="analyticsData.summary?.eventCounts?.search || 0"></p>
+              <p class="text-xs text-slate-400 mt-1">search events</p>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+              <p class="text-xs text-slate-400 uppercase tracking-wider">复制磁力</p>
+              <p class="text-3xl font-bold text-green-600 mt-1" x-text="analyticsData.summary?.eventCounts?.copy_magnet || 0"></p>
+              <p class="text-xs text-slate-400 mt-1">copy_magnet</p>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+              <p class="text-xs text-slate-400 uppercase tracking-wider">打开磁力</p>
+              <p class="text-3xl font-bold text-amber-600 mt-1" x-text="analyticsData.summary?.eventCounts?.open_magnet || 0"></p>
+              <p class="text-xs text-slate-400 mt-1">open_magnet</p>
+            </div>
+          </div>
+
+          <!-- KPI Cards Row 2 -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+              <p class="text-xs text-slate-400 uppercase tracking-wider">App 启动</p>
+              <p class="text-2xl font-bold text-slate-700 mt-1" x-text="analyticsData.summary?.eventCounts?.app_start || 0"></p>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+              <p class="text-xs text-slate-400 uppercase tracking-wider">源成功</p>
+              <p class="text-2xl font-bold text-green-600 mt-1" x-text="analyticsData.summary?.eventCounts?.src_ok || 0"></p>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+              <p class="text-xs text-slate-400 uppercase tracking-wider">源失败</p>
+              <p class="text-2xl font-bold text-red-500 mt-1" x-text="analyticsData.summary?.eventCounts?.src_fail || 0"></p>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+              <p class="text-xs text-slate-400 uppercase tracking-wider">验证事件</p>
+              <p class="text-2xl font-bold text-purple-600 mt-1" x-text="analyticsData.summary?.eventCounts?.verify || 0"></p>
+            </div>
+          </div>
+
+          <!-- Charts Row: Daily Trend + Event Distribution -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Daily Activity Chart -->
+            <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+              <h3 class="font-semibold text-slate-700 mb-4">每日活跃趋势</h3>
+              <div class="h-64"><canvas id="chartDaily"></canvas></div>
+            </div>
+            <!-- Event Type Distribution -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+              <h3 class="font-semibold text-slate-700 mb-4">事件类型分布</h3>
+              <div class="h-64 flex items-center justify-center"><canvas id="chartEvents"></canvas></div>
+            </div>
+          </div>
+
+          <!-- Hourly Timeline -->
+          <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+            <h3 class="font-semibold text-slate-700 mb-4">每小时事件量 <span class="text-sm font-normal text-slate-400">(最近72h)</span></h3>
+            <div class="h-48"><canvas id="chartHourly"></canvas></div>
+          </div>
+
+          <!-- Search Queries + Version/Country -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Top Search Queries -->
+            <div class="lg:col-span-1 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+              <h3 class="font-semibold text-slate-700 mb-3">搜索热词 TOP 20</h3>
+              <div class="max-h-80 overflow-y-auto space-y-1.5">
+                <template x-for="(item, i) in (analyticsData.topQueries || []).slice(0, 20)" :key="i">
+                  <div class="flex items-center gap-2">
+                    <span class="w-6 text-right text-xs font-bold" :class="i < 3 ? 'text-brand-600' : 'text-slate-400'" x-text="i + 1"></span>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2">
+                        <span class="text-sm text-slate-700 truncate" x-text="item.q"></span>
+                        <span class="text-xs text-slate-400 shrink-0" x-text="item.n + '次'"></span>
+                      </div>
+                      <div class="w-full bg-slate-100 rounded-full h-1.5 mt-1">
+                        <div class="bg-brand-500 h-1.5 rounded-full" :style="'width:' + Math.min(100, Math.round(item.n / ((analyticsData.topQueries[0]?.n || 1)) * 100)) + '%'"></div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                <p x-show="!analyticsData.topQueries?.length" class="text-slate-400 text-sm text-center py-4">暂无搜索数据</p>
+              </div>
+            </div>
+
+            <!-- Version Distribution -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+              <h3 class="font-semibold text-slate-700 mb-3">版本分布</h3>
+              <div class="h-56 flex items-center justify-center"><canvas id="chartVersion"></canvas></div>
+              <div class="mt-3 space-y-1 max-h-24 overflow-y-auto">
+                <template x-for="[v, n] in Object.entries(analyticsData.versionDist || {}).sort((a,b) => b[1] - a[1])" :key="v">
+                  <div class="flex justify-between text-xs">
+                    <span class="text-slate-600 font-mono" x-text="v"></span>
+                    <span class="text-slate-400" x-text="n + ' 批次'"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Country Distribution -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+              <h3 class="font-semibold text-slate-700 mb-3">地区分布</h3>
+              <div class="h-56 flex items-center justify-center"><canvas id="chartCountry"></canvas></div>
+              <div class="mt-3 space-y-1 max-h-24 overflow-y-auto">
+                <template x-for="[c, n] in Object.entries(analyticsData.countryDist || {}).sort((a,b) => b[1] - a[1])" :key="c">
+                  <div class="flex justify-between text-xs">
+                    <span class="text-slate-600" x-text="c"></span>
+                    <span class="text-slate-400" x-text="n + ' 批次'"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <!-- Source Performance Table -->
+          <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+            <h3 class="font-semibold text-slate-700 mb-4">源性能排行 <span class="text-sm font-normal text-slate-400" x-text="'(' + (analyticsData.sourcePerf?.length || 0) + ' 个源有数据)'"></span></h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm" x-show="analyticsData.sourcePerf?.length > 0">
+                <thead>
+                  <tr class="border-b border-slate-100">
+                    <th class="text-left py-2 px-3 text-slate-400 font-medium">源名称</th>
+                    <th class="text-right py-2 px-3 text-slate-400 font-medium">成功</th>
+                    <th class="text-right py-2 px-3 text-slate-400 font-medium">失败</th>
+                    <th class="text-right py-2 px-3 text-slate-400 font-medium">成功率</th>
+                    <th class="text-right py-2 px-3 text-slate-400 font-medium">均耗时</th>
+                    <th class="text-left py-2 px-3 text-slate-400 font-medium w-32">成功率</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="s in analyticsData.sourcePerf" :key="s.src">
+                    <tr class="border-b border-slate-50 hover:bg-slate-25">
+                      <td class="py-2 px-3 font-medium text-slate-700 font-mono text-xs" x-text="s.src"></td>
+                      <td class="py-2 px-3 text-right text-green-600" x-text="s.ok"></td>
+                      <td class="py-2 px-3 text-right text-red-500" x-text="s.fail"></td>
+                      <td class="py-2 px-3 text-right font-medium" :class="s.rate >= 80 ? 'text-green-600' : s.rate >= 50 ? 'text-yellow-600' : 'text-red-500'" x-text="s.rate + '%'"></td>
+                      <td class="py-2 px-3 text-right text-slate-500" x-text="s.avgMs ? s.avgMs + 'ms' : '-'"></td>
+                      <td class="py-2 px-3">
+                        <div class="w-full bg-slate-100 rounded-full h-2">
+                          <div class="h-2 rounded-full" :class="s.rate >= 80 ? 'bg-green-500' : s.rate >= 50 ? 'bg-yellow-500' : 'bg-red-400'" :style="'width:' + s.rate + '%'"></div>
+                        </div>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+              <p x-show="!analyticsData.sourcePerf?.length" class="text-slate-400 text-sm text-center py-8">暂无源性能数据</p>
+            </div>
+          </div>
+
+          <!-- Recent Events Stream -->
+          <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+            <h3 class="font-semibold text-slate-700 mb-3">最近事件流 <span class="text-sm font-normal text-slate-400">(最新50条)</span></h3>
+            <div class="max-h-72 overflow-y-auto space-y-1">
+              <template x-for="(ev, i) in (analyticsData.recentEvents || [])" :key="i">
+                <div class="flex items-center gap-2 text-xs py-1.5 border-b border-slate-50">
+                  <span class="text-slate-300 font-mono w-32 shrink-0" x-text="ev.ts ? new Date(ev.ts).toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}) : ''"></span>
+                  <span class="shrink-0 px-1.5 py-0.5 rounded font-medium"
+                        :class="{
+                          'bg-blue-100 text-blue-700': ev.e === 'search',
+                          'bg-green-100 text-green-700': ev.e === 'src_ok' || ev.e === 'copy_magnet',
+                          'bg-red-100 text-red-700': ev.e === 'src_fail',
+                          'bg-purple-100 text-purple-700': ev.e === 'verify',
+                          'bg-amber-100 text-amber-700': ev.e === 'open_magnet',
+                          'bg-slate-100 text-slate-600': ev.e === 'app_start',
+                        }" x-text="ev.e"></span>
+                  <span class="text-slate-500 truncate" x-text="ev.q ? '「' + ev.q + '」' : (ev.src || '')"></span>
+                  <span class="text-slate-300 shrink-0" x-show="ev.n" x-text="ev.n + '条'"></span>
+                  <span class="text-slate-300 shrink-0" x-show="ev.ms" x-text="ev.ms + 'ms'"></span>
+                  <span class="ml-auto text-slate-300 shrink-0" x-text="ev.did"></span>
+                </div>
+              </template>
+              <p x-show="!analyticsData.recentEvents?.length" class="text-slate-400 text-sm text-center py-8">暂无事件</p>
+            </div>
+          </div>
+
+        </div>
+      </template>
+    </div>
+
     <!-- Tab: Version Control -->
     <div x-show="activeTab === 'version'" x-cloak class="fade-in space-y-6">
       <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
@@ -251,10 +467,126 @@
 
     <!-- Tab: Sources -->
     <div x-show="activeTab === 'sources'" x-cloak class="fade-in space-y-6">
+
+      <!-- Summary Stats Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-6 gap-3">
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm text-center">
+          <p class="text-xs text-slate-400 uppercase tracking-wider">总规则数</p>
+          <p class="text-2xl font-bold text-slate-800 mt-1" x-text="sourceStats.total || 0"></p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-green-200 shadow-sm text-center">
+          <p class="text-xs text-green-500 uppercase tracking-wider">可用 Green</p>
+          <p class="text-2xl font-bold text-green-600 mt-1" x-text="sourceStats.green || 0"></p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-yellow-200 shadow-sm text-center">
+          <p class="text-xs text-yellow-500 uppercase tracking-wider">警告 Yellow</p>
+          <p class="text-2xl font-bold text-yellow-600 mt-1" x-text="sourceStats.yellow || 0"></p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm text-center">
+          <p class="text-xs text-slate-400 uppercase tracking-wider">离线 Gray</p>
+          <p class="text-2xl font-bold text-slate-400 mt-1" x-text="sourceStats.gray || 0"></p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-indigo-200 shadow-sm text-center">
+          <p class="text-xs text-indigo-500 uppercase tracking-wider">独立来源</p>
+          <p class="text-2xl font-bold text-indigo-600 mt-1" x-text="sourceStats.deduplicated_sources || 0"></p>
+          <p class="text-[10px] text-slate-400 mt-0.5">品牌去重后</p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-purple-200 shadow-sm text-center">
+          <p class="text-xs text-purple-500 uppercase tracking-wider">品牌数</p>
+          <p class="text-2xl font-bold text-purple-600 mt-1" x-text="sourceStats.unique_brands || 0"></p>
+          <p class="text-[10px] text-slate-400 mt-0.5" x-text="(sourceStats.no_brand_count||0) + ' 个无品牌'"></p>
+        </div>
+      </div>
+
+      <!-- Second row: capability stats + generated_at -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600 text-lg">🛡</div>
+          <div>
+            <p class="text-xs text-slate-400">WAF 绕行</p>
+            <p class="text-lg font-bold text-slate-700" x-text="sourceStats.waf_count || 0"></p>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-cyan-50 flex items-center justify-center text-cyan-600 text-lg">🌐</div>
+          <div>
+            <p class="text-xs text-slate-400">需浏览器渲染</p>
+            <p class="text-lg font-bold text-slate-700" x-text="sourceStats.browser_count || 0"></p>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 text-lg">🔗</div>
+          <div>
+            <p class="text-xs text-slate-400">详情页跟随</p>
+            <p class="text-lg font-bold text-slate-700" x-text="sourceStats.detail_follow_count || 0"></p>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center text-slate-500 text-lg">⏱</div>
+          <div>
+            <p class="text-xs text-slate-400">数据生成时间</p>
+            <p class="text-xs font-medium text-slate-600" x-text="sourceGeneratedAt ? fmtDate(sourceGeneratedAt) : '-'"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Brand & Detail Stats -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Brand breakdown -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+          <h3 class="font-semibold text-slate-700 mb-3">品牌分布 <span class="text-sm font-normal text-slate-400" x-text="'(' + (sourceBrandStats?.length||0) + ' 个)'"></span></h3>
+          <div class="max-h-64 overflow-y-auto space-y-1.5">
+            <template x-for="b in sourceBrandStats" :key="b.brand">
+              <div class="flex items-center gap-2 text-xs py-1 border-b border-slate-50">
+                <span class="w-32 truncate font-medium text-slate-700" x-text="b.brand" :title="b.brand"></span>
+                <span class="px-1.5 py-0.5 rounded bg-green-50 text-green-700 font-medium" x-text="b.green" x-show="b.green"></span>
+                <span class="px-1.5 py-0.5 rounded bg-yellow-50 text-yellow-700 font-medium" x-text="b.yellow" x-show="b.yellow"></span>
+                <span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-medium" x-text="b.gray" x-show="b.gray"></span>
+                <span class="ml-auto text-slate-400" x-text="b.domains + ' 域名'"></span>
+                <div class="w-20 bg-slate-100 rounded-full h-1.5">
+                  <div class="h-1.5 rounded-full bg-green-500" :style="'width:' + (b.total > 0 ? Math.round(b.green/b.total*100) : 0) + '%'"></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Status detail breakdown -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+          <h3 class="font-semibold text-slate-700 mb-3">状态明细分布</h3>
+          <div class="space-y-2">
+            <template x-for="d in sourceDetailStats" :key="d.detail">
+              <div class="flex items-center gap-2">
+                <span class="w-28 text-xs font-mono" :class="{
+                  'text-green-600': d.detail === 'ok' || d.detail === 'healed',
+                  'text-yellow-600': d.detail === 'waf' || d.detail === 'parsing_failed',
+                  'text-red-500': d.detail === '404' || d.detail === 'expired',
+                  'text-slate-400': d.detail === 'unreachable' || d.detail === 'unknown'
+                }" x-text="d.detail"></span>
+                <div class="flex-1 bg-slate-100 rounded-full h-3">
+                  <div class="h-3 rounded-full" :class="{
+                    'bg-green-400': d.detail === 'ok' || d.detail === 'healed',
+                    'bg-yellow-400': d.detail === 'waf' || d.detail === 'parsing_failed',
+                    'bg-red-300': d.detail === '404' || d.detail === 'expired',
+                    'bg-slate-300': d.detail === 'unreachable' || d.detail === 'unknown'
+                  }" :style="'width:' + Math.max(4, Math.round(d.count / (sourceStats.total||1) * 100)) + '%'"></div>
+                </div>
+                <span class="w-8 text-right text-xs font-bold text-slate-600" x-text="d.count"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Source Table -->
       <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="font-semibold text-slate-700">数据源列表</h3>
-          <div class="flex gap-2">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h3 class="font-semibold text-slate-700">数据源列表 <span class="text-sm font-normal text-slate-400" x-text="'(' + filteredRules.length + '/' + rules.length + ')'"></span></h3>
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Search box -->
+            <input type="text" x-model="searchQuery" placeholder="搜索站点/品牌/域名..."
+                   class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs w-48 focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none">
+            <!-- Status filters -->
             <button @click="filterStatus = ''" :class="filterStatus === '' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'" class="px-3 py-1 rounded-lg text-xs font-medium">全部</button>
             <button @click="filterStatus = 'green'" :class="filterStatus === 'green' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700'" class="px-3 py-1 rounded-lg text-xs font-medium">可用</button>
             <button @click="filterStatus = 'yellow'" :class="filterStatus === 'yellow' ? 'bg-yellow-600 text-white' : 'bg-yellow-50 text-yellow-700'" class="px-3 py-1 rounded-lg text-xs font-medium">警告</button>
@@ -266,27 +598,50 @@
           <table class="w-full text-sm">
             <thead>
               <tr class="border-b border-slate-100">
-                <th class="text-left py-2 px-3 text-slate-400 font-medium">站点</th>
-                <th class="text-left py-2 px-3 text-slate-400 font-medium">品牌</th>
-                <th class="text-left py-2 px-3 text-slate-400 font-medium">域名</th>
-                <th class="text-center py-2 px-3 text-slate-400 font-medium">状态</th>
-                <th class="text-left py-2 px-3 text-slate-400 font-medium">详情</th>
+                <th @click="sortBy('site_name')" class="text-left py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">站点 <span x-show="sortField==='site_name'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
+                <th @click="sortBy('brand')" class="text-left py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">品牌 <span x-show="sortField==='brand'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
+                <th @click="sortBy('domain')" class="text-left py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">域名 <span x-show="sortField==='domain'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
+                <th @click="sortBy('status')" class="text-center py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">状态 <span x-show="sortField==='status'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
+                <th @click="sortBy('status_detail')" class="text-left py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">详情 <span x-show="sortField==='status_detail'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
+                <th @click="sortBy('fail_streak')" class="text-center py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">连败 <span x-show="sortField==='fail_streak'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
+                <th @click="sortBy('last_checked')" class="text-left py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">最后检测 <span x-show="sortField==='last_checked'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
+                <th @click="sortBy('quality_score')" class="text-center py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">质量 <span x-show="sortField==='quality_score'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
+                <th class="text-center py-2 px-2 text-slate-400 font-medium whitespace-nowrap text-xs">能力</th>
               </tr>
             </thead>
             <tbody>
               <template x-for="rule in filteredRules" :key="rule.id">
-                <tr class="border-b border-slate-50 hover:bg-slate-25">
-                  <td class="py-2 px-3 font-medium text-slate-700" x-text="rule.site_name"></td>
-                  <td class="py-2 px-3 text-slate-500" x-text="rule.brand"></td>
-                  <td class="py-2 px-3 text-slate-500 font-mono text-xs" x-text="rule.base_url"></td>
-                  <td class="py-2 px-3 text-center">
+                <tr class="border-b border-slate-50 hover:bg-blue-50/30 transition-colors">
+                  <td class="py-1.5 px-2 font-medium text-slate-700 text-xs max-w-[140px] truncate" x-text="rule.site_name" :title="rule.site_name"></td>
+                  <td class="py-1.5 px-2 text-slate-500 text-xs max-w-[100px] truncate" x-text="rule.brand" :title="rule.brand"></td>
+                  <td class="py-1.5 px-2 text-slate-500 font-mono text-[11px] max-w-[160px] truncate" x-text="rule.domain" :title="rule.base_url"></td>
+                  <td class="py-1.5 px-2 text-center">
                     <span :class="{
                       'bg-green-100 text-green-700': rule.status === 'green',
                       'bg-yellow-100 text-yellow-700': rule.status === 'yellow',
                       'bg-gray-100 text-gray-500': rule.status === 'gray'
-                    }" class="px-2 py-0.5 rounded-full text-xs font-medium" x-text="rule.status"></span>
+                    }" class="px-1.5 py-0.5 rounded-full text-[10px] font-medium" x-text="rule.status"></span>
                   </td>
-                  <td class="py-2 px-3 text-slate-400 text-xs" x-text="rule.status_detail"></td>
+                  <td class="py-1.5 px-2 text-[11px]" :class="{
+                    'text-green-600': rule.status_detail === 'ok' || rule.status_detail === 'healed',
+                    'text-yellow-600': rule.status_detail === 'waf' || rule.status_detail === 'parsing_failed',
+                    'text-red-400': rule.status_detail === '404' || rule.status_detail === 'expired',
+                    'text-slate-400': rule.status_detail === 'unreachable'
+                  }" x-text="rule.status_detail"></td>
+                  <td class="py-1.5 px-2 text-center text-xs" :class="rule.fail_streak >= 3 ? 'text-red-500 font-bold' : rule.fail_streak > 0 ? 'text-yellow-600' : 'text-slate-300'" x-text="rule.fail_streak || '-'"></td>
+                  <td class="py-1.5 px-2 text-[11px] text-slate-400 whitespace-nowrap" x-text="rule.last_checked ? fmtDate(rule.last_checked) : '-'"></td>
+                  <td class="py-1.5 px-2 text-center">
+                    <span x-show="rule.quality_score" class="text-[11px] font-medium" :class="rule.quality_score >= 80 ? 'text-green-600' : rule.quality_score >= 50 ? 'text-yellow-600' : 'text-slate-400'" x-text="rule.quality_score"></span>
+                    <span x-show="!rule.quality_score" class="text-slate-300 text-[11px]">-</span>
+                  </td>
+                  <td class="py-1.5 px-2 text-center">
+                    <span class="inline-flex gap-0.5">
+                      <span x-show="rule.requires_waf" class="text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-600" title="WAF绕行">W</span>
+                      <span x-show="rule.requires_browser" class="text-[10px] px-1 py-0.5 rounded bg-cyan-50 text-cyan-600" title="浏览器渲染">B</span>
+                      <span x-show="rule.supports_detail" class="text-[10px] px-1 py-0.5 rounded bg-blue-50 text-blue-600" title="详情跟随">D</span>
+                      <span x-show="rule.has_referer" class="text-[10px] px-1 py-0.5 rounded bg-purple-50 text-purple-600" title="自定义Referer">R</span>
+                    </span>
+                  </td>
                 </tr>
               </template>
             </tbody>
@@ -317,6 +672,7 @@
         activeTab: 'overview',
         tabs: [
           { id: 'overview', label: '概览' },
+          { id: 'analytics', label: '数据分析' },
           { id: 'version', label: '版本控制' },
           { id: 'feedback', label: '用户反馈' },
           { id: 'sources', label: '数据源' },
@@ -328,8 +684,18 @@
         logs: [],
         rules: [],
         filterStatus: '',
+        searchQuery: '',
+        sortField: '',
+        sortAsc: true,
+        sourceStats: {},
+        sourceBrandStats: [],
+        sourceDetailStats: [],
+        sourceGeneratedAt: '',
         feedbackList: [],
         feedbackLoading: false,
+        analyticsData: null,
+        analyticsLoading: false,
+        chartInstances: {},
         toast: { show: false, ok: true, message: '' },
 
         // Version config form
@@ -343,9 +709,54 @@
           download_mirrors: '',
         },
 
+        fmtDate(iso) {
+          if (!iso) return '-';
+          try {
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return iso;
+            const now = new Date();
+            const diff = now - d;
+            if (diff < 60000) return '刚刚';
+            if (diff < 3600000) return Math.floor(diff/60000) + '分钟前';
+            if (diff < 86400000) return Math.floor(diff/3600000) + '小时前';
+            if (diff < 604800000) return Math.floor(diff/86400000) + '天前';
+            return d.toLocaleDateString('zh-CN', {month:'2-digit', day:'2-digit'}) + ' ' + d.toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit', hour12:false});
+          } catch { return iso; }
+        },
+
         get filteredRules() {
-          if (!this.filterStatus) return this.rules;
-          return this.rules.filter(r => r.status === this.filterStatus);
+          let list = this.rules;
+          if (this.filterStatus) list = list.filter(r => r.status === this.filterStatus);
+          if (this.searchQuery) {
+            const q = this.searchQuery.toLowerCase();
+            list = list.filter(r =>
+              (r.site_name || '').toLowerCase().includes(q) ||
+              (r.brand || '').toLowerCase().includes(q) ||
+              (r.domain || '').toLowerCase().includes(q) ||
+              (r.base_url || '').toLowerCase().includes(q) ||
+              (r.tags || '').toLowerCase().includes(q)
+            );
+          }
+          if (this.sortField) {
+            const f = this.sortField, asc = this.sortAsc;
+            const numericFields = ['fail_streak', 'quality_score', 'magnets_found'];
+            const isNum = numericFields.includes(f);
+            list = [...list].sort((a, b) => {
+              if (isNum) {
+                const va = Number(a[f]) || 0, vb = Number(b[f]) || 0;
+                return asc ? va - vb : vb - va;
+              }
+              const va = (a[f] || '').toString().toLowerCase();
+              const vb = (b[f] || '').toString().toLowerCase();
+              return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+            });
+          }
+          return list;
+        },
+
+        sortBy(field) {
+          if (this.sortField === field) { this.sortAsc = !this.sortAsc; }
+          else { this.sortField = field; this.sortAsc = true; }
         },
 
         async init() {
@@ -378,7 +789,157 @@
             const res = await fetch('/api/sources/details');
             const data = await res.json();
             this.rules = data.rules || [];
+            this.sourceStats = data.stats || {};
+            this.sourceBrandStats = data.brandStats || [];
+            this.sourceDetailStats = data.detailStats || [];
+            this.sourceGeneratedAt = data.generated_at || '';
           } catch (e) { /* ignore */ }
+        },
+
+        async loadAnalytics() {
+          this.analyticsLoading = true;
+          try {
+            const res = await fetch('/api/events/analytics');
+            const data = await res.json();
+            data._loadedAt = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+            this.analyticsData = data;
+            // Render charts after DOM updates
+            this.$nextTick(() => this.renderCharts());
+          } catch (e) {
+            this.showToast(false, '分析数据加载失败: ' + e.message);
+          }
+          this.analyticsLoading = false;
+        },
+
+        destroyChart(id) {
+          if (this.chartInstances[id]) {
+            this.chartInstances[id].destroy();
+            delete this.chartInstances[id];
+          }
+        },
+
+        renderCharts() {
+          if (!this.analyticsData || typeof Chart === 'undefined') return;
+          const d = this.analyticsData;
+
+          const COLORS = {
+            brand: '#3b82f6', indigo: '#6366f1', green: '#22c55e', red: '#ef4444',
+            amber: '#f59e0b', purple: '#a855f7', slate: '#64748b', cyan: '#06b6d4',
+            pink: '#ec4899', lime: '#84cc16', teal: '#14b8a6', orange: '#f97316',
+          };
+          const PIE_COLORS = [COLORS.brand, COLORS.indigo, COLORS.green, COLORS.red, COLORS.amber, COLORS.purple, COLORS.slate, COLORS.cyan, COLORS.pink, COLORS.lime];
+
+          // ── Daily Activity Line Chart ──
+          if (d.daily?.length > 0) {
+            this.destroyChart('daily');
+            const ctx = document.getElementById('chartDaily');
+            if (ctx) {
+              this.chartInstances.daily = new Chart(ctx, {
+                type: 'line',
+                data: {
+                  labels: d.daily.map(r => r.day.slice(5)),
+                  datasets: [
+                    { label: '设备数', data: d.daily.map(r => r.devices), borderColor: COLORS.brand, backgroundColor: COLORS.brand + '20', fill: true, tension: 0.3 },
+                    { label: '搜索', data: d.daily.map(r => r.searches), borderColor: COLORS.indigo, tension: 0.3 },
+                    { label: '复制', data: d.daily.map(r => r.copies), borderColor: COLORS.green, tension: 0.3 },
+                    { label: '启动', data: d.daily.map(r => r.starts), borderColor: COLORS.slate, borderDash: [4, 4], tension: 0.3 },
+                  ],
+                },
+                options: {
+                  responsive: true, maintainAspectRatio: false,
+                  plugins: { legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true, font: { size: 11 } } } },
+                  scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                  },
+                  interaction: { mode: 'index', intersect: false },
+                },
+              });
+            }
+          }
+
+          // ── Event Type Doughnut ──
+          const ec = d.summary?.eventCounts || {};
+          const ecEntries = Object.entries(ec).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+          if (ecEntries.length > 0) {
+            this.destroyChart('events');
+            const ctx = document.getElementById('chartEvents');
+            if (ctx) {
+              const EVENT_LABELS = { app_start: '启动', search: '搜索', copy_magnet: '复制', open_magnet: '打开', src_ok: '源成功', src_fail: '源失败', verify: '验证' };
+              this.chartInstances.events = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                  labels: ecEntries.map(([k]) => EVENT_LABELS[k] || k),
+                  datasets: [{ data: ecEntries.map(([, v]) => v), backgroundColor: PIE_COLORS.slice(0, ecEntries.length) }],
+                },
+                options: {
+                  responsive: true, maintainAspectRatio: false,
+                  plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } },
+                  cutout: '55%',
+                },
+              });
+            }
+          }
+
+          // ── Hourly Bar Chart ──
+          if (d.hourly?.length > 0) {
+            this.destroyChart('hourly');
+            const ctx = document.getElementById('chartHourly');
+            if (ctx) {
+              this.chartInstances.hourly = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                  labels: d.hourly.map(r => { const h = r.hour.slice(11) + ':00'; const day = r.hour.slice(5, 10); return h === '00:00' ? day : h; }),
+                  datasets: [{
+                    label: '事件数', data: d.hourly.map(r => r.total),
+                    backgroundColor: COLORS.brand + '80', borderRadius: 2,
+                  }],
+                },
+                options: {
+                  responsive: true, maintainAspectRatio: false,
+                  plugins: { legend: { display: false } },
+                  scales: {
+                    x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 24, font: { size: 10 } } },
+                    y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                  },
+                },
+              });
+            }
+          }
+
+          // ── Version Doughnut ──
+          const vEntries = Object.entries(d.versionDist || {}).sort((a, b) => b[1] - a[1]);
+          if (vEntries.length > 0) {
+            this.destroyChart('version');
+            const ctx = document.getElementById('chartVersion');
+            if (ctx) {
+              this.chartInstances.version = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                  labels: vEntries.map(([k]) => k),
+                  datasets: [{ data: vEntries.map(([, v]) => v), backgroundColor: PIE_COLORS.slice(0, vEntries.length) }],
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '50%' },
+              });
+            }
+          }
+
+          // ── Country Doughnut ──
+          const cEntries = Object.entries(d.countryDist || {}).sort((a, b) => b[1] - a[1]);
+          if (cEntries.length > 0) {
+            this.destroyChart('country');
+            const ctx = document.getElementById('chartCountry');
+            if (ctx) {
+              this.chartInstances.country = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                  labels: cEntries.map(([k]) => k),
+                  datasets: [{ data: cEntries.map(([, v]) => v), backgroundColor: PIE_COLORS.slice(0, cEntries.length) }],
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '50%' },
+              });
+            }
+          }
         },
 
         async loadFeedback() {
@@ -386,9 +947,10 @@
           try {
             const res = await fetch('/api/feedback');
             const data = await res.json();
-            this.feedbackList = data.items || [];
+            this.feedbackList = data.items || data.feedback || [];
           } catch (e) {
-            this.showToast(false, '加载反馈失败: ' + e.message);
+            console.warn('Feedback load failed:', e);
+            this.feedbackList = [];
           }
           this.feedbackLoading = false;
         },
