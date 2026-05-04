@@ -166,6 +166,29 @@ app.get('/api/sources/details', (req, res) => {
     const browserCount = rules.filter(r => r.requires_browser).length;
     const detailFollowCount = rules.filter(r => r.supports_detail).length;
 
+    // ── Brand registry (from sources.json) ──
+    const brandRegistry = Array.isArray(sourcesRaw.brand_registry) ? sourcesRaw.brand_registry : [];
+
+    // ── Discovery metadata ──
+    const disc = sourcesRaw.discovery_metadata || {};
+    const releasePages = Array.isArray(disc.release_pages) ? disc.release_pages : [];
+    const navSites = Array.isArray(disc.navigation_sites) ? disc.navigation_sites : [];
+    const tools = Array.isArray(disc.tools) ? disc.tools : [];
+
+    // ── Green unique sources (brand-level view) ──
+    const greenRules = rules.filter(r => r.status === 'green');
+    const greenBrandMap = {};
+    for (const r of greenRules) {
+      const key = r.brand || r.site_name;
+      if (!greenBrandMap[key]) greenBrandMap[key] = { brand: key, domains: [], count: 0, sample_domain: '' };
+      greenBrandMap[key].count++;
+      if (!greenBrandMap[key].domains.includes(r.domain)) greenBrandMap[key].domains.push(r.domain);
+      if (!greenBrandMap[key].sample_domain) greenBrandMap[key].sample_domain = r.domain;
+    }
+    const greenBrands = Object.values(greenBrandMap)
+      .sort((a, b) => b.count - a.count)
+      .map(b => ({ ...b, domains: b.domains.length, domain_list: b.domains.slice(0, 5) }));
+
     res.json({
       rules,
       total,
@@ -178,9 +201,18 @@ app.get('/api/sources/details', (req, res) => {
         waf_count: wafCount,
         browser_count: browserCount,
         detail_follow_count: detailFollowCount,
+        green_unique_brands: Object.keys(greenBrandMap).length,
       },
       brandStats,
       detailStats,
+      greenBrands,
+      brandRegistry,
+      discovery: {
+        release_pages: releasePages,
+        navigation_sites: navSites,
+        tools,
+        last_updated: disc.last_updated || '',
+      },
     });
   } catch (e) {
     res.status(500).json({ error: e.message });

@@ -465,190 +465,281 @@
       </div>
     </div>
 
-    <!-- Tab: Sources -->
-    <div x-show="activeTab === 'sources'" x-cloak class="fade-in space-y-6">
+    <!-- Tab: Sources (with sub-tabs) -->
+    <div x-show="activeTab === 'sources'" x-cloak class="fade-in space-y-5">
 
-      <!-- Summary Stats Cards -->
-      <div class="grid grid-cols-2 lg:grid-cols-6 gap-3">
-        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm text-center">
-          <p class="text-xs text-slate-400 uppercase tracking-wider">总规则数</p>
-          <p class="text-2xl font-bold text-slate-800 mt-1" x-text="sourceStats.total || 0"></p>
-        </div>
-        <div class="bg-white rounded-2xl p-4 border border-green-200 shadow-sm text-center">
-          <p class="text-xs text-green-500 uppercase tracking-wider">可用 Green</p>
-          <p class="text-2xl font-bold text-green-600 mt-1" x-text="sourceStats.green || 0"></p>
-        </div>
-        <div class="bg-white rounded-2xl p-4 border border-yellow-200 shadow-sm text-center">
-          <p class="text-xs text-yellow-500 uppercase tracking-wider">警告 Yellow</p>
-          <p class="text-2xl font-bold text-yellow-600 mt-1" x-text="sourceStats.yellow || 0"></p>
-        </div>
-        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm text-center">
-          <p class="text-xs text-slate-400 uppercase tracking-wider">离线 Gray</p>
-          <p class="text-2xl font-bold text-slate-400 mt-1" x-text="sourceStats.gray || 0"></p>
-        </div>
-        <div class="bg-white rounded-2xl p-4 border border-indigo-200 shadow-sm text-center">
-          <p class="text-xs text-indigo-500 uppercase tracking-wider">独立来源</p>
-          <p class="text-2xl font-bold text-indigo-600 mt-1" x-text="sourceStats.deduplicated_sources || 0"></p>
-          <p class="text-[10px] text-slate-400 mt-0.5">品牌去重后</p>
-        </div>
-        <div class="bg-white rounded-2xl p-4 border border-purple-200 shadow-sm text-center">
-          <p class="text-xs text-purple-500 uppercase tracking-wider">品牌数</p>
-          <p class="text-2xl font-bold text-purple-600 mt-1" x-text="sourceStats.unique_brands || 0"></p>
-          <p class="text-[10px] text-slate-400 mt-0.5" x-text="(sourceStats.no_brand_count||0) + ' 个无品牌'"></p>
-        </div>
+      <!-- Sub-tab navigation -->
+      <div class="flex gap-1 bg-white/60 rounded-xl p-1 border border-slate-200 w-fit">
+        <template x-for="st in srcSubTabs" :key="st.id">
+          <button @click="srcSubTab = st.id"
+                  :class="srcSubTab === st.id ? 'bg-white shadow-sm text-brand-700 border-brand-200' : 'text-slate-500 hover:text-slate-700 border-transparent'"
+                  class="px-4 py-1.5 rounded-lg text-xs font-medium transition-all border"
+                  x-text="st.label"></button>
+        </template>
       </div>
 
-      <!-- Second row: capability stats + generated_at -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600 text-lg">🛡</div>
-          <div>
-            <p class="text-xs text-slate-400">WAF 绕行</p>
-            <p class="text-lg font-bold text-slate-700" x-text="sourceStats.waf_count || 0"></p>
+      <!-- ═══════ Sub-tab: 概览 ═══════ -->
+      <div x-show="srcSubTab === 'overview'" class="space-y-5">
+        <!-- Row 1: Status cards -->
+        <div class="grid grid-cols-3 lg:grid-cols-6 gap-3">
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm text-center">
+            <p class="text-[10px] text-slate-400 uppercase tracking-wider">总规则</p>
+            <p class="text-2xl font-bold text-slate-800 mt-0.5" x-text="sourceStats.total || 0"></p>
+          </div>
+          <div class="bg-white rounded-2xl p-4 border border-green-200 shadow-sm text-center">
+            <p class="text-[10px] text-green-500 uppercase tracking-wider">Green</p>
+            <p class="text-2xl font-bold text-green-600 mt-0.5" x-text="sourceStats.green || 0"></p>
+          </div>
+          <div class="bg-white rounded-2xl p-4 border border-yellow-200 shadow-sm text-center">
+            <p class="text-[10px] text-yellow-500 uppercase tracking-wider">Yellow</p>
+            <p class="text-2xl font-bold text-yellow-600 mt-0.5" x-text="sourceStats.yellow || 0"></p>
+          </div>
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm text-center">
+            <p class="text-[10px] text-slate-400 uppercase tracking-wider">Gray</p>
+            <p class="text-2xl font-bold text-slate-400 mt-0.5" x-text="sourceStats.gray || 0"></p>
+          </div>
+          <div class="bg-white rounded-2xl p-4 border border-indigo-200 shadow-sm text-center">
+            <p class="text-[10px] text-indigo-500 uppercase tracking-wider">独立来源</p>
+            <p class="text-2xl font-bold text-indigo-600 mt-0.5" x-text="sourceStats.deduplicated_sources || 0"></p>
+            <p class="text-[9px] text-slate-400">品牌去重</p>
+          </div>
+          <div class="bg-white rounded-2xl p-4 border border-purple-200 shadow-sm text-center">
+            <p class="text-[10px] text-purple-500 uppercase tracking-wider">品牌数</p>
+            <p class="text-2xl font-bold text-purple-600 mt-0.5" x-text="sourceStats.unique_brands || 0"></p>
+            <p class="text-[9px] text-slate-400" x-text="(sourceStats.green_unique_brands||0) + ' 个存活'"></p>
           </div>
         </div>
-        <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-cyan-50 flex items-center justify-center text-cyan-600 text-lg">🌐</div>
-          <div>
-            <p class="text-xs text-slate-400">需浏览器渲染</p>
-            <p class="text-lg font-bold text-slate-700" x-text="sourceStats.browser_count || 0"></p>
-          </div>
-        </div>
-        <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 text-lg">🔗</div>
-          <div>
-            <p class="text-xs text-slate-400">详情页跟随</p>
-            <p class="text-lg font-bold text-slate-700" x-text="sourceStats.detail_follow_count || 0"></p>
-          </div>
-        </div>
-        <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center text-slate-500 text-lg">⏱</div>
-          <div>
-            <p class="text-xs text-slate-400">数据生成时间</p>
-            <p class="text-xs font-medium text-slate-600" x-text="sourceGeneratedAt ? fmtDate(sourceGeneratedAt) : '-'"></p>
-          </div>
-        </div>
-      </div>
 
-      <!-- Brand & Detail Stats -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <!-- Brand breakdown -->
-        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-          <h3 class="font-semibold text-slate-700 mb-3">品牌分布 <span class="text-sm font-normal text-slate-400" x-text="'(' + (sourceBrandStats?.length||0) + ' 个)'"></span></h3>
-          <div class="max-h-64 overflow-y-auto space-y-1.5">
-            <template x-for="b in sourceBrandStats" :key="b.brand">
-              <div class="flex items-center gap-2 text-xs py-1 border-b border-slate-50">
-                <span class="w-32 truncate font-medium text-slate-700" x-text="b.brand" :title="b.brand"></span>
-                <span class="px-1.5 py-0.5 rounded bg-green-50 text-green-700 font-medium" x-text="b.green" x-show="b.green"></span>
-                <span class="px-1.5 py-0.5 rounded bg-yellow-50 text-yellow-700 font-medium" x-text="b.yellow" x-show="b.yellow"></span>
-                <span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-medium" x-text="b.gray" x-show="b.gray"></span>
-                <span class="ml-auto text-slate-400" x-text="b.domains + ' 域名'"></span>
-                <div class="w-20 bg-slate-100 rounded-full h-1.5">
-                  <div class="h-1.5 rounded-full bg-green-500" :style="'width:' + (b.total > 0 ? Math.round(b.green/b.total*100) : 0) + '%'"></div>
+        <!-- Row 2: capabilities + generated_at -->
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600 text-sm">🛡</div>
+            <div><p class="text-[10px] text-slate-400">WAF 绕行</p><p class="text-base font-bold text-slate-700" x-text="sourceStats.waf_count || 0"></p></div>
+          </div>
+          <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-cyan-50 flex items-center justify-center text-cyan-600 text-sm">🌐</div>
+            <div><p class="text-[10px] text-slate-400">浏览器渲染</p><p class="text-base font-bold text-slate-700" x-text="sourceStats.browser_count || 0"></p></div>
+          </div>
+          <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 text-sm">🔗</div>
+            <div><p class="text-[10px] text-slate-400">详情跟随</p><p class="text-base font-bold text-slate-700" x-text="sourceStats.detail_follow_count || 0"></p></div>
+          </div>
+          <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 text-sm">📡</div>
+            <div><p class="text-[10px] text-slate-400">发布页</p><p class="text-base font-bold text-slate-700" x-text="sourceDiscovery.release_pages?.length || 0"></p></div>
+          </div>
+          <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-500 text-sm">⏱</div>
+            <div><p class="text-[10px] text-slate-400">数据时间</p><p class="text-[11px] font-medium text-slate-600" x-text="sourceGeneratedAt ? fmtDate(sourceGeneratedAt) : '-'"></p></div>
+          </div>
+        </div>
+
+        <!-- Row 3: status detail breakdown + Green sources at-a-glance -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- Status detail bars -->
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+            <h3 class="font-semibold text-slate-700 mb-3 text-sm">状态明细分布</h3>
+            <div class="space-y-2">
+              <template x-for="d in sourceDetailStats" :key="d.detail">
+                <div class="flex items-center gap-2">
+                  <span class="w-24 text-xs font-mono" :class="{
+                    'text-green-600': d.detail==='ok'||d.detail==='healed',
+                    'text-yellow-600': d.detail==='waf'||d.detail==='parsing_failed',
+                    'text-red-500': d.detail==='404'||d.detail==='expired',
+                    'text-slate-400': d.detail==='unreachable'||d.detail==='unknown'
+                  }" x-text="d.detail"></span>
+                  <div class="flex-1 bg-slate-100 rounded-full h-2.5">
+                    <div class="h-2.5 rounded-full" :class="{
+                      'bg-green-400': d.detail==='ok'||d.detail==='healed',
+                      'bg-yellow-400': d.detail==='waf'||d.detail==='parsing_failed',
+                      'bg-red-300': d.detail==='404'||d.detail==='expired',
+                      'bg-slate-300': d.detail==='unreachable'||d.detail==='unknown'
+                    }" :style="'width:'+Math.max(4,Math.round(d.count/(sourceStats.total||1)*100))+'%'"></div>
+                  </div>
+                  <span class="w-8 text-right text-xs font-bold text-slate-600" x-text="d.count"></span>
                 </div>
-              </div>
-            </template>
-          </div>
-        </div>
-
-        <!-- Status detail breakdown -->
-        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-          <h3 class="font-semibold text-slate-700 mb-3">状态明细分布</h3>
-          <div class="space-y-2">
-            <template x-for="d in sourceDetailStats" :key="d.detail">
-              <div class="flex items-center gap-2">
-                <span class="w-28 text-xs font-mono" :class="{
-                  'text-green-600': d.detail === 'ok' || d.detail === 'healed',
-                  'text-yellow-600': d.detail === 'waf' || d.detail === 'parsing_failed',
-                  'text-red-500': d.detail === '404' || d.detail === 'expired',
-                  'text-slate-400': d.detail === 'unreachable' || d.detail === 'unknown'
-                }" x-text="d.detail"></span>
-                <div class="flex-1 bg-slate-100 rounded-full h-3">
-                  <div class="h-3 rounded-full" :class="{
-                    'bg-green-400': d.detail === 'ok' || d.detail === 'healed',
-                    'bg-yellow-400': d.detail === 'waf' || d.detail === 'parsing_failed',
-                    'bg-red-300': d.detail === '404' || d.detail === 'expired',
-                    'bg-slate-300': d.detail === 'unreachable' || d.detail === 'unknown'
-                  }" :style="'width:' + Math.max(4, Math.round(d.count / (sourceStats.total||1) * 100)) + '%'"></div>
-                </div>
-                <span class="w-8 text-right text-xs font-bold text-slate-600" x-text="d.count"></span>
-              </div>
-            </template>
-          </div>
-        </div>
-      </div>
-
-      <!-- Source Table -->
-      <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <h3 class="font-semibold text-slate-700">数据源列表 <span class="text-sm font-normal text-slate-400" x-text="'(' + filteredRules.length + '/' + rules.length + ')'"></span></h3>
-          <div class="flex flex-wrap items-center gap-2">
-            <!-- Search box -->
-            <input type="text" x-model="searchQuery" placeholder="搜索站点/品牌/域名..."
-                   class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs w-48 focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none">
-            <!-- Status filters -->
-            <button @click="filterStatus = ''" :class="filterStatus === '' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'" class="px-3 py-1 rounded-lg text-xs font-medium">全部</button>
-            <button @click="filterStatus = 'green'" :class="filterStatus === 'green' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700'" class="px-3 py-1 rounded-lg text-xs font-medium">可用</button>
-            <button @click="filterStatus = 'yellow'" :class="filterStatus === 'yellow' ? 'bg-yellow-600 text-white' : 'bg-yellow-50 text-yellow-700'" class="px-3 py-1 rounded-lg text-xs font-medium">警告</button>
-            <button @click="filterStatus = 'gray'" :class="filterStatus === 'gray' ? 'bg-gray-600 text-white' : 'bg-gray-100 text-gray-600'" class="px-3 py-1 rounded-lg text-xs font-medium">离线</button>
-          </div>
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-b border-slate-100">
-                <th @click="sortBy('site_name')" class="text-left py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">站点 <span x-show="sortField==='site_name'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
-                <th @click="sortBy('brand')" class="text-left py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">品牌 <span x-show="sortField==='brand'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
-                <th @click="sortBy('domain')" class="text-left py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">域名 <span x-show="sortField==='domain'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
-                <th @click="sortBy('status')" class="text-center py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">状态 <span x-show="sortField==='status'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
-                <th @click="sortBy('status_detail')" class="text-left py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">详情 <span x-show="sortField==='status_detail'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
-                <th @click="sortBy('fail_streak')" class="text-center py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">连败 <span x-show="sortField==='fail_streak'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
-                <th @click="sortBy('last_checked')" class="text-left py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">最后检测 <span x-show="sortField==='last_checked'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
-                <th @click="sortBy('quality_score')" class="text-center py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">质量 <span x-show="sortField==='quality_score'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
-                <th class="text-center py-2 px-2 text-slate-400 font-medium whitespace-nowrap text-xs">能力</th>
-              </tr>
-            </thead>
-            <tbody>
-              <template x-for="rule in filteredRules" :key="rule.id">
-                <tr class="border-b border-slate-50 hover:bg-blue-50/30 transition-colors">
-                  <td class="py-1.5 px-2 font-medium text-slate-700 text-xs max-w-[140px] truncate" x-text="rule.site_name" :title="rule.site_name"></td>
-                  <td class="py-1.5 px-2 text-slate-500 text-xs max-w-[100px] truncate" x-text="rule.brand" :title="rule.brand"></td>
-                  <td class="py-1.5 px-2 text-slate-500 font-mono text-[11px] max-w-[160px] truncate" x-text="rule.domain" :title="rule.base_url"></td>
-                  <td class="py-1.5 px-2 text-center">
-                    <span :class="{
-                      'bg-green-100 text-green-700': rule.status === 'green',
-                      'bg-yellow-100 text-yellow-700': rule.status === 'yellow',
-                      'bg-gray-100 text-gray-500': rule.status === 'gray'
-                    }" class="px-1.5 py-0.5 rounded-full text-[10px] font-medium" x-text="rule.status"></span>
-                  </td>
-                  <td class="py-1.5 px-2 text-[11px]" :class="{
-                    'text-green-600': rule.status_detail === 'ok' || rule.status_detail === 'healed',
-                    'text-yellow-600': rule.status_detail === 'waf' || rule.status_detail === 'parsing_failed',
-                    'text-red-400': rule.status_detail === '404' || rule.status_detail === 'expired',
-                    'text-slate-400': rule.status_detail === 'unreachable'
-                  }" x-text="rule.status_detail"></td>
-                  <td class="py-1.5 px-2 text-center text-xs" :class="rule.fail_streak >= 3 ? 'text-red-500 font-bold' : rule.fail_streak > 0 ? 'text-yellow-600' : 'text-slate-300'" x-text="rule.fail_streak || '-'"></td>
-                  <td class="py-1.5 px-2 text-[11px] text-slate-400 whitespace-nowrap" x-text="rule.last_checked ? fmtDate(rule.last_checked) : '-'"></td>
-                  <td class="py-1.5 px-2 text-center">
-                    <span x-show="rule.quality_score" class="text-[11px] font-medium" :class="rule.quality_score >= 80 ? 'text-green-600' : rule.quality_score >= 50 ? 'text-yellow-600' : 'text-slate-400'" x-text="rule.quality_score"></span>
-                    <span x-show="!rule.quality_score" class="text-slate-300 text-[11px]">-</span>
-                  </td>
-                  <td class="py-1.5 px-2 text-center">
-                    <span class="inline-flex gap-0.5">
-                      <span x-show="rule.requires_waf" class="text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-600" title="WAF绕行">W</span>
-                      <span x-show="rule.requires_browser" class="text-[10px] px-1 py-0.5 rounded bg-cyan-50 text-cyan-600" title="浏览器渲染">B</span>
-                      <span x-show="rule.supports_detail" class="text-[10px] px-1 py-0.5 rounded bg-blue-50 text-blue-600" title="详情跟随">D</span>
-                      <span x-show="rule.has_referer" class="text-[10px] px-1 py-0.5 rounded bg-purple-50 text-purple-600" title="自定义Referer">R</span>
-                    </span>
-                  </td>
-                </tr>
               </template>
-            </tbody>
-          </table>
+            </div>
+          </div>
+
+          <!-- Green unique brands quick view -->
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+            <h3 class="font-semibold text-slate-700 mb-3 text-sm">Green 独立来源 <span class="font-normal text-green-600" x-text="'(' + (sourceGreenBrands?.length||0) + ')'"></span></h3>
+            <div class="max-h-52 overflow-y-auto space-y-1">
+              <template x-for="gb in sourceGreenBrands" :key="gb.brand">
+                <div class="flex items-center gap-2 text-xs py-1 border-b border-slate-50">
+                  <span class="w-6 text-center font-bold text-green-600" x-text="gb.count"></span>
+                  <span class="font-medium text-slate-700 truncate flex-1" x-text="gb.brand" :title="gb.brand"></span>
+                  <span class="text-slate-400 text-[10px] shrink-0" x-text="gb.domains > 1 ? gb.domains + '域名' : gb.sample_domain"></span>
+                </div>
+              </template>
+            </div>
+          </div>
         </div>
-        <p x-show="filteredRules.length === 0" class="text-center text-slate-400 py-8">暂无数据</p>
       </div>
+
+      <!-- ═══════ Sub-tab: 品牌 ═══════ -->
+      <div x-show="srcSubTab === 'brands'" class="space-y-4">
+        <!-- Brand status filter -->
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-500">筛选：</span>
+          <button @click="brandFilter = ''" :class="brandFilter==='' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'" class="px-2.5 py-1 rounded-lg text-xs font-medium">全部 <span x-text="sourceBrandStats?.length||0"></span></button>
+          <button @click="brandFilter = 'green'" :class="brandFilter==='green' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700'" class="px-2.5 py-1 rounded-lg text-xs font-medium">有绿</button>
+          <button @click="brandFilter = 'yellow'" :class="brandFilter==='yellow' ? 'bg-yellow-600 text-white' : 'bg-yellow-50 text-yellow-700'" class="px-2.5 py-1 rounded-lg text-xs font-medium">有黄</button>
+          <button @click="brandFilter = 'gray_only'" :class="brandFilter==='gray_only' ? 'bg-gray-600 text-white' : 'bg-gray-100 text-gray-600'" class="px-2.5 py-1 rounded-lg text-xs font-medium">纯灰</button>
+          <input type="text" x-model="brandSearch" placeholder="搜索品牌..." class="ml-auto px-3 py-1 border border-slate-200 rounded-lg text-xs w-40 focus:ring-2 focus:ring-brand-500/20 outline-none">
+        </div>
+
+        <!-- Brand cards grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <template x-for="b in filteredBrands" :key="b.brand">
+            <div class="bg-white rounded-xl p-4 border shadow-sm transition-all hover:shadow-md"
+                 :class="b.green > 0 ? 'border-green-200' : b.yellow > 0 ? 'border-yellow-200' : 'border-slate-200 opacity-70'">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <h4 class="font-semibold text-slate-800 text-sm truncate" x-text="b.brand" :title="b.brand"></h4>
+                  <p class="text-[10px] text-slate-400 mt-0.5" x-text="b.domains + ' 个域名 · ' + b.total + ' 条规则'"></p>
+                </div>
+                <div class="flex gap-1 shrink-0">
+                  <span x-show="b.green" class="px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-bold" x-text="b.green"></span>
+                  <span x-show="b.yellow" class="px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-700 text-[10px] font-bold" x-text="b.yellow"></span>
+                  <span x-show="b.gray" class="px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 text-[10px] font-bold" x-text="b.gray"></span>
+                </div>
+              </div>
+              <!-- Health bar -->
+              <div class="mt-2 flex h-1.5 rounded-full overflow-hidden bg-slate-100">
+                <div class="bg-green-500 h-full" :style="'width:'+Math.round(b.green/b.total*100)+'%'"></div>
+                <div class="bg-yellow-400 h-full" :style="'width:'+Math.round(b.yellow/b.total*100)+'%'"></div>
+                <div class="bg-slate-300 h-full" :style="'width:'+Math.round(b.gray/b.total*100)+'%'"></div>
+              </div>
+              <!-- Click to filter in list -->
+              <button @click="srcSubTab='list'; searchQuery=b.brand; filterStatus=''" class="mt-2 text-[10px] text-brand-500 hover:text-brand-700 font-medium">查看所有规则 →</button>
+            </div>
+          </template>
+        </div>
+        <p x-show="filteredBrands.length === 0" class="text-center text-slate-400 py-8 text-sm">无匹配品牌</p>
+      </div>
+
+      <!-- ═══════ Sub-tab: 列表 ═══════ -->
+      <div x-show="srcSubTab === 'list'" class="space-y-4">
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h3 class="font-semibold text-slate-700 text-sm">规则列表 <span class="font-normal text-slate-400" x-text="'(' + filteredRules.length + '/' + rules.length + ')'"></span></h3>
+            <div class="flex flex-wrap items-center gap-2">
+              <input type="text" x-model="searchQuery" placeholder="搜索站点/品牌/域名..."
+                     class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs w-44 focus:ring-2 focus:ring-brand-500/20 outline-none">
+              <button @click="filterStatus = ''" :class="filterStatus === '' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'" class="px-2.5 py-1 rounded-lg text-xs font-medium">全部</button>
+              <button @click="filterStatus = 'green'" :class="filterStatus === 'green' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700'" class="px-2.5 py-1 rounded-lg text-xs font-medium">Green</button>
+              <button @click="filterStatus = 'yellow'" :class="filterStatus === 'yellow' ? 'bg-yellow-600 text-white' : 'bg-yellow-50 text-yellow-700'" class="px-2.5 py-1 rounded-lg text-xs font-medium">Yellow</button>
+              <button @click="filterStatus = 'gray'" :class="filterStatus === 'gray' ? 'bg-gray-600 text-white' : 'bg-gray-100 text-gray-600'" class="px-2.5 py-1 rounded-lg text-xs font-medium">Gray</button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-slate-100">
+                  <th @click="sortBy('site_name')" class="text-left py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">站点 <span x-show="sortField==='site_name'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
+                  <th @click="sortBy('brand')" class="text-left py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">品牌 <span x-show="sortField==='brand'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
+                  <th @click="sortBy('domain')" class="text-left py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">域名 <span x-show="sortField==='domain'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
+                  <th @click="sortBy('status')" class="text-center py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">状态 <span x-show="sortField==='status'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
+                  <th @click="sortBy('status_detail')" class="text-left py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">详情 <span x-show="sortField==='status_detail'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
+                  <th @click="sortBy('fail_streak')" class="text-center py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">连败 <span x-show="sortField==='fail_streak'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
+                  <th @click="sortBy('last_checked')" class="text-left py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">最后检测 <span x-show="sortField==='last_checked'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
+                  <th @click="sortBy('quality_score')" class="text-center py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">质量 <span x-show="sortField==='quality_score'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
+                  <th class="text-center py-2 px-2 text-slate-400 font-medium whitespace-nowrap text-xs">能力</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="rule in filteredRules" :key="rule.id">
+                  <tr class="border-b border-slate-50 hover:bg-blue-50/30 transition-colors">
+                    <td class="py-1.5 px-2 font-medium text-slate-700 text-xs max-w-[140px] truncate" x-text="rule.site_name" :title="rule.site_name"></td>
+                    <td class="py-1.5 px-2 text-xs max-w-[100px] truncate cursor-pointer hover:text-brand-600" x-text="rule.brand" :title="rule.brand" @click="if(rule.brand){searchQuery=rule.brand}"></td>
+                    <td class="py-1.5 px-2 text-slate-500 font-mono text-[11px] max-w-[160px] truncate" x-text="rule.domain" :title="rule.base_url"></td>
+                    <td class="py-1.5 px-2 text-center">
+                      <span :class="{'bg-green-100 text-green-700':rule.status==='green','bg-yellow-100 text-yellow-700':rule.status==='yellow','bg-gray-100 text-gray-500':rule.status==='gray'}" class="px-1.5 py-0.5 rounded-full text-[10px] font-medium" x-text="rule.status"></span>
+                    </td>
+                    <td class="py-1.5 px-2 text-[11px]" :class="{'text-green-600':rule.status_detail==='ok'||rule.status_detail==='healed','text-yellow-600':rule.status_detail==='waf'||rule.status_detail==='parsing_failed','text-red-400':rule.status_detail==='404'||rule.status_detail==='expired','text-slate-400':rule.status_detail==='unreachable'}" x-text="rule.status_detail"></td>
+                    <td class="py-1.5 px-2 text-center text-xs" :class="rule.fail_streak>=3?'text-red-500 font-bold':rule.fail_streak>0?'text-yellow-600':'text-slate-300'" x-text="rule.fail_streak||'-'"></td>
+                    <td class="py-1.5 px-2 text-[11px] text-slate-400 whitespace-nowrap" x-text="rule.last_checked ? fmtDate(rule.last_checked) : '-'"></td>
+                    <td class="py-1.5 px-2 text-center">
+                      <span x-show="rule.quality_score" class="text-[11px] font-medium" :class="rule.quality_score>=80?'text-green-600':rule.quality_score>=50?'text-yellow-600':'text-slate-400'" x-text="rule.quality_score"></span>
+                      <span x-show="!rule.quality_score" class="text-slate-300 text-[11px]">-</span>
+                    </td>
+                    <td class="py-1.5 px-2 text-center">
+                      <span class="inline-flex gap-0.5">
+                        <span x-show="rule.requires_waf" class="text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-600" title="WAF">W</span>
+                        <span x-show="rule.requires_browser" class="text-[10px] px-1 py-0.5 rounded bg-cyan-50 text-cyan-600" title="浏览器">B</span>
+                        <span x-show="rule.supports_detail" class="text-[10px] px-1 py-0.5 rounded bg-blue-50 text-blue-600" title="详情">D</span>
+                        <span x-show="rule.has_referer" class="text-[10px] px-1 py-0.5 rounded bg-purple-50 text-purple-600" title="Referer">R</span>
+                      </span>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+          <p x-show="filteredRules.length===0" class="text-center text-slate-400 py-8 text-sm">暂无数据</p>
+        </div>
+      </div>
+
+      <!-- ═══════ Sub-tab: 导航与发布页 ═══════ -->
+      <div x-show="srcSubTab === 'discovery'" class="space-y-5">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <!-- Release pages -->
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+            <h3 class="font-semibold text-slate-700 mb-3 text-sm flex items-center gap-2">
+              <span class="w-6 h-6 rounded bg-emerald-50 flex items-center justify-center text-emerald-600 text-xs">📡</span>
+              发布页 <span class="font-normal text-slate-400" x-text="'(' + (sourceDiscovery.release_pages?.length||0) + ')'"></span>
+            </h3>
+            <div class="max-h-96 overflow-y-auto space-y-1.5">
+              <template x-for="(rp, i) in (sourceDiscovery.release_pages||[])" :key="i">
+                <div class="flex items-center gap-2 py-1.5 border-b border-slate-50 text-xs">
+                  <span class="font-medium text-slate-700 w-24 truncate shrink-0" x-text="rp.brand" :title="rp.brand"></span>
+                  <a :href="rp.url" target="_blank" class="text-brand-500 hover:text-brand-700 font-mono text-[11px] truncate" x-text="rp.url" :title="rp.url"></a>
+                  <span x-show="rp.note" class="ml-auto text-slate-400 text-[10px] shrink-0 max-w-[120px] truncate" x-text="rp.note" :title="rp.note"></span>
+                </div>
+              </template>
+              <p x-show="!sourceDiscovery.release_pages?.length" class="text-slate-400 text-center py-6">暂无发布页数据</p>
+            </div>
+          </div>
+
+          <!-- Navigation sites -->
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+            <h3 class="font-semibold text-slate-700 mb-3 text-sm flex items-center gap-2">
+              <span class="w-6 h-6 rounded bg-blue-50 flex items-center justify-center text-blue-600 text-xs">🧭</span>
+              导航站 <span class="font-normal text-slate-400" x-text="'(' + (sourceDiscovery.navigation_sites?.length||0) + ')'"></span>
+            </h3>
+            <div class="max-h-96 overflow-y-auto space-y-1.5">
+              <template x-for="(ns, i) in (sourceDiscovery.navigation_sites||[])" :key="i">
+                <div class="flex items-center gap-2 py-1.5 border-b border-slate-50 text-xs">
+                  <span class="font-medium text-slate-700 w-28 truncate shrink-0" x-text="ns.name || ns.brand || '-'" :title="ns.name"></span>
+                  <a :href="ns.url" target="_blank" class="text-brand-500 hover:text-brand-700 font-mono text-[11px] truncate" x-text="ns.url" :title="ns.url"></a>
+                  <span x-show="ns.note" class="ml-auto text-slate-400 text-[10px] shrink-0 max-w-[120px] truncate" x-text="ns.note" :title="ns.note"></span>
+                </div>
+              </template>
+              <p x-show="!sourceDiscovery.navigation_sites?.length" class="text-slate-400 text-center py-6">暂无导航站数据</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tools row -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm" x-show="sourceDiscovery.tools?.length > 0">
+          <h3 class="font-semibold text-slate-700 mb-3 text-sm flex items-center gap-2">
+            <span class="w-6 h-6 rounded bg-amber-50 flex items-center justify-center text-amber-600 text-xs">🔧</span>
+            工具 <span class="font-normal text-slate-400" x-text="'(' + (sourceDiscovery.tools?.length||0) + ')'"></span>
+          </h3>
+          <div class="flex flex-wrap gap-3">
+            <template x-for="(t, i) in (sourceDiscovery.tools||[])" :key="i">
+              <a :href="t.url" target="_blank" class="px-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 transition-all" x-text="t.name"></a>
+            </template>
+          </div>
+        </div>
+
+        <!-- Last updated -->
+        <p class="text-xs text-slate-400 text-right" x-show="sourceDiscovery.last_updated" x-text="'数据更新: ' + (sourceDiscovery.last_updated || '')"></p>
+      </div>
+
     </div>
 
   </main>
@@ -690,7 +781,18 @@
         sourceStats: {},
         sourceBrandStats: [],
         sourceDetailStats: [],
+        sourceGreenBrands: [],
+        sourceDiscovery: {},
         sourceGeneratedAt: '',
+        srcSubTab: 'overview',
+        srcSubTabs: [
+          { id: 'overview', label: '概览' },
+          { id: 'brands', label: '品牌' },
+          { id: 'list', label: '列表' },
+          { id: 'discovery', label: '导航与发布页' },
+        ],
+        brandFilter: '',
+        brandSearch: '',
         feedbackList: [],
         feedbackLoading: false,
         analyticsData: null,
@@ -784,6 +886,18 @@
           }
         },
 
+        get filteredBrands() {
+          let list = this.sourceBrandStats || [];
+          if (this.brandFilter === 'green') list = list.filter(b => b.green > 0);
+          else if (this.brandFilter === 'yellow') list = list.filter(b => b.yellow > 0);
+          else if (this.brandFilter === 'gray_only') list = list.filter(b => b.green === 0 && b.yellow === 0);
+          if (this.brandSearch) {
+            const q = this.brandSearch.toLowerCase();
+            list = list.filter(b => b.brand.toLowerCase().includes(q));
+          }
+          return list;
+        },
+
         async loadSources() {
           try {
             const res = await fetch('/api/sources/details');
@@ -792,6 +906,8 @@
             this.sourceStats = data.stats || {};
             this.sourceBrandStats = data.brandStats || [];
             this.sourceDetailStats = data.detailStats || [];
+            this.sourceGreenBrands = data.greenBrands || [];
+            this.sourceDiscovery = data.discovery || {};
             this.sourceGeneratedAt = data.generated_at || '';
           } catch (e) { /* ignore */ }
         },
