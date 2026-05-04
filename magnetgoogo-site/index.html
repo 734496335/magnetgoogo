@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>磁力古哥 Magnet Googo — 聚合全网磁力搜索引擎 | 免费下载</title>
+    <meta name="description" content="磁力古哥(Magnet Googo)是一款免费的聚合磁力搜索App，整合全网磁力资源站点。电影、动漫、游戏、音乐，一次搜索全部直达。Android免费下载，无需注册，无广告。">
+    <meta name="keywords" content="磁力古哥,Magnet Googo,磁力搜索,磁力链接,magnet search,BT搜索,种子搜索,聚合搜索,磁力下载,免费磁力搜索引擎,磁力资源,Android磁力搜索">
+    <link rel="canonical" href="https://magnetgoogo.com/">
+    <link rel="alternate" hreflang="zh" href="https://magnetgoogo.com/">
+    <link rel="alternate" hreflang="en" href="https://magnetgoogo.com/">
+    <link rel="alternate" hreflang="x-default" href="https://magnetgoogo.com/">
+    <!-- Open Graph -->
+    <meta property="og:title" content="磁力古哥 Magnet Googo — 聚合全网磁力搜索引擎">
+    <meta property="og:description" content="免费聚合磁力搜索App，电影、动漫、游戏、音乐，一次搜索全部直达。无广告，无需注册。">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://magnetgoogo.com/">
+    <meta property="og:image" content="https://magnetgoogo.com/images/app-icon-lg.png">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="512">
+    <meta property="og:site_name" content="磁力古哥 Magnet Googo">
+    <meta property="og:locale" content="zh_CN">
+    <meta property="og:locale:alternate" content="en_US">
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="磁力古哥 Magnet Googo — 聚合全网磁力搜索">
+    <meta name="twitter:description" content="免费聚合磁力搜索App，一次搜索全部直达">
+    <meta name="twitter:image" content="https://magnetgoogo.com/images/app-icon-lg.png">
+    <!-- Misc SEO -->
+    <meta name="baidu-site-verification" content="codeva-le9FKQPkUa" />
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Magnet Googo">
+    <meta name="theme-color" content="#4285F4">
+    <meta name="apple-mobile-web-app-title" content="磁力古哥">
+    <link rel="icon" type="image/png" href="images/app-icon.png">
+    <link rel="apple-touch-icon" href="images/app-icon-lg.png">
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "磁力古哥 Magnet Googo",
+      "alternateName": "Magnet Googo",
+      "description": "聚合全网磁力资源的免费搜索App，电影、动漫、游戏、音乐，一搜即达",
+      "url": "https://magnetgoogo.com",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "Android 7.0+",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "CNY"
+      },
+      "downloadUrl": "https://github.com/734496335/magnetgoogo/releases/latest",
+      "screenshot": [
+        "https://magnetgoogo.com/images/ss-zh-home-show.png",
+        "https://magnetgoogo.com/images/ss-zh-results-show.png"
+      ],
+      "featureList": [
+        "聚合全网磁力搜索",
+        "极速秒级响应",
+        "无广告纯净体验",
+        "中英双语支持",
+        "收藏与历史记录",
+        "暗色模式"
+      ],
+      "softwareVersion": "0.1.8",
+      "author": {
+        "@type": "Organization",
+        "name": "Magnet Googo",
+        "url": "https://magnetgoogo.com"
+      }
+    }
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config={theme:{extend:{fontFamily:{sans:['-apple-system','BlinkMacSystemFont','"Segoe UI"','Roboto','"Noto Sans SC"','"PingFang SC"','"Microsoft YaHei"','sans-serif']},colors:{brand:'#4285F4'}}}}
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="font-sans text-gray-800 bg-white antialiased overflow-x-hidden">
+
+<!-- ========== NAV ========== -->
+<nav class="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100">
+  <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+    <div class="flex items-center gap-2.5">
+      <img src="images/app-icon-sm.png" alt="磁力古哥" class="w-9 h-9">
+      <span class="font-bold text-lg tracking-tight">Magnet Googo</span>
+    </div>
+    <div class="hidden md:flex items-center gap-8 text-sm text-gray-500">
+      <a href="#" class="text-gray-900 font-medium" data-i18n="navHome">首页</a>
+      <a href="#features" class="hover:text-gray-900 transition-colors" data-i18n="navFeatures">功能</a>
+      <a href="#screenshots" class="hover:text-gray-900 transition-colors" data-i18n="navScreenshots">截图</a>
+      <a href="#download" class="hover:text-gray-900 transition-colors" data-i18n="navDownload">下载</a>
+    </div>
+    <div class="flex items-center gap-3">
+      <button id="langToggle" class="lang-toggle text-sm font-medium px-3 py-1.5 rounded-full border border-gray-200 hover:border-gray-400 transition-colors" onclick="toggleLang()">EN</button>
+      <a href="https://api.naoshiquan.com/download/v0.1.8/MagGoogo-v0.1.8.apk" class="grad-btn text-white text-sm font-medium px-5 py-2 rounded-full inline-flex items-center gap-1.5">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        <span data-i18n="navBtn">免费下载</span>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- ========== HERO ========== -->
+<section class="pt-28 pb-16 md:pt-36 md:pb-24 hero-bg">
+  <div class="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center gap-12 md:gap-16">
+    <div class="flex-1 text-center md:text-left">
+      <h1 class="text-4xl md:text-[3.2rem] font-extrabold leading-tight mb-5" data-i18n="heroTitle">聚合全网磁力资源</h1>
+      <p class="text-lg text-gray-400 mb-8" data-i18n="heroSub">电影 · 动漫 · 游戏 · 音乐 · 一搜即达</p>
+      <a href="https://api.naoshiquan.com/download/v0.1.8/MagGoogo-v0.1.8.apk" class="grad-btn text-white font-semibold px-8 py-3.5 rounded-full text-base inline-flex items-center gap-2 mb-4">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        <span data-i18n="heroBtn">免费下载</span>
+      </a>
+      <p class="text-sm text-gray-400" data-i18n="heroNote">Android · 无需注册</p>
+    </div>
+    <div class="flex-shrink-0 relative">
+      <div class="hero-blob hero-blob-1"></div>
+      <div class="hero-blob hero-blob-2"></div>
+      <div class="hero-blob hero-blob-3"></div>
+      <div class="phone-frame-light float-anim relative z-10">
+        <div class="phone-screen-light">
+          <img data-ss="home-hero" src="images/ss-zh-home-hero.png" alt="磁力古哥首页" class="w-[260px] h-[520px] object-cover object-top bg-gray-50">
+        </div>
+      </div>
+      <p class="text-center text-xs text-gray-400 mt-4 relative z-10" data-i18n="heroCaption">APP 界面示意图</p>
+    </div>
+  </div>
+</section>
+
+<!-- ========== FEATURES ========== -->
+<section id="features" class="py-20 md:py-28">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="text-center mb-6">
+      <h2 class="text-3xl md:text-4xl font-bold mb-4" data-i18n="featTitle">搜一次，就够了</h2>
+      <p class="text-gray-400 text-lg" data-i18n="featSub">聚合全网优质磁力资源，一次搜索全部直达</p>
+    </div>
+    <div class="flex justify-center my-10 md:my-16">
+      <div class="sucai-fade w-full max-w-2xl">
+        <img src="images/sucai-2x.png" alt="聚合全网资源" class="w-full">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== APP SCREENSHOTS ========== -->
+<section id="screenshots" class="py-20 md:py-28 screenshots-bg">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="text-center mb-4">
+      <h2 class="text-3xl md:text-4xl font-bold mb-4" data-i18n="ssTitle">App 截图</h2>
+    </div>
+    <div class="flex flex-col md:flex-row gap-10 md:gap-16 justify-center items-center mt-12">
+      <div class="text-center">
+        <span class="inline-block px-5 py-2 rounded-full text-sm font-medium mb-6 tab-active" data-i18n="ssHome">首页</span>
+        <div class="phone-frame-light"><div class="phone-screen-light"><img data-ss="home-show" src="images/ss-zh-home-show.png" alt="首页" class="w-[220px] h-[440px] object-cover object-top bg-gray-50"></div></div>
+      </div>
+      <div class="text-center">
+        <span class="inline-block px-5 py-2 rounded-full text-sm font-medium mb-6 tab-active" data-i18n="ssResults">搜索结果</span>
+        <div class="phone-frame-light"><div class="phone-screen-light"><img data-ss="results-show" src="images/ss-zh-results-show.png" alt="搜索结果" class="w-[220px] h-[440px] object-cover object-top bg-gray-50"></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== CTA ========== -->
+<section id="download" class="py-20 md:py-28">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="flex flex-col md:flex-row items-center justify-between gap-10">
+      <div class="text-center md:text-left flex-1">
+        <h2 class="text-3xl md:text-4xl font-bold mb-4" data-i18n="ctaTitle">现在就开始，一搜即达</h2>
+        <p class="text-gray-400 text-lg mb-8" data-i18n="ctaSub">免费下载 Magnet Googo，聚合全网磁力资源</p>
+        <a href="https://api.naoshiquan.com/download/v0.1.8/MagGoogo-v0.1.8.apk" class="grad-btn text-white font-semibold px-8 py-3.5 rounded-full text-base inline-flex items-center gap-2 mb-3">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span data-i18n="ctaBtn">立即下载</span>
+        </a>
+        <p class="text-sm text-gray-400 mb-2" data-i18n="ctaNote">Android · 无需注册</p>
+        <a href="https://wwbdy.lanzoue.com/iFHEh3oomsjg" class="text-sm text-brand hover:underline" target="_blank">备用下载（蓝奏云，密码: 8888）</a>
+      </div>
+      <div class="flex-shrink-0">
+        <img src="images/app-icon-lg.png" alt="磁力古哥" class="w-40 h-40 md:w-52 md:h-52">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== FOOTER ========== -->
+<footer class="py-14 border-t border-gray-100 bg-gray-50/50">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="flex flex-col md:flex-row justify-between gap-10">
+      <div class="grid grid-cols-2 gap-8 text-sm flex-1 max-w-xs">
+        <div>
+          <h4 class="font-semibold text-gray-800 mb-3" data-i18n="footSupport">支持</h4>
+          <ul class="space-y-2 text-gray-400">
+            <li><a href="faq.html" class="hover:text-gray-600 transition-colors" data-i18n="footFAQ">常见问题</a></li>
+            <li><a href="privacy.html" class="hover:text-gray-600 transition-colors" data-i18n="footPrivacy">安全与隐私</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="font-semibold text-gray-800 mb-3" data-i18n="footAbout">关于</h4>
+          <ul class="space-y-2 text-gray-400">
+            <li><a href="contact.html" class="hover:text-gray-600 transition-colors" data-i18n="footContact">联系我们</a></li>
+            <li><a href="terms.html" class="hover:text-gray-600 transition-colors" data-i18n="footTerms">用户协议</a></li>
+            <li><a href="about.html" class="hover:text-gray-600 transition-colors" data-i18n="footAboutPage">关于我们</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="flex flex-col items-center md:items-end gap-3">
+        <div class="flex items-center gap-2">
+          <img src="images/app-icon-sm.png" alt="" class="w-8 h-8">
+          <span class="font-bold text-base">Magnet Googo</span>
+        </div>
+        <p class="text-xs text-gray-300" data-i18n="footCopy">&copy; 2026 Magnet Googo。版权所有。</p>
+      </div>
+    </div>
+    <div class="mt-8 pt-6 border-t border-gray-100">
+      <p class="text-xs text-gray-300 text-center" data-i18n="footDisclaimer">免责声明：磁力古哥是一款搜索工具，不存储任何资源内容。搜索结果来自公开互联网，使用者应遵守当地法律法规。</p>
+    </div>
+  </div>
+</footer>
+
+<!-- ========== I18N SCRIPT ========== -->
+<script>
+const I18N = {
+  zh: {
+    navHome:'首页', navFeatures:'功能', navScreenshots:'截图', navDownload:'下载', navBtn:'免费下载',
+    heroTitle:'聚合全网磁力资源', heroSub:'电影 · 动漫 · 游戏 · 音乐 · 一搜即达',
+    heroBtn:'免费下载', heroNote:'Android · 无需注册', heroCaption:'APP 界面示意图',
+    featTitle:'搜一次，就够了', featSub:'聚合全网优质磁力资源，一次搜索全部直达', featBottom:'不用逐个翻站，搜一次就够了',
+    ssTitle:'App 截图', ssHome:'首页', ssResults:'搜索结果',
+    ctaTitle:'现在就开始，一搜即达', ctaSub:'免费下载 Magnet Googo，聚合全网磁力资源', ctaBtn:'立即下载', ctaNote:'Android · 无需注册',
+    footSupport:'支持', footFAQ:'常见问题', footPrivacy:'安全与隐私',
+    footAbout:'关于', footContact:'联系我们', footTerms:'用户协议',
+    footAboutPage:'关于我们',
+    footCopy:'© 2026 Magnet Googo。版权所有。',
+    footDisclaimer:'免责声明：磁力古哥是一款搜索工具，不存储任何资源内容。搜索结果来自公开互联网，使用者应遵守当地法律法规。'
+  },
+  en: {
+    navHome:'Home', navFeatures:'Features', navScreenshots:'Screenshots', navDownload:'Download', navBtn:'Download',
+    heroTitle:'All Magnets, One Search', heroSub:'Movies · Anime · Games · Music · Instant Results',
+    heroBtn:'Free Download', heroNote:'Android · No Sign-up', heroCaption:'App Interface Preview',
+    featTitle:'One Search Is All You Need', featSub:'Aggregates magnet resources across the web, one search gets it all', featBottom:'No more browsing site by site — one search is enough',
+    ssTitle:'App Screenshots', ssHome:'Home', ssResults:'Search Results',
+    ctaTitle:'Get Started Now', ctaSub:'Download Magnet Googo for free — all magnet resources in one place', ctaBtn:'Download Now', ctaNote:'Android · No Sign-up',
+    footSupport:'Support', footFAQ:'FAQ', footPrivacy:'Privacy & Safety',
+    footAbout:'About', footContact:'Contact Us', footTerms:'Terms of Use',
+    footAboutPage:'About Us',
+    footCopy:'© 2026 Magnet Googo. All rights reserved.',
+    footDisclaimer:'Disclaimer: Magnet Googo is a search tool and does not host any content. Results come from the public internet. Users should comply with local laws and regulations.'
+  }
+};
+
+let currentLang = 'zh';
+
+function setLang(lang) {
+  currentLang = lang;
+  const dict = I18N[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  // Swap screenshots
+  const prefix = lang === 'zh' ? 'ss-zh-' : 'ss-en-';
+  document.querySelectorAll('[data-ss]').forEach(img => {
+    const name = img.getAttribute('data-ss');
+    img.src = 'images/' + prefix + name + '.png';
+  });
+  // Update toggle button
+  document.getElementById('langToggle').textContent = lang === 'zh' ? 'EN' : '中文';
+  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+}
+
+function toggleLang() {
+  setLang(currentLang === 'zh' ? 'en' : 'zh');
+}
+</script>
+
+</body>
+</html>

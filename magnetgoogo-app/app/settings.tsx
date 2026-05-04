@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Image,
   Alert,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -15,18 +16,47 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSources } from '../src/core/SourceContext';
 import { useLang } from '../src/core/LangContext';
 import { useTheme, type ThemeMode } from '../src/core/ThemeContext';
-import type { Lang } from '../src/core/i18n';
+import { type Lang, ALL_LANGS, LANG_LABELS } from '../src/core/i18n';
 import { getCrashLogs, clearCrashLogs, formatCrashReport } from '../src/core/crashReporter';
+import { getAppVersion, checkConfig, type ConfigCheckResult } from '../src/core/configChecker';
+import OptionalUpdateModal from '../src/components/OptionalUpdateModal';
+import ForceUpdateModal from '../src/components/ForceUpdateModal';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { meta, syncing, error, refresh } = useSources();
   const { lang, t, setLang } = useLang();
-  const { mode, colors, setMode } = useTheme();
+  const { mode, dark, colors, setMode } = useTheme();
+
+  const [checking, setChecking] = useState(false);
+  const [updateResult, setUpdateResult] = useState<ConfigCheckResult | null>(null);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   const handleSync = async () => {
     await refresh();
+  };
+
+  const handleCheckUpdate = async () => {
+    setChecking(true);
+    try {
+      const result = await checkConfig();
+      if (result.forceUpdate || result.updateAvailable) {
+        setUpdateResult(result);
+        setShowUpdateModal(true);
+      } else {
+        Alert.alert(
+          lang === 'zh' ? '已是最新' : 'Up to Date',
+          lang === 'zh' ? `当前版本 v${getAppVersion()} 已是最新版本` : `v${getAppVersion()} is the latest version`,
+        );
+      }
+    } catch {
+      Alert.alert(
+        lang === 'zh' ? '检查失败' : 'Check Failed',
+        lang === 'zh' ? '无法连接服务器，请检查网络' : 'Cannot connect to server',
+      );
+    }
+    setChecking(false);
   };
 
   return (
@@ -43,7 +73,7 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         {/* Section 1: Source Sync */}
         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>{t.sectionSources}</Text>
-        <View style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.shadow }]}>
+        <View style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.shadow, borderColor: colors.border }]}>
           <TouchableOpacity
             style={styles.syncRow}
             onPress={handleSync}
@@ -75,13 +105,13 @@ export default function SettingsScreen() {
             {syncing ? (
               <ActivityIndicator size="small" color="#4285F4" />
             ) : (
-              <Ionicons name="chevron-forward" size={18} color="#ccc" />
+              <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
             )}
           </TouchableOpacity>
 
           {error && (
             <>
-              <View style={styles.divider} />
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
               <View style={styles.row}>
                 <Ionicons name="alert-circle-outline" size={20} color="#EA4335" />
                 <Text style={styles.errorText}>{error}</Text>
@@ -92,7 +122,7 @@ export default function SettingsScreen() {
 
         {/* Section 2: Theme */}
         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>{t.sectionTheme}</Text>
-        <View style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.shadow }]}>
+        <View style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.shadow, borderColor: colors.border }]}>
           <View style={styles.langRow}>
             {(['system', 'light', 'dark'] as ThemeMode[]).map((m) => {
               const label = m === 'system' ? (lang === 'zh' ? '跟随系统' : 'System') : m === 'light' ? (lang === 'zh' ? '浅色' : 'Light') : (lang === 'zh' ? '深色' : 'Dark');
@@ -100,7 +130,7 @@ export default function SettingsScreen() {
               return (
                 <TouchableOpacity
                   key={m}
-                  style={[styles.langOption, { backgroundColor: colors.chipBg }, mode === m && styles.langOptionActive]}
+                  style={[styles.langOption, { backgroundColor: colors.chipBg }, mode === m && { backgroundColor: dark ? '#1e3a5f' : '#e8f0fe', borderWidth: 1.5, borderColor: '#4285F4' }]}
                   onPress={() => setMode(m)}
                   activeOpacity={0.7}
                 >
@@ -116,20 +146,20 @@ export default function SettingsScreen() {
 
         {/* Section 3: Language */}
         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>{t.sectionLanguage}</Text>
-        <View style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.shadow }]}>
-          <View style={styles.langRow}>
-            {(['zh', 'en'] as Lang[]).map((l) => (
+        <View style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.shadow, borderColor: colors.border }]}>
+          <View style={styles.langGrid}>
+            {ALL_LANGS.map((l) => (
               <TouchableOpacity
                 key={l}
-                style={[styles.langOption, lang === l && styles.langOptionActive]}
+                style={[styles.langOption, { backgroundColor: colors.chipBg }, lang === l && { backgroundColor: dark ? '#1e3a5f' : '#e8f0fe', borderWidth: 1.5, borderColor: '#4285F4' }]}
                 onPress={() => setLang(l)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.langText, lang === l && styles.langTextActive]}>
-                  {l === 'zh' ? t.langZh : t.langEn}
+                <Text style={[styles.langText, { color: colors.textTertiary }, lang === l && styles.langTextActive]}>
+                  {LANG_LABELS[l]}
                 </Text>
                 {lang === l && (
-                  <Ionicons name="checkmark-circle" size={18} color="#4285F4" />
+                  <Ionicons name="checkmark-circle" size={16} color="#4285F4" />
                 )}
               </TouchableOpacity>
             ))}
@@ -138,16 +168,45 @@ export default function SettingsScreen() {
 
         {/* Section 4: About */}
         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>{t.sectionAbout}</Text>
-        <View style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.shadow }]}>
+        <View style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.shadow, borderColor: colors.border }]}>
           <View style={styles.aboutRow}>
-            <Image
-              source={require('../assets/logo.png')}
-              style={styles.aboutLogo}
-              resizeMode="contain"
-            />
-            <Text style={styles.aboutVersion}>{t.version} 0.1.0</Text>
+            <View style={styles.aboutBrandRow}>
+              <Image
+                source={require('../assets/icon.png')}
+                style={styles.aboutMagnetIcon}
+                resizeMode="contain"
+              />
+              <Image
+                source={require('../assets/logo.png')}
+                style={styles.aboutLogo}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={[styles.aboutVersion, { color: colors.textTertiary }]}>{t.version} {getAppVersion()}</Text>
           </View>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <TouchableOpacity
+            style={styles.syncRow}
+            onPress={handleCheckUpdate}
+            activeOpacity={0.7}
+            disabled={checking}
+          >
+            {checking ? (
+              <ActivityIndicator size={18} color="#4285F4" />
+            ) : (
+              <Ionicons name="cloud-download-outline" size={20} color="#4285F4" />
+            )}
+            <View style={styles.rowContent}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>
+                {lang === 'zh' ? '检查更新' : 'Check for Updates'}
+              </Text>
+              <Text style={[styles.rowSub, { color: colors.textTertiary }]}>
+                {lang === 'zh' ? `当前 v${getAppVersion()}` : `Current v${getAppVersion()}`}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+          </TouchableOpacity>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <TouchableOpacity
             style={styles.syncRow}
             activeOpacity={0.7}
@@ -172,22 +231,44 @@ export default function SettingsScreen() {
             <View style={styles.rowContent}>
               <Text style={[styles.rowLabel, { color: colors.text }]}>{lang === 'zh' ? '崩溃日志' : 'Crash Logs'}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#ccc" />
+            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
           </TouchableOpacity>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <TouchableOpacity
             style={styles.syncRow}
             onPress={() => router.push('/privacy')}
             activeOpacity={0.7}
           >
-            <Ionicons name="shield-checkmark-outline" size={20} color="#6B7280" />
+            <Ionicons name="shield-checkmark-outline" size={20} color={colors.textTertiary} />
             <View style={styles.rowContent}>
               <Text style={[styles.rowLabel, { color: colors.text }]}>{t.privacyTitle}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#ccc" />
+            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+          </TouchableOpacity>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <TouchableOpacity
+            style={styles.syncRow}
+            onPress={() => router.push('/terms')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="document-text-outline" size={20} color={colors.textTertiary} />
+            <View style={styles.rowContent}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>{t.termsTitle}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
           </TouchableOpacity>
         </View>
       </ScrollView>
+      {updateResult?.forceUpdate && (
+        <ForceUpdateModal result={updateResult} visible={showUpdateModal} />
+      )}
+      {updateResult && !updateResult.forceUpdate && updateResult.updateAvailable && (
+        <OptionalUpdateModal
+          result={updateResult}
+          visible={showUpdateModal}
+          onDismiss={() => setShowUpdateModal(false)}
+        />
+      )}
     </View>
   );
 }
@@ -224,6 +305,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'transparent',
     shadowColor: '#e4dfd6',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
@@ -251,6 +334,11 @@ const styles = StyleSheet.create({
     color: '#262b35',
     marginBottom: 2,
   },
+  rowSub: {
+    fontSize: 12,
+    color: '#9aa3b4',
+    marginTop: 1,
+  },
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: '#f0ede8',
@@ -277,6 +365,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 8,
   },
+  aboutBrandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  aboutMagnetIcon: {
+    width: 40,
+    height: 40,
+    marginRight: 0,
+  },
   aboutLogo: {
     width: 120,
     height: 36,
@@ -291,15 +388,22 @@ const styles = StyleSheet.create({
     padding: 8,
     gap: 8,
   },
+  langGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 8,
+    gap: 8,
+  },
   langOption: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    borderRadius: 12,
+    gap: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
     backgroundColor: '#f8f6f3',
+    minWidth: '28%',
   },
   langOptionActive: {
     backgroundColor: '#e8f0fe',

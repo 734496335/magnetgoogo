@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { NativeModules, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Lang, Translations, getTranslations } from './i18n';
+import { Lang, ALL_LANGS, Translations, getTranslations } from './i18n';
 
 const STORAGE_KEY = 'mg_lang';
 
-/** Detect device language, default to 'zh'. */
+/** Detect device language, match to supported langs. */
 function detectDeviceLang(): Lang {
   try {
     let locale = '';
@@ -17,10 +17,13 @@ function detectDeviceLang(): Lang {
     } else {
       locale = NativeModules.I18nManager?.localeIdentifier || '';
     }
-    if (locale.toLowerCase().startsWith('en')) return 'en';
-    return 'zh';
+    const prefix = locale.toLowerCase().replace(/_/g, '-').split('-')[0];
+    const match = ALL_LANGS.find((l) => l === prefix);
+    if (match) return match;
+    if (prefix === 'zh') return 'zh';
+    return 'en';
   } catch {
-    return 'zh';
+    return 'en';
   }
 }
 
@@ -43,7 +46,7 @@ export function LangProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         const saved = await AsyncStorage.getItem(STORAGE_KEY);
-        if (saved === 'zh' || saved === 'en') {
+        if (ALL_LANGS.includes(saved as Lang)) {
           setLangState(saved);
         } else {
           setLangState(detectDeviceLang());

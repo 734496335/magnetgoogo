@@ -1,6 +1,6 @@
 {
   "schema_version": "0.1",
-  "generated_at": "2026-04-29T16:17:55.806984+00:00",
+  "generated_at": "2026-05-04T17:36:33.527345+08:00",
   "rulesets": [
     {
       "ruleset_id": "base",
@@ -940,6 +940,9 @@
           "site": {
             "name": "0magnet.co",
             "origin": "https://0magnet.co",
+            "mirrors": [
+              "https://0magnet.com"
+            ],
             "countries": [
               "china"
             ]
@@ -8745,7 +8748,9 @@
             "origin": "https://cld140.buzz",
             "mirrors": [
               "https://cld123.com",
-              "https://cld124.com"
+              "https://cld124.com",
+              "https://1122137.xyz",
+              "https://1122138.xyz"
             ],
             "release_page": "https://xn--tfrs1ysrv.xyz/",
             "release_page_alt": "https://cilidi.cyou/",
@@ -8754,7 +8759,7 @@
             ]
           },
           "capabilities": {
-            "supports_detail": false
+            "supports_detail": true
           },
           "search": {
             "request_template": "/search-{query}-0-0-1.html",
@@ -8766,13 +8771,21 @@
             "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.sbar",
+                "list_item": "div.ssbox",
                 "title": "",
                 "magnet": "a[href^=\"magnet:\"]",
                 "size": "b.yellow-pill",
-                "date": ""
+                "date": "",
+                "detail_link": "a[href*='/hash/']"
               },
-              "notes": "Each div.sbar has: magnet link, date (添加时间), size (b.yellow-pill), last-download date, heat. Title is the filename in magnet. 20 results per page."
+              "notes": "Each div.ssbox has: magnet link, date, size (b.yellow-pill), heat. 20 results/page. Detail at /hash/{sha1}.html. POST form: csrf_token + search."
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": "b.yellow-pill"
+              }
             }
           },
           "quality": {
@@ -8969,19 +8982,25 @@
         {
           "id": "zyscj_clgclg",
           "site": {
-            "name": "磁力狗(真实域名)",
-            "origin": "https://clgclg.com",
-            "release_page": "https://xn--tfr036ez7d.xyz/",
+            "name": "磁力狗(clg54)",
+            "origin": "https://clg54.top",
+            "brand": "磁力狗",
+            "release_page": "https://clg.im",
+            "mirrors": [
+              "https://clg.one",
+              "https://ciligou.net",
+              "https://ciligou.app"
+            ],
             "countries": [
               "china"
             ]
           },
           "capabilities": {
-            "supports_detail": false
+            "supports_detail": true
           },
           "search": {
-            "request_template": "",
-            "timeout_ms": 8000,
+            "request_template": "/search?word={query_b64}",
+            "timeout_ms": 10000,
             "retries": {
               "max_attempts": 2,
               "backoff_ms": 1000
@@ -8989,27 +9008,39 @@
             "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "",
-                "title": "",
+                "list_item": "div.Search_title_wrapper",
+                "title": "a.SearchListTitle_result_title",
                 "magnet": "",
                 "size": "",
-                "date": ""
+                "date": "",
+                "detail_link": "a.SearchListTitle_result_title"
+              },
+              "notes": "12 results/page. POST or GET with base64-encoded query. Detail at /information/{hash}."
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "div.Information_l_title",
+                "size": "div.Information_l_content"
               }
             }
           },
           "quality": {
-            "score": 0,
+            "score": 65,
             "tags": [
               "chinese",
               "general",
-              "zyscj-discovery"
+              "zhihu-nav"
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-04-26T01:00:00+08:00",
-            "note": "data:, empty; discovered from release page 磁力狗.xyz; alt domain ciligougo.xyz also referenced"
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-03T00:30:00.000000+00:00",
+            "magnets_found": 12,
+            "sample_title": "The Amazing Spider-Man & Silk",
+            "note": "Real backend discovered via clg.im redirect. POST form word={b64} or GET /search?word={b64}. 3700+ results for spider."
           }
         },
         {
@@ -10747,7 +10778,8 @@
             "brand": "ØMagnet/磁力搜搜",
             "mirrors": [
               "https://cilisousuo.cc",
-              "https://cilisousuo.net"
+              "https://cilisousuo.net",
+              "https://cililianjie.cc"
             ],
             "countries": [
               "china"
@@ -10859,6 +10891,939 @@
             "sample_title": "The.Amazing.Spider-Man.2.2014.1080p.BluRay",
             "note": "ØMagnet alternate frontend mirror of cilisousuo.co."
           }
+        },
+        {
+          "id": "f8c2a19d7e53",
+          "site": {
+            "name": "磁力链接(cililianjie)",
+            "origin": "https://cililianjie.cc",
+            "brand": "ØMagnet/磁力搜搜",
+            "mirrors": [
+              "https://cilisousuo.co",
+              "https://cilisousuo.cc"
+            ],
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?q={query}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "li.item",
+                "title": "div.result-title",
+                "magnet": "",
+                "size": "div.size",
+                "date": "",
+                "detail_link": "a.link"
+              },
+              "notes": "56 results/page. Detail page at /magnet/{shortcode}. Same backend as cilisousuo.co."
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "div.result-title",
+                "size": "div.size"
+              }
+            }
+          },
+          "quality": {
+            "score": 60,
+            "tags": [
+              "chinese",
+              "general",
+              "zhihu-nav"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-03T00:15:00.000000+00:00",
+            "magnets_found": 56,
+            "sample_title": "The.Amazing.Spider-Man.2.2014.1080p.BluRay",
+            "note": "ØMagnet mirror. Same li.item frontend as cilisousuo.co. Discovered from ahhhhfs.com."
+          }
+        },
+        {
+          "id": "zhihu_cilimo",
+          "site": {
+            "name": "磁力魔(CiliMo)",
+            "origin": "https://cilimo.com",
+            "brand": "CiliMo/磁力魔",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": false
+          },
+          "search": {
+            "request_template": "/api/search?q={query}",
+            "handler": "cilimo",
+            "response_format": "json",
+            "timeout_ms": 8000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "",
+                "title": "",
+                "magnet": ""
+              },
+              "json_path": {
+                "results": "results",
+                "total": "total",
+                "info_hash": "results[].info_hash",
+                "name": "results[].name",
+                "size": "results[].length",
+                "file_count": "results[].file_count",
+                "popularity": "results[].popularity"
+              },
+              "notes": "JSON API. 20 results/page. Magnet = magnet:?xt=urn:btih:{info_hash}. Supports pagination ?page=N. DHT-based crawling. Also has /en/ HTML frontend but SPA."
+            }
+          },
+          "quality": {
+            "score": 70,
+            "tags": [
+              "chinese",
+              "general",
+              "dht",
+              "api",
+              "zhihu-discovery"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-03T00:30:00.000000+00:00",
+            "magnets_found": 6407,
+            "sample_title": "Spider"
+          }
+        },
+        {
+          "id": "zhihu_lulutang",
+          "site": {
+            "name": "噜噜糖(LuLuTang)",
+            "origin": "https://lulutang.com",
+            "brand": "LuLuTang/噜噜糖",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search/results?keyword={query}",
+            "timeout_ms": 8000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.result-item",
+                "title": "a.item-title",
+                "size": "span.meta-info:nth-of-type(1)",
+                "detail_link": "a.item-title"
+              },
+              "notes": "Layui-based. 20 results/page (2509 total for 'spider'). File type tags: Video/Archive/Audio etc. Detail page at /search/detail/{id} has magnet link. Magnet via regex on detail page."
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h1"
+              }
+            }
+          },
+          "quality": {
+            "score": 65,
+            "tags": [
+              "chinese",
+              "general",
+              "dht",
+              "zhihu-discovery"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-03T00:30:00.000000+00:00",
+            "magnets_found": 1,
+            "sample_title": "spider"
+          }
+        },
+        {
+          "id": "zhihu_kd705",
+          "site": {
+            "name": "磁力口袋(kd705)",
+            "origin": "https://kd705.site",
+            "brand": "磁力口袋/CLKD",
+            "release_page": "https://clkd.org",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": false
+          },
+          "search": {
+            "request_template": "/api/search?q={query}",
+            "handler": "clkd",
+            "response_format": "json",
+            "timeout_ms": 8000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "",
+                "title": "",
+                "magnet": ""
+              },
+              "json_path": {
+                "results": "list",
+                "total": "total",
+                "info_hash": "list[].hashInfo",
+                "name": "list[].torrentName",
+                "size": "list[].torrentSize",
+                "file_list": "list[].fileList"
+              },
+              "notes": "JSON API. 20 results/page. Magnet = magnet:?xt=urn:btih:{hashInfo}. Pagination via ?q={query}&currentPage=N. Total capped at 10000."
+            }
+          },
+          "quality": {
+            "score": 65,
+            "tags": [
+              "chinese",
+              "general",
+              "dht",
+              "api",
+              "zhihu-discovery"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-03T00:30:00.000000+00:00",
+            "magnets_found": 10000,
+            "sample_title": "BAB-097"
+          }
+        },
+        {
+          "id": "bili_clmm",
+          "site": {
+            "name": "磁力妹妹(CLMM)",
+            "origin": "https://clmmbt.com",
+            "brand": "磁力妹妹",
+            "mirrors": [
+              "https://9966097.xyz",
+              "https://9966099.xyz"
+            ],
+            "release_page": "https://clmmdz.cyou/",
+            "release_page_alt": "https://clmm.cyou/",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search-{query}-0-0-1.html",
+            "timeout_ms": 8000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "dl.detail",
+                "title": "dt a",
+                "magnet": "a[href^=\"magnet:\"]",
+                "size": "dd.info span:nth-child(3)",
+                "date": "dd.info span:nth-child(1) b",
+                "detail_link": "dt a[href*='/hash/']"
+              },
+              "notes": "802 results for 复仇者联盟. 20/page. POST form has csrf_token. URL pattern: /search-{query}-{cat}-{sort}-{page}.html. Sort: 0=relevance,1=size,2=date,3=hot,4=recent. Detail at /hash/{sha1}.html. Same backend family as 磁力帝(CLD). Release pages: 磁力妹妹.cc, clmm.cyou, 磁力妹妹.com"
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "dt a span",
+                "size": "dd.info span:nth-child(3)"
+              }
+            }
+          },
+          "quality": {
+            "score": 65,
+            "tags": [
+              "chinese",
+              "general",
+              "bili-discovery"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-03T09:30:00.000000+00:00",
+            "magnets_found": 20,
+            "sample_title": "复仇者联盟3：无限战争"
+          }
+        },
+        {
+          "id": "bili_wuqian",
+          "site": {
+            "name": "吴签磁力",
+            "origin": "https://wuqianso.org",
+            "brand": "吴签磁力",
+            "mirrors": [
+              "https://wuqiandb.cc",
+              "https://wuqianox.top"
+            ],
+            "release_page": "https://wuqiandizhi.net/",
+            "release_page_alt": "https://wuqianbt.com/",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true,
+            "requires_browser": true
+          },
+          "search": {
+            "request_template": "/search-{query}-0-0-1.html",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "",
+                "title": "",
+                "magnet": "",
+                "size": "",
+                "date": ""
+              },
+              "notes": "SPA+Captcha. /recaptcha/v4/challenge 自定义验证码。Same backend family as 磁力熊猫/磁力柠檬/CLB/SOBT. Release pages: wuqiandizhi.net, wuqianbt.com. coderschool.cn 推荐站。736K浏览量。"
+            }
+          },
+          "quality": {
+            "score": 45,
+            "tags": [
+              "chinese",
+              "general",
+              "bili-discovery",
+              "spa",
+              "captcha"
+            ]
+          },
+          "health": {
+            "status": "yellow",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-03T17:30:00.000000+00:00",
+            "magnets_found": 0,
+            "sample_title": "",
+            "note": "SPA+Captcha: /recaptcha/v4/challenge. wuqianso.org(最新)+wuqiandb.cc(备用). 发布页 wuqiandizhi.net 确认"
+          }
+        },
+        {
+          "id": "bili_cltt_new",
+          "site": {
+            "name": "磁力天堂(clttone)",
+            "origin": "https://clttone.top",
+            "brand": "磁力天堂",
+            "mirrors": [
+              "https://ddcl.me"
+            ],
+            "release_page": "http://cltt.me",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true,
+            "requires_browser": true
+          },
+          "search": {
+            "request_template": "/search?word={query}",
+            "timeout_ms": 10000,
+            "requires_waf_bypass": true,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "",
+                "title": "",
+                "magnet": "",
+                "size": "",
+                "date": ""
+              },
+              "notes": "CF Turnstile protected. ddcl.me redirects here. cltt.me发布页也跳转到此。Has search form action=/search. Selectors TBD after CF bypass."
+            }
+          },
+          "quality": {
+            "score": 40,
+            "tags": [
+              "chinese",
+              "general",
+              "bili-discovery",
+              "cloudflare"
+            ]
+          },
+          "health": {
+            "status": "yellow",
+            "status_detail": "waf",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-03T09:30:00.000000+00:00",
+            "magnets_found": 0,
+            "sample_title": ""
+          }
+        },
+        {
+          "id": "bili_91bt",
+          "site": {
+            "name": "91BT",
+            "origin": "https://91btbt.com",
+            "brand": "91BT",
+            "release_page": "https://91bt.icu",
+            "release_page_alt": "https://91bt.cyou",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true,
+            "requires_browser": true
+          },
+          "search": {
+            "request_template": "/search-{query}-0-0-1.html",
+            "timeout_ms": 10000,
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "",
+                "title": "",
+                "magnet": "",
+                "size": "",
+                "date": ""
+              },
+              "notes": "SPA: homepage is release page only, real search domain TBD. Mirrors: 911176.xyz (CF). Same backend family as CLMM/CLD. Selectors TBD."
+            }
+          },
+          "quality": {
+            "score": 35,
+            "tags": [
+              "chinese",
+              "general",
+              "bili-discovery",
+              "spa"
+            ]
+          },
+          "health": {
+            "status": "gray",
+            "status_detail": "unreachable",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-03T09:30:00.000000+00:00",
+            "magnets_found": 0,
+            "sample_title": "",
+            "note": "91btbt.com and 91bt.cyou are release pages only. Real working search domain not yet discovered."
+          }
+        },
+        {
+          "id": "bili_sbt",
+          "site": {
+            "name": "SBT磁力",
+            "origin": "https://sbt2066.xyz",
+            "brand": "SBT",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true,
+            "requires_browser": true
+          },
+          "search": {
+            "request_template": "/search?word={query}",
+            "timeout_ms": 10000,
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "",
+                "title": "",
+                "magnet": "",
+                "size": "",
+                "date": ""
+              },
+              "notes": "EXPIRED: domain parked ('Buy this domain'). Was SPA site listed on 8y-ad.com."
+            }
+          },
+          "quality": {
+            "score": 35,
+            "tags": [
+              "chinese",
+              "general",
+              "bili-discovery",
+              "spa"
+            ]
+          },
+          "health": {
+            "status": "gray",
+            "status_detail": "expired",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-03T17:30:00.000000+00:00",
+            "magnets_found": 0,
+            "sample_title": "",
+            "note": "Domain parked: 'Buy this domain'. Was SPA site."
+          }
+        },
+        {
+          "id": "bili_xiongmao",
+          "site": {
+            "name": "磁力熊猫",
+            "origin": "https://xiongmaogb.top",
+            "brand": "磁力熊猫",
+            "mirrors": [
+              "https://xiongmaoun.top",
+              "https://xiongmaoso.top"
+            ],
+            "release_page": "https://xiongmaobt.org/",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": false,
+            "requires_browser": true
+          },
+          "search": {
+            "request_template": "/search?keyword={query}",
+            "timeout_ms": 10000,
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "",
+                "title": "",
+                "magnet": "",
+                "size": "",
+                "date": ""
+              },
+              "notes": "SPA+Captcha. /recaptcha/v4/challenge 自定义验证码。Same template as 磁力柠檬/吴签/CLB/SOBT。Bootstrap 3 + jQuery + cookie-based auth。Selectors TBD after captcha bypass。发布页 xiongmaobt.org 确认 3 个域名。"
+            }
+          },
+          "quality": {
+            "score": 40,
+            "tags": [
+              "chinese",
+              "general",
+              "bili-discovery",
+              "spa",
+              "captcha"
+            ]
+          },
+          "health": {
+            "status": "yellow",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-03T17:30:00.000000+00:00",
+            "magnets_found": 0,
+            "sample_title": "",
+            "note": "SPA+Captcha. xiongmaogb.top(最新)+xiongmaoun.top/xiongmaoso.top(备用). 发布页 xiongmaobt.org 确认"
+          }
+        },
+        {
+          "id": "bili_lemon",
+          "site": {
+            "name": "磁力柠檬",
+            "origin": "https://lemonun.top",
+            "brand": "磁力柠檬",
+            "mirrors": [
+              "https://lemonuo.top"
+            ],
+            "release_page": "https://lemonso.net/",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": false,
+            "requires_browser": true
+          },
+          "search": {
+            "request_template": "/search?keyword={query}",
+            "timeout_ms": 10000,
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "",
+                "title": "",
+                "magnet": "",
+                "size": "",
+                "date": ""
+              },
+              "notes": "SPA+Captcha. /recaptcha/v4/challenge 自定义验证码。Same template as 磁力熊猫/吴签/CLB/SOBT。发布页 lemonso.net 确认 2 个域名。"
+            }
+          },
+          "quality": {
+            "score": 40,
+            "tags": [
+              "chinese",
+              "general",
+              "bili-discovery",
+              "spa",
+              "captcha"
+            ]
+          },
+          "health": {
+            "status": "yellow",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-03T17:30:00.000000+00:00",
+            "magnets_found": 0,
+            "sample_title": "",
+            "note": "SPA+Captcha. lemonun.top(最新)+lemonuo.top(备用). 发布页 lemonso.net 确认"
+          }
+        },
+        {
+          "id": "453f36aa18d1",
+          "site": {
+            "name": "SOBT(sobt21)",
+            "origin": "https://sobt21.top",
+            "brand": "SOBT",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T17:36:33.527345+08:00"
+          }
+        },
+        {
+          "id": "0425eaf86204",
+          "site": {
+            "name": "磁力猫(clm51)",
+            "origin": "https://clm51.top",
+            "brand": "磁力猫",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T17:36:33.527345+08:00"
+          }
+        },
+        {
+          "id": "5d6a952820b1",
+          "site": {
+            "name": "磁力猫(clm53)",
+            "origin": "https://clm53.top",
+            "brand": "磁力猫",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T17:36:33.527345+08:00"
+          }
+        },
+        {
+          "id": "4be6730958b3",
+          "site": {
+            "name": "磁力猫(clm54)",
+            "origin": "https://clm54.top",
+            "brand": "磁力猫",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T17:36:33.527345+08:00"
+          }
+        },
+        {
+          "id": "247e99dc6850",
+          "site": {
+            "name": "磁力猫(clm56)",
+            "origin": "https://clm56.top",
+            "brand": "磁力猫",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T17:36:33.527345+08:00"
+          }
+        },
+        {
+          "id": "636f524f5c8c",
+          "site": {
+            "name": "磁力猫(clm57)",
+            "origin": "https://clm57.top",
+            "brand": "磁力猫",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?wd={query_b64}",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
+              }
+            }
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T17:36:33.527345+08:00"
+          }
         }
       ]
     }
@@ -10899,12 +11864,11 @@
       {
         "brand": "磁力帝",
         "url": "https://xn--tfrs1ysrv.xyz/",
-        "note": "IDN: 磁力帝.xyz → cld140.buzz"
-      },
-      {
-        "brand": "磁力帝备用",
-        "url": "https://cilidi.cyou/",
-        "note": "Same as 磁力帝.xyz"
+        "alt": [
+          "https://cilidi.cyou/",
+          "https://cldcld.cc"
+        ],
+        "note": "IDN: 磁力帝.xyz → cld140.buzz. 发布页发现 1122137.xyz/1122138.xyz/cld123.com 全可用"
       },
       {
         "brand": "磁力猫",
@@ -10930,6 +11894,141 @@
         "brand": "52BT",
         "url": "https://xn--i8sq8r6zst7c.com/",
         "note": "IDN: 种子搜索.com → 52btbt.icu (404)"
+      },
+      {
+        "brand": "磁力狗",
+        "url": "https://clg.im",
+        "alt": [
+          "https://clg.one",
+          "https://ciligou.net"
+        ],
+        "note": "发布页 POST redirect → clg54.top 真实后端。2026-05-03 发现"
+      },
+      {
+        "brand": "老王磁力",
+        "url": "https://laowangdizhi.net",
+        "note": "食铁兽blog列出。laowanghv.top → 网址安全中心跳转页"
+      },
+      {
+        "brand": "SkrBT",
+        "url": "https://skrbtfb.top",
+        "alt": [
+          "https://skrbtmx.top"
+        ],
+        "note": "skrbtmx.top → 网址安全中心跳转页。CF Turnstile 保护"
+      },
+      {
+        "brand": "磁力柠檬",
+        "url": "https://lemonfb.top",
+        "alt": [
+          "https://lemonlx.top"
+        ],
+        "note": "lemonlx.top → 网址安全中心跳转页。SPA/AJAX 渲染"
+      },
+      {
+        "brand": "BT1207",
+        "url": "https://1207so.top",
+        "alt": [
+          "https://bt1207mx.top"
+        ],
+        "note": "bt1207mx.top → 网址安全中心跳转页。SPA/AJAX 渲染"
+      },
+      {
+        "brand": "ØMagnet/磁力搜搜",
+        "url": "https://cililianjie.cc",
+        "note": "ahhhhfs.com 发现。与 cilisousuo.co 共享后端"
+      },
+      {
+        "brand": "磁力口袋/CLKD",
+        "url": "https://clkd.org",
+        "note": "发布页→kd705.site。JSON API 磁力搜索"
+      },
+      {
+        "brand": "吴签磁力",
+        "url": "https://wuqiandizhi.net",
+        "alt": [
+          "https://wuqianbt.com",
+          "https://sowuqian.top",
+          "https://wuqiandizhi.top"
+        ],
+        "note": "wuqiandizhi.net 确认最新域名 wuqianso.org + 备用 wuqiandb.cc。SPA+Captcha。同 CLB/SOBT 模板家族"
+      },
+      {
+        "brand": "磁力妹妹",
+        "url": "https://clmmdz.cyou/",
+        "alt": [
+          "https://clmm.cyou/"
+        ],
+        "note": "主站 clmmbt.com。镜像 9966097.xyz/9966099.xyz 全活。同后端家族(CLD/CLM)。20结果/页"
+      },
+      {
+        "brand": "91BT",
+        "url": "https://91bt.icu",
+        "alt": [
+          "https://91bt.cyou",
+          "https://91btbt.com"
+        ],
+        "note": "发布页。真实搜索域名待发现。911176.xyz CF保护"
+      },
+      {
+        "brand": "SBT磁力",
+        "url": "https://sbt2066.xyz",
+        "note": "EXPIRED: domain parked. 8y-ad.com listed"
+      },
+      {
+        "brand": "BT联盟",
+        "url": "https://btlm.info",
+        "alt": [
+          "https://cy.btlm.one"
+        ],
+        "note": "btlm.info发布页。cy.btlm.one搜索域名(空白SPA)。HxjShare/8kmm导航发现"
+      },
+      {
+        "brand": "无极磁力",
+        "url": "https://cili.st",
+        "alt": [
+          "https://13mag.net",
+          "https://1cili.net",
+          "https://7mag.net",
+          "https://xcili.net"
+        ],
+        "note": "官方发布平台。13mag.net CF保护。其余为跳转页。已有 0cili.org/wuji.me 等搜索域名"
+      },
+      {
+        "brand": "磁力天堂",
+        "url": "http://cltt.me",
+        "alt": [
+          "https://clttone.top",
+          "https://ddcl.me"
+        ],
+        "note": "cltt.me跳转到clttone.top。ddcl.me也跳转到此。CF Turnstile保护"
+      },
+      {
+        "brand": "磁力熊猫",
+        "url": "https://xiongmaobt.org",
+        "alt": [
+          "https://xiongmaogb.top",
+          "https://xiongmaoun.top",
+          "https://xiongmaoso.top"
+        ],
+        "note": "SPA+Captcha. 发布页确认3个域名。同模板家族(CLB/SOBT)"
+      },
+      {
+        "brand": "磁力柠檬",
+        "url": "https://lemonso.net",
+        "alt": [
+          "https://lemonun.top",
+          "https://lemonuo.top"
+        ],
+        "note": "SPA+Captcha. 发布页确认2个域名。同模板家族(CLB/SOBT)"
+      },
+      {
+        "brand": "雨花阁",
+        "url": "https://yuhuage.org",
+        "alt": [
+          "https://yuhuage.buzz"
+        ],
+        "note": "yuhuage.org→yuhuage.buzz(CF Turnstile)。有搜索表单。A姐分享推荐。btlm.cc/cilishenqi.cc 均收录"
       }
     ],
     "navigation_sites": [
@@ -10958,6 +12057,146 @@
         "name": "种子导航/种子搜",
         "url": "https://www.zhongzidizhi.com/",
         "note": "hao123-style; NOT a search engine"
+      },
+      {
+        "name": "A姐分享",
+        "url": "https://www.ahhhhfs.com/",
+        "note": "资源评测博客。发现 cililianjie.cc 等新域名来源"
+      },
+      {
+        "name": "工具达人",
+        "url": "https://toolsdar.cn/",
+        "note": "导航站，磁力搜索标签页有 PikPak/迷客电影等"
+      },
+      {
+        "name": "一流导航(16map)",
+        "url": "https://16map.com/rankings/sites/cilisousuo",
+        "note": "磁力搜索排行榜，含磁力宝/磁力柠檬/搜多多/老王等"
+      },
+      {
+        "name": "食铁兽blog",
+        "url": "https://blog.jackeylea.com/bt/collections-of-torrent-magnet-search-engine/",
+        "note": "2026可用磁力列表。发现 clg.im/skrbtmx/lemonlx 等域名"
+      },
+      {
+        "name": "磁力猫导航",
+        "url": "https://www.cilimiao.cn/",
+        "note": "磁力搜索引擎聚合导航"
+      },
+      {
+        "name": "土爹爹",
+        "url": "https://www.tudiedie.com/bt-magnetic-search-engine/",
+        "note": "BT搜索引擎大全列表。发现 kd705.site/cilimo.com/lulutang.com 等新源"
+      },
+      {
+        "name": "趣乐兔",
+        "url": "https://funletu.com/1424.html",
+        "note": "BT磁力搜索引擎索引。含用户评论推荐的新域名"
+      },
+      {
+        "name": "go2think",
+        "url": "https://go2think.com/bt-magnet-search-engines/",
+        "note": "20个BT种子磁力搜索引擎汇总"
+      },
+      {
+        "name": "技术拉近你我",
+        "url": "https://coderschool.cn/2532.html",
+        "note": "长期更新BT磁力站列表。发布页链接集中地。维护244442.xyz导航"
+      },
+      {
+        "name": "244442导航",
+        "url": "https://244442.xyz",
+        "note": "coderschool旗下。含吴签/柠檬/SkrBT/BT1207/磁力熊猫/种子帝/磁力多等入口"
+      },
+      {
+        "name": "磁力盒子导航",
+        "url": "https://www.cilihezi.top/",
+        "note": "B站发现。列出磁力海/八爪鱼/磁力蜘蛛/磁力巴士等品牌入口"
+      },
+      {
+        "name": "磁力盒子cn",
+        "url": "https://www.cilihezi.cn/",
+        "note": "磁力搜索导航大全。含分类和搜索功能"
+      },
+      {
+        "name": "八羊网90站",
+        "url": "https://www.8y-ad.com/index/news/578.html",
+        "note": "90个磁力站汇总。发现磁力妹妹/SBT/菟丝子/雨花阁/磁力海/磁力树/磁力湾/磁力百科等"
+      },
+      {
+        "name": "马哥导航",
+        "url": "https://mgnav.com/",
+        "note": "综合导航平台。八爪鱼磁搜/磁力蜘蛛等有独立条目"
+      },
+      {
+        "name": "站联导航",
+        "url": "https://www.zhanlian.net/",
+        "note": "磁力蜘蛛等有条目。偏外贸/跨境电商方向"
+      },
+      {
+        "name": "磁力天堂导航(btlm.cc)",
+        "url": "https://btlm.cc/",
+        "note": "211KB大型导航站。含BTFOX/搜番/磁力狗/磁力多多/BT哈哈/磁力片/雨花阁/种子吧/BT联盟/磁力蚂蚁/磁力星球/磁力蜘蛛/SkrBT/磁力鸟/GatherFind等"
+      },
+      {
+        "name": "磁力搜索神器导航",
+        "url": "https://cilishenqi.cc/favorites/cilisousuo",
+        "note": "btlm.cc同模板。含磁力片/磁力影音/LetBT/磁力口袋/BTMET/磁力岛/磁力管家等"
+      },
+      {
+        "name": "BT蚂蚁磁力导航",
+        "url": "https://btmayi.cc/",
+        "note": "btlm.cc同模板。含磁力树/BT哈哈/BT联盟/磁力蚂蚁/磁力搜索神器等"
+      },
+      {
+        "name": "网度(wangdu)",
+        "url": "https://www.wangdu.site/software/av-read/540.html",
+        "note": "2025年最全BT磁力种子搜索引擎。SeedHub/磁力熊猫/磁力巴士等。发现 xiongmaogb.top 等域名"
+      },
+      {
+        "name": "初夏导航(cxwl)",
+        "url": "https://www.cxwl.com/btsousuo/",
+        "note": "BT搜索网站分类。BT哈哈 bthaha.download/BT联盟等"
+      },
+      {
+        "name": "知乎-磁力熊猫使用指南",
+        "url": "https://zhuanlan.zhihu.com/p/1988665746524509644",
+        "note": "磁力熊猫最新官网地址。发现 xiongmaogb.top/xiongmaosc.top。2025-12-28"
+      },
+      {
+        "name": "知乎-2026全网磁力搜索引擎大合集",
+        "url": "https://zhuanlan.zhihu.com/p/2009268878400824613",
+        "note": "磁力柠檬/磁力熊猫/磁力狐/磁力猫/吴签/BT联盟等品牌最新入口。DuckDuckGo发现"
+      },
+      {
+        "name": "HxjShare",
+        "url": "https://hxjshare.com/archives/301.html",
+        "note": "BT联盟介绍。发现 cy.btlm.one 搜索域名 + btlm.info 发布页。14K阅读"
+      },
+      {
+        "name": "GF发现(gatherfind)",
+        "url": "https://www.gatherfind.com/tags-12.html",
+        "note": "磁力搜索标签。BT哈哈/磁力搜索引擎聚合列表"
+      },
+      {
+        "name": "无峰网址导航(8kmm)",
+        "url": "https://www.8kmm.com/sites/6401.html",
+        "note": "BT联盟介绍页。811K浏览。提供搜索查询分类下的磁力站入口"
+      },
+      {
+        "name": "365doc",
+        "url": "https://www.365doc.com.cn/?p=5651",
+        "note": "磁力熊猫介绍。发现 xiongmaosc.top 域名"
+      },
+      {
+        "name": "A姐分享-雨花阁",
+        "url": "https://www.ahhhhfs.com/63935/",
+        "note": "雨花阁磁力搜索引擎介绍。yuhuage.buzz CF保护。有搜索表单。需关注才能看磁力链接"
+      },
+      {
+        "name": "9k9k-雨花阁下载",
+        "url": "https://www.9k9k.com/app/70272.html",
+        "note": "雨花阁APP下载页。标签含：bt蚂蚁磁力搜索/磁力聚合搜索/2026磁力链接搜索引擎"
       }
     ],
     "tools": [
@@ -10978,14 +12217,14 @@
         "url": "https://magnet2torrent.com/"
       }
     ],
-    "last_updated": "2026-04-26T01:00:00+08:00"
+    "last_updated": "2026-05-03T19:00:00+08:00"
   },
   "meta": {
     "app_config": {
       "latest_version": "1.0.5",
       "force_update_url": "https://your-seo-website.com/download"
     },
-    "total_rules": 221
+    "total_rules": 234
   },
   "brand_registry": [
     {
@@ -11026,6 +12265,11 @@
         "clm58.top",
         "clm59.top"
       ],
+      "yellow_mirrors": [
+        "clm54.top",
+        "clm56.top",
+        "clm57.top"
+      ],
       "yellow_domains": [
         "magnetcatcat.com"
       ]
@@ -11052,7 +12296,15 @@
       "backend": "cltt",
       "green_domains": [
         "cltt03.sbs"
-      ]
+      ],
+      "yellow_domains": [
+        "clttone.top",
+        "ddcl.me"
+      ],
+      "release_pages": [
+        "cltt.me"
+      ],
+      "note": "clttone.top/ddcl.me CF Turnstile保护。cltt.me→clttone.top跳转"
     },
     {
       "brand": "52BT/磁力帝",
@@ -11061,6 +12313,9 @@
       "backend": "52bt",
       "green_domains": [
         "cld140.buzz",
+        "cld123.com",
+        "1122137.xyz",
+        "1122138.xyz",
         "529072.xyz",
         "529073.xyz"
       ]
@@ -11114,11 +12369,142 @@
       "green_domains": [
         "cilisousuo.co",
         "cilisousuo.cc",
+        "cililianjie.cc",
         "0cili.org",
         "0cili.com",
         "0cili.nl"
       ],
       "note": "Two frontends: 0cili (table/tr layout) and cilisousuo (li.item layout). Same DHT index."
+    },
+    {
+      "brand": "磁力狗",
+      "status": "green",
+      "category": "china",
+      "backend": "clg",
+      "green_domains": [
+        "clg54.top"
+      ],
+      "release_pages": [
+        "clg.im",
+        "clg.one",
+        "ciligou.net",
+        "ciligou.app"
+      ],
+      "note": "Real backend clg54.top discovered via clg.im redirect. Search uses base64-encoded query. Detail-follow for magnets."
+    },
+    {
+      "brand": "CiliMo/磁力魔",
+      "status": "green",
+      "category": "china",
+      "backend": "cilimo",
+      "green_domains": [
+        "cilimo.com"
+      ],
+      "note": "JSON API /api/search?q={query}. DHT-based. 6407 results for spider."
+    },
+    {
+      "brand": "LuLuTang/噜噜糖",
+      "status": "green",
+      "category": "china",
+      "backend": "lulutang",
+      "green_domains": [
+        "lulutang.com"
+      ],
+      "note": "Layui HTML. Detail-follow /search/detail/{id}. 2509 results for spider."
+    },
+    {
+      "brand": "磁力口袋/CLKD",
+      "status": "green",
+      "category": "china",
+      "backend": "clkd",
+      "green_domains": [
+        "kd705.site"
+      ],
+      "release_pages": [
+        "clkd.org"
+      ],
+      "note": "JSON API /api/search?q={query}. 10000 results cap. hashInfo field."
+    },
+    {
+      "brand": "磁力妹妹",
+      "status": "green",
+      "category": "china",
+      "backend": "clmm",
+      "green_domains": [
+        "clmmbt.com",
+        "9966097.xyz",
+        "9966099.xyz"
+      ],
+      "release_pages": [
+        "clmmdz.cyou",
+        "clmm.cyou"
+      ],
+      "note": "Same backend family as CLD/CLM. /search-{query}-0-0-1.html. 20 results/page. Direct magnet links."
+    },
+    {
+      "brand": "吴签磁力",
+      "status": "yellow",
+      "category": "china",
+      "backend": "wuqian",
+      "yellow_domains": [
+        "wuqianso.org",
+        "wuqiandb.cc",
+        "wuqianox.top"
+      ],
+      "release_pages": [
+        "wuqiandizhi.net",
+        "wuqianbt.com",
+        "sowuqian.top"
+      ],
+      "note": "SPA+Captcha /recaptcha/v4/challenge. wuqiandizhi.net 确认最新 wuqianso.org. 736K浏览量. 同 CLB/SOBT 模板"
+    },
+    {
+      "brand": "91BT",
+      "status": "gray",
+      "category": "china",
+      "backend": "91bt",
+      "release_pages": [
+        "91bt.icu",
+        "91bt.cyou",
+        "91btbt.com"
+      ],
+      "note": "Real search domain not yet discovered. 911176.xyz CF protected."
+    },
+    {
+      "brand": "SBT磁力",
+      "status": "gray",
+      "category": "china",
+      "backend": "sbt",
+      "note": "EXPIRED: sbt2066.xyz domain parked. Was SPA site."
+    },
+    {
+      "brand": "磁力熊猫",
+      "status": "yellow",
+      "category": "china",
+      "backend": "xiongmao",
+      "yellow_domains": [
+        "xiongmaogb.top",
+        "xiongmaoun.top",
+        "xiongmaoso.top"
+      ],
+      "release_pages": [
+        "xiongmaobt.org"
+      ],
+      "note": "SPA+Captcha /recaptcha/v4/challenge. Same template family as CLB/SOBT."
+    },
+    {
+      "brand": "磁力柠檬",
+      "status": "yellow",
+      "category": "china",
+      "backend": "lemon",
+      "yellow_domains": [
+        "lemonun.top",
+        "lemonuo.top"
+      ],
+      "release_pages": [
+        "lemonso.net"
+      ],
+      "note": "SPA+Captcha /recaptcha/v4/challenge. Same template family as CLB/SOBT."
     }
   ]
 }
