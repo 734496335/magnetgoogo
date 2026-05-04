@@ -1,6 +1,6 @@
 {
   "schema_version": "0.1",
-  "generated_at": "2026-05-04T17:36:33.527345+08:00",
+  "generated_at": "2026-05-04T19:14:05.967549+08:00",
   "rulesets": [
     {
       "ruleset_id": "base",
@@ -2185,7 +2185,7 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "parsing_failed",
+            "status_detail": "404",
             "last_checked_at": "2026-04-23T08:37:08.400021+00:00",
             "magnets_found": 0,
             "sample_title": "Pirate Bay 海盗湾 Download music, movies, games, software and much more. The Pirate",
@@ -3695,7 +3695,7 @@
             "supports_detail": false
           },
           "search": {
-            "request_template": "/?q={query}",
+            "request_template": "/search?keyword={query}",
             "timeout_ms": 15000,
             "retries": {
               "max_attempts": 3,
@@ -3721,14 +3721,15 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-04-20T12:23:54.085654+00:00",
+            "status": "yellow",
+            "status_detail": "waf",
+            "last_checked_at": "2026-05-04T19:14:05.967549+08:00",
             "magnets_found": 0,
             "sample_title": "老王磁力链接搜索引擎 磁力链接搜索引擎老王磁力(laowang.icu)索引了全球最新最热门的BT种子信息和磁力链接，提供磁力链接搜索、BT搜索、种子搜索等强大",
             "diagnosis": "跳转到: https://nav.dayunav.top/feo/LphK0R0N5L?_=001&p=1",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
-            "note": "legacy status_detail=dead; legacy status=red"
+            "note": "legacy status_detail=dead; legacy status=red",
+            "fail_streak": 0
           }
         },
         {
@@ -4048,7 +4049,7 @@
             "supports_detail": false
           },
           "search": {
-            "request_template": "/?q={query}",
+            "request_template": "/search?keyword={query}",
             "timeout_ms": 15000,
             "retries": {
               "max_attempts": 3,
@@ -4074,14 +4075,15 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-04-22T16:05:36.257934+00:00",
+            "status": "yellow",
+            "status_detail": "waf",
+            "last_checked_at": "2026-05-04T19:14:05.967549+08:00",
             "magnets_found": 0,
             "sample_title": "磁力熊猫",
             "diagnosis": "classified as jump site by navigation analyzer; use auxiliary discovery pipeline",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
-            "note": "aux_site:jump:security_center_rdata_gate"
+            "note": "aux_site:jump:security_center_rdata_gate",
+            "fail_streak": 0
           }
         },
         {
@@ -4459,7 +4461,7 @@
             "supports_detail": false
           },
           "search": {
-            "request_template": "/search/{query}",
+            "request_template": "/search/?q={query}",
             "timeout_ms": 15000,
             "retries": {
               "max_attempts": 3,
@@ -4469,11 +4471,11 @@
             "requires_browser": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.item",
-                "title": "a[href]",
-                "magnet": "a[href^=\"magnet:\"]",
-                "size": "span.size",
-                "date": "span.date"
+                "list_item": "tr.text-nowrap",
+                "title": "td.text-wrap a",
+                "magnet": "td.text-wrap a[href^=\"magnet:\"]",
+                "size": "td:nth-child(3)",
+                "date": "td:nth-child(4)"
               }
             }
           },
@@ -4485,12 +4487,13 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-04-23T06:34:20.605352+00:00",
+            "status": "green",
+            "status_detail": "healed",
+            "last_checked_at": "2026-05-04T19:14:05.967549+08:00",
             "magnets_found": 48,
             "sample_title": "Inception (2010) 1080p BRRip x264 -YTS",
-            "diagnosis": ""
+            "diagnosis": "",
+            "fail_streak": 0
           }
         },
         {
@@ -4557,7 +4560,7 @@
             "supports_detail": false
           },
           "search": {
-            "request_template": "/?q={query}",
+            "request_template": "/search?keyword={query}",
             "timeout_ms": 15000,
             "retries": {
               "max_attempts": 3,
@@ -4583,14 +4586,15 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-04-22T16:05:40.250333+00:00",
+            "status": "yellow",
+            "status_detail": "waf",
+            "last_checked_at": "2026-05-04T19:14:05.967549+08:00",
             "magnets_found": 0,
             "sample_title": "吴签磁力 干净实用的磁力链接搜索引擎，专注整合全网磁力与网盘资源。首页热门关键词一键搜索电影、剧集等，界面无广告、操作简单。数据来源于公开网络，服务器不存文件，",
             "diagnosis": "classified as jump site by navigation analyzer; use auxiliary discovery pipeline",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
-            "note": "aux_site:jump:security_center_rdata_gate"
+            "note": "aux_site:jump:security_center_rdata_gate",
+            "fail_streak": 0
           }
         },
         {
@@ -4608,7 +4612,7 @@
             "supports_detail": false
           },
           "search": {
-            "request_template": "/?q={query}",
+            "request_template": "/search?keyword={query}",
             "timeout_ms": 15000,
             "retries": {
               "max_attempts": 3,
@@ -4634,14 +4638,15 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-04-22T16:05:44.250373+00:00",
+            "status": "yellow",
+            "status_detail": "waf",
+            "last_checked_at": "2026-05-04T19:14:05.967549+08:00",
             "magnets_found": 0,
             "sample_title": "BT1207 好用的磁力链接搜索引擎",
             "diagnosis": "classified as jump site by navigation analyzer; use auxiliary discovery pipeline",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
-            "note": "aux_site:jump:security_center_rdata_gate"
+            "note": "aux_site:jump:security_center_rdata_gate",
+            "fail_streak": 0
           }
         },
         {
@@ -4717,7 +4722,7 @@
             "supports_detail": false
           },
           "search": {
-            "request_template": "/?q={query}",
+            "request_template": "/search?keyword={query}",
             "timeout_ms": 15000,
             "retries": {
               "max_attempts": 3,
@@ -4743,14 +4748,15 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-04-22T16:05:48.726456+00:00",
+            "status": "yellow",
+            "status_detail": "waf",
+            "last_checked_at": "2026-05-04T19:14:05.967549+08:00",
             "magnets_found": 0,
             "sample_title": "磁力柠檬 最懂你的磁力链接搜索引擎",
             "diagnosis": "classified as jump site by navigation analyzer; use auxiliary discovery pipeline",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
-            "note": "aux_site:jump:security_center_rdata_gate"
+            "note": "aux_site:jump:security_center_rdata_gate",
+            "fail_streak": 0
           }
         },
         {
@@ -5123,7 +5129,7 @@
             "supports_detail": false
           },
           "search": {
-            "request_template": "/search?q={query}",
+            "request_template": "/search?keyword={query}",
             "timeout_ms": 15000,
             "retries": {
               "max_attempts": 3,
@@ -5148,12 +5154,13 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-04-21T06:08:13.419733+00:00",
+            "status": "yellow",
+            "status_detail": "waf",
+            "last_checked_at": "2026-05-04T19:14:05.967549+08:00",
             "magnets_found": 0,
             "sample_title": "",
-            "note": "legacy status_detail=parked; legacy status=red"
+            "note": "legacy status_detail=parked; legacy status=red",
+            "fail_streak": 0
           }
         },
         {
@@ -5219,7 +5226,7 @@
             "supports_detail": false
           },
           "search": {
-            "request_template": "/search?q={query}",
+            "request_template": "/search?keyword={query}",
             "timeout_ms": 15000,
             "retries": {
               "max_attempts": 3,
@@ -5244,13 +5251,14 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-04-22T16:05:52.712612+00:00",
+            "status": "yellow",
+            "status_detail": "waf",
+            "last_checked_at": "2026-05-04T19:14:05.967549+08:00",
             "magnets_found": 0,
             "sample_title": "",
             "note": "aux_site:jump:security_center_rdata_gate",
-            "diagnosis": "classified as jump site by navigation analyzer; use auxiliary discovery pipeline"
+            "diagnosis": "classified as jump site by navigation analyzer; use auxiliary discovery pipeline",
+            "fail_streak": 0
           }
         },
         {
@@ -5602,14 +5610,14 @@
             "origin": "https://clb13.xyz",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "磁力宝"
           },
           "capabilities": {
-            "supports_search": true,
             "supports_detail": true
           },
           "search": {
-            "request_template": "/",
+            "request_template": "/search?wd={query_b64}",
             "timeout_ms": 8000,
             "retries": {
               "max_attempts": 2,
@@ -5618,9 +5626,19 @@
             "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "li",
-                "title": "a",
-                "magnet": "a[href^=\"magnet:\"]"
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
               }
             }
           },
@@ -5631,12 +5649,10 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-04-23T13:18:41.480146+00:00",
-            "magnets_found": 10,
-            "sample_title": "Hash 555727D6...",
-            "note": "evidence_found_via_http_search"
+            "status": "green",
+            "status_detail": "healed",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T19:08:30.322172+08:00"
           }
         },
         {
@@ -5894,7 +5910,7 @@
             "supports_detail": true
           },
           "search": {
-            "request_template": "/?q={query}&all=&audio=&video=&apps=&games=&porn=&other=",
+            "request_template": "/search/keywords:{query}",
             "timeout_ms": 8000,
             "retries": {
               "max_attempts": 2,
@@ -5903,11 +5919,11 @@
             "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "table#searchResult tr:has(td)",
-                "title": "a[href*=\"/torrent/\"]",
+                "list_item": "tr.list-item",
+                "title": "span.item-name a",
                 "magnet": "a[href^=\"magnet:\"]",
-                "size": "",
-                "date": "td:nth-child(3)"
+                "size": "span.item-size",
+                "date": "span.item-uploaded"
               }
             },
             "detail": {
@@ -5926,12 +5942,13 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "parsing_failed",
-            "last_checked_at": "2026-04-23T05:15:09.664827+00:00",
+            "status": "green",
+            "status_detail": "healed",
+            "last_checked_at": "2026-05-04T19:04:38.344186+08:00",
             "magnets_found": 38,
             "sample_title": "",
-            "note": "evidence_found_via_http_interstitial_follow"
+            "note": "evidence_found_via_http_interstitial_follow",
+            "fail_streak": 0
           }
         },
         {
@@ -5948,7 +5965,7 @@
             "supports_detail": true
           },
           "search": {
-            "request_template": "/?q={query}&all=&audio=&video=&apps=&games=&porn=&other=",
+            "request_template": "/search/keywords:{query}",
             "timeout_ms": 8000,
             "retries": {
               "max_attempts": 2,
@@ -5957,11 +5974,11 @@
             "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "table#searchResult tr:has(td)",
-                "title": "a[href*=\"/torrent/\"]",
+                "list_item": "tr.list-item",
+                "title": "span.item-name a",
                 "magnet": "a[href^=\"magnet:\"]",
-                "size": "",
-                "date": "td:nth-child(3)"
+                "size": "span.item-size",
+                "date": "span.item-uploaded"
               }
             },
             "detail": {
@@ -5980,12 +5997,13 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "parsing_failed",
-            "last_checked_at": "2026-04-23T05:15:09.666381+00:00",
+            "status": "green",
+            "status_detail": "healed",
+            "last_checked_at": "2026-05-04T19:04:38.344186+08:00",
             "magnets_found": 38,
             "sample_title": "",
-            "note": "evidence_found_via_http_interstitial_follow"
+            "note": "evidence_found_via_http_interstitial_follow",
+            "fail_streak": 0
           }
         },
         {
@@ -6002,7 +6020,7 @@
             "supports_detail": true
           },
           "search": {
-            "request_template": "/?q={query}&all=&audio=&video=&apps=&games=&porn=&other=",
+            "request_template": "/search/keywords:{query}",
             "timeout_ms": 8000,
             "retries": {
               "max_attempts": 2,
@@ -6011,11 +6029,11 @@
             "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "table#searchResult tr:has(td)",
-                "title": "a[href*=\"/torrent/\"]",
+                "list_item": "tr.list-item",
+                "title": "span.item-name a",
                 "magnet": "a[href^=\"magnet:\"]",
-                "size": "",
-                "date": "td:nth-child(3)"
+                "size": "span.item-size",
+                "date": "span.item-uploaded"
               }
             },
             "detail": {
@@ -6034,12 +6052,13 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "parsing_failed",
-            "last_checked_at": "2026-04-23T05:15:09.666381+00:00",
+            "status": "green",
+            "status_detail": "healed",
+            "last_checked_at": "2026-05-04T19:04:38.344186+08:00",
             "magnets_found": 38,
             "sample_title": "",
-            "note": "evidence_found_via_http_interstitial_follow"
+            "note": "evidence_found_via_http_interstitial_follow",
+            "fail_streak": 0
           }
         },
         {
@@ -6056,7 +6075,7 @@
             "supports_detail": true
           },
           "search": {
-            "request_template": "/?q={query}&all=&audio=&video=&apps=&games=&porn=&other=",
+            "request_template": "/search/keywords:{query}",
             "timeout_ms": 8000,
             "retries": {
               "max_attempts": 2,
@@ -6065,11 +6084,11 @@
             "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "table#searchResult tr:has(td)",
-                "title": "a[href*=\"/torrent/\"]",
+                "list_item": "tr.list-item",
+                "title": "span.item-name a",
                 "magnet": "a[href^=\"magnet:\"]",
-                "size": "",
-                "date": "td:nth-child(3)"
+                "size": "span.item-size",
+                "date": "span.item-uploaded"
               }
             },
             "detail": {
@@ -6088,12 +6107,13 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "parsing_failed",
-            "last_checked_at": "2026-04-23T05:15:09.666951+00:00",
+            "status": "green",
+            "status_detail": "healed",
+            "last_checked_at": "2026-05-04T19:04:38.344186+08:00",
             "magnets_found": 38,
             "sample_title": "",
-            "note": "evidence_found_via_http_interstitial_follow"
+            "note": "evidence_found_via_http_interstitial_follow",
+            "fail_streak": 0
           }
         },
         {
@@ -6997,28 +7017,30 @@
           "id": "magnet_clb17_xyz",
           "site": {
             "name": "clb17.xyz",
-            "origin": "http://clb17.xyz"
+            "origin": "http://clb17.xyz",
+            "brand": "磁力宝"
           },
           "search": {
-            "request_template": "/s/{query_b64}",
+            "request_template": "/search?wd={query_b64}",
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.search-item",
-                "title": "a",
-                "detail_link": "a[href*=\"/detail/\"]",
-                "magnet": "a[href^=\"magnet:\"]"
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^=\"magnet:\"]",
-                "title": "h1, title",
-                "size": "span.size, div.file-size"
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
               }
             }
           },
           "capabilities": {
-            "supports_search": true,
             "supports_detail": true
           },
           "quality": {
@@ -7031,37 +7053,40 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "404",
-            "last_checked_at": "2026-04-23T08:20:37.249363+00:00"
+            "status": "green",
+            "status_detail": "healed",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T19:08:30.322172+08:00"
           }
         },
         {
           "id": "magnet_clb1_xyz",
           "site": {
             "name": "clb1.xyz",
-            "origin": "http://clb1.xyz"
+            "origin": "http://clb1.xyz",
+            "brand": "磁力宝"
           },
           "search": {
-            "request_template": "/s/{query_b64}",
+            "request_template": "/search?wd={query_b64}",
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.search-item",
-                "title": "a",
-                "detail_link": "a[href*=\"/detail/\"]",
-                "magnet": "a[href^=\"magnet:\"]"
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^=\"magnet:\"]",
-                "title": "h1, title",
-                "size": "span.size, div.file-size"
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
               }
             }
           },
           "capabilities": {
-            "supports_search": true,
             "supports_detail": true
           },
           "quality": {
@@ -7074,37 +7099,40 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "404",
-            "last_checked_at": "2026-04-23T08:20:37.249363+00:00"
+            "status": "green",
+            "status_detail": "healed",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T19:08:30.322172+08:00"
           }
         },
         {
           "id": "magnet_clb16_top",
           "site": {
             "name": "clb16.top",
-            "origin": "http://clb16.top"
+            "origin": "http://clb16.top",
+            "brand": "磁力宝"
           },
           "search": {
-            "request_template": "/s/{query_b64}",
+            "request_template": "/search?wd={query_b64}",
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.search-item",
-                "title": "a",
-                "detail_link": "a[href*=\"/detail/\"]",
-                "magnet": "a[href^=\"magnet:\"]"
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^=\"magnet:\"]",
-                "title": "h1, title",
-                "size": "span.size, div.file-size"
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
               }
             }
           },
           "capabilities": {
-            "supports_search": true,
             "supports_detail": true
           },
           "quality": {
@@ -7117,37 +7145,40 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "404",
-            "last_checked_at": "2026-04-23T08:20:37.249363+00:00"
+            "status": "green",
+            "status_detail": "healed",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T19:08:30.322172+08:00"
           }
         },
         {
           "id": "magnet_clb2_cc",
           "site": {
             "name": "clb2.cc",
-            "origin": "http://clb2.cc"
+            "origin": "http://clb2.cc",
+            "brand": "磁力宝"
           },
           "search": {
-            "request_template": "/s/{query_b64}",
+            "request_template": "/search?wd={query_b64}",
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.search-item",
-                "title": "a",
-                "detail_link": "a[href*=\"/detail/\"]",
-                "magnet": "a[href^=\"magnet:\"]"
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^=\"magnet:\"]",
-                "title": "h1, title",
-                "size": "span.size, div.file-size"
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
               }
             }
           },
           "capabilities": {
-            "supports_search": true,
             "supports_detail": true
           },
           "quality": {
@@ -7160,37 +7191,40 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "404",
-            "last_checked_at": "2026-04-23T08:20:37.249363+00:00"
+            "status": "green",
+            "status_detail": "healed",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T19:08:30.322172+08:00"
           }
         },
         {
           "id": "magnet_clb3_me",
           "site": {
             "name": "clb3.me",
-            "origin": "http://clb3.me"
+            "origin": "http://clb3.me",
+            "brand": "磁力宝"
           },
           "search": {
-            "request_template": "/s/{query_b64}",
+            "request_template": "/search?wd={query_b64}",
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.search-item",
-                "title": "a",
-                "detail_link": "a[href*=\"/detail/\"]",
-                "magnet": "a[href^=\"magnet:\"]"
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^=\"magnet:\"]",
-                "title": "h1, title",
-                "size": "span.size, div.file-size"
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
               }
             }
           },
           "capabilities": {
-            "supports_search": true,
             "supports_detail": true
           },
           "quality": {
@@ -7203,37 +7237,40 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "404",
-            "last_checked_at": "2026-04-23T08:20:37.249363+00:00"
+            "status": "green",
+            "status_detail": "healed",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T19:08:30.322172+08:00"
           }
         },
         {
           "id": "magnet_clb6_cc",
           "site": {
             "name": "clb6.cc",
-            "origin": "http://clb6.cc"
+            "origin": "http://clb6.cc",
+            "brand": "磁力宝"
           },
           "search": {
-            "request_template": "/s/{query_b64}",
+            "request_template": "/search?wd={query_b64}",
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.search-item",
-                "title": "a",
-                "detail_link": "a[href*=\"/detail/\"]",
-                "magnet": "a[href^=\"magnet:\"]"
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^=\"magnet:\"]",
-                "title": "h1, title",
-                "size": "span.size, div.file-size"
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
               }
             }
           },
           "capabilities": {
-            "supports_search": true,
             "supports_detail": true
           },
           "quality": {
@@ -7246,37 +7283,40 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "404",
-            "last_checked_at": "2026-04-23T08:20:37.249363+00:00"
+            "status": "green",
+            "status_detail": "healed",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T19:08:30.322172+08:00"
           }
         },
         {
           "id": "magnet_clb6_me",
           "site": {
             "name": "clb6.me",
-            "origin": "http://clb6.me"
+            "origin": "http://clb6.me",
+            "brand": "磁力宝"
           },
           "search": {
-            "request_template": "/s/{query_b64}",
+            "request_template": "/search?wd={query_b64}",
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.search-item",
-                "title": "a",
-                "detail_link": "a[href*=\"/detail/\"]",
-                "magnet": "a[href^=\"magnet:\"]"
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^=\"magnet:\"]",
-                "title": "h1, title",
-                "size": "span.size, div.file-size"
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
               }
             }
           },
           "capabilities": {
-            "supports_search": true,
             "supports_detail": true
           },
           "quality": {
@@ -7289,37 +7329,40 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "404",
-            "last_checked_at": "2026-04-23T08:20:37.249363+00:00"
+            "status": "green",
+            "status_detail": "healed",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T19:08:30.322172+08:00"
           }
         },
         {
           "id": "magnet_clb17_top",
           "site": {
             "name": "clb17.top",
-            "origin": "http://clb17.top"
+            "origin": "http://clb17.top",
+            "brand": "磁力宝"
           },
           "search": {
-            "request_template": "/s/{query_b64}",
+            "request_template": "/search?wd={query_b64}",
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.search-item",
-                "title": "a",
-                "detail_link": "a[href*=\"/detail/\"]",
-                "magnet": "a[href^=\"magnet:\"]"
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^=\"magnet:\"]",
-                "title": "h1, title",
-                "size": "span.size, div.file-size"
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
               }
             }
           },
           "capabilities": {
-            "supports_search": true,
             "supports_detail": true
           },
           "quality": {
@@ -7332,37 +7375,40 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "404",
-            "last_checked_at": "2026-04-23T08:20:37.249363+00:00"
+            "status": "green",
+            "status_detail": "healed",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T19:08:30.322172+08:00"
           }
         },
         {
           "id": "magnet_clb12_top",
           "site": {
             "name": "clb12.top",
-            "origin": "http://clb12.top"
+            "origin": "http://clb12.top",
+            "brand": "磁力宝"
           },
           "search": {
-            "request_template": "/s/{query_b64}",
+            "request_template": "/search?wd={query_b64}",
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.search-item",
-                "title": "a",
-                "detail_link": "a[href*=\"/detail/\"]",
-                "magnet": "a[href^=\"magnet:\"]"
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^=\"magnet:\"]",
-                "title": "h1, title",
-                "size": "span.size, div.file-size"
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
               }
             }
           },
           "capabilities": {
-            "supports_search": true,
             "supports_detail": true
           },
           "quality": {
@@ -7375,37 +7421,40 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "404",
-            "last_checked_at": "2026-04-23T08:20:37.249363+00:00"
+            "status": "green",
+            "status_detail": "healed",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T19:08:30.322172+08:00"
           }
         },
         {
           "id": "magnet_clb19_top",
           "site": {
             "name": "clb19.top",
-            "origin": "http://clb19.top"
+            "origin": "http://clb19.top",
+            "brand": "磁力宝"
           },
           "search": {
-            "request_template": "/s/{query_b64}",
+            "request_template": "/search?wd={query_b64}",
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.search-item",
-                "title": "a",
-                "detail_link": "a[href*=\"/detail/\"]",
-                "magnet": "a[href^=\"magnet:\"]"
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^=\"magnet:\"]",
-                "title": "h1, title",
-                "size": "span.size, div.file-size"
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
               }
             }
           },
           "capabilities": {
-            "supports_search": true,
             "supports_detail": true
           },
           "quality": {
@@ -7418,37 +7467,40 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "404",
-            "last_checked_at": "2026-04-23T08:20:37.249363+00:00"
+            "status": "green",
+            "status_detail": "healed",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T19:08:30.322172+08:00"
           }
         },
         {
           "id": "magnet_clb13_top",
           "site": {
             "name": "clb13.top",
-            "origin": "http://clb13.top"
+            "origin": "http://clb13.top",
+            "brand": "磁力宝"
           },
           "search": {
-            "request_template": "/s/{query_b64}",
+            "request_template": "/search?wd={query_b64}",
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.search-item",
-                "title": "a",
-                "detail_link": "a[href*=\"/detail/\"]",
-                "magnet": "a[href^=\"magnet:\"]"
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^=\"magnet:\"]",
-                "title": "h1, title",
-                "size": "span.size, div.file-size"
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
               }
             }
           },
           "capabilities": {
-            "supports_search": true,
             "supports_detail": true
           },
           "quality": {
@@ -7461,37 +7513,40 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "404",
-            "last_checked_at": "2026-04-23T08:20:37.249363+00:00"
+            "status": "green",
+            "status_detail": "healed",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T19:08:30.322172+08:00"
           }
         },
         {
           "id": "magnet_clb15_top",
           "site": {
             "name": "clb15.top",
-            "origin": "http://clb15.top"
+            "origin": "http://clb15.top",
+            "brand": "磁力宝"
           },
           "search": {
-            "request_template": "/s/{query_b64}",
+            "request_template": "/search?wd={query_b64}",
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.search-item",
-                "title": "a",
-                "detail_link": "a[href*=\"/detail/\"]",
-                "magnet": "a[href^=\"magnet:\"]"
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^=\"magnet:\"]",
-                "title": "h1, title",
-                "size": "span.size, div.file-size"
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
               }
             }
           },
           "capabilities": {
-            "supports_search": true,
             "supports_detail": true
           },
           "quality": {
@@ -7504,37 +7559,40 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "404",
-            "last_checked_at": "2026-04-23T08:20:37.249363+00:00"
+            "status": "green",
+            "status_detail": "healed",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T19:08:30.322172+08:00"
           }
         },
         {
           "id": "magnet_clb18_top",
           "site": {
             "name": "clb18.top",
-            "origin": "http://clb18.top"
+            "origin": "http://clb18.top",
+            "brand": "磁力宝"
           },
           "search": {
-            "request_template": "/s/{query_b64}",
+            "request_template": "/search?wd={query_b64}",
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.search-item",
-                "title": "a",
-                "detail_link": "a[href*=\"/detail/\"]",
-                "magnet": "a[href^=\"magnet:\"]"
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^=\"magnet:\"]",
-                "title": "h1, title",
-                "size": "span.size, div.file-size"
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
               }
             }
           },
           "capabilities": {
-            "supports_search": true,
             "supports_detail": true
           },
           "quality": {
@@ -7547,37 +7605,40 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "404",
-            "last_checked_at": "2026-04-23T08:20:37.249363+00:00"
+            "status": "green",
+            "status_detail": "healed",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T19:08:30.322172+08:00"
           }
         },
         {
           "id": "magnet_clb13_cc",
           "site": {
             "name": "clb13.cc",
-            "origin": "http://clb13.cc"
+            "origin": "http://clb13.cc",
+            "brand": "磁力宝"
           },
           "search": {
-            "request_template": "/s/{query_b64}",
+            "request_template": "/search?wd={query_b64}",
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.search-item",
-                "title": "a",
-                "detail_link": "a[href*=\"/detail/\"]",
-                "magnet": "a[href^=\"magnet:\"]"
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^=\"magnet:\"]",
-                "title": "h1, title",
-                "size": "span.size, div.file-size"
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
               }
             }
           },
           "capabilities": {
-            "supports_search": true,
             "supports_detail": true
           },
           "quality": {
@@ -7590,37 +7651,40 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "404",
-            "last_checked_at": "2026-04-23T08:20:37.249363+00:00"
+            "status": "green",
+            "status_detail": "healed",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T19:08:30.322172+08:00"
           }
         },
         {
           "id": "magnet_clb20_top",
           "site": {
             "name": "clb20.top",
-            "origin": "http://clb20.top"
+            "origin": "http://clb20.top",
+            "brand": "磁力宝"
           },
           "search": {
-            "request_template": "/s/{query_b64}",
+            "request_template": "/search?wd={query_b64}",
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.search-item",
-                "title": "a",
-                "detail_link": "a[href*=\"/detail/\"]",
-                "magnet": "a[href^=\"magnet:\"]"
+                "list_item": "div.ssbox",
+                "title": "h5 a",
+                "magnet": "",
+                "size": "span:nth-child(2)",
+                "date": "span:nth-child(3)",
+                "detail_link": "h5 a"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^=\"magnet:\"]",
-                "title": "h1, title",
-                "size": "span.size, div.file-size"
+                "magnet": "a[href^='magnet:']",
+                "title": "h3",
+                "size": ""
               }
             }
           },
           "capabilities": {
-            "supports_search": true,
             "supports_detail": true
           },
           "quality": {
@@ -7633,9 +7697,10 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "404",
-            "last_checked_at": "2026-04-23T08:20:37.249363+00:00"
+            "status": "green",
+            "status_detail": "healed",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-04T19:08:30.322172+08:00"
           }
         },
         {
@@ -10534,7 +10599,7 @@
             "supports_detail": false
           },
           "search": {
-            "request_template": "/search?wd={query_b64}",
+            "request_template": "/search?keyword={query}",
             "timeout_ms": 10000,
             "retries": {
               "max_attempts": 2,
@@ -10543,12 +10608,11 @@
             "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.ssbox",
-                "title": "h5 a",
-                "magnet": "",
-                "size": "span:nth-child(2)",
-                "date": "span:nth-child(3)",
-                "detail_link": "h5 a"
+                "list_item": "div.search-item",
+                "title": "a.item-title",
+                "magnet": "a[href^=\"magnet:\"]",
+                "size": "span.item-size",
+                "date": "span.item-date"
               }
             }
           },
@@ -10561,9 +10625,9 @@
           },
           "health": {
             "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status_detail": "waf",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+            "last_checked_at": "2026-05-04T19:04:38.344186+08:00"
           }
         },
         {
@@ -10606,10 +10670,10 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "gray",
+            "status_detail": "unreachable",
             "fail_streak": 1,
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+            "last_checked_at": "2026-05-04T19:04:38.344186+08:00"
           }
         },
         {
@@ -10702,10 +10766,10 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "waf",
+            "status": "gray",
+            "status_detail": "unreachable",
             "fail_streak": 1,
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+            "last_checked_at": "2026-05-04T19:04:38.344186+08:00"
           }
         },
         {
