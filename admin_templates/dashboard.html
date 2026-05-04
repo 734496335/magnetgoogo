@@ -584,9 +584,9 @@
         <div class="flex items-center gap-2">
           <span class="text-xs text-slate-500">筛选：</span>
           <button @click="brandFilter = ''" :class="brandFilter==='' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'" class="px-2.5 py-1 rounded-lg text-xs font-medium">全部 <span x-text="sourceBrandStats?.length||0"></span></button>
-          <button @click="brandFilter = 'green'" :class="brandFilter==='green' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700'" class="px-2.5 py-1 rounded-lg text-xs font-medium">有绿</button>
-          <button @click="brandFilter = 'yellow'" :class="brandFilter==='yellow' ? 'bg-yellow-600 text-white' : 'bg-yellow-50 text-yellow-700'" class="px-2.5 py-1 rounded-lg text-xs font-medium">有黄</button>
-          <button @click="brandFilter = 'gray_only'" :class="brandFilter==='gray_only' ? 'bg-gray-600 text-white' : 'bg-gray-100 text-gray-600'" class="px-2.5 py-1 rounded-lg text-xs font-medium">纯灰</button>
+          <button @click="brandFilter = 'green'" :class="brandFilter==='green' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700'" class="px-2.5 py-1 rounded-lg text-xs font-medium">有绿 <span x-text="sourceBrandStats?.filter(b=>b.green>0).length||0"></span></button>
+          <button @click="brandFilter = 'yellow'" :class="brandFilter==='yellow' ? 'bg-yellow-600 text-white' : 'bg-yellow-50 text-yellow-700'" class="px-2.5 py-1 rounded-lg text-xs font-medium">有黄 <span x-text="sourceBrandStats?.filter(b=>b.yellow>0).length||0"></span></button>
+          <button @click="brandFilter = 'gray_only'" :class="brandFilter==='gray_only' ? 'bg-gray-600 text-white' : 'bg-gray-100 text-gray-600'" class="px-2.5 py-1 rounded-lg text-xs font-medium">纯灰 <span x-text="sourceBrandStats?.filter(b=>b.green===0&&b.yellow===0).length||0"></span></button>
           <input type="text" x-model="brandSearch" placeholder="搜索品牌..." class="ml-auto px-3 py-1 border border-slate-200 rounded-lg text-xs w-40 focus:ring-2 focus:ring-brand-500/20 outline-none">
         </div>
 
