@@ -2,7 +2,7 @@
   "expo": {
     "name": "MagGoogo",
     "slug": "magnetgoogo-app",
-    "version": "0.2.0",
+    "version": "0.1.8",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

@@ -1,22 +1,24 @@
 /**
- * VerifyManager — Legado-style verification bridge.
+ * VerifyManager — 3-tier verification strategy.
  *
- * Flow (mirrors Legado's SourceVerificationHelp):
- *   1. searchEngine detects a challenge (CF / captcha / SPA)
- *   2. Calls VerifyManager.requestVerification(url, type)
- *   3. This returns a Promise that parks the search task
- *   4. UI layer picks up the pending request → shows WebView modal
- *   5. User (or auto-solve) completes the challenge in WebView
- *   6. WebView injectedJS extracts cookies + rendered HTML
- *   7. UI calls VerifyManager.submitResult() → resolves the parked Promise
- *   8. searchEngine resumes with cookies / pre-rendered HTML
+ * Tier 0: Cookie bypass — fetchPage sends stored cookies, no challenge.
+ * Tier 1: Silent WebView — invisible to user, auto-solves CF JS challenges.
+ * Tier 2: Interactive WebView — shown to user for manual CAPTCHA/Turnstile.
  *
- * Equivalent to Legado:
- *   requestVerification()  ≈  java.startBrowser(url, title)
- *   parked Promise         ≈  LockSupport.parkNanos()
- *   submitResult()         ≈  SourceVerificationHelp.checkResult()
- *   onVerifyRequest cb     ≈  Intent → WebViewActivity
+ * Session blacklist: origins that failed verification are skipped for the rest
+ * of the app session, avoiding pointless retries.
+ *
+ * Flow:
+ *   1. searchEngine detects challenge → requestVerification()
+ *   2. Check blacklist → reject immediately if blacklisted
+ *   3. Check origin cache → return cached cookies if available
+ *   4. Emit request with silent=true → UI renders hidden WebView
+ *   5a. Auto-resolves within SILENT_TIMEOUT → done, mark as auto-pass
+ *   5b. Doesn't resolve → UI escalates to interactive modal
+ *   6. User completes or cancels → result cached, blacklist if failed
  */
+
+import { trackVerify } from './analytics';
 
 export interface VerifyRequest {
   id: string;
@@ -24,12 +26,13 @@ export interface VerifyRequest {
   type: 'cloudflare' | 'cloudflare_block' | 'captcha' | 'ddos_guard' | 'spa_render';
   origin: string;
   siteName: string;
+  silent: boolean;  // true = start in silent mode
 }
 
 export interface VerifyResult {
   success: boolean;
-  cookies?: string;     // Extracted cookies string: "k1=v1; k2=v2"
-  html?: string;        // Rendered page HTML (for SPA sources)
+  cookies?: string;
+  html?: string;
   error?: string;
 }
 
@@ -39,46 +42,63 @@ class _VerifyManager {
   private _listener: VerifyListener | null = null;
   private _pendingResolve: Map<string, (result: VerifyResult) => void> = new Map();
   private _counter = 0;
-  private _timeout = 120_000; // 2 min max wait (Legado uses 1 min)
+  private _timeout_challenge = 45_000; // 45s max for interactive challenge
+  private _timeout_spa = 20_000;      // 20s max for SPA render (fast or fail)
 
-  /**
-   * Per-origin cache: remembers verification outcomes within a session.
-   * Prevents repeated challenge popups for sources that already failed/succeeded.
-   * Key = origin, Value = { success, cookies } or { success: false, error }
-   */
+  /** Per-origin cache: successful cookies or failure record. */
   private _originCache: Map<string, VerifyResult> = new Map();
 
-  /** Check if an origin was already verified (success or permanent failure). */
+  /** Session blacklist: origins that failed → skip for BLACKLIST_TTL_MS. */
+  private _sessionBlacklist = new Map<string, number>();
+  private static BLACKLIST_TTL_MS = 10 * 60_000; // 10 minutes
+
+  /** Origins where challenge auto-resolved silently (never need modal). */
+  private _autoPassOrigins = new Set<string>();
+
+  /** Origins that required verification during this session (for priority sorting). */
+  private _verifyOrigins = new Set<string>();
+
+  /** Queue: only one request is emitted to UI at a time; others wait here. */
+  private _queue: VerifyRequest[] = [];
+  private _activeRequest: VerifyRequest | null = null;
+  private _timers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+
+  // ── Public API ──
+
   hasOriginResult(origin: string): boolean {
     return this._originCache.has(origin);
   }
 
-  /** Get cached result for an origin (if any). */
   getOriginResult(origin: string): VerifyResult | undefined {
     return this._originCache.get(origin);
   }
 
-  /** Origins that required verification during this session. */
-  private _verifyOrigins = new Set<string>();
-
-  /** Mark an origin as requiring verification (for priority sorting). */
+  isVerifyOrigin(origin: string): boolean { return this._verifyOrigins.has(origin); }
   markRequiresVerify(origin: string) { this._verifyOrigins.add(origin); }
 
-  /** Check if an origin has historically needed verification. */
-  isVerifyOrigin(origin: string): boolean { return this._verifyOrigins.has(origin); }
+  /** Is this origin blacklisted (with TTL)? */
+  isBlacklisted(origin: string): boolean {
+    const ts = this._sessionBlacklist.get(origin);
+    if (ts === undefined) return false;
+    if (Date.now() - ts > VerifyManager.BLACKLIST_TTL_MS) {
+      this._sessionBlacklist.delete(origin);
+      this._originCache.delete(origin);
+      return false;
+    }
+    return true;
+  }
 
-  /**
-   * Register the UI listener that will show the WebView.
-   * Called once from the root layout / search screen.
-   */
+  /** Has this origin previously auto-passed silently? */
+  isAutoPass(origin: string): boolean {
+    return this._autoPassOrigins.has(origin);
+  }
+
   setListener(listener: VerifyListener | null) {
     this._listener = listener;
   }
 
   /**
    * Called by searchEngine when a challenge is detected.
-   * Returns a Promise that resolves when the user completes verification.
-   * Equivalent to Legado's LockSupport.parkNanos() + getVerificationResult().
    */
   requestVerification(
     url: string,
@@ -86,74 +106,168 @@ class _VerifyManager {
     origin: string,
     siteName: string,
   ): Promise<VerifyResult> {
-    // Return cached result if origin was already verified this session
-    const cached = this._originCache.get(origin);
-    if (cached) {
-      console.log(`[VerifyManager] Using cached result for ${origin}: success=${cached.success}`);
-      return Promise.resolve(cached);
+    // 1. Blacklist check (with TTL)
+    if (this.isBlacklisted(origin)) {
+      console.log(`[VerifyManager] ${origin} is blacklisted, skipping`);
+      return Promise.resolve({ success: false, error: 'blacklisted' });
     }
 
-    // Track that this origin requires verification
+    // 2. Cache check — return stored cookies (strip old HTML)
+    //    Skip cache for spa_render: each query needs fresh HTML rendering
+    if (type !== 'spa_render') {
+      const cached = this._originCache.get(origin);
+      if (cached) {
+        if (!cached.success) {
+          // Previously failed → blacklist now
+          this._sessionBlacklist.set(origin, Date.now());
+          console.log(`[VerifyManager] ${origin} previously failed → blacklisted`);
+          return Promise.resolve({ success: false, error: 'previously_failed' });
+        }
+        console.log(`[VerifyManager] Using cached cookies for ${origin}`);
+        return Promise.resolve({ ...cached, html: undefined });
+      }
+    }
+
+    // 3. Track that this origin needs verification
     this._verifyOrigins.add(origin);
 
+    // 4. Create request — always start silent
     const id = `verify_${++this._counter}_${Date.now()}`;
-    const request: VerifyRequest = { id, url, type, origin, siteName };
+    const request: VerifyRequest = { id, url, type, origin, siteName, silent: true };
+    (request as any)._startTs = Date.now();
 
     return new Promise<VerifyResult>((resolve) => {
-      // Park: store resolve callback, set timeout
       this._pendingResolve.set(id, resolve);
-      const timer = setTimeout(() => {
-        if (this._pendingResolve.has(id)) {
-          this._pendingResolve.delete(id);
-          const timeoutResult: VerifyResult = { success: false, error: 'timeout' };
-          this._originCache.set(origin, timeoutResult);
-          resolve(timeoutResult);
-        }
-      }, this._timeout);
 
-      // Store timer ref for cleanup
-      (request as any)._timer = timer;
-
-      // Notify UI to show WebView
-      if (this._listener) {
-        this._listener(request);
-      } else {
-        // No listener registered — can't verify
-        clearTimeout(timer);
+      if (!this._listener) {
         this._pendingResolve.delete(id);
         const noUiResult: VerifyResult = { success: false, error: 'no_ui_listener' };
         this._originCache.set(origin, noUiResult);
         resolve(noUiResult);
+        return;
+      }
+
+      // Queue: only emit if no active request
+      if (this._activeRequest) {
+        console.log(`[VerifyManager] Queued ${siteName} (${this._queue.length + 1} in queue)`);
+        this._queue.push(request);
+      } else {
+        this._activeRequest = request;
+        this._startTimer(request);
+        this._listener(request);
       }
     });
   }
 
+  /** Start the timeout timer for a request (only when it becomes active). */
+  private _startTimer(request: VerifyRequest) {
+    const timer = setTimeout(() => {
+      const resolve = this._pendingResolve.get(request.id);
+      if (resolve) {
+        this._pendingResolve.delete(request.id);
+        const timeoutResult: VerifyResult = { success: false, error: 'timeout' };
+        this._originCache.set(request.origin, timeoutResult);
+        this._sessionBlacklist.set(request.origin, Date.now());
+        console.log(`[VerifyManager] ${request.origin} timed out → blacklisted`);
+        resolve(timeoutResult);
+      }
+      this._timers.delete(request.id);
+      if (this._activeRequest?.id === request.id) {
+        this._activeRequest = null;
+        this._emitNext();
+      }
+    }, request.type === 'spa_render' ? this._timeout_spa : this._timeout_challenge);
+    this._timers.set(request.id, timer);
+  }
+
+  /** Emit the next queued request to UI (if any). */
+  private _emitNext() {
+    if (this._queue.length === 0 || !this._listener) return;
+    const next = this._queue.shift()!;
+    // Skip if origin was already resolved/blacklisted while queued
+    if (this.isBlacklisted(next.origin) || this._originCache.has(next.origin)) {
+      const resolve = this._pendingResolve.get(next.id);
+      if (resolve) {
+        this._pendingResolve.delete(next.id);
+        const cached = this._originCache.get(next.origin);
+        resolve(cached || { success: false, error: 'blacklisted_while_queued' });
+      }
+      // Try next in queue
+      this._emitNext();
+      return;
+    }
+    console.log(`[VerifyManager] Dequeued ${next.siteName} (${this._queue.length} remaining)`);
+    this._activeRequest = next;
+    this._startTimer(next);
+    this._listener(next);
+  }
+
   /**
-   * Called by WebView component when verification completes.
-   * Equivalent to Legado's saveVerificationResult().
+   * Called by WebView when verification completes (auto or manual).
+   * @param wasSilent  true if resolved during silent phase (no user interaction)
    */
-  submitResult(id: string, result: VerifyResult, origin?: string) {
+  submitResult(id: string, result: VerifyResult, origin?: string, wasSilent = false) {
     const resolve = this._pendingResolve.get(id);
     if (resolve) {
       this._pendingResolve.delete(id);
-      // Cache the result for this origin
       if (origin) {
         this._originCache.set(origin, result);
+        if (result.success && wasSilent) {
+          this._autoPassOrigins.add(origin);
+          console.log(`[VerifyManager] ${origin} auto-passed silently ✓`);
+        }
+        if (!result.success) {
+          this._sessionBlacklist.set(origin, Date.now());
+          console.log(`[VerifyManager] ${origin} failed → blacklisted`);
+        }
+      }
+      // Analytics
+      const req = this._activeRequest;
+      if (req) {
+        const ms = Date.now() - ((req as any)._startTs || Date.now());
+        const tier = wasSilent ? 1 : 2;
+        const r = result.success ? 'pass' : (result.error === 'timeout' ? 'timeout' : (result.error === 'user_cancelled' ? 'cancel' : 'fail'));
+        trackVerify(req.siteName, tier, r as any, ms);
       }
       resolve(result);
+    }
+    // Clear timer and dequeue next request
+    const timer = this._timers.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      this._timers.delete(id);
+    }
+    if (this._activeRequest?.id === id) {
+      this._activeRequest = null;
+      this._emitNext();
     }
   }
 
   /**
-   * Cancel a pending verification (user dismisses modal).
+   * Cancel a pending verification (user dismisses interactive modal).
    */
-  cancel(id: string) {
-    this.submitResult(id, { success: false, error: 'user_cancelled' });
+  cancel(id: string, origin?: string) {
+    if (origin) {
+      this._sessionBlacklist.set(origin, Date.now());
+      console.log(`[VerifyManager] ${origin} cancelled → blacklisted`);
+    }
+    // submitResult will handle dequeue
+    this.submitResult(id, { success: false, error: 'user_cancelled' }, origin);
   }
 
-  /** Check if there's a pending verification. */
   get hasPending(): boolean {
     return this._pendingResolve.size > 0;
+  }
+
+  /** Session stats for debugging. */
+  getStats() {
+    return {
+      blacklisted: [...this._sessionBlacklist.keys()],
+      autoPass: [...this._autoPassOrigins],
+      cached: this._originCache.size,
+      pending: this._pendingResolve.size,
+      queued: this._queue.length,
+    };
   }
 }
 

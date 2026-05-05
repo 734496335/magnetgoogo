@@ -14,6 +14,7 @@ import {
   fetchPage,
   fetchPageManual,
   storeCookiesForOrigin,
+  invalidateCookies,
   extractCookies,
   mergeCookies,
   FETCH_HEADERS,
@@ -52,6 +53,11 @@ export interface SourceRule {
 }
 
 // ── Utility functions ────────────────────────────────────────────────
+
+function normalizeSize(raw: string): string {
+  if (!raw) return '';
+  return raw.replace(/\bTiB\b/gi, 'TB').replace(/\bGiB\b/gi, 'GB').replace(/\bMiB\b/gi, 'MB').replace(/\bKiB\b/gi, 'KB');
+}
 
 function cleanTitle(raw: string): string {
   return (
@@ -224,7 +230,7 @@ function extractFromSearchPage(
       results.push({
         title: cleanTitle(title || 'Unknown Title'),
         magnet,
-        size: size || '',
+        size: normalizeSize(size),
         date: cleanDate(date),
         seeders: seeders >= 0 ? seeders : 0,
         leechers: leechers >= 0 ? leechers : 0,
@@ -290,6 +296,7 @@ async function fetchDetailResults(
   sizeHints: string[] = [],
   dateHints: string[] = [],
   searchQuery = '',
+  referer?: string,
 ): Promise<ResultItem[]> {
   const results: ResultItem[] = [];
   const seen = new Set<string>();
@@ -313,7 +320,7 @@ async function fetchDetailResults(
   };
 
   const fetches = urlsToFetch.map(async (url, urlIdx) => {
-    const { html } = await fetchPage(url);
+    const { html } = await fetchPage(url, undefined, undefined, referer);
     if (!html) return [];
 
     const $ = cheerio.load(html);
@@ -323,9 +330,22 @@ async function fetchDetailResults(
     const dateHint = dateHints[urlIdx] || '';
 
     const magnetLinks = $(detailSelectors.magnet || 'a[href^="magnet:"]');
+    // Collect magnets from CSS selector matches
+    const foundMagnets: string[] = [];
     magnetLinks.each((_: number, el: any) => {
-      const magnet = $(el).attr('href') || '';
-      if (!magnet.startsWith('magnet:?') || seen.has(magnet)) return;
+      const mag = $(el).attr('href') || '';
+      if (mag.startsWith('magnet:?')) foundMagnets.push(mag);
+    });
+    // Fallback: regex extract from full HTML (handles onclick="copyMagnetLink('magnet:...')" etc.)
+    if (foundMagnets.length === 0) {
+      const htmlStr = $.html();
+      const re = /magnet:\?xt=urn:btih:[a-fA-F0-9]{40}/gi;
+      let m;
+      while ((m = re.exec(htmlStr)) !== null) foundMagnets.push(m[0]);
+    }
+
+    for (const magnet of foundMagnets) {
+      if (seen.has(magnet)) continue;
       seen.add(magnet);
 
       let title = '';
@@ -411,7 +431,7 @@ async function fetchDetailResults(
       items.push({
         title: cleanTitle(title || 'Unknown Title'),
         magnet,
-        size: size || sizeHint || '',
+        size: normalizeSize(size || sizeHint),
         date: cleanDate(date || dateHint),
         seeders: seeders >= 0 ? seeders : 0,
         leechers: leechers >= 0 ? leechers : 0,
@@ -419,7 +439,7 @@ async function fetchDetailResults(
         site_name: siteName,
         score,
       });
-    });
+    }
 
     return items;
   });
@@ -442,34 +462,24 @@ async function fetchJavBus(
   score: number,
 ): Promise<ResultItem[]> {
   const results: ResultItem[] = [];
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 15_000);
+  const sig = ac.signal;
   try {
-    // Step 1: GET homepage → age verify
+    // Step 1: GET homepage → grab session cookies (age verify no longer needed)
     const r0 = await fetch(origin, {
       headers: FETCH_HEADERS,
       redirect: 'follow',
+      signal: sig,
     });
-    const cookies0 = extractCookies(r0);
-    // Step 2: POST age verify
-    const verifyUrl = r0.url;
-    const r1 = await fetch(verifyUrl, {
-      method: 'POST',
-      headers: {
-        ...FETCH_HEADERS,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Referer: verifyUrl,
-        Origin: origin,
-        Cookie: cookies0,
-      },
-      body: 'Submit=%E7%A2%BA%E8%AA%8D',
-      redirect: 'follow',
-    });
-    const sessionCookies = mergeCookies(cookies0, extractCookies(r1));
+    const sessionCookies = extractCookies(r0);
 
-    // Step 3: Search
+    // Step 2: Search
     const searchUrl = `${origin}/search/${encodeURIComponent(query)}`;
     const r2 = await fetch(searchUrl, {
-      headers: { ...FETCH_HEADERS, Cookie: sessionCookies },
+      headers: { ...FETCH_HEADERS, Cookie: sessionCookies, Referer: origin + '/' },
       redirect: 'follow',
+      signal: sig,
     });
     if (!r2.ok) return results;
     const searchHtml = await r2.text();
@@ -489,6 +499,7 @@ async function fetchJavBus(
         const dr = await fetch(dUrl, {
           headers: { ...FETCH_HEADERS, Cookie: sessionCookies },
           redirect: 'follow',
+          signal: sig,
         });
         if (!dr.ok) return;
         const dHtml = await dr.text();
@@ -505,6 +516,7 @@ async function fetchJavBus(
         const ajaxUrl = `${origin}/ajax/uncledatoolsbyajax.php?gid=${gid}&lang=zh&uc=${uc}&floor=${Math.floor(Math.random() * 1000 + 1)}`;
         const ar = await fetch(ajaxUrl, {
           headers: { ...FETCH_HEADERS, Referer: dUrl, Cookie: sessionCookies },
+          signal: sig,
         });
         if (!ar.ok) return;
         const aHtml = await ar.text();
@@ -523,7 +535,7 @@ async function fetchJavBus(
           results.push({
             title: pageTitle || extractTitleFromMagnet(magnet) || 'Unknown Title',
             magnet,
-            size,
+            size: normalizeSize(size),
             date: '',
             seeders: 0,
             leechers: 0,
@@ -535,7 +547,9 @@ async function fetchJavBus(
       } catch {}
     });
     await Promise.all(detailFetches);
-  } catch {}
+  } catch {} finally {
+    clearTimeout(timer);
+  }
   return results;
 }
 
@@ -607,7 +621,7 @@ async function fetchMeijumi(
           results.push({
             title: title || extractTitleFromMagnet(magnet) || 'Unknown Title',
             magnet,
-            size,
+            size: normalizeSize(size),
             date,
             seeders: 0,
             leechers: 0,
@@ -679,7 +693,7 @@ async function fetchYhg(
       results.push({
         title,
         magnet: magnetLink,
-        size,
+        size: normalizeSize(size),
         date,
         seeders: 0,
         leechers: 0,
@@ -732,7 +746,7 @@ async function fetchRarbggo(
             results.push({
               title: title || 'Unknown Title',
               magnet: mag,
-              size: '',
+              size: '',  // no size available
               date: '',
               seeders: 0,
               leechers: 0,
@@ -788,7 +802,7 @@ async function fetchRrjav(
       results.push({
         title: title || 'Unknown Title',
         magnet: mag,
-        size,
+        size: normalizeSize(size),
         date,
         seeders: 0,
         leechers: 0,
@@ -798,6 +812,221 @@ async function fetchRrjav(
       });
     });
   } catch {}
+  return results;
+}
+
+/* ---- 1337x family custom handler ---- */
+async function fetch1337x(
+  origin: string,
+  query: string,
+  siteName: string,
+  score: number,
+): Promise<ResultItem[]> {
+  // 1. Fetch search page
+  const searchUrl = `${origin}/search/${encodeURIComponent(query)}/1/`;
+  console.log(`[fetch1337x] Fetching search: ${searchUrl}`);
+  const searchResult = await fetchPage(searchUrl);
+  if (!searchResult.html) {
+    console.log(`[fetch1337x] No HTML returned for ${searchUrl} challenge=${JSON.stringify(searchResult.challenge)}`);
+    return [];
+  }
+  console.log(`[fetch1337x] Got HTML, length=${searchResult.html.length}`);
+
+  const $ = cheerio.load(searchResult.html);
+  const rows = $('tr:has(a[href*="/torrent/"])');
+  if (rows.length === 0) return [];
+
+  // 2. Parse search result rows (titles are ALWAYS correct here)
+  const searchRows: Array<{
+    title: string;
+    detailUrl: string;
+    size: string;
+    date: string;
+    seeders: number;
+    leechers: number;
+  }> = [];
+
+  rows.each((_: number, el: any) => {
+    const row = $(el);
+    const titleLink = row.find('td.coll-1 a:not(.icon)').first();
+    const title = titleLink.attr('title') || titleLink.text().trim();
+    const href = titleLink.attr('href') || '';
+    if (!title || title.length < 3 || !href) return;
+
+    const detailUrl = href.startsWith('http') ? href : new URL(href, origin).href;
+
+    // Size: td.coll-4 has a hidden <span> that concats, so regex-extract
+    const rawSize = row.find('td.coll-4').first().text().trim();
+    const sizeMatch = rawSize.match(/([\d.]+)\s*(TB|GB|MB|KB)/i);
+    const size = sizeMatch ? `${sizeMatch[1]} ${sizeMatch[2]}` : '';
+
+    const date = row.find('td.coll-date').first().text().trim();
+    const seeders = parseInt(row.find('td.coll-2').first().text().trim(), 10) || 0;
+    const leechers = parseInt(row.find('td.coll-3').first().text().trim(), 10) || 0;
+
+    searchRows.push({ title, detailUrl, size, date, seeders, leechers });
+  });
+
+  console.log(`[fetch1337x] Parsed ${searchRows.length} rows from search page`);
+  if (searchRows.length === 0) return [];
+  searchRows.slice(0, 3).forEach((r, i) => console.log(`[fetch1337x]   row${i}: title="${r.title}" detail=${r.detailUrl.slice(0, 80)}`));
+
+  // 2b. Relevance pre-filter: 1337x shows trending when no results match.
+  //     Require at least min(2, total) query words present in the title.
+  const qWords = query.toLowerCase().split(/[\s.+\-_]+/).filter(w => w.length >= 2);
+  const minMatch = Math.min(2, qWords.length);
+  const relevant = searchRows.filter(r => {
+    const tLow = r.title.toLowerCase();
+    const hits = qWords.filter(w => tLow.includes(w)).length;
+    return hits >= minMatch;
+  });
+  if (relevant.length === 0) {
+    console.log(`[fetch1337x] No titles match ≥${minMatch} of query words [${qWords.join(',')}] — likely trending page, returning empty`);
+    return [];
+  }
+  console.log(`[fetch1337x] ${relevant.length}/${searchRows.length} titles match ≥${minMatch} query words`);
+
+  // 3. Follow detail pages concurrently (max 8) to extract magnet links
+  const toFetch = relevant.slice(0, 8);
+  const seen = new Set<string>();
+
+  const fetches = toFetch.map(async (row) => {
+    try {
+      const { html: detailHtml } = await fetchPage(row.detailUrl);
+      if (!detailHtml) return null;
+
+      const d$ = cheerio.load(detailHtml);
+      const magnet = d$('a[href^="magnet:"]').first().attr('href') || '';
+      if (!magnet.startsWith('magnet:?')) return null;
+
+      const hash = magnet.match(/btih:([a-fA-F0-9]+)/i)?.[1]?.toLowerCase();
+      if (!hash || seen.has(hash)) return null;
+      seen.add(hash);
+
+      // Key fix: use SEARCH PAGE title (always correct) — not detail page title
+      return {
+        title: cleanTitle(row.title),
+        magnet,
+        size: normalizeSize(row.size),
+        date: cleanDate(row.date),
+        seeders: row.seeders,
+        leechers: row.leechers,
+        source: origin,
+        site_name: siteName,
+        score,
+      } as ResultItem;
+    } catch {
+      return null;
+    }
+  });
+
+  const items = await Promise.all(fetches);
+  const results: ResultItem[] = [];
+  for (const item of items) {
+    if (item) results.push(item);
+  }
+  console.log(`[fetch1337x] Final results: ${results.length} items`);
+  results.slice(0, 3).forEach((r, i) => console.log(`[fetch1337x]   result${i}: title="${r.title}" magnet=${r.magnet.slice(0, 50)}`));
+  return results;
+}
+
+/* ---- CiliMo (cilimo.com) handler: JSON API with info_hash ---- */
+async function fetchCiliMo(
+  origin: string, query: string, siteName: string, score: number,
+): Promise<ResultItem[]> {
+  const results: ResultItem[] = [];
+  try {
+    const url = `${origin}/api/search?q=${encodeURIComponent(query)}`;
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 10_000);
+    const resp = await fetch(url, {
+      headers: { ...FETCH_HEADERS, 'Accept': 'application/json' },
+      signal: ac.signal,
+    });
+    clearTimeout(timer);
+    if (!resp.ok) return results;
+    const data = await resp.json() as any;
+    const items = data.results || [];
+    for (const item of items.slice(0, 20)) {
+      const hash = item.info_hash;
+      if (!hash) continue;
+      const magnet = `magnet:?xt=urn:btih:${hash}`;
+      const sizeBytes = item.length || 0;
+      let size = '';
+      if (sizeBytes >= 1e12) size = `${(sizeBytes / 1e12).toFixed(2)} TB`;
+      else if (sizeBytes >= 1e9) size = `${(sizeBytes / 1e9).toFixed(2)} GB`;
+      else if (sizeBytes >= 1e6) size = `${(sizeBytes / 1e6).toFixed(1)} MB`;
+      else if (sizeBytes > 0) size = `${(sizeBytes / 1e3).toFixed(0)} KB`;
+
+      const name = item.name || extractTitleFromMagnet(magnet) || 'Unknown';
+      const date = item.created_at ? item.created_at.split('T')[0] : '';
+
+      results.push({
+        title: name,
+        magnet,
+        size,
+        date,
+        seeders: 0,
+        leechers: 0,
+        source: origin,
+        site_name: siteName,
+        score,
+      });
+    }
+    console.log(`[CiliMo] Found ${results.length} results for "${query}"`);
+  } catch (e: any) {
+    console.error(`[CiliMo] Error: ${e.message}`);
+  }
+  return results;
+}
+
+/* ---- CLKD / 磁力口袋 (kd705.site) handler: JSON API with hashInfo ---- */
+async function fetchClkd(
+  origin: string, query: string, siteName: string, score: number,
+): Promise<ResultItem[]> {
+  const results: ResultItem[] = [];
+  try {
+    const url = `${origin}/api/search?q=${encodeURIComponent(query)}`;
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 10_000);
+    const resp = await fetch(url, {
+      headers: { ...FETCH_HEADERS, 'Accept': 'application/json' },
+      signal: ac.signal,
+    });
+    clearTimeout(timer);
+    if (!resp.ok) return results;
+    const data = await resp.json() as any;
+    const items = data.list || [];
+    for (const item of items.slice(0, 20)) {
+      const hash = item.hashInfo;
+      if (!hash) continue;
+      const magnet = `magnet:?xt=urn:btih:${hash}`;
+      const sizeBytes = item.torrentSize || 0;
+      let size = '';
+      if (sizeBytes >= 1e12) size = `${(sizeBytes / 1e12).toFixed(2)} TB`;
+      else if (sizeBytes >= 1e9) size = `${(sizeBytes / 1e9).toFixed(2)} GB`;
+      else if (sizeBytes >= 1e6) size = `${(sizeBytes / 1e6).toFixed(1)} MB`;
+      else if (sizeBytes > 0) size = `${(sizeBytes / 1e3).toFixed(0)} KB`;
+
+      const name = item.torrentName || extractTitleFromMagnet(magnet) || 'Unknown';
+      const date = item.createTime ? item.createTime.split('T')[0] : '';
+
+      results.push({
+        title: name,
+        magnet,
+        size,
+        date,
+        seeders: 0,
+        leechers: 0,
+        source: origin,
+        site_name: siteName,
+        score,
+      });
+    }
+    console.log(`[CLKD] Found ${results.length} results for "${query}"`);
+  } catch (e: any) {
+    console.error(`[CLKD] Error: ${e.message}`);
+  }
   return results;
 }
 
@@ -813,6 +1042,12 @@ export async function searchSource(
   query: string,
 ): Promise<ResultItem[]> {
   const origin = rule.site.origin.replace(/\/$/, '');
+
+  // Skip blacklisted origins (failed verification this session)
+  if (VerifyManager.isBlacklisted(origin)) {
+    console.log(`[Verify:Skip] ${rule.site.name} (${origin}) blacklisted — skipping`);
+    throw new Error('__blacklisted__');
+  }
   const template = rule.search.request_template;
   // Build search URL: {query} → URL-encoded, {query_b64} → base64-encoded
   const queryB64 = typeof btoa === 'function'
@@ -835,13 +1070,16 @@ export async function searchSource(
   const siteName = rule.site.name;
   const score = rule.quality?.score ?? 50;
   const handler = rule.search.handler || '';
-
+  const customReferer = rule.search.referer || '';
   // ── Custom handler dispatch ──
   if (handler === 'javbus') return (await fetchJavBus(origin, query, siteName, score)).slice(0, 30);
   if (handler === 'meijumi') return (await fetchMeijumi(origin, query, siteName, score)).slice(0, 30);
   if (handler === 'yhg') return (await fetchYhg(origin, query, siteName, score)).slice(0, 30);
   if (handler === 'rarbggo') return (await fetchRarbggo(origin, query, siteName, score)).slice(0, 30);
   if (handler === 'rrjav') return (await fetchRrjav(origin, query, siteName, score)).slice(0, 30);
+  if (handler === '1337x') return (await fetch1337x(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'cilimo') return (await fetchCiliMo(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'clkd') return (await fetchClkd(origin, query, siteName, score)).slice(0, 20);
 
   // ── SPA sources: render via WebView (like Legado's BackstageWebView) ──
   if (rule.search.requires_browser) {
@@ -892,9 +1130,11 @@ export async function searchSource(
       html = searchResp?.html || null;
     }
   } else {
-    const result = await fetchPage(searchUrl);
+    const result = await fetchPage(searchUrl, undefined, undefined, customReferer || undefined);
     // Challenge detected → trigger WebView verification (Legado-style)
     if (result.challenge) {
+      // Old cookies didn't work → invalidate so fresh ones get persisted
+      invalidateCookies(origin);
       console.log(`[SearchEngine] Challenge on ${siteName}: ${result.challenge.type} — requesting WebView`);
       const vr = await VerifyManager.requestVerification(
         result.challenge.verifyUrl,
@@ -928,13 +1168,19 @@ export async function searchSource(
   const { results, detailUrls, titleHints, sizeHints, dateHints } =
     extractFromSearchPage($, selectors, origin, siteName, score);
 
-  // Filter garbage
+  // Filter garbage — also reject titles that are just known site names
+  const _normT = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
   const cleaned = results.filter((r) => {
     if (!r.title || r.title === 'Unknown Title') return false;
     if (r.title.length < 4) return false;
     const tl = r.title.toLowerCase();
     const sl = siteName.toLowerCase();
     if (tl === sl || (tl.includes(' home') && tl.length < 30)) return false;
+    // Reject titles that are just a known site name (e.g. "1337x" from nav links)
+    const nt = _normT(r.title);
+    if (nt.length < 20 && KNOWN_SITE_NAMES.some(
+      (sn) => nt === sn || nt === sn + 'to' || nt === sn + 'com' || nt === sn + 'org' || nt === sn + 'site',
+    )) return false;
     return true;
   });
 
@@ -969,6 +1215,7 @@ export async function searchSource(
         filteredSizeHints,
         filteredDateHints,
         query,
+        customReferer || undefined,
       );
       const siteNorm = siteName.toLowerCase().replace(/[^a-z0-9]/g, '');
       detailCleaned = detailResults.filter((r) => {
