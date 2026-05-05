@@ -985,12 +985,13 @@
             ]
           },
           "health": {
-            "status": "green",
-            "status_detail": "healed",
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "status": "yellow",
+            "status_detail": "ok",
+            "last_checked_at": "2026-05-05T06:50:00.000Z",
             "magnets_found": 96,
             "sample_title": "FutileStruggles.Gianna.Loves.Test-Part.2.XXX.720p.WMV-hUSHhUSH[rarbg]",
-            "fail_streak": 0
+            "note": "Intermittent HTTP 500 on search; unstable via browser rendering",
+            "fail_streak": 1
           }
         },
         {
@@ -5847,6 +5848,7 @@
           "site": {
             "name": "thepiratebay.baby",
             "origin": "https://thepiratebay.baby",
+            "brand": "TPB",
             "countries": [
               "china"
             ]
@@ -5856,8 +5858,8 @@
             "supports_detail": true
           },
           "search": {
-            "request_template": "/search/{query}",
-            "timeout_ms": 8000,
+            "request_template": "/search/keywords:{query}/",
+            "timeout_ms": 10000,
             "retries": {
               "max_attempts": 2,
               "backoff_ms": 800
@@ -5879,7 +5881,8 @@
                 "size": "span.list-item.item-size",
                 "date": "span.list-item.item-uploaded"
               }
-            }
+            },
+            "requires_browser": true
           },
           "quality": {
             "score": 70,
@@ -5888,12 +5891,13 @@
             ]
           },
           "health": {
-            "status": "green",
-            "status_detail": "healed",
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
-            "magnets_found": 100,
-            "sample_title": "Hell P., Nesetril J. Graphs and Homomorphisms 2ed 2026",
-            "fail_streak": 0
+            "status": "gray",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-05T07:50:00.000Z",
+            "magnets_found": 0,
+            "sample_title": "",
+            "note": "CTPB custom clone SPA: renders trending content regardless of URL. Search requires client-side form interaction, unfixable with current spa_render flow.",
+            "fail_streak": 3
           }
         },
         {
@@ -8936,6 +8940,7 @@
           "site": {
             "name": "种子吧",
             "origin": "https://zzb01.top",
+            "brand": "种子吧",
             "aliases": [
               "zhongziba.cc",
               "seed8.org"
