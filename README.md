@@ -6,7 +6,7 @@
   <img src="app-icon.png" width="100" height="100" alt="Magnet Googo - Aggregated Magnet Search Engine for Android">
 </p>
 
-<h1 align="center">Magnet Googo — Aggregated Magnet Search</h1>
+<h1 align="center">Magnet Googo �?Aggregated Magnet Search</h1>
 
 <p align="center">
   <strong>Every Magnet Link. One Search.</strong><br>
@@ -35,7 +35,7 @@
 
 ## What is Magnet Googo?
 
-**Magnet Googo** is a free Android app that aggregates magnet link search results from dozens of sources across the web. Instead of visiting multiple torrent and magnet sites one by one, Magnet Googo searches them all simultaneously and presents unified results — movies, anime, games, music, software, and more.
+**Magnet Googo** is a free Android app that aggregates magnet link search results from dozens of sources across the web. Instead of visiting multiple torrent and magnet sites one by one, Magnet Googo searches them all simultaneously and presents unified results �?movies, anime, games, music, software, and more.
 
 ## 📱 Screenshots
 
@@ -45,30 +45,30 @@
   <img src="screenshot-results.png" width="240" alt="Magnet Googo Search Results - Aggregated Magnet Links">
 </p>
 
-## ✨ Key Features
+## �?Key Features
 
-- **🔍 Aggregated Magnet Search** — Search across 80+ magnet & torrent sources simultaneously
-- **⚡ Instant Results** — Progressive loading, first result in under a second
-- **🛡️ Ad-free & Clean** — No ads, no pop-ups, no tracking, no distractions
-- **🎨 Beautiful Design** — Modern minimalist UI with favorites, history, and dark mode
-- **🔄 Auto-updating Sources** — Cloud-synced source rules, always up-to-date, zero configuration
-- **🌍 Bilingual** — Full Chinese (中文) and English interface support
-- **📋 One-tap Copy** — Copy magnet links instantly, open in your favorite torrent client
-- **🔒 Privacy-first** — All searches performed locally, no personal data collected
+- **🔍 Aggregated Magnet Search** �?Search across 80+ magnet & torrent sources simultaneously
+- **�?Instant Results** �?Progressive loading, first result in under a second
+- **🛡�?Ad-free & Clean** �?No ads, no pop-ups, no tracking, no distractions
+- **🎨 Beautiful Design** �?Modern minimalist UI with favorites, history, and dark mode
+- **🔄 Auto-updating Sources** �?Cloud-synced source rules, always up-to-date, zero configuration
+- **🌍 Bilingual** �?Full Chinese (中文) and English interface support
+- **📋 One-tap Copy** �?Copy magnet links instantly, open in your favorite torrent client
+- **🔒 Privacy-first** �?All searches performed locally, no personal data collected
 
 ## 📥 Download
 
 | Channel | Link | Note |
 |---------|------|------|
 | **GitHub Releases** | [Download Latest APK](https://github.com/734496335/magnetgoogo/releases/latest) | Recommended |
-| **CDN Mirror** | [Fast Download (Global CDN)](https://api.naoshiquan.com/download/v0.1.8/MagGoogo-v0.1.8.apk) | Fast for all regions |
+| **CDN Mirror** | [Fast Download (Global CDN)](https://cn.magnetgoogo.com/download/magnetgoogo.apk) | Fast for all regions |
 | **Official Website** | [magnetgoogo.com](https://magnetgoogo.com) | With screenshots & info |
 
 > **Requirements**: Android 7.0+ (API 24)
 
 ## 🔒 Privacy & Security
 
-- All searches are performed locally on your device — no server-side query logging
+- All searches are performed locally on your device �?no server-side query logging
 - No personal data is collected, no analytics ID tied to your identity
 - No sensitive permissions required (no contacts, no camera, no location)
 - Favorites and history are stored on-device only
@@ -77,16 +77,16 @@
 
 | Feature | Magnet Googo | Single Magnet Site | Browser Search |
 |---------|:---:|:---:|:---:|
-| Search 80+ sources at once | ✅ | ❌ | ❌ |
-| No ads | ✅ | ❌ | ❌ |
-| One-tap magnet copy | ✅ | ⚠️ | ❌ |
-| Auto source updates | ✅ | N/A | N/A |
-| Works in China (no VPN) | ✅ | ⚠️ | ⚠️ |
-| Free forever | ✅ | ✅ | ✅ |
+| Search 80+ sources at once | �?| �?| �?|
+| No ads | �?| �?| �?|
+| One-tap magnet copy | �?| ⚠️ | �?|
+| Auto source updates | �?| N/A | N/A |
+| Works in China (no VPN) | �?| ⚠️ | ⚠️ |
+| Free forever | �?| �?| �?|
 
 ## 💬 Feedback & Issues
 
-Found a bug? Have a feature request? Open an [Issue](https://github.com/734496335/magnetgoogo/issues) — we read every one.
+Found a bug? Have a feature request? Open an [Issue](https://github.com/734496335/magnetgoogo/issues) �?we read every one.
 
 ## ⚠️ Disclaimer
 
