@@ -28,6 +28,7 @@
   <a href="https://magnetgoogo.com">官网</a> &nbsp;&middot;&nbsp;
   <a href="https://github.com/734496335/magnetgoogo/releases/latest">下载 APK</a> &nbsp;&middot;&nbsp;
   <a href="https://wwbdy.lanzoue.com/iE7DD3p2mjzc">蓝奏云下载</a> &nbsp;&middot;&nbsp;
+  <a href="https://naoshiquan.com/blog/">技术博客</a> &nbsp;&middot;&nbsp;
   <a href="https://github.com/734496335/magnetgoogo/issues">反馈</a>
 </p>
 
@@ -35,9 +36,15 @@
 
 ## 磁力古哥是什么？
 
-**磁力古哥 (Magnet Googo)** 是一款免费的 Android 磁力搜索聚合 App。它同时搜索全网 80+ 个磁力链接源，将电影、动漫、游戏、音乐、软件等资源的搜索结果统一展示。不用再逐个翻找磁力网站，一次搜索全部直达。
+**磁力古哥 (Magnet Googo)** 是一款免费的 Android 磁力搜索聚合 App。它同时搜索全网多个磁力链接源，把电影、动漫、游戏、软件、Linux 镜像、纪录片等资源统一展示。不用再逐个翻找磁力站，一次搜索全部直达。
 
 **核心优势：** 无广告、无弹窗、无需注册、不收集个人信息。
+
+> 百度或 Google 搜「磁力古哥」「magnetgoogo」即可找到。
+
+## 为什么做这个
+
+平时找 Linux ISO、纪录片、开源资源时，要在十几个磁力索引站之间来回切——有的今天打不开，有的搜不到，有的弹窗广告满天飞。所以做了一个聚合器：输入一次，多源直达，挂掉的源自动跳过。
 
 ## 应用截图
 
@@ -86,6 +93,15 @@
 ## 反馈与建议
 
 欢迎在 [Issues](https://github.com/734496335/magnetgoogo/issues) 中提交 Bug 报告或功能建议，每条我们都会看。
+
+## 相关阅读
+
+如果你对磁力搜索的原理、磁力站为何频繁失效、独立开发感兴趣，我在 [naoshiquan.com](https://naoshiquan.com/blog/) 写了一系列技术文章：
+
+- [2026 年最好用的 5 个磁力搜索工具](https://naoshiquan.com/blog/cili-search-tools-2026)
+- [磁力链接是什么？小白完全指南](https://naoshiquan.com/blog/what-is-magnet-link)
+- [磁力链接协议解析：从 BEP-9 到 DHT 网络](https://naoshiquan.com/blog/magnet-link-protocol-explained)
+- [磁力猫打不开了？2026 年还能用的替代方案](https://naoshiquan.com/blog/cilimao-not-working)
 
 ## 免责声明
 

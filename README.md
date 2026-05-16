@@ -28,6 +28,7 @@
 <p align="center">
   <a href="https://magnetgoogo.com">Official Website</a> &nbsp;&middot;&nbsp;
   <a href="https://github.com/734496335/magnetgoogo/releases/latest">Download APK</a> &nbsp;&middot;&nbsp;
+  <a href="https://naoshiquan.com/en/blog/">Tech Blog</a> &nbsp;&middot;&nbsp;
   <a href="https://github.com/734496335/magnetgoogo/issues">Feedback</a>
 </p>
 
@@ -35,9 +36,15 @@
 
 ## What is Magnet Googo?
 
-**Magnet Googo** is a free Android app that aggregates magnet link search results from dozens of sources across the web. Instead of visiting multiple torrent and magnet sites one by one, Magnet Googo searches them all simultaneously and presents unified results for movies, anime, games, music, software, and more.
+**Magnet Googo** is a free Android app that aggregates magnet link search results from multiple sources across the web. Instead of visiting magnet sites one by one (many of which go down every other week), Magnet Googo searches them all simultaneously and presents unified, ranked results.
 
 **Core advantage:** No ads, no pop-ups, no registration, no personal data collected.
+
+> Search "Magnet Googo" or "magnetgoogo" on Google/Baidu to find us.
+
+## Why I Built This
+
+Tired of finding Linux ISOs, public domain documentaries, and open-source resources by hopping between 10+ magnet sites — each with a different URL each week. Built an aggregator: type once, get results from everywhere, automatically skip dead sources.
 
 ## Screenshots
 
@@ -85,6 +92,14 @@
 ## Feedback
 
 Found a bug? Have a feature request? Open an [Issue](https://github.com/734496335/magnetgoogo/issues). We read every one.
+
+## Related Reading
+
+If you're interested in the technical side, I write about magnet protocol internals, BitTorrent DHT networks, and indie SEO at [naoshiquan.com](https://naoshiquan.com/en/blog/):
+
+- [Best Magnet Search Apps for Android 2026](https://naoshiquan.com/en/blog/best-magnet-apps-android-2026)
+- [Magnet protocol explained: BEP-9 to DHT](https://naoshiquan.com/blog/magnet-link-protocol-explained)
+- [Why Magnet sites go down (and solutions)](https://naoshiquan.com/blog/cilimao-not-working)
 
 ## Disclaimer
 
