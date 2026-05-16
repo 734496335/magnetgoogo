@@ -1,4 +1,468 @@
 ---
+日期/时间：2026-05-16 13:30（UTC+8）
+本次版本：browser-debug-v1
+本次范围：**K30S 真机调试 Browser 源 + Stealth 补丁 + 源降级**
+涉及模块：magnetgoogo-app/ (RN 客户端) / sources.json / mg-data / magnetgoogo-site
+关键改动摘要（可检索）：
+  - 修复 0cili.com 选择器 bug（`a[href^"magnet:"]` → `a[href^="magnet:"]`）→ 成功返回 8 个结果
+  - 降级 zyscj_btsow (BTSOW browser 重复) 为 gray
+  - VerifyWebView.tsx: buildInjectedJS(type) 动态生成注入 JS，SPA 类型等待 5-20s + 内容检测
+  - VerifyWebView.tsx: CloakBrowser 反指纹注入（navigator.webdriver、chrome API、plugins、canvas noise、permissions）
+  - VerifyWebView.tsx: MutationObserver DOM 稳定性检测替代文本长度检测
+  - 埋点数据分析确认：BT4G(0%)、BTSearch(0%)、0magnet.co(0%)、磁力天堂(0%) 全用户 0% 成功率
+  - 降级 4 个失败 browser 源为 yellow（基于 14 天埋点数据，109 设备、27840 事件）
+  - 发现 CDN 缓存问题：app 从 magnetgoogo.com(CF Pages) 获取旧 sources，需同步更新 mg-data + CN_ALI + CF Pages 三端
+  - 加密部署 sources.enc.json 到所有端点（mg-data GitHub + jsDelivr + 阿里云 + CF Pages）
+教训：
+  - sources.enc.json 部署需同步：mg-data repo + jsDelivr purge + 阿里云 scp + CF Pages wrangler deploy
+  - App 72h 磁盘缓存需手动清除才能验证新 sources
+  - Stealth 补丁对 Turnstile 交互式 CAPTCHA 无效，仅对 JS 挑战有用
+  - Browser 源在移动端整体不可行（Turnstile/WAF 拦截），应通过 health_check 自动巡检降级
+当前 sources.json 统计：240 rules, 115 green / 5 yellow / 120 gray
+---
+
+---
+日期/时间：2026-05-16 10:05（UTC+8）
+本次版本：cloak-verify-v1
+本次范围：**CloakBrowser 集成 — 反检测浏览器验证 yellow 源**
+涉及模块：magnet/ (Python 引擎)
+关键改动摘要：
+  - 新增 magnet/cloak_yellow_verify.py — CloakBrowser 驱动的 yellow 源深度验证工具
+  - CloakBrowser 绕过 CF Turnstile/Challenge，自动等待解决，支持 detail-follow
+  - 13 个 yellow 源全量测试，2 个升级 green，7 个降级 gray
+
+### 改动
+
+1. **新增 `magnet/cloak_yellow_verify.py`**
+   - 接受搜索关键词作为输入，验证 yellow 源的搜索+magnet 提取全流程
+   - 3 策略链：直接搜索URL → 交互搜索（填框+提交）→ CF后重试
+   - CF Challenge 自动等待（最多40s），处理导航跳转的 context destroyed
+   - detail-follow：搜索页无 magnet 时自动点进详情页提取
+   - `--update` 自动升级 sources.json 为 green
+   - `--origin` 过滤指定源，`--headless` 无头模式
+
+2. **验证结果**
+
+   | 类型 | 源 | 结果 |
+   |------|-----|------|
+   | **CF Turnstile** | clttone.top (磁力天堂) | ✅ green — interactive+detail, 2 magnets, 18 titles |
+   | **SPA search** | 0magnet.co (ØMagnet) | ✅ green — direct_url+detail, 2 magnets, 20 titles |
+   | **跳转页** ×6 | ilaowang06/soxiongmao/wuqianyx/bt1207yx/lemonzc/laowang.fun | → gray（"即将访问外部页面"提示，非搜索引擎）|
+   | **死链** | bitdao.me | → gray（重定向到 jetwonder.co 广告）|
+   | **thatcdn+captcha** ×4 | laowangzo/wuqianso/xiongmaogb/lemonun | 仍 yellow（自定义 /recaptcha/v4/challenge 阻断 magnet）|
+
+3. **sources.json 状态变更**
+   - green: 118 → **120** (+2: clttone.top, 0magnet.co)
+   - yellow: 13 → **4** (laowangzo, wuqianso, xiongmaogb, lemonun)
+   - gray: 109 → **116** (+7 跳转/死链)
+
+### 技术发现
+
+- CloakBrowser `navigator.webdriver=false` 有效，CF Challenge 可自动解决
+- thatcdn 平台的自定义 captcha (`/recaptcha/v4/challenge`) 是应用层防护，CloakBrowser 无法绕过
+- 剩余 4 个 yellow 源均为同一 thatcdn 平台，需要专门的 captcha solver 或用户协助验证
+
+---
+日期/时间：2026-05-15 22:00（UTC+8）
+本次版本：naoshiquan-launch-v1
+本次范围：**naoshiquan.com 独立合规站启动 + magnetgoogo 百度收录通道激活**
+涉及模块：naoshiquan-site/, magnetgoogo-site/scripts/
+
+### 改动
+
+1. **naoshiquan.com 域名解绑重建**
+   - 从 `magnetgoogo-site` Pages 项目解绑（避免备案风险）
+   - 新建独立 Pages 项目 `naoshiquan-site`，绑定 naoshiquan.com
+   - 定位：个人技术博主站（NSQ），通过深度技术内容做 SEO，自然引流到 magnetgoogo.com
+
+2. **naoshiquan-site 骨架完成**（13 个文件，27 个总文件）
+   - `+ index.html` 中文首页（含磁力古哥项目卡片 + 显眼 CTA 按钮）
+   - `+ about` 关于页（NSQ 个人介绍 + magnetgoogo 推荐）
+   - `+ blog/` 博客列表（5 篇标题已列）
+   - `+ blog/react-native-concurrent-search-engine` **第一篇深度博客**（13.6KB，~3000 字，7 个工程坑 + 代码）
+   - `+ tools/` 工具列表
+   - `+ tools/magnet-parser` **磁力链接解析器**（8.7KB，纯客户端 JS，含 BEP-9/BEP-53 知识科普）
+   - `+ projects/` + `+ projects/magnetgoogo` **磁力古哥开发故事**（12KB，~3000 字技术决策记录）
+   - `+ en/` 英文首页骨架
+   - `+ assets/style.css` + `+ assets/favicon.svg` 极简博客风格（暗色模式自适应）
+   - `+ sitemap.xml` 18 URLs，priority 分层
+   - `+ robots.txt` + `+ _headers`
+
+3. **magnetgoogo.com 百度收录通道激活**
+   - `+ magnetgoogo-site/scripts/generate-sitemap-baidu.js` 拆分 sitemap 为 6 片
+     - sitemap_core (6) / sitemap_alt_zh (51) / sitemap_alt_zh_var (103) / sitemap_blog_zh (5) / sitemap_guide (17) / sitemap_intl (665)
+   - `+ magnetgoogo-site/scripts/push-baidu.js` 普通收录 API 推送脚本
+     - 实测 magnetgoogo.com 当前配额 **10/天**（站长后台显示 0 是 sitemap 配额，API 配额独立）
+     - 今天 10 条配额全部命中（6 核心页 + 4 热门品牌替代页）
+   - `~ magnetgoogo-site/_headers` 增加 6 个 sitemap 文件的 Content-Type
+   - `~ magnetgoogo-site/robots.txt` 指向 sitemap_index.xml
+
+4. **CF Pages "Pretty URLs" 兼容性修复**
+   - CF 自动 308 把 `/about.html` → `/about`，会损失抓取预算
+   - 批量去除 9 个 HTML 文件 + sitemap.xml 中所有 `.html` 后缀
+   - canonical / hreflang / og:url / 内链全部对齐
+
+### 验证
+
+- naoshiquan.com 主域返回 200，所有页面访问正常
+- naoshiquan-site/scripts/push-baidu.js 待 token 申请后可用
+- magnetgoogo-site sitemap_index.xml 已部署，4 个 sitemap 分片均 200 OK
+
+### 战略意义
+
+- naoshiquan.com（已备案）→ 内容站，通过 SEO 做 magnetgoogo 的"信任传递桥"
+- magnetgoogo.com（未备案）→ App 落地页，承接来自 naoshiquan 的引流
+- 双站协同：备案站做 SEO 主战场（百度配额优势 10x），未备案站只承接转化
+
+### 待办
+
+- [ ] 申请 naoshiquan.com 在百度站长的推送 token，跑 push-baidu.js
+- [ ] Cloudflare Pages 绑定的 naoshiquan.com DNS 状态由"正在验证"转为"活动"后再次确认
+- [ ] 写剩余 4 篇中文博客（cloudflare-pages-multi-site / baidu-seo-from-zero / magnet-link-protocol / indie-dev-1000-users）
+- [ ] 英文版博客至少 2 篇
+- [ ] 西/日/韩/俄各 1 篇本地化首发
+- [ ] 增补 torrent-to-magnet / json-formatter / base64 工具页
+- [ ] 在 GSC / Bing Webmaster / Yandex 提交 naoshiquan.com sitemap
+
+---
+---
+日期/时间：2026-05-15 09:00（UTC+8）
+本次版本：compliance-mode-v2
+本次范围：**Green 版独立加密源文件 + APK 重构**
+涉及模块：secureSourceStore.ts, encrypt_sources_green.py, mg-data/, magnetgoogo-site/
+
+### 改动
+
+1. **独立加密源文件**（`sources-green.enc.json`）
+   - 5 个白名单源独立加密为 `sources-green.enc.json`（2.1 KB）
+   - 与全量 `sources.enc.json` 使用同一密钥、同一加密方式
+   - 已部署到 4 路 CDN：GitHub CDN / GitHub Raw / CF Pages / 阿里云
+
+2. **源获取路径切换**（`secureSourceStore.ts`）
+   - 合规模式下 `SOURCE_FILE = '/sources-green.enc.json'`
+   - 同一 `raceFetchOk()` 多路竞速策略，只是文件名不同
+   - 移除 SourceContext.tsx 中的客户端白名单过滤（不再需要）
+
+3. **加密脚本**（`encrypt_sources_green.py`）
+   - 从 `sources.json` 提取白名单 ID → 生成临时 JSON → 加密 → 部署
+   - 复用 `encrypt_sources.py` 的加密逻辑
+
+4. **APK 重新构建**
+   - `build-green/0.1.10-green.apk`（29.2 MB）使用独立源文件
+
+### 架构对比
+
+| 维度 | 正式版 | 合规版 (Green) |
+|---|---|---|
+| 源文件 | `sources.enc.json` (~200 源) | `sources-green.enc.json` (5 源) |
+| 加密 | AES-256-CBC + HMAC | 同 |
+| CDN 路径 | 4 路竞速 | 同（文件名不同） |
+| 过期机制 | 72h `source_expiry_hours` | 同 |
+| 强制更新 | `config.json min_version` | 同 |
+| UI | 全量搜索 | 搜索框提示 + 合规横幅 |
+| NSFW 过滤 | 无 | 标题关键词正则拦截 |
+
+---
+---
+日期/时间：2026-05-15 10:00（UTC+8）
+本次版本：compliance-mode-v1
+本次范围：**Google Play 合规版构建基础设施**
+涉及模块：magnetgoogo-app/src/core/complianceConfig.ts, SourceContext.tsx, i18n.ts, app/index.tsx, app/search.tsx
+
+### 改动
+
+1. **合规模式构建开关**（`src/core/complianceConfig.ts`）
+   - `COMPLIANCE_MODE` 布尔开关，Google Play 构建时翻为 `true`
+   - 白名单 5 源：animetosho / animetime / UIndex / CiliMo / 磁力口袋
+   - NSFW/盗版关键词正则过滤器（成人内容、JAV编号、赌博等）
+
+2. **源过滤**（`SourceContext.tsx`）
+   - `applyComplianceFilter()` 在加载 & 同步时仅保留白名单源
+
+3. **结果过滤**（`app/search.tsx`）
+   - 搜索结果标题经 `isBlockedContent()` 过滤后才入列表
+
+4. **首页合规横幅**（`app/index.tsx`）
+   - 搜索按钮下方卡片：绿色盾牌 + "合规精选版" + CTA 跳转官网
+   - Slogan 替换为"安心搜索"
+   - 搜索框提示替换为"搜索开源软件、学术资料、公共资源…"
+
+5. **i18n 10 语言**
+   - 新增 5 条 compliance 相关翻译字符串
+
+### 构建方法
+
+```
+# Google Play 合规版：complianceConfig.ts → COMPLIANCE_MODE = true → eas build
+# 完整版（官网/侧载）：COMPLIANCE_MODE = false（默认）
+```
+
+### 合规策略
+
+- **源层**：仅 5 个经审核的 GREEN 源（2 动漫 + 3 DHT API）
+- **结果层**：NSFW/盗版标题关键词正则拦截
+- **UI 层**：搜索框引导搜索"开源软件/学术资料"，CTA 引流到官网
+- **政策安全**：不说"下载完整版"，说"了解完整产品线"（规避 Google Play 侧载引导政策）
+
+---
+---
+日期/时间：2026-05-14 08:30（UTC+8）
+本次版本：analytics-cache-v1
+本次范围：**运营后台数据缓存优化**
+涉及模块：admin-server/server.js, admin_templates/dashboard.html, cf-gateway/src/index.js
+
+### 改动
+
+1. **增量拉取 + 本地累积缓存**（核心改动）
+   - admin-server 本地存储原始 batches（`cache/batches.json`）+ 处理后的聚合数据（`cache/analytics.json`）
+   - 每 20 分钟自动从 CF Gateway 增量拉取（仅拉取未有的新数据，`days=ceil(hoursSinceLastFetch/24)+1`）
+   - 新数据合并入本地，自动淘汰 30 天前的旧数据
+   - 冷启动首次拉取 14 天回填（`days=14`，约 2.5 分钟，一次性）
+   - 后续增量拉取仅需 `days=1`（约 1 秒）
+
+2. **CF Gateway 优化**（`cf-gateway/src/index.js`）
+   - KV 读取增加日期过滤（按 key 中的时间戳跳过超出 days 范围的条目，避免无效 `get()` 调用）
+   - 增加 subrequest 预算跟踪（上限 900），防止触发 Workers 1000 subrequest 限制
+   - 发现：R2 桶之前为空（数据在 KV 中），现已修复写入路径
+
+3. **Dashboard 前端**
+   - 拆分为两个按钮：「加载缓存」（读本地缓存，毫秒级）+「🔄 拉取最新」（POST 强制刷新）
+   - 显示缓存时间、年龄、本地 batch 总数
+
+### 性能对比
+
+| 场景 | 之前 | 之后 |
+|------|------|------|
+| 打开后台 | ~150s（每次全量从 R2 拉取） | **13ms**（读本地缓存） |
+| 手动刷新 | ~150s | **1-38s**（增量，仅拉新数据） |
+| 自动刷新 | 无 | 每 20 分钟后台静默刷新 |
+
+### 数据流
+
+```
+App → CF Gateway POST → R2 存储
+                          ↓
+阿里云 admin-server 每20min增量拉取 → 本地 cache/batches.json
+                                        ↓
+Dashboard GET /api/events/analytics → 读内存缓存（13ms）
+Dashboard POST /api/events/refresh  → 立即增量拉取 → 更新缓存
+```
+
+---
+---
+日期/时间：2026-05-13 17:45（UTC+8）
+本次版本：release-guide-v2
+本次范围：**下载链接架构重构 + 统一发版指南**
+涉及模块：magnetgoogo-site (全站 HTML), docs/project-nebula/RELEASE-CHECKLIST.md, APP-SIGNING.md
+
+### 改动
+
+1. **下载链接稳定化**（核心改动）
+   - 全站 800+ HTML 的 APK 下载按钮统一为固定链接 `cn.magnetgoogo.com/download/magnetgoogo.apk`
+   - 旧 alt/guide 页面备用按钮从蓝奏云（易变）改为 `github.com/.../releases/latest`（永久最新）
+   - 带版本号的 URL `api.naoshiquan.com/download/v{VER}/...` 全部移除（153 文件）
+   - **效果**：发版只需更新 ~10 个文件，800+ SEO 页面零改动
+
+2. **统一发版指南** `RELEASE-CHECKLIST.md`
+   - 整合 APP-SIGNING.md 发版流程 + APP-CHANGELOG.md 打包清单 + 旧 RELEASE-CHECKLIST.md
+   - 包含：下载链接架构图、版本号位置索引（源码 3 处 + config 1 处 + 官网 10 处 + GitHub 2 处）
+   - 包含：10 步发版流程、PowerShell 批量更新脚本、验证清单
+   - 包含：App 内更新机制（configChecker.ts 6 端点竞速）
+   - APP-SIGNING.md 发版部分精简，指向本文档
+
+### 链接架构
+
+| 类型 | 链接 | 发版改否 |
+|------|------|:---:|
+| 稳定 | `cn.magnetgoogo.com/download/magnetgoogo.apk` | 否（覆盖文件） |
+| 稳定 | `github.com/.../releases/latest` | 否（自动最新） |
+| 易变 | 蓝奏云链接（仅 index.html） | 是 |
+| 易变 | JSON-LD softwareVersion（10 个首页） | 是 |
+
+---
+日期/时间：2026-05-13 17:30（UTC+8）
+本次版本：hotfix-site-download
+本次范围：**官网下载链接版本修复 + 发版检查清单建立**
+涉及模块：magnetgoogo-site (全站 HTML), docs/project-nebula/RELEASE-CHECKLIST.md
+
+### 问题
+
+- **严重**：官网 magnetgoogo.com 下载按钮仍指向 v0.1.8 APK，最新版本已是 v0.1.10
+- **严重**：蓝奏云备用下载链接未更新（旧：iFHEh3oomsjg → 新：ighZS3pb0h0h）
+- **影响**：~150+ HTML 文件（首页、9 语言落地页、alt 替代页、guide 教程页）
+
+### 修复
+
+1. **全站批量替换**（PowerShell）
+   - `v0.1.8` → `v0.1.10`（APK URL 3 处/页 + JSON-LD softwareVersion）
+   - `iFHEh3oomsjg` → `ighZS3pb0h0h`（蓝奏云链接 ID）
+   - 验证：旧版本引用 0 处，新版本引用 422 处 ✅
+
+2. **部署**
+   - Cloudflare Pages: `wrangler pages deploy` ✅
+   - 阿里云镜像: `scp` 全站更新 ✅
+
+3. **建立发版检查清单** → `docs/project-nebula/RELEASE-CHECKLIST.md`
+   - 覆盖所有需更新的版本号位置
+   - 含批量替换命令模板
+   - 含长期改进建议（版本号模板化、CI 自动化）
+
+### 教训
+
+> **每次发版 APK 后必须同步更新官网下载链接**。已建立 RELEASE-CHECKLIST.md 防止复发。
+
+---
+日期/时间：2026-05-12 17:00（UTC+8）
+本次版本：v0.1.10
+本次范围：**搜索调试报告仅 DEV 模式 + 强制更新**
+涉及模块：magnetgoogo-app/app/settings.tsx, app.json, package.json, android/app/build.gradle, config.json
+
+### 改动
+
+1. **搜索调试报告入口隐藏**
+   - `settings.tsx` 中"搜索调试报告"入口用 `__DEV__` 守卫包裹
+   - 正式版 APK 不再显示该入口，仅开发调试时可见
+
+2. **版本升级 v0.1.10**
+   - `app.json` version → `0.1.10`
+   - `package.json` version → `0.1.10`
+   - `build.gradle` versionCode 6→7, versionName → `0.1.10`
+
+3. **强制更新推送**
+   - `config.json` min_version → `0.1.10`（所有 <0.1.10 用户强制更新）
+   - 已部署到：Cloudflare Pages、mg-data GitHub、阿里云 APK
+
+### 分发
+
+- ✅ APK 构建并上传阿里云 `cn.magnetgoogo.com/download/magnetgoogo.apk`
+- ✅ config.json 部署到 Cloudflare Pages
+- ✅ mg-data GitHub 推送完成
+- ⏳ 蓝奏云需手动上传
+
+---
+日期/时间：2026-05-07 20:15（UTC+8）
+本次版本：v0.7.4
+本次范围：**用户地域分析 — CF Gateway GeoIP + 运营后台用户明细**
+涉及模块：cf-gateway/src/index.js, admin-server/server.js, admin_templates/dashboard.html, magnetgoogo-site/privacy.html
+
+### 改动
+
+1. **CF Gateway 城市级地理位置采集**
+   - 利用 Cloudflare Workers `request.cf` 对象提取 city/region/timezone
+   - 无需外部 GeoIP 库，零成本，内置 Cloudflare 网络
+   - 事件批次新增字段：`city`, `region`, `timezone`
+   - R2 customMetadata 同步增加 city/region
+
+2. **Admin Server 分析增强**
+   - `/api/events/analytics` 新增输出：
+     - `devices[]`: 每台设备明细（设备ID、城市、省份、国家、版本、系统、搜索/复制/打开次数、总事件数）
+     - `cityDist[]`: 城市级用户分布（TOP 50）
+     - `daily[].newDevices`: 每日新增设备数（基于首次出现日期）
+
+3. **运营后台新面板**
+   - 用户明细表：设备ID、位置、版本、系统、最后活跃、搜索/复制/打开/总事件，支持搜索过滤
+   - 地域分布：城市级环形图 + 排名列表（退化到国家级兼容旧数据）
+   - DAU 趋势图增加"新用户"曲线
+   - 最近事件流增加城市显示
+
+4. **隐私政策更新**
+   - 中英文版本增加"匿名地域信息（仅城市级别，不含精确位置或 IP 地址）"声明
+   - **设计原则**：服务端仅存储 Cloudflare 解析后的城市名，不存储原始 IP
+
+### 部署步骤
+1. `npx wrangler deploy`（cf-gateway — 新字段生效）
+2. 重启 admin-server（本地或服务器）
+3. 重新部署隐私政策页面到 Cloudflare Pages
+
+### 待办
+- [ ] 部署 cf-gateway 后，新事件将携带 city/region 数据
+- [ ] 旧事件无 city 字段，城市图表会渐进填充
+
+---
+---
+日期/时间：2026-05-05 16:15（UTC+8）
+本次版本：v0.7.3 / App v0.1.8
+本次范围：**搜索性能优化 — 1337x 过滤、品牌去重补全、黑名单 TTL、生产构建**
+涉及模块：brandDedup.ts, searchEngine.ts, VerifyManager.ts, babel.config.js, sources.json
+
+### 改动
+
+1. **1337x 相关性预过滤**
+   - `fetch1337x` 增加 `≥min(2, N)` 词匹配过滤
+   - 1337x 无结果时返回 trending 内容（全是 XXX），现在正确过滤
+   - 单词查询如 "sdde" 仅需 ≥1 匹配，多词查询需 ≥2
+
+2. **品牌去重域名模式补全**
+   - `DOMAIN_BRAND_PATTERNS` 新增：种子吧(zzb)、磁力宝(clb)、磁力猫(clm)、SOBT、磁力狗(clg)、磁力帝(cld)
+   - 修复 zzb01.top 未被归入"种子吧"品牌的漏洞
+
+3. **VerifyManager 运行时崩溃修复**
+   - `_sessionBlacklist` 从 `Set` 改为 `Map<string, number>` 后，`_startTimer()` 中遗留 `.add()` 调用（Map 无此方法）→ TypeError 崩溃
+   - 崩溃导致：WebView 队列阻塞 → 搜索永不结束 → 报告不打印
+   - 修复：`.add()` → `.set(origin, Date.now())`
+
+4. **黑名单 TTL（10 分钟）**
+   - `isBlacklisted()` 检查时间戳，过期自动清除并重试
+   - 所有 `requestVerification` / `_emitNext` 调用均走 TTL 逻辑
+
+5. **生产构建去日志**
+   - 新增 `babel.config.js` + `babel-plugin-transform-remove-console`
+   - Release 构建自动移除 `console.log`，保留 `console.error` / `console.warn`
+   - Debug 构建保持全部日志
+
+6. **sources.json 更新**
+   - thepiratebay.baby → gray（CTPB SPA 无法通过 URL 触发搜索）
+   - 0magnet.co → yellow（HTTP 500 不稳定）
+   - zzb01.top + thepiratebay.baby 补 brand 字段
+
+### 产物
+- `magnetgoogo-v0.1.8.apk` — 正式版（29.2 MB，无 console.log）
+- `magnetgoogo-v0.1.8-debug.apk` — 调试版（58.7 MB，含完整日志）
+
+### 验证
+- 1337x: sdde(20/20通过)、huntc(0行直接空)、042326 001(0/20拦截)、奇幻变身大冒险(0/20拦截) ✅
+- 搜索报告恢复打印 ✅
+- 品牌去重域名模式生效（种子吧 zzb01 被正确归组）✅
+
+---
+日期/时间：2026-05-05 11:15（UTC+8）
+本次版本：v0.7.2
+本次范围：**运行时品牌去重 + JavBus 超时修复 + 搜索调试改进**
+涉及模块：brandDedup.ts, search.tsx, searchEngine.ts, sources.json
+
+### 改动
+
+1. **运行时品牌去重 (BrandTracker)**
+   - 新增 `src/core/brandDedup.ts`：运行时跟踪每品牌成功响应数
+   - 当同品牌已有 2 个镜像成功返回结果后，跳过剩余镜像
+   - 失败/空结果不计入，自动回退到其他镜像（适配不同网络环境）
+   - 域名模式推断：TPB (22个)、YTS、MagnetDL、Rutor、52BT、BTSOW 等
+   - 搜索流程集成：search.tsx 创建 BrandTracker 实例，搜索循环中 shouldSkip/recordSuccess
+
+2. **JavBus 63s 超时修复**
+   - fetchJavBus 4 步流程（首页→年龄验证→搜索→详情页 AJAX）无超时控制
+   - 新增 15s AbortController，signal 传递给全部 fetch 调用
+   - 超时后 abort 整个链路，不再卡死 63 秒
+
+3. **TPB.baby 降级**
+   - thepiratebay.baby 搜索返回热门/推荐内容而非搜索结果
+   - sources.json 降级为 `yellow/parsing_failed`，不再参与搜索
+
+4. **Blacklist 调试改进**
+   - searchEngine.ts：blacklisted 源改为 throw `__blacklisted__` 错误
+   - search.tsx：catch 中识别 blacklisted 错误，debug report 记为 `skipped` + 原因说明
+   - cld140.buzz 等 0ms 跳过源将在下次报告中显示为 `skipped(blacklisted)` 而非 `empty`
+
+### 分析发现（来自 debug-reports-2026-05-05.md）
+
+- 92 个源中 22 个 TPB 镜像返回相同数据，品牌去重可减少 ~20 个冗余请求
+- 10+ GFW 封锁源每次固定 10s 超时（BTDigg/BitSearch/nyaa 等），暂不处理（海外可用）
+- JavBus 是番号搜索核心源但 63s 全卡死，修复后上限 15s
+- BTSOW、pirateproxylive、CiliMo、UIndex、阿狸搜为最高性价比源
+
+---
+
+---
 日期/时间：2026-05-04 19:10（UTC+8）
 本次版本：v0.7.1
 本次范围：**灰色源批量复活 + 新镜像发现 + 选择器修复**

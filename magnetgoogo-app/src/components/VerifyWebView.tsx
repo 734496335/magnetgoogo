@@ -1,21 +1,15 @@
 /**
- * VerifyWebView — Modal WebView for solving challenges.
+ * VerifyWebView — 3-tier verification WebView.
  *
- * Equivalent to Legado's WebViewActivity:
- *   - Loads the challenge URL in a real WebView (system browser engine)
- *   - User sees and interacts with CF Turnstile / CAPTCHA / etc.
- *   - After challenge solved, injectedJS extracts:
- *     a) All cookies via document.cookie
- *     b) Rendered page HTML via document.documentElement.outerHTML
- *   - Sends result back via VerifyManager.submitResult()
+ * Silent mode (Tier 1):
+ *   WebView renders off-screen. If CF JS challenge auto-resolves within
+ *   SILENT_TIMEOUT, cookies are extracted silently — user sees nothing.
  *
- * For SPA rendering:
- *   - Loads the search URL, waits for JS to render
- *   - Extracts the rendered HTML for cheerio parsing
+ * Interactive mode (Tier 2):
+ *   If silent doesn't resolve in time, the WebView escalates to a
+ *   full-screen overlay so the user can manually complete CAPTCHA/Turnstile.
  *
- * CF detection (same as Legado):
- *   - Checks window._cf_chl_opt to detect active Cloudflare challenge
- *   - When challenge disappears, extraction is triggered
+ * Uses a View (not Modal) so the WebView stays mounted during escalation.
  */
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
@@ -23,9 +17,7 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Modal,
   ActivityIndicator,
-  Dimensions,
 } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,16 +27,155 @@ import {
   type VerifyResult,
 } from '../core/VerifyManager';
 
-// ── JS injected into WebView ──────────────────────────────────────────
-// Runs after every page load. Polls for challenge completion.
-const INJECTED_JS = `
+const SILENT_TIMEOUT = 10_000; // 10s before escalating to interactive
+const HTTP_403_MAX = 2; // auto-cancel after N consecutive 403s
+
+// ── JS injected BEFORE page loads (stealth + viewport + CSS fix) ─────
+const INJECTED_BEFORE = `
 (function() {
-  // Already injected?
+  // ── CloakBrowser stealth patches ──
+  // 1. Remove WebView/automation markers
+  Object.defineProperty(navigator, 'webdriver', { get: function() { return undefined; } });
+  // Delete __webview_is_active if set by system WebView
+  try { delete window.__webview_is_active; } catch(e) {}
+
+  // 2. Fake chrome API (Turnstile checks window.chrome)
+  if (!window.chrome) {
+    window.chrome = {
+      runtime: { connect: function(){}, sendMessage: function(){} },
+      app: { isInstalled: false, getIsInstalled: function(){ return false; } },
+    };
+  }
+
+  // 3. Fake plugins (empty in WebView = bot signal)
+  if (navigator.plugins.length === 0) {
+    Object.defineProperty(navigator, 'plugins', {
+      get: function() {
+        return [
+          { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format', length: 1 },
+          { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '', length: 1 },
+          { name: 'Native Client', filename: 'internal-nacl-plugin', description: '', length: 2 },
+        ];
+      }
+    });
+  }
+
+  // 4. Fake languages (some WebViews expose empty)
+  if (!navigator.languages || navigator.languages.length === 0) {
+    Object.defineProperty(navigator, 'languages', { get: function() { return ['zh-CN', 'zh', 'en-US', 'en']; } });
+  }
+
+  // 5. Canvas fingerprint noise (add imperceptible pixel noise)
+  var origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+  HTMLCanvasElement.prototype.toDataURL = function(type) {
+    var ctx = this.getContext('2d');
+    if (ctx && this.width > 0 && this.height > 0) {
+      try {
+        var imgData = ctx.getImageData(0, 0, 1, 1);
+        imgData.data[0] = imgData.data[0] ^ 1;
+        ctx.putImageData(imgData, 0, 0);
+      } catch(e) {}
+    }
+    return origToDataURL.apply(this, arguments);
+  };
+
+  // 6. Permissions API (Turnstile probes this)
+  if (navigator.permissions) {
+    var origQuery = navigator.permissions.query;
+    navigator.permissions.query = function(params) {
+      if (params && params.name === 'notifications') {
+        return Promise.resolve({ state: 'prompt', onchange: null });
+      }
+      return origQuery.apply(this, arguments);
+    };
+  }
+
+  // ── Viewport fix ──
+  // Remove any existing viewport meta to prevent conflicts
+  var existing = document.querySelectorAll('meta[name="viewport"]');
+  for (var i = 0; i < existing.length; i++) existing[i].remove();
+
+  // Inject mobile-friendly viewport
+  var meta = document.createElement('meta');
+  meta.name = 'viewport';
+  meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes';
+  document.head.appendChild(meta);
+
+  // Inject aggressive CSS to fix oversized desktop pages:
+  var style = document.createElement('style');
+  style.textContent =
+    /* Force everything to mobile viewport width */
+    '*, *::before, *::after { max-width: 100vw !important; box-sizing: border-box !important; }\n' +
+    'html, body { width: 100% !important; max-width: 100vw !important; overflow-x: hidden !important; ' +
+    '  min-width: 0 !important; margin: 0 !important; padding: 8px !important; }\n' +
+    /* Kill fixed-width inline styles */
+    '[style*="width"] { max-width: 100% !important; min-width: 0 !important; }\n' +
+    /* Hide common desktop clutter: navbars, sidebars, footers, headers */
+    'nav, header, footer, aside, .sidebar, .nav, .navbar, .header, .footer, ' +
+    '.menu, .advertisement, .ad, [class*="sidebar"], [class*="footer"], ' +
+    '[class*="header"]:not([class*="challenge"]):not([class*="captcha"]) ' +
+    '{ display: none !important; }\n' +
+    /* Center and size challenge containers */
+    '#cf-wrapper, .cf-browser-verification, .challenge-running, .main-wrapper, ' +
+    '.challenge-form, #turnstile-wrapper, [class*="challenge"], ' +
+    '.h-captcha, .g-recaptcha, [class*="captcha"], [class*="recaptcha"], ' +
+    '#cf-hcaptcha-container, .cf-turnstile, #challenge-stage, ' +
+    '#challenge-body-text, .spacer, .core-msg { ' +
+    '  display: flex !important; flex-direction: column !important; ' +
+    '  align-items: center !important; justify-content: center !important; ' +
+    '  width: 100% !important; max-width: 100vw !important; ' +
+    '  margin: 0 auto !important; padding: 12px !important; ' +
+    '  position: relative !important; left: 0 !important; transform: none !important; }\n' +
+    /* Ensure iframes fit */
+    'iframe { max-width: 100% !important; width: 100% !important; min-width: 0 !important; }\n' +
+    /* Tables and oversized containers */
+    'table, div, section, main, article { max-width: 100% !important; min-width: 0 !important; }\n' +
+    /* Prevent horizontal scroll from padding/margin */
+    '.container, .wrapper, .content, .page, #content, #main, #wrapper ' +
+    '{ width: 100% !important; max-width: 100% !important; padding: 0 8px !important; margin: 0 !important; }\n';
+  document.head.appendChild(style);
+
+  // After DOM ready, scroll the challenge widget into view
+  function scrollChallengeIntoView() {
+    var selectors = [
+      'iframe[src*="challenges.cloudflare"]',
+      '.cf-turnstile', '.h-captcha', '.g-recaptcha',
+      '[class*="captcha"]', '#challenge-form',
+      '#turnstile-wrapper', '.challenge-running',
+    ];
+    for (var i = 0; i < selectors.length; i++) {
+      var el = document.querySelector(selectors[i]);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+    }
+  }
+  // Try scrolling at multiple intervals since challenge may load async
+  setTimeout(scrollChallengeIntoView, 1000);
+  setTimeout(scrollChallengeIntoView, 2500);
+  setTimeout(scrollChallengeIntoView, 5000);
+})();
+true;
+`;
+
+// ── JS injected into WebView (generated per request type) ────────────
+function buildInjectedJS(type: string): string {
+  const isSPA = type === 'spa_render';
+  // SPA: wait at least 5s, check for actual search results
+  // Challenge: wait for CF/captcha to resolve, then extract immediately
+  const MIN_SPA_WAIT = 5000;
+  const SPA_MAX_WAIT = 20000; // 20s max for SPA rendering
+  const CHALLENGE_MAX_WAIT = 120000;
+  return `
+(function() {
   if (window.__VERIFY_INJECTED__) return;
   window.__VERIFY_INJECTED__ = true;
 
   var CHECK_INTERVAL = 800;
-  var MAX_WAIT = 120000;
+  var IS_SPA = ${isSPA};
+  var MAX_WAIT = IS_SPA ? ${SPA_MAX_WAIT} : ${CHALLENGE_MAX_WAIT};
+  var MIN_WAIT = IS_SPA ? ${MIN_SPA_WAIT} : 0;
   var startTime = Date.now();
   var sent = false;
 
@@ -62,65 +193,107 @@ const INJECTED_JS = `
     }));
   }
 
+  // DOM stability tracking via MutationObserver (CloakBrowser approach)
+  var lastMutationTime = Date.now();
+  var mutationCount = 0;
+  var DOM_STABLE_MS = 1500; // consider stable after 1.5s without mutations
+  try {
+    var observer = new MutationObserver(function(mutations) {
+      lastMutationTime = Date.now();
+      mutationCount += mutations.length;
+    });
+    observer.observe(document.documentElement, {
+      childList: true, subtree: true, attributes: false
+    });
+  } catch(e) {}
+
+  function hasSPAContent() {
+    // Instant success: magnet links found
+    var links = document.querySelectorAll('a[href*="magnet:"]');
+    if (links.length > 0) return true;
+
+    // DOM must be stable (no mutations for DOM_STABLE_MS)
+    var sinceLastMutation = Date.now() - lastMutationTime;
+    if (sinceLastMutation < DOM_STABLE_MS && mutationCount < 500) return false;
+
+    // After DOM is stable, check for actual content
+    var allLinks = document.querySelectorAll('a[href]');
+    var body = document.body;
+    var text = (body && body.innerText) || '';
+    // Substantial content: many links + text, or just a lot of text
+    if (allLinks.length > 10 && text.length > 300) return true;
+    if (text.length > 1000) return true;
+    return false;
+  }
+
   function checkChallenge() {
     if (sent) return;
-    if (Date.now() - startTime > MAX_WAIT) {
+    var elapsed = Date.now() - startTime;
+    if (elapsed > MAX_WAIT) {
       extractAndSend();
       return;
     }
 
-    // CF challenge detection (same as Legado: !!window._cf_chl_opt)
+    // Always wait minimum time for SPA
+    if (IS_SPA && elapsed < MIN_WAIT) {
+      setTimeout(checkChallenge, CHECK_INTERVAL);
+      return;
+    }
+
     var hasCF = !!window._cf_chl_opt;
     var hasTurnstile = !!document.querySelector('iframe[src*="challenges.cloudflare"]');
     var hasJSChallenge = document.title === 'Just a moment...' ||
                          !!document.querySelector('#cf-browser-verification');
 
     if (hasCF || hasTurnstile || hasJSChallenge) {
-      // Challenge still active — keep waiting
       setTimeout(checkChallenge, CHECK_INTERVAL);
       return;
     }
 
-    // DDoS-Guard check
     if (document.body && document.body.innerHTML.includes('DDoS-Guard')) {
       setTimeout(checkChallenge, CHECK_INTERVAL);
       return;
     }
 
-    // CAPTCHA check (user must solve manually)
     var hasCaptcha = !!document.querySelector('[class*="captcha"], [id*="captcha"], .g-recaptcha, .h-captcha');
     if (hasCaptcha) {
       setTimeout(checkChallenge, CHECK_INTERVAL);
       return;
     }
 
-    // SPA rendering check: wait for meaningful content
+    // SPA mode: wait for actual rendered content
+    if (IS_SPA) {
+      if (hasSPAContent()) {
+        extractAndSend();
+      } else {
+        setTimeout(checkChallenge, CHECK_INTERVAL);
+      }
+      return;
+    }
+
+    // Challenge mode: check for basic content
     var body = document.body;
     if (body) {
       var text = body.innerText || '';
       var links = document.querySelectorAll('a[href*="magnet:"]');
       var hasContent = text.length > 200 || links.length > 0;
-      // For SPA: if body is mostly empty scripts, wait
       if (!hasContent && text.length < 100) {
-        if (Date.now() - startTime < 10000) {
+        if (elapsed < 10000) {
           setTimeout(checkChallenge, CHECK_INTERVAL);
           return;
         }
       }
     }
 
-    // No active challenge detected — extract
     extractAndSend();
   }
 
-  // Start polling after a short delay (let page init)
-  setTimeout(checkChallenge, 1500);
-
-  // Also listen for manual "done" button press
+  setTimeout(checkChallenge, IS_SPA ? 2000 : 1500);
   window.__VERIFY_FORCE_EXTRACT__ = extractAndSend;
 })();
 true;
 `;
+}
 
 // ── Component ─────────────────────────────────────────────────────────
 
@@ -135,8 +308,12 @@ export default function VerifyWebView({ request, onDismiss }: Props) {
   const [loading, setLoading] = useState(true);
   const [currentUrl, setCurrentUrl] = useState('');
   const [statusText, setStatusText] = useState('');
+  const [silent, setSilent] = useState(true);
+  const escalateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const httpErrorCount = useRef(0);
+  const requestRef = useRef(request);
+  requestRef.current = request;
 
-  // Type-specific labels
   const typeLabels: Record<string, string> = {
     cloudflare: '☁️ Cloudflare 验证',
     cloudflare_block: '🛡️ Cloudflare 拦截',
@@ -145,45 +322,77 @@ export default function VerifyWebView({ request, onDismiss }: Props) {
     spa_render: '⏳ 页面渲染中...',
   };
 
+  // Reset state and start silent timer when a new request arrives
   useEffect(() => {
     if (request) {
+      setSilent(true);
       setLoading(true);
+      httpErrorCount.current = 0;
       setCurrentUrl(request.url);
       setStatusText(
         request.type === 'spa_render'
           ? '正在渲染页面，请稍候...'
           : '请在下方完成验证，完成后将自动继续搜索'
       );
+      console.log(`[VerifyWebView] Starting silent verification for ${request.siteName}`);
+
+      // Start escalation timer
+      if (escalateTimer.current) clearTimeout(escalateTimer.current);
+      escalateTimer.current = setTimeout(() => {
+        if (requestRef.current) {
+          console.log(`[VerifyWebView] Silent timeout → escalating to interactive for ${requestRef.current.siteName}`);
+          setSilent(false);
+        }
+      }, SILENT_TIMEOUT);
     }
+    return () => {
+      if (escalateTimer.current) {
+        clearTimeout(escalateTimer.current);
+        escalateTimer.current = null;
+      }
+    };
   }, [request]);
 
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
-      if (!request) return;
+      const req = requestRef.current;
+      if (!req) return;
       try {
         const data = JSON.parse(event.nativeEvent.data);
         if (data.type === 'verify_result') {
+          // Clear escalation timer
+          if (escalateTimer.current) {
+            clearTimeout(escalateTimer.current);
+            escalateTimer.current = null;
+          }
+          const wasSilent = silent;
           const result: VerifyResult = {
             success: true,
             cookies: data.cookies || '',
             html: data.html || '',
           };
-          VerifyManager.submitResult(request.id, result, request.origin);
+          console.log(`[VerifyWebView] Verification complete for ${req.siteName} (silent=${wasSilent})`);
+          VerifyManager.submitResult(req.id, result, req.origin, wasSilent);
           onDismiss();
         }
       } catch {
         // Ignore non-JSON messages
       }
     },
-    [request, onDismiss],
+    [silent, onDismiss],
   );
 
   const handleCancel = useCallback(() => {
-    if (request) {
-      VerifyManager.cancel(request.id);
+    if (escalateTimer.current) {
+      clearTimeout(escalateTimer.current);
+      escalateTimer.current = null;
+    }
+    const req = requestRef.current;
+    if (req) {
+      VerifyManager.cancel(req.id, req.origin);
     }
     onDismiss();
-  }, [request, onDismiss]);
+  }, [onDismiss]);
 
   const handleForceExtract = useCallback(() => {
     webViewRef.current?.injectJavaScript(
@@ -196,40 +405,42 @@ export default function VerifyWebView({ request, onDismiss }: Props) {
     const code = nativeEvent?.code ?? nativeEvent?.errorCode ?? 0;
     const desc = nativeEvent?.description || nativeEvent?.error || '';
     console.log(`[VerifyWebView] Load error: code=${code} desc=${desc}`);
-    // Network-level failures (GFW block, DNS, timeout) — auto-dismiss
-    // Error codes: -6 = ERR_CONNECTION_ABORTED, -2 = ERR_NAME_NOT_RESOLVED,
-    // -7 = ERR_TIMED_OUT, -8 = ERR_CONNECTION_TIMED_OUT, -109 = ERR_ADDRESS_UNREACHABLE
     const fatal = code < 0 || /abort|refused|reset|timeout|unreachable|not_resolved/i.test(desc);
-    if (fatal && request) {
-      setStatusText(desc.includes('ABORT') || desc.includes('REFUSED')
-        ? '该站点无法访问（可能被网络封锁）'
-        : `加载失败: ${desc.slice(0, 60)}`);
-      // Auto-cancel after 2s so user sees the message
-      setTimeout(() => {
-        if (request) {
-          VerifyManager.cancel(request.id);
-          onDismiss();
+    if (fatal) {
+      if (escalateTimer.current) {
+        clearTimeout(escalateTimer.current);
+        escalateTimer.current = null;
+      }
+      const req = requestRef.current;
+      if (req) {
+        if (!silent) {
+          setStatusText(desc.includes('ABORT') || desc.includes('REFUSED')
+            ? '该站点无法访问（可能被网络封锁）'
+            : `加载失败: ${desc.slice(0, 60)}`);
         }
-      }, 2000);
+        setTimeout(() => {
+          VerifyManager.cancel(req.id, req.origin);
+          onDismiss();
+        }, silent ? 0 : 2000);
+      }
     }
-  }, [request, onDismiss]);
+  }, [silent, onDismiss]);
 
   if (!request) return null;
 
+  // Silent mode: render WebView off-screen (invisible to user)
+  // Interactive mode: render as full-screen overlay
   return (
-    <Modal
-      visible={!!request}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={handleCancel}
+    <View
+      style={silent ? styles.silentContainer : [styles.interactiveContainer, { paddingTop: insets.top }]}
+      pointerEvents={silent ? 'none' : 'auto'}
     >
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        {/* Header bar */}
+      {/* Header — only in interactive mode */}
+      {!silent && (
         <View style={styles.header}>
           <TouchableOpacity onPress={handleCancel} style={styles.headerBtn}>
             <Text style={styles.cancelText}>✕ 取消</Text>
           </TouchableOpacity>
-
           <View style={styles.headerCenter}>
             <Text style={styles.siteLabel} numberOfLines={1}>
               {request.siteName}
@@ -238,61 +449,109 @@ export default function VerifyWebView({ request, onDismiss }: Props) {
               {typeLabels[request.type] || '验证'}
             </Text>
           </View>
-
           <TouchableOpacity onPress={handleForceExtract} style={styles.headerBtn}>
             <Text style={styles.doneText}>完成 ✓</Text>
           </TouchableOpacity>
         </View>
+      )}
 
-        {/* Status bar */}
+      {/* Status bar — only in interactive mode */}
+      {!silent && (
         <View style={styles.statusBar}>
           {loading && <ActivityIndicator size="small" color="#4285F4" />}
           <Text style={styles.statusText} numberOfLines={1}>
             {statusText}
           </Text>
         </View>
+      )}
 
-        {/* WebView */}
-        <WebView
-          ref={webViewRef}
-          source={{ uri: request.url }}
-          style={styles.webview}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          thirdPartyCookiesEnabled={true}
-          sharedCookiesEnabled={true}
-          userAgent="Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
-          injectedJavaScript={INJECTED_JS}
-          onMessage={handleMessage}
-          onLoadStart={() => setLoading(true)}
-          onLoadEnd={() => setLoading(false)}
-          onNavigationStateChange={(nav) => {
-            setCurrentUrl(nav.url);
-          }}
-          onError={handleWebViewError}
-          onHttpError={(syntheticEvent) => {
-            const { nativeEvent } = syntheticEvent;
-            console.log(`[VerifyWebView] HTTP error: ${nativeEvent.statusCode} ${nativeEvent.url}`);
-          }}
-          // Important: allow all navigation (challenge may redirect)
-          onShouldStartLoadWithRequest={() => true}
-        />
+      {/* WebView — always mounted */}
+      <WebView
+        ref={webViewRef}
+        source={{ uri: request.url }}
+        style={styles.webview}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        thirdPartyCookiesEnabled={true}
+        sharedCookiesEnabled={true}
+        scalesPageToFit={false}
+        setBuiltInZoomControls={true}
+        setDisplayZoomControls={false}
+        forceDarkOn={false}
+        textZoom={100}
+        injectedJavaScriptBeforeContentLoaded={INJECTED_BEFORE}
+        userAgent="Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
+        injectedJavaScript={buildInjectedJS(request.type)}
+        onMessage={handleMessage}
+        onLoadStart={() => setLoading(true)}
+        onLoadEnd={() => {
+          setLoading(false);
+          // Re-inject viewport fix after page fully loaded (some sites rebuild DOM)
+          webViewRef.current?.injectJavaScript(`
+            (function() {
+              var existing = document.querySelectorAll('meta[name="viewport"]');
+              for (var i = 0; i < existing.length; i++) existing[i].remove();
+              var meta = document.createElement('meta');
+              meta.name = 'viewport';
+              meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes';
+              document.head.appendChild(meta);
+              // Scroll challenge widget into view
+              var sels = ['iframe[src*="challenges.cloudflare"]','.cf-turnstile','.h-captcha','.g-recaptcha','[class*="captcha"]','#challenge-form'];
+              for (var i = 0; i < sels.length; i++) {
+                var el = document.querySelector(sels[i]);
+                if (el) { el.scrollIntoView({ behavior:'smooth', block:'center' }); break; }
+              }
+            })(); true;
+          `);
+        }}
+        onNavigationStateChange={(nav) => setCurrentUrl(nav.url)}
+        onError={handleWebViewError}
+        onHttpError={(syntheticEvent) => {
+          const { nativeEvent } = syntheticEvent;
+          console.log(`[VerifyWebView] HTTP error: ${nativeEvent.statusCode} ${nativeEvent.url}`);
+          if (nativeEvent.statusCode === 403) {
+            httpErrorCount.current++;
+            if (httpErrorCount.current >= HTTP_403_MAX) {
+              console.log(`[VerifyWebView] ${HTTP_403_MAX}+ consecutive 403 → auto-cancelling ${requestRef.current?.siteName}`);
+              const req = requestRef.current;
+              if (req) {
+                if (escalateTimer.current) {
+                  clearTimeout(escalateTimer.current);
+                  escalateTimer.current = null;
+                }
+                VerifyManager.cancel(req.id, req.origin);
+                onDismiss();
+              }
+            }
+          }
+        }}
+        onShouldStartLoadWithRequest={() => true}
+      />
 
-        {/* URL indicator */}
+      {/* URL bar — only in interactive mode */}
+      {!silent && (
         <View style={[styles.urlBar, { paddingBottom: insets.bottom + 4 }]}>
           <Text style={styles.urlText} numberOfLines={1}>
             🔒 {currentUrl}
           </Text>
         </View>
-      </View>
-    </Modal>
+      )}
+    </View>
   );
 }
 
 // ── Styles ────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  silentContainer: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    opacity: 0,
+    overflow: 'hidden',
+  },
+  interactiveContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 999,
     backgroundColor: '#fff',
   },
   header: {

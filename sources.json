@@ -986,12 +986,12 @@
           },
           "health": {
             "status": "yellow",
-            "status_detail": "ok",
-            "last_checked_at": "2026-05-05T06:50:00.000Z",
-            "magnets_found": 96,
-            "sample_title": "FutileStruggles.Gianna.Loves.Test-Part.2.XXX.720p.WMV-hUSHhUSH[rarbg]",
-            "note": "Intermittent HTTP 500 on search; unstable via browser rendering",
-            "fail_streak": 1
+            "status_detail": "waf",
+            "last_checked_at": "2026-05-16T02:03:34.026197+00:00",
+            "magnets_found": 2,
+            "sample_title": "",
+            "note": "demoted: 0% success across all users per analytics (browser rendering fails)",
+            "fail_streak": 0
           }
         },
         {
@@ -3722,14 +3722,14 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "waf",
-            "last_checked_at": "2026-05-04T19:14:05.967549+08:00",
+            "status": "gray",
+            "status_detail": "expired",
+            "last_checked_at": "2026-05-16T02:03:55.621680+00:00",
             "magnets_found": 0,
             "sample_title": "老王磁力链接搜索引擎 磁力链接搜索引擎老王磁力(laowang.icu)索引了全球最新最热门的BT种子信息和磁力链接，提供磁力链接搜索、BT搜索、种子搜索等强大",
             "diagnosis": "跳转到: https://nav.dayunav.top/feo/LphK0R0N5L?_=001&p=1",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
-            "note": "legacy status_detail=dead; legacy status=red",
+            "note": "cloak_verify: jump/redirect page, not a search engine",
             "fail_streak": 0
           }
         },
@@ -4076,14 +4076,14 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "waf",
-            "last_checked_at": "2026-05-04T19:14:05.967549+08:00",
+            "status": "gray",
+            "status_detail": "expired",
+            "last_checked_at": "2026-05-16T02:03:55.621680+00:00",
             "magnets_found": 0,
             "sample_title": "磁力熊猫",
             "diagnosis": "classified as jump site by navigation analyzer; use auxiliary discovery pipeline",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
-            "note": "aux_site:jump:security_center_rdata_gate",
+            "note": "cloak_verify: jump/redirect page, not a search engine",
             "fail_streak": 0
           }
         },
@@ -4587,14 +4587,14 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "waf",
-            "last_checked_at": "2026-05-04T19:14:05.967549+08:00",
+            "status": "gray",
+            "status_detail": "expired",
+            "last_checked_at": "2026-05-16T02:03:55.621680+00:00",
             "magnets_found": 0,
             "sample_title": "吴签磁力 干净实用的磁力链接搜索引擎，专注整合全网磁力与网盘资源。首页热门关键词一键搜索电影、剧集等，界面无广告、操作简单。数据来源于公开网络，服务器不存文件，",
             "diagnosis": "classified as jump site by navigation analyzer; use auxiliary discovery pipeline",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
-            "note": "aux_site:jump:security_center_rdata_gate",
+            "note": "cloak_verify: jump/redirect page, not a search engine",
             "fail_streak": 0
           }
         },
@@ -4639,14 +4639,14 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "waf",
-            "last_checked_at": "2026-05-04T19:14:05.967549+08:00",
+            "status": "gray",
+            "status_detail": "expired",
+            "last_checked_at": "2026-05-16T02:03:55.621680+00:00",
             "magnets_found": 0,
             "sample_title": "BT1207 好用的磁力链接搜索引擎",
             "diagnosis": "classified as jump site by navigation analyzer; use auxiliary discovery pipeline",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
-            "note": "aux_site:jump:security_center_rdata_gate",
+            "note": "cloak_verify: jump/redirect page, not a search engine",
             "fail_streak": 0
           }
         },
@@ -4749,14 +4749,14 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "waf",
-            "last_checked_at": "2026-05-04T19:14:05.967549+08:00",
+            "status": "gray",
+            "status_detail": "expired",
+            "last_checked_at": "2026-05-16T02:03:55.621680+00:00",
             "magnets_found": 0,
             "sample_title": "磁力柠檬 最懂你的磁力链接搜索引擎",
             "diagnosis": "classified as jump site by navigation analyzer; use auxiliary discovery pipeline",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
-            "note": "aux_site:jump:security_center_rdata_gate",
+            "note": "cloak_verify: jump/redirect page, not a search engine",
             "fail_streak": 0
           }
         },
@@ -5155,12 +5155,12 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "waf",
-            "last_checked_at": "2026-05-04T19:14:05.967549+08:00",
+            "status": "gray",
+            "status_detail": "expired",
+            "last_checked_at": "2026-05-16T02:03:55.621680+00:00",
             "magnets_found": 0,
             "sample_title": "",
-            "note": "legacy status_detail=parked; legacy status=red",
+            "note": "cloak_verify: jump/redirect page, not a search engine",
             "fail_streak": 0
           }
         },
@@ -5252,12 +5252,12 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "waf",
-            "last_checked_at": "2026-05-04T19:14:05.967549+08:00",
+            "status": "gray",
+            "status_detail": "expired",
+            "last_checked_at": "2026-05-16T02:03:55.621680+00:00",
             "magnets_found": 0,
             "sample_title": "",
-            "note": "aux_site:jump:security_center_rdata_gate",
+            "note": "cloak_verify: jump/redirect page, not a search engine",
             "diagnosis": "classified as jump site by navigation analyzer; use auxiliary discovery pipeline",
             "fail_streak": 0
           }
@@ -8345,7 +8345,7 @@
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^\"magnet:\"]",
+                "magnet": "a[href^=\"magnet:\"]",
                 "title": "h1, h2",
                 "size": ""
               }
@@ -8415,12 +8415,13 @@
             ]
           },
           "health": {
-            "status": "green",
-            "status_detail": "ok",
+            "status": "yellow",
+            "status_detail": "waf",
             "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 15,
             "sample_title": "test-drive-unlimited-2.7z",
-            "fail_streak": 0
+            "fail_streak": 0,
+            "note": "demoted: 0% success across all users per analytics (browser rendering fails)"
           }
         },
         {
@@ -8926,12 +8927,12 @@
             ]
           },
           "health": {
-            "status": "green",
-            "status_detail": "ok",
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "status": "gray",
+            "status_detail": "unreachable",
+            "last_checked_at": "2026-05-16T04:00:00.000000+00:00",
             "magnets_found": 2,
             "sample_title": "spider",
-            "note": "SPA: requires_browser=true, rendered via WebView (VerifyManager). Detail-follow works after HTML extraction.",
+            "note": "Demoted: so2.btsow.top works without browser (15 results/507ms). This browser entry wastes 91s for 0 results.",
             "fail_streak": 0
           }
         },
@@ -10721,13 +10722,13 @@
             ]
           },
           "health": {
-            "status": "green",
-            "status_detail": "healed",
+            "status": "yellow",
+            "status_detail": "waf",
             "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "fail_streak": 0,
             "magnets_found": 0,
             "sample_title": "",
-            "note": "Auto health check: yellow→green."
+            "note": "demoted: 0% success across all users per analytics (browser rendering fails)"
           }
         },
         {
@@ -11351,7 +11352,8 @@
                 "date": ""
               },
               "notes": "CF Turnstile protected. ddcl.me redirects here. cltt.me发布页也跳转到此。Has search form action=/search. Selectors TBD after CF bypass."
-            }
+            },
+            "requires_browser": true
           },
           "quality": {
             "score": 40,
@@ -11366,9 +11368,10 @@
             "status": "yellow",
             "status_detail": "waf",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-03T09:30:00.000000+00:00",
-            "magnets_found": 0,
-            "sample_title": ""
+            "last_checked_at": "2026-05-16T02:03:16.200500+00:00",
+            "magnets_found": 2,
+            "sample_title": "打开链接",
+            "note": "demoted: 0% success across all users per analytics (browser rendering fails)"
           }
         },
         {
