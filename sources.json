@@ -1102,7 +1102,8 @@
             "sample_title": "BT联盟 BT联盟是全球领先的BT种子与磁力链接搜索网站",
             "diagnosis": "导航站发现候选，待自动验证",
             "note": "legacy status_detail=navigation_site_not_search_engine; legacy status=red"
-          }
+          },
+          "notes": "SKIP: SPA shell, redirects to run.btlm.info via JS"
         },
         {
           "id": "3cd28034dbc0",
@@ -1153,7 +1154,8 @@
             "diagnosis": "页面过小: 288 bytes",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
             "note": "legacy status_detail=dead; legacy status=red"
-          }
+          },
+          "notes": "SKIP: SPA shell, JS-rendered navigation page"
         },
         {
           "id": "e46e68b449b2",
@@ -1203,7 +1205,8 @@
             "sample_title": "BT蚂蚁磁力",
             "diagnosis": "classified as navigation site; use auxiliary discovery pipeline",
             "note": "aux_site:navigation:nav_portal_internal_catalog"
-          }
+          },
+          "notes": "SKIP: WordPress directory/navigation site, no magnet search"
         },
         {
           "id": "96d82c31859f",
@@ -1253,7 +1256,8 @@
             "sample_title": "磁力多多 资源丰富磁力链接和BT种子搜索引擎, 收录了几千万条电影,电视剧,软件,电子书,文档,小说,考研等热门磁力链接资源，您可以在这里快速找到需要的磁力链接",
             "diagnosis": "导航站发现候选，待自动验证",
             "note": "legacy status_detail=search_dead_404; legacy status=red"
-          }
+          },
+          "notes": "SKIP: SPA shell, JS-rendered"
         },
         {
           "id": "aac493a9e497",
@@ -1452,7 +1456,8 @@
             "sample_title": "磁力星球 磁力星球 – 懂你的磁力链接&种子-搜索&下载引擎&APP",
             "diagnosis": "导航站发现候选，待自动验证",
             "note": "legacy status_detail=empty_tiny_page; legacy status=red"
-          }
+          },
+          "notes": "SKIP: SPA shell, mirror of E.03 (cilixingqiu.net)"
         },
         {
           "id": "f35f9870be51",
@@ -1552,7 +1557,8 @@
             "sample_title": "BTHaHa BtHaha(BT哈哈)，专业提供磁力链接搜索的网站，千万级磁力链接，全网实时更新，包括电影、剧集、音乐、图书、软件、动漫、软件、教程、图片、综艺",
             "diagnosis": "classified as jump site; use auxiliary discovery pipeline",
             "note": "aux_site:jump:thin_handoff_page"
-          }
+          },
+          "notes": "SKIP: SPA shell, redirects to ttbt.icu"
         },
         {
           "id": "67bd2f8ed06c",
@@ -1852,7 +1858,8 @@
             "sample_title": "磁力管家 磁力管家搜索引擎是功能强大的磁力搜索引擎，牛逼的番号搜索、磁力搜索功能，更好用的BT种子搜索引擎！男人都爱上>的磁力搜索引擎",
             "diagnosis": "导航站发现候选，待自动验证",
             "note": "legacy status_detail=empty_tiny_page; legacy status=red"
-          }
+          },
+          "notes": "SKIP: CF 403 WAF"
         },
         {
           "id": "a10c9c77a3bf",
@@ -1902,7 +1909,8 @@
             "sample_title": "BTFOX btfox，专业全面的bt种子搜索引擎。通过抓取dht网络meta信息提供bt种子索引服务。",
             "diagnosis": "导航站发现候选，待自动验证",
             "note": "legacy status_detail=search_dead_404; legacy status=red"
-          }
+          },
+          "notes": "SKIP: SPA shell, JS-rendered"
         },
         {
           "id": "da8de430f688",

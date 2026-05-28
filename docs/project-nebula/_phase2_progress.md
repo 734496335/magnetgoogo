@@ -29,14 +29,14 @@
 | F.01 | btso | https://btso.cc | _pending_ | | |
 | F.02 | btbtt | https://btbtt12.com | DEAD | 0 | connection timeout, unreachable |
 | F.03 | animetime | https://animetime.cc | DEAD | 0 | connection timeout, unreachable |
-| F.04 | BT联盟 | https://btlm.work | _pending_ | | |
-| F.05 | 搜番 | https://sofan.run | _pending_ | | |
-| F.06 | BT蚂蚁磁力 | https://btmayi.top | _pending_ | | |
-| F.07 | 磁力多 | https://ciliduo.cyou | _pending_ | | |
-| F.08 | 磁力星球(mirror) | https://cilixingqiu.de | _pending_ | | mirror of E.03 |
-| F.09 | BTHaHa | https://bthaha.top | _pending_ | | |
-| F.10 | 磁力管家 | http://www.ciliguanjia.buzz | _pending_ | | |
-| F.11 | BTFOX | http://btfox.cyou | _pending_ | | |
+| F.04 | BT联盟 | https://btlm.work | SKIP | 0 | SPA shell, redirects to run.btlm.info |
+| F.05 | 搜番 | https://sofan.run | SKIP | 0 | SPA shell, JS-rendered navigation |
+| F.06 | BT蚂蚁磁力 | https://btmayi.top | SKIP | 0 | WordPress directory site, no magnet search |
+| F.07 | 磁力多 | https://ciliduo.cyou | SKIP | 0 | SPA shell, JS-rendered |
+| F.08 | 磁力星球(mirror) | https://cilixingqiu.de | SKIP | 0 | SPA shell, mirror of E.03 |
+| F.09 | BTHaHa | https://bthaha.top | SKIP | 0 | SPA shell, redirects to ttbt.icu |
+| F.10 | 磁力管家 | http://www.ciliguanjia.buzz | SKIP | 0 | CF 403 WAF |
+| F.11 | BTFOX | http://btfox.cyou | SKIP | 0 | SPA shell, JS-rendered |
 | F.12 | 找磁力 0Mag | https://1000mag.xyz | _pending_ | | |
 | F.13 | U3C3 | https://u3c3.org | _pending_ | | 老牌 |
 | F.14 | 磁力王 | http://movih.com | _pending_ | | |
