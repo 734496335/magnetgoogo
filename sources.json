@@ -4415,7 +4415,7 @@
             "diagnosis": "导航站发现候选，待自动验证",
             "note": "legacy status_detail=parked; legacy status=red"
           },
-          "notes": "needs_tier2_handler_or_2captcha: CF 403"
+          "notes": "SKIP: site returns 403 Forbidden (not CF, site itself blocking)"
         },
         {
           "id": "455a1d36b3c7",
