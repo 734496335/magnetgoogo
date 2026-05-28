@@ -29,7 +29,10 @@ run.log
 /start-app.bat
 /_*.html
 /test_*.py
-.claude/
+# .claude: keep skills & shared settings, ignore per-user local overrides
+.claude/settings.local.json
+.claude/cache/
+.claude/logs/
 .windsurf/
 
 # ── Encrypted dist (generated) ──
