@@ -1,0 +1,430 @@
+{
+  "task_E_waf_cloak": [
+    {
+      "id": "b3c4d5e6f7a8",
+      "name": "seedhub.cc",
+      "origin": "https://www.seedhub.cc",
+      "brand": "seedhub",
+      "detail": "parsing_failed",
+      "search_template": "/categories/1/movies/"
+    },
+    {
+      "id": "869343c8155f",
+      "name": "0magnet.co",
+      "origin": "https://0magnet.co",
+      "brand": "0magnet",
+      "detail": "waf",
+      "search_template": "/search?q={query}"
+    },
+    {
+      "id": "6e32bb43e522",
+      "name": "cilixingqiu.net",
+      "origin": "https://www.cilixingqiu.net",
+      "brand": "磁力星球",
+      "detail": "waf",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "03761b9ce862",
+      "name": "tiantangcili.net",
+      "origin": "https://www.tiantangcili.net",
+      "brand": "天堂磁力",
+      "detail": "waf",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "2aa41b7d81b4",
+      "name": "ciliri.shop",
+      "origin": "https://www.ciliri.shop/?ref=eeenav.com",
+      "brand": "磁力夜",
+      "detail": "waf",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "bt4gprx_001",
+      "name": "BT4G",
+      "origin": "https://bt4gprx.com",
+      "brand": "bt4gprx",
+      "detail": "waf",
+      "search_template": "/search?q={query}&p=1&orderby=seeders"
+    },
+    {
+      "id": "zyscj_magnetcat",
+      "name": "磁力猫 (magnetcatcat)",
+      "origin": "https://magnetcatcat.com",
+      "brand": "magnetcatcat",
+      "detail": "waf",
+      "search_template": "/search?q={query}"
+    },
+    {
+      "id": "f2dbfa7a0efe",
+      "name": "BTSearch",
+      "origin": "https://btsearch.org",
+      "brand": "BTSearch",
+      "detail": "waf",
+      "search_template": "/search/{query}"
+    }
+  ],
+  "task_F_selector_fix": [
+    {
+      "id": "42628bf4a020",
+      "name": "btso.cc",
+      "origin": "https://btso.cc",
+      "brand": "btso",
+      "detail": "parsing_failed",
+      "search_template": "/search?q={query}"
+    },
+    {
+      "id": "1ffa640dd871",
+      "name": "btbtt12.com",
+      "origin": "https://btbtt12.com",
+      "brand": "btbtt",
+      "detail": "parsing_failed",
+      "search_template": "/search?q={query}"
+    },
+    {
+      "id": "52fbe59cf95c",
+      "name": "animetime.cc",
+      "origin": "https://animetime.cc/",
+      "brand": "animetime",
+      "detail": "parsing_failed",
+      "search_template": "/search?query={query}"
+    },
+    {
+      "id": "52ecaa7b96cb",
+      "name": "btlm.work",
+      "origin": "https://btlm.work",
+      "brand": "BT联盟",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "3cd28034dbc0",
+      "name": "sofan.run",
+      "origin": "https://sofan.run",
+      "brand": "搜番",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "e46e68b449b2",
+      "name": "btmayi.top",
+      "origin": "https://btmayi.top",
+      "brand": "BT蚂蚁磁力",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "96d82c31859f",
+      "name": "ciliduo.cyou",
+      "origin": "https://ciliduo.cyou",
+      "brand": "磁力多",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "cf58e3613cac",
+      "name": "cilixingqiu.de",
+      "origin": "https://cilixingqiu.de",
+      "brand": "磁力星球",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "f0e5a9d7e2cf",
+      "name": "bthaha.top",
+      "origin": "https://bthaha.top",
+      "brand": "BTHaHa",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "91b1408bca51",
+      "name": "ciliguanjia.buzz",
+      "origin": "http://www.ciliguanjia.buzz",
+      "brand": "磁力管家",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "a10c9c77a3bf",
+      "name": "btfox.cyou",
+      "origin": "http://btfox.cyou",
+      "brand": "BTFOX",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "da8de430f688",
+      "name": "1000mag.xyz",
+      "origin": "https://1000mag.xyz",
+      "brand": "找磁力 0Mag",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "96f1865a6c89",
+      "name": "u3c3.org",
+      "origin": "https://u3c3.org",
+      "brand": "U3C3",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "b4c0a41219ed",
+      "name": "movih.com",
+      "origin": "http://movih.com",
+      "brand": "磁力王",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "fb225cd050f2",
+      "name": "pirateproxy.tube",
+      "origin": "http://pirateproxy.tube",
+      "brand": "Pirate Bay 海盗湾",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "14abc6ca9639",
+      "name": "bthook.club",
+      "origin": "http://bthook.club",
+      "brand": "磁力树",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "b3d469af7147",
+      "name": "cilishenqi.me",
+      "origin": "https://cilishenqi.me",
+      "brand": "磁力搜索神器",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "7f48d72c50ab",
+      "name": "btbtt10.com",
+      "origin": "https://www.btbtt10.com",
+      "brand": "BT电影天堂",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "1a50db526e82",
+      "name": "btcherries.xyz",
+      "origin": "https://btcherries.xyz",
+      "brand": "BT搜索",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "7c5dd2db3470",
+      "name": "ciliwo.com",
+      "origin": "https://ciliwo.com",
+      "brand": "磁力窝",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "df2e89d84c84",
+      "name": "jukan.xyz",
+      "origin": "http://jukan.xyz",
+      "brand": "BT吃力",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "fb9b98527105",
+      "name": "uuyter56der.xyz",
+      "origin": "https://uuyter56der.xyz",
+      "brand": "磁力海",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "c4cdec91a2cb",
+      "name": "km153.xyz",
+      "origin": "http://www.km153.xyz",
+      "brand": "快马搜索",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "45faef0f6022",
+      "name": "cixing.org",
+      "origin": "http://cixing.org",
+      "brand": "磁力星",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "60d9318a90c3",
+      "name": "btsow.icu",
+      "origin": "https://btsow.icu/?go",
+      "brand": "BTSOW",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "dd793d9c7c96",
+      "name": "btmovi.icu",
+      "origin": "https://btmovi.icu",
+      "brand": "磁力蜘蛛",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "a2e184c1f27d",
+      "name": "clkd.com",
+      "origin": "https://clkd.com",
+      "brand": "磁力口袋",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "5831a902b555",
+      "name": "gobtmet.com",
+      "origin": "http://gobtmet.com",
+      "brand": "BTMET",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "c47a7b514e30",
+      "name": "529952.xyz",
+      "origin": "http://529952.xyz",
+      "brand": "52BT",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "4caa25735a11",
+      "name": "cilihezi.cn",
+      "origin": "https://www.cilihezi.cn",
+      "brand": "磁力大全",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "f87d0ebe2aca",
+      "name": "wangzhi.men",
+      "origin": "http://wangzhi.men/bthaha",
+      "brand": "bthaha",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "90ceb196eca1",
+      "name": "berrl.com",
+      "origin": "http://berrl.com",
+      "brand": "博世",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "3af51ca02ec8",
+      "name": "cilizhai.com",
+      "origin": "https://www.cilizhai.com",
+      "brand": "磁力宅",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "fa2a88ed64eb",
+      "name": "bt43.foxs.vip",
+      "origin": "https://bt43.foxs.vip",
+      "brand": "磁力狐",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "38d76ca3f14c",
+      "name": "soxiongmao.top",
+      "origin": "https://soxiongmao.top",
+      "brand": "磁力熊猫",
+      "detail": "parsing_failed",
+      "search_template": "/search?keyword={query}"
+    },
+    {
+      "id": "0ffd48d4d050",
+      "name": "cililian.one",
+      "origin": "https://cililian.one",
+      "brand": "磁力链",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "ca292a9992dd",
+      "name": "0cili.nl",
+      "origin": "https://0cili.nl",
+      "brand": "无极磁链",
+      "detail": "parsing_failed",
+      "search_template": "/search?q={query}"
+    },
+    {
+      "id": "1aa0c4d20031",
+      "name": "ru.cilido.top",
+      "origin": "https://ru.cilido.top/?ref=eeenav.com",
+      "brand": "磁力多",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "455a1d36b3c7",
+      "name": "mr.sofan1.cc",
+      "origin": "https://mr.sofan1.cc/?ref=eeenav.com",
+      "brand": "搜番",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "cfa8b4665501",
+      "name": "911173.xyz",
+      "origin": "https://911173.xyz/?ref=eeenav.com",
+      "brand": "91BT",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    },
+    {
+      "id": "cee135aa6c75",
+      "name": "wuqianyx.top",
+      "origin": "https://wuqianyx.top/?ref=eeenav.com",
+      "brand": "吴签磁力",
+      "detail": "parsing_failed",
+      "search_template": "/search?keyword={query}"
+    },
+    {
+      "id": "52ebc0ee7b85",
+      "name": "bt1207yx.top",
+      "origin": "https://bt1207yx.top/?ref=eeenav.com",
+      "brand": "BT1207",
+      "detail": "parsing_failed",
+      "search_template": "/search?keyword={query}"
+    },
+    {
+      "id": "291163db1ae3",
+      "name": "lemonzc.top",
+      "origin": "https://lemonzc.top/?ref=eeenav.com",
+      "brand": "磁力柠檬",
+      "detail": "parsing_failed",
+      "search_template": "/search?keyword={query}"
+    },
+    {
+      "id": "b246f6cff2a5",
+      "name": "wuji.me",
+      "origin": "https://wuji.me/?ref=eeenav.com",
+      "brand": "无极磁链",
+      "detail": "parsing_failed",
+      "search_template": "/search?q={query}"
+    },
+    {
+      "id": "23d3ea89589d",
+      "name": "jzcilifa1.shop",
+      "origin": "https://www.jzcilifa1.shop/?ref=eeenav.com",
+      "brand": "磁力发",
+      "detail": "parsing_failed",
+      "search_template": "/?q={query}"
+    }
+  ]
+}
