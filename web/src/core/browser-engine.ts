@@ -1,7 +1,7 @@
 /**
  * BrowserEngine — equivalent of Legado's BackstageWebView.
  *
- * Uses Playwright headless Chromium to:
+ * Uses CloakBrowser (anti-fingerprint Chromium) to:
  *  1. Auto-solve Cloudflare JS challenges (no user interaction needed)
  *  2. Render SPA pages that cheerio cannot parse
  *  3. Extract cookies after browser navigation for future fetch reuse
@@ -11,28 +11,33 @@
  * the normal fetch path via globalThis.__cookieStore.
  */
 
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright-core';
+import type { Browser, BrowserContext } from 'playwright-core';
+
+/* ---- CloakBrowser launcher (lazy, ESM-only package) ---- */
+let _launchCloak: typeof import('cloakbrowser')['launch'] | null = null;
+
+async function getLaunch() {
+  if (_launchCloak) return _launchCloak;
+  const mod = await import('cloakbrowser');
+  _launchCloak = mod.launch;
+  return _launchCloak;
+}
 
 /* ---- Singleton browser instance ---- */
 let _browser: Browser | null = null;
 let _launching: Promise<Browser> | null = null;
+
+const FORCE_HEADLESS = process.env.CLOAK_FORCE_HEADLESS === '1';
 
 async function getBrowser(): Promise<Browser> {
   if (_browser?.isConnected()) return _browser;
   if (_launching) return _launching;
   _launching = (async () => {
     try {
-      // Use playwright's bundled Chromium
-      const { executablePath } = await findChromium();
-      const b = await chromium.launch({
-        executablePath,
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-blink-features=AutomationControlled',
-          '--disable-dev-shm-usage',
-        ],
+      const launch = await getLaunch();
+      const b = await launch({
+        headless: FORCE_HEADLESS ? true : true,  // default headless for browserFetch
+        humanize: true,
       });
       _browser = b;
       b.on('disconnected', () => { _browser = null; });
@@ -42,48 +47,6 @@ async function getBrowser(): Promise<Browser> {
     }
   })();
   return _launching;
-}
-
-async function findChromium(): Promise<{ executablePath: string }> {
-  // Try playwright's managed browsers first
-  try {
-    const pw = await import('playwright-core');
-    // playwright-core stores browser path internally
-    const browsers = (pw as any).registry?.executables?.();
-    if (browsers) {
-      for (const b of browsers) {
-        if (b.name === 'chromium' && b.executablePath) {
-          return { executablePath: b.executablePath };
-        }
-      }
-    }
-  } catch {}
-
-  // Fallback: check common Playwright install paths
-  const fs = await import('fs');
-  const path = await import('path');
-  const home = process.env.USERPROFILE || process.env.HOME || '';
-  const playwrightDir = path.join(home, 'AppData', 'Local', 'ms-playwright');
-
-  if (fs.existsSync(playwrightDir)) {
-    const dirs = fs.readdirSync(playwrightDir)
-      .filter((d: string) => d.startsWith('chromium-'))
-      .sort()
-      .reverse();
-    for (const dir of dirs) {
-      // Try both chrome-win64 and chrome-win paths
-      for (const sub of ['chrome-win64', 'chrome-win']) {
-        const exe = path.join(playwrightDir, dir, sub, 'chrome.exe');
-        if (fs.existsSync(exe)) return { executablePath: exe };
-      }
-    }
-  }
-
-  // Last resort: system Chrome
-  const systemChrome = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-  if (fs.existsSync(systemChrome)) return { executablePath: systemChrome };
-
-  throw new Error('No Chromium/Chrome found. Run: npx playwright install chromium');
 }
 
 /* ---- Shared cookie store (same as route.ts) ---- */
@@ -97,11 +60,11 @@ export interface BrowserFetchResult {
   html: string | null;
   cookies: string;
   challenge?: { type: string; verifyUrl: string };
-  auto_solved?: boolean;   // true if CF was auto-solved by browser
+  auto_solved?: boolean;
 }
 
 /**
- * Fetch a URL using headless Chromium.
+ * Fetch a URL using headless CloakBrowser.
  * Auto-solves CF JS challenges. Returns challenge info if interactive CAPTCHA detected.
  */
 export async function browserFetch(
@@ -130,13 +93,6 @@ export async function browserFetch(
   const page = await context.newPage();
 
   try {
-    // Stealth: remove webdriver flag
-    await page.addInitScript(() => {
-      Object.defineProperty(navigator, 'webdriver', { get: () => false });
-      // @ts-ignore
-      delete navigator.__proto__.webdriver;
-    });
-
     const response = await page.goto(url, {
       waitUntil: 'domcontentloaded',
       timeout,
@@ -178,7 +134,6 @@ export async function browserFetch(
             challenge: { type: 'interactive_captcha', verifyUrl: url },
           };
         }
-        // CF JS still running but no interactive element — give up
         console.log(`[BrowserEngine] CF challenge timeout on ${url}`);
         await context.close();
         return {
@@ -195,7 +150,6 @@ export async function browserFetch(
         await page.waitForSelector(opts.waitForSelector, { timeout: 8_000 });
       } catch {}
     } else {
-      // Brief wait for dynamic content
       await page.waitForTimeout(1500);
     }
 
@@ -225,7 +179,7 @@ export async function browserFetch(
     return {
       html: bodyHtml,
       cookies,
-      auto_solved: hasCfChallenge, // was there a CF challenge that we solved
+      auto_solved: hasCfChallenge,
     };
   } catch (err: any) {
     console.error(`[BrowserEngine] Error fetching ${url}: ${err.message}`);
@@ -244,16 +198,14 @@ async function extractBrowserCookies(context: BrowserContext, origin: string): P
 }
 
 /* ==============================================================
- * Tier 2: Interactive Verification (headed browser)
- * Equivalent of Legado's WebViewActivity + SourceVerificationHelp
+ * Tier 2: Interactive Verification (headed CloakBrowser)
  *
  * Flow:
- *   1. Launch visible Chrome window at verification URL
- *   2. User sees Turnstile/hCaptcha/etc. and completes it manually
- *   3. Detect page change (title no longer "Just a moment")
+ *   1. Launch visible CloakBrowser (humanize=True for Turnstile auto-pass)
+ *   2. Navigate to verification URL
+ *   3. CloakBrowser auto-solves Turnstile/CF challenges
  *   4. Extract cf_clearance + all cookies
  *   5. Store cookies in shared cookieStore → future fetch reuses them
- *   6. Return cookies to caller
  * ============================================================== */
 
 export interface VerifyResult {
@@ -265,118 +217,77 @@ export interface VerifyResult {
 }
 
 /**
- * Launch standalone Chromium (no CDP) with cookie-bridge extension.
+ * Launch headed CloakBrowser for interactive verification.
  *
- * Flow (mirrors Legado's WebViewActivity + saveVerificationResult):
- *   1. Launch Playwright Chromium via execFile (NO CDP → Turnstile can't detect)
- *   2. Extension auto-submits cookies (incl. HttpOnly) + page HTML to /api/verify
- *   3. Server polls cookieStore for results
- *   4. Returns cookies + HTML (HTML allows direct parsing without cf_clearance)
+ * CloakBrowser's humanize mode auto-solves Turnstile via C++-level patches.
+ * No extension needed — the browser itself handles the challenge.
  */
 export async function interactiveVerify(
   url: string,
   timeoutMs: number = 120_000,
 ): Promise<VerifyResult> {
   const origin = new URL(url).origin;
-  console.log(`[BrowserEngine] Interactive verify (uncontrolled): ${url}`);
-
-  const { execFile } = await import('child_process');
-  const fs = await import('fs');
-  const path = await import('path');
-  const os = await import('os');
-
-  // Strategy: use Playwright's Chromium binary (NOT system Chrome) to avoid
-  // process reuse issues. Launch via exec (NO CDP) so Turnstile can't detect.
-  // Load our cookie-bridge extension to auto-submit HttpOnly cookies.
-  const { executablePath: chromiumPath } = await findChromium();
-
-  // Create a temp user-data-dir
-  const tmpDir = path.join(os.tmpdir(), `magnet-verify-${Date.now()}`);
+  console.log(`[BrowserEngine] Interactive verify (CloakBrowser headed): ${url}`);
 
   // Clear any old verification cookies for this origin
   cookieStore.delete(origin);
 
-  // Locate our extension
-  const extDir = path.resolve(path.join(process.cwd(), 'verify-extension'));
-  const hasExt = fs.existsSync(path.join(extDir, 'manifest.json'));
-  console.log(`[BrowserEngine] Extension: ${hasExt ? extDir : 'NOT FOUND'}`);
-
-  // Build args for standalone Chromium (no CDP connection)
-  const args = [
-    `--user-data-dir=${tmpDir}`,
-    '--no-first-run',
-    '--no-default-browser-check',
-    '--window-size=1024,700',
-    '--disable-blink-features=AutomationControlled',
-  ];
-
-  if (hasExt) {
-    args.push(`--load-extension=${extDir}`);
-    args.push(`--disable-extensions-except=${extDir}`);
-  } else {
-    args.push('--disable-extensions');
-  }
-
-  args.push(url);
-
-  console.log(`[BrowserEngine] Launching Chromium: ${chromiumPath}`);
-  const child = execFile(chromiumPath, args, { windowsHide: false });
-  child.unref();
-
-  // Log any Chrome stderr for debugging
-  child.stderr?.on('data', (d: Buffer) => {
-    const s = d.toString().trim();
-    if (s && !s.includes('DevTools listening') && !s.includes('ERROR:'))
-      console.log(`[Chrome] ${s.slice(0, 120)}`);
+  const launch = await getLaunch();
+  const headed = !FORCE_HEADLESS;
+  const browser = await launch({
+    headless: headed ? false : true,
+    humanize: true,
   });
 
-  // Poll cookieStore for HTML submitted by extension (content.js enriches + submits)
-  console.log(`[BrowserEngine] Waiting for HTML via /api/verify (max ${timeoutMs / 1000}s)...`);
-
-  const startTime = Date.now();
-  let verified = false;
   let resultCookies = '';
-  let cookiesSeenAt = 0;
+  let resultHtml: string | undefined;
+  let verified = false;
 
-  while (Date.now() - startTime < timeoutMs) {
-    await new Promise(r => setTimeout(r, 2000));
+  try {
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+      locale: 'zh-CN',
+      timezoneId: 'Asia/Shanghai',
+    });
 
-    // Check if cookies/HTML were submitted via /api/verify
-    const entry = cookieStore.get(origin);
-    if (entry && entry.ts > startTime) {
-      if (!cookiesSeenAt) {
-        cookiesSeenAt = Date.now();
-        console.log(`[BrowserEngine] Cookies arrived for ${origin}, waiting for HTML...`);
-      }
-      if (entry.html) {
-        // HTML received — content.js finished enrichment + submission
-        verified = true;
-        resultCookies = entry.cookies;
-        console.log(`[BrowserEngine] HTML received for ${origin}: ${Math.round(entry.html.length / 1024)}KB`);
-        break;
-      }
-      // Cookies but no HTML yet — wait up to 30s more for content.js enrichment
-      if (Date.now() - cookiesSeenAt > 30_000) {
-        console.log(`[BrowserEngine] HTML timeout, using cookies only for ${origin}`);
-        verified = true;
-        resultCookies = entry.cookies;
-        break;
-      }
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+
+    // Wait for CF/Turnstile to auto-solve (CloakBrowser humanize handles this)
+    try {
+      await page.waitForFunction(
+        () => !/just a moment|稍候|checking/i.test(document.title),
+        { timeout: Math.min(timeoutMs, 60_000) },
+      );
+    } catch {
+      console.log(`[BrowserEngine] Challenge timeout for ${url}`);
     }
+
+    // Brief wait for SPA content to hydrate
+    await page.waitForTimeout(2000);
+
+    resultHtml = await page.content();
+    resultCookies = await extractBrowserCookies(context, origin);
+    verified = true;
+
+    // Persist cookies for future fetch reuse
+    if (resultCookies) {
+      cookieStore.set(origin, { cookies: resultCookies, html: resultHtml, url, ts: Date.now() });
+    }
+
+    await context.close();
+  } catch (err: any) {
+    console.error(`[BrowserEngine] Interactive verify error: ${err.message}`);
+  } finally {
+    try { await browser.close(); } catch {}
   }
-
-  const entry = cookieStore.get(origin);
-
-  // Cleanup temp dir (async, don't wait)
-  fs.rm(tmpDir, { recursive: true, force: true }, () => {});
-  try { child.kill(); } catch {}
 
   return {
     success: verified,
     cookies: resultCookies,
-    html: entry?.html,
-    url: entry?.url,
-    error: verified ? undefined : 'Verification timed out — cookies not received',
+    html: resultHtml,
+    url,
+    error: verified ? undefined : 'Verification timed out or failed',
   };
 }
 

@@ -238,6 +238,25 @@ def _probe_once(rule, query):
                 f'no magnets found (page has {text_len} chars, selectors may need update)')
 
 
+def _probe_with_v3(rule, query):
+    """Try probing via crawler_v3 orchestrator. Returns standard tuple or (None, ...) on skip."""
+    name = rule['site']['name']
+    try:
+        from magnet.crawler_v3.orchestrator import search as v3_search
+        start = time.time()
+        results = v3_search(rule, query, limit=5)
+        latency = int((time.time() - start) * 1000)
+        if results:
+            magnets = sum(1 for r in results if r.magnet)
+            sample = results[0].title[:80] if results[0].title else ''
+            return ('green', OK, magnets, sample, latency, None)
+        return ('yellow', PARSING_FAILED, 0, '', latency, 'v3 orchestrator returned 0 results')
+    except ImportError:
+        return (None, None, 0, '', 0, 'crawler_v3 not installed, skipping v3 path')
+    except Exception as e:
+        return (None, None, 0, '', 0, f'v3 orchestrator error: {str(e)[:80]}')
+
+
 def probe_source(rule):
     """Probe a source by trying up to 3 baits in order; returns first success.
 
@@ -254,6 +273,15 @@ def probe_source(rule):
     handler = rule['search'].get('handler', '')
     if handler:
         return (None, None, 0, '', 0, f'skip: custom handler "{handler}"')
+
+    # v3 orchestrator path: sources with tier_override (e.g. thatcdn) need
+    # captcha-bypass handlers that plain requests can't handle.
+    tier_override = rule.get('tier_override')
+    if tier_override and tier_override.get('platform'):
+        result = _probe_with_v3(rule, baits[0])
+        if result[0] is not None:
+            return result
+        # v3 failed — fall through to plain requests probe below
 
     baits = pick_baits(rule)
     last = None

@@ -15,6 +15,14 @@ CloakBrowser Yellow Source Verifier
   python magnet/cloak_yellow_verify.py "test" --update   # 验证 + 升级 green
 """
 
+import warnings
+warnings.warn(
+    "cloak_yellow_verify.py is deprecated since 2026-05-28. "
+    "Use 'python -m magnet.crawler_v3 verify-yellow' instead. "
+    "Will be removed 2026-07-01.",
+    DeprecationWarning, stacklevel=2,
+)
+
 import sys
 import os
 import re

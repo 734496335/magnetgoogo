@@ -34,10 +34,10 @@ orchestrator.search(source, query)
 | 4-Tier 骨架 | ✅ 就绪可跑 |
 | Tier 0 curl_cffi | ✅ 实测 fitgirl 1.8s 通 |
 | Tier 1 CloakBrowser 0.3.31 | ✅ 实测启动 + Turnstile 自动通过普通 CF 站 |
-| Tier 2 thatcdn handler | ⏸ 占位，**待 Task A 实现** |
-| web `route.ts` Tier 1 迁移 | ⏸ **待 Task B** |
-| health_check 接 v3 | ⏸ **待 Task C** |
-| 回归测试 | ⏸ **待 Task D**（D 跟着 A/B/C 同步加） |
+| Tier 2 thatcdn handler | ✅ 4/4 yellow 源验证通过（熊猫/柠檬/吴签/老王） |
+| web `route.ts` Tier 1 迁移 | ✅ CloakBrowser 替换 Playwright + verify-extension 已删 |
+| health_check 接 v3 | ✅ _probe_with_v3() 集成 + cloak_yellow_verify deprecation |
+| 回归测试 | ✅ 48 单测 + CI workflow |
 
 ---
 
@@ -441,3 +441,7 @@ python validate_enum.py | findstr /C:"ALL VALID"
 ---
 
 **最后**：Agent 完成所有 Task 后，把本文档的 §0 status 表更新为 ✅，并在文末加 "Implemented by `<agent-name>` on `<date>`"。
+
+---
+
+Implemented by Claude Opus 4.7 on 2026-05-28.

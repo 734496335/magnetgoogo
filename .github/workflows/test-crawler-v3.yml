@@ -1,0 +1,16 @@
+name: crawler_v3 tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      - run: pip install -r magnet/requirements.txt
+      - run: pip install pytest pytest-mock curl_cffi
+      - run: pytest magnet/tests/crawler_v3 -m 'not integration' -v

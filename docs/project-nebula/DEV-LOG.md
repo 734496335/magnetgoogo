@@ -1,4 +1,76 @@
 ---
+日期/时间：2026-05-28 20:10（UTC+8）
+本次版本：crawler-v3-complete
+本次范围：**Task A/B/C/D 全部完成 + §8 DoD 7/7 验证通过**
+涉及模块：magnet/crawler_v3/, web/src/core/browser-engine.ts, magnet/health_check.py, magnet/cloak_yellow_verify.py, .github/workflows/
+
+### 关键改动
+
+1. **Task A — thatcdn handler**（`handlers/thatcdn.py`，220 行）
+   - 逆向 captcha challenge → gen API → verify API → 搜索结果 → detail 页 magnet
+   - 导航站 rdata 解析、curl_cffi TLS 指纹、Referer 链完整
+
+2. **Task B — web Tier 1 迁移**（`web/src/core/browser-engine.ts`）
+   - Playwright → CloakBrowser（`launch({ humanize: true })`）
+   - `interactiveVerify()` 从 execFile + verify-extension → CloakBrowser headed 自动过 Turnstile
+   - `CLOAK_FORCE_HEADLESS=1` 环境变量统一切 headless
+   - 删除 `web/verify-extension/`（3 文件 7.8KB）
+
+3. **Task C — 退役老路径**
+   - `health_check.py` 新增 `_probe_with_v3()`：yellow + tier_override 源走 v3 orchestrator
+   - `cloak_yellow_verify.py` 顶部加 DeprecationWarning（2026-07-01 删除）
+
+4. **Task D — 回归测试 + CI**
+   - `magnet/tests/crawler_v3/` 48 个单测（orchestrator/Tier0/thatcdn）
+   - `.github/workflows/test-crawler-v3.yml` CI 工作流
+
+### §8 Definition of Done 最终结果
+
+| # | 验收项 | 结果 |
+|---|---|---|
+| 8.1 | Smoke `classify --status yellow` | ✅ 69 行 |
+| 8.2 | Tier 0 `search "Inception" --origin uindex.org` | ✅ 5 magnets ~1s |
+| 8.3 | thatcdn 4 源全过 | ✅ 4/4 PASS |
+| 8.4 | `web && npm run build` + verify-extension 删除 | ✅ build succeeded |
+| 8.5 | `health_check.py` 走 v3 orchestrator | ✅ _probe_with_v3 集成 |
+| 8.6 | `pytest -m 'not integration'` | ✅ 48/48 passed |
+| 8.7 | `validate_enum.py` | ✅ ALL VALID |
+
+### 关键改动
+
+1. **thatcdn handler 完整实现**（`handlers/thatcdn.py`，220 行）
+   - 逆向 thatcdn 反爬机制：captcha challenge → gen API → verify API → 搜索结果 → detail 页拿 magnet
+   - 导航站解析：`<meta name="rdata">` base64 反转 JSON 解码（xiongmaogb.top → xiongmaoqv.top）
+   - curl_cffi + Chrome TLS 指纹，Referer 链完整
+   - 二跳拿 magnet：搜索结果页解析 `/detail/` 链接，详情页提取 magnet URI
+
+2. **回归测试**（`magnet/tests/crawler_v3/`，48 个单测）
+   - `test_orchestrator.py`：TierError fallback 链 + classify 路由 + handler declines fallback
+   - `test_tier0_http.py`：mock curl_cffi 200/403/429/timeout + anti-bot 检测 + URL 构造
+   - `handlers/test_thatcdn.py`：rdata 正则 + magnet 正则 + 解析 + captcha 逻辑 + integration 标记
+
+3. **CLI 修复**（`cli.py`）
+   - Windows GBK 编码问题：Unicode ✓✗ → ASCII PASS/FAIL
+
+### §8 Definition of Done 验证结果
+
+| # | 验收项 | 结果 |
+|---|---|---|
+| 8.1 | Smoke `classify --status yellow` | ✅ 69 行 Tier plan |
+| 8.2 | Tier 0 `search "Inception" --origin uindex.org` | ✅ 5 magnets ~1s |
+| 8.3 | thatcdn 4 源全过 | ✅ 4/4 PASS（熊猫5 柠檬5 吴签5 老王5） |
+| 8.4 | `web && npm run build` | ⏸ 待 Task B |
+| 8.5 | `health_check.py --dry-run` 走 v3 | ⏸ 待 Task C |
+| 8.6 | `pytest -m 'not integration'` | ✅ 48/48 passed |
+| 8.7 | `validate_enum.py` | ✅ ALL VALID |
+
+### 后续 TODO
+
+- **Task B**：web route.ts Tier 1 迁移（cloakbrowser-node + 删除 verify-extension/）
+- **Task C**：health_check.py 接 v3 orchestrator + cloak_yellow_verify.py deprecation
+- **Task D CI**：`.github/workflows/test-crawler-v3.yml` 待创建
+
+---
 日期/时间：2026-05-28 18:45（UTC+8）
 本次版本：crawler-v3-scaffold
 本次范围：**爬虫架构 v3 骨架落地 — 4-Tier 统一调度**

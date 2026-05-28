@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "cheerio": "^1.2.0",
+    "cloakbrowser": "^0.3.31",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
     "fuse.js": "^7.3.0",

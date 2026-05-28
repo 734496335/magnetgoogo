@@ -100,7 +100,7 @@ def cmd_verify_yellow(args: argparse.Namespace) -> int:
         origin = src.get("site", {}).get("origin", "?")
         results = search(src, args.query, limit=5)
         ok = bool(results) and any(r.magnet for r in results)
-        status = "✓ PASS" if ok else "✗ FAIL"
+        status = "PASS" if ok else "FAIL"
         print(f"  {status:8s}  {name:30s}  {origin:40s}  n={len(results)}")
         if ok:
             passed += 1
