@@ -96,13 +96,14 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-28T03:17:08.569042+00:00",
             "magnets_found": 0,
             "note": "DNS pollution (ww17.btso.cc) + GFW connection reset, not a WAF issue",
             "diagnosis": "可达但无磁力内容 — title: btso.cc (已非磁力站)"
-          }
+          },
+          "notes": "DEAD: connection timeout, GFW blocked"
         },
         {
           "id": "d1a07c03988a",
@@ -1953,13 +1954,14 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-28T03:29:46.465821+00:00",
             "magnets_found": 0,
             "sample_title": "找磁力 0Mag 0mag①搜索引擎，致力于让网民更便捷地获取新建链接任务下载链接，找到所求。超过千亿的磁力链接数据库,可以瞬间找到相关搜索结果。",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
-          }
+          },
+          "notes": "DEAD: connection timeout, parked domain"
         },
         {
           "id": "96f1865a6c89",
@@ -2002,13 +2004,14 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-28T09:32:57.304317+00:00",
             "magnets_found": 0,
             "sample_title": "U3C3 U3C3 论坛一样的磁力搜索引擎，支持种子下载和磁力链接。",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
-          }
+          },
+          "notes": "DEAD: connection timeout"
         },
         {
           "id": "4e86913d2b52",
@@ -2101,13 +2104,14 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-28T09:35:20.090798+00:00",
             "magnets_found": 0,
             "sample_title": "磁力王 磁力王是最智能的磁力搜索，采用智能AI算法海量大数据索引的磁力链接搜索引擎，这里有超过亿万的免费电影游戏资源提供下载，24小时不间断更新。",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
-          }
+          },
+          "notes": "DEAD: connection refused/reset"
         },
         {
           "id": "8bc070bfaa58",
@@ -2206,7 +2210,8 @@
             "sample_title": "Pirate Bay 海盗湾 Download music, movies, games, software and much more. The Pirate",
             "diagnosis": "导航站发现候选，待自动验证",
             "note": "legacy status_detail=no_magnet_keywords_confirmed; legacy status=red"
-          }
+          },
+          "notes": "YELLOW: Pirate Bay proxy, search returns 0 results, redundant with other TPB greens"
         },
         {
           "id": "3697f5379c49",
@@ -2298,13 +2303,14 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-28T03:34:01.407000+00:00",
             "magnets_found": 0,
             "sample_title": "磁力树 磁力树搜索引擎是功能强大的磁力搜索引擎，牛逼的番号搜索、磁力搜索功能，更好用的BT种子搜索引擎！男人都爱上的磁力搜索引擎",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
-          }
+          },
+          "notes": "DEAD: redirects to spam survey-smiles.com"
         },
         {
           "id": "b3d469af7147",
@@ -2354,7 +2360,8 @@
             "sample_title": "磁力搜索神器 磁力搜索神器 | BT磁力搜索引擎网址目录,一个磁力链接搜索网址大全，我们收录各类高质量的资源下载网站， 有几千万的影视、音乐、软件、电子书等资源",
             "diagnosis": "classified as navigation site; use auxiliary discovery pipeline",
             "note": "aux_site:navigation:nav_portal_internal_catalog"
-          }
+          },
+          "notes": "SKIP: WordPress link directory, not a magnet search engine"
         },
         {
           "id": "7f48d72c50ab",
@@ -2397,14 +2404,15 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-28T09:35:51.921948+00:00",
             "magnets_found": 0,
             "sample_title": "BT之家 BT之家单版社区平台，最快提供 最新 最全 高清 电影、动漫、韩剧、日剧、美剧、无损音乐、体育、小说等BT迅雷下载以及资讯！影视爱好者的聚集地的~BT",
             "diagnosis": "导航站发现候选，待自动验证",
             "note": "legacy status_detail=no_magnet_keywords_confirmed; legacy status=red"
-          }
+          },
+          "notes": "DEAD: parked domain, Apache default 404"
         },
         {
           "id": "1a50db526e82",
@@ -2447,15 +2455,16 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-28T03:35:35.465698+00:00",
             "magnets_found": 0,
             "sample_title": "雨花阁 雨花阁 - 简单好用的BT搜索引擎",
             "diagnosis": "无法访问: HTTPConnectionPool(host='ww1.btcherries.xyz', port=80): Max retries exceeded wit",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
             "note": "legacy status_detail=dead; legacy status=red"
-          }
+          },
+          "notes": "DEAD: redirects to spam survey-smiles.com"
         },
         {
           "id": "c3bfc8160c61",
@@ -2650,14 +2659,15 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-28T03:36:05.467473+00:00",
             "magnets_found": 0,
             "sample_title": "磁力窝 磁力窝提供海量热门磁力链接资源搜索服务,24小时不间断从DHT网络中自动获取最新最热门的磁力链接资源.",
             "diagnosis": "导航站发现候选，待自动验证",
             "note": "legacy status_detail=no_magnet_content_playwright_verified; legacy status=red"
-          }
+          },
+          "notes": "DEAD: parked domain, Apache default 404"
         },
         {
           "id": "df2e89d84c84",
@@ -2700,13 +2710,14 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-28T03:36:43.403585+00:00",
             "magnets_found": 0,
             "sample_title": "BT吃力 吃力网分享提供最全的搜索引擎 - 最快最全的吃力搜索网站",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
-          }
+          },
+          "notes": "DEAD: connection timeout, parked domain"
         },
         {
           "id": "fb9b98527105",
@@ -2749,13 +2760,14 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-28T03:37:11.382004+00:00",
             "magnets_found": 0,
             "sample_title": "磁力海 磁力海搜索引擎是功能强大的磁力搜索引擎，牛逼的番号搜索、磁力搜索功能，更好用的BT种子搜索引擎！男人都爱上的磁力搜索引擎",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
-          }
+          },
+          "notes": "DEAD: connection timeout, parked domain"
         },
         {
           "id": "c4cdec91a2cb",
@@ -2798,13 +2810,14 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-28T10:02:25.559024+00:00",
             "magnets_found": 0,
             "sample_title": "快马搜索 快马搜索和千里马一样快的磁力搜索引擎，小编测试，确实搜索比较快。",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
-          }
+          },
+          "notes": "DEAD: connection timeout/NXDOMAIN"
         },
         {
           "id": "45faef0f6022",
@@ -2847,13 +2860,14 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-28T10:01:40.294176+00:00",
             "magnets_found": 0,
             "sample_title": "磁力星 磁力星一个低调的磁力搜索引擎，提供chrome或firefox扩展“磁力星助手”，推荐优先用扩展。",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
-          }
+          },
+          "notes": "DEAD: connection timeout/NXDOMAIN"
         },
         {
           "id": "04bac71d8d92",
@@ -2993,14 +3007,15 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "green",
+            "status_detail": "ok",
             "last_checked_at": "2026-05-28T10:01:49.575906+00:00",
             "magnets_found": 0,
             "sample_title": "BTSOW BTSOW 老牌磁力搜索引擎，支持浏览器插件 Plugin: Browser search / μTorrent search",
             "diagnosis": "导航站发现候选，待自动验证",
             "note": "legacy status_detail=search_dead_404; legacy status=red"
-          }
+          },
+          "notes": "GREEN: search works via mirror so2.btsow.top"
         },
         {
           "id": "dd793d9c7c96",
@@ -3049,7 +3064,8 @@
             "magnets_found": 0,
             "sample_title": "磁力蜘蛛 磁力蜘蛛搜索是全球资源最丰富的磁力链BT种子搜索下载网站和垂直搜索引擎!",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
-          }
+          },
+          "notes": "YELLOW: alive but 0 results, selectors need fixing"
         },
         {
           "id": "afa2e97a3ba9",
@@ -3191,15 +3207,16 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-28T10:02:55.609605+00:00",
             "magnets_found": 0,
             "sample_title": "磁力口袋 磁力口袋-一个特别好用的磁力搜索引擎",
             "diagnosis": "跳转到: https://www.cloaked.com/?utm_source=clkd&utm_medium=web&utm_campaign=user",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
             "note": "legacy status_detail=dead; legacy status=red"
-          }
+          },
+          "notes": "DEAD: domain repurposed to cloaked.com"
         },
         {
           "id": "5a3a97338806",
@@ -3298,7 +3315,8 @@
             "sample_title": "BTMET BTMET-可预览的磁力搜索引擎 支持视频、动漫、 音频、 图像、 文档书籍、压缩文件等资源下载，听说部分资源支持预览。",
             "diagnosis": "导航站发现候选，待自动验证",
             "note": "legacy status_detail=search_dead_404; legacy status=red"
-          }
+          },
+          "notes": "YELLOW: alive but 403 Forbidden, anti-bot"
         },
         {
           "id": "c47a7b514e30",
@@ -3348,7 +3366,8 @@
             "sample_title": "52BT 52BT - 我爱BT,上亿级的数据量是您下载电影、音乐、游戏、小说、电子书、动漫等BT种子磁力链接的最佳种子搜索神器",
             "diagnosis": "导航站发现候选，待自动验证",
             "note": "legacy status_detail=has_keywords_needs_browser"
-          }
+          },
+          "notes": "YELLOW: alive but anti-bot challenge, 0 results"
         },
         {
           "id": "1c48556398a7",
@@ -3496,7 +3515,8 @@
             "sample_title": "磁力大全搜索 磁力搜索是一个专业搜集各种网址的平台，在这里你能找到任何你所需要的网站，无论是免费电影、免费小说、泰剧韩剧日剧或者生活服务类的等各种有意思的网站，",
             "diagnosis": "classified as navigation site by navigation analyzer; use auxiliary discovery pipeline",
             "note": "aux_site:navigation:nav_directory_detail_pages"
-          }
+          },
+          "notes": "YELLOW: alive but 0 results, selectors need fixing"
         },
         {
           "id": "89e9278604c5",
@@ -3639,14 +3659,15 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-28T10:04:35.170363+00:00",
             "magnets_found": 0,
             "sample_title": "bthaha磁力链接搜索 BtHaha(BT哈哈)，专业提供磁力链接搜索的网站，千万级磁力链接，全网实时更新，包括电影、剧集、音乐、图书、软件、动漫、软件、教程",
             "diagnosis": "导航站发现候选，待自动验证",
             "note": "legacy status_detail=redirect_junk_site; legacy status=red"
-          }
+          },
+          "notes": "DEAD: connection timeout/NXDOMAIN"
         },
         {
           "id": "90ceb196eca1",
@@ -3695,7 +3716,8 @@
             "magnets_found": 0,
             "sample_title": "博世BT磁力吧 博世BT磁力吧是专业强大的磁力搜索引擎，这里有超过千万的磁力链接提供搜索，24小时不间断更新。",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
-          }
+          },
+          "notes": "YELLOW: alive but 0 results, selectors need fixing"
         },
         {
           "id": "94563719f59c",
@@ -3796,7 +3818,8 @@
             "magnets_found": 0,
             "sample_title": "磁力宅个人云盘-宅男磁力链接 磁力宅是一款安全私密的个人云盘，用户可通过网络链接或者磁力链接上传音乐、影片等网络文件，也可以上传照片，日记至磁力宅中，享受随时随",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
-          }
+          },
+          "notes": "YELLOW: alive but 0 results, selectors need fixing"
         },
         {
           "id": "cfb4e75a7f78",
@@ -3942,14 +3965,15 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "green",
+            "status_detail": "ok",
             "last_checked_at": "2026-05-28T10:05:11.176411+00:00",
             "magnets_found": 0,
             "sample_title": "磁力狐",
             "diagnosis": "导航站dh0.cn发现候选，待自动验证",
             "note": "legacy status_detail=no_magnet_content_playwright_verified; legacy status=red"
-          }
+          },
+          "notes": "GREEN: search works via mirror cache.foxs.top (阿狸搜)"
         },
         {
           "id": "6e32bb43e522",
@@ -4149,14 +4173,15 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-28T10:05:52.455432+00:00",
             "magnets_found": 0,
             "sample_title": "磁力链",
             "diagnosis": "导航站dh0.cn发现候选，待自动验证",
             "note": "legacy status_detail=redirect_junk_site; legacy status=red"
-          }
+          },
+          "notes": "DEAD: broken TLS, server closes abruptly"
         },
         {
           "id": "03761b9ce862",
@@ -4266,7 +4291,8 @@
             "sample_title": "盗梦空间 Inception 2010 Bluray 2160p DTS-HDMA5.1 HDR x265 10bit-DreamHD",
             "diagnosis": "导航站dh0.cn发现候选，待自动验证",
             "fail_streak": 0
-          }
+          },
+          "notes": "YELLOW: alive, parser bug - list_item/detail_link same selector, needs fix"
         },
         {
           "id": "1aa0c4d20031",
@@ -4316,7 +4342,8 @@
             "sample_title": "磁力多 torrent搜索引擎，提供电影/音乐/软件等资源检索。支持关键词搜索、高级过滤和磁力下载，无需注册，界面干净。实时索引海量内容，移动适配，RSS订阅热",
             "diagnosis": "导航站发现候选，待自动验证",
             "note": "legacy status_detail=no_magnet_keywords_confirmed; legacy status=red"
-          }
+          },
+          "notes": "SKIP: SPA shell, mirror of F.07 (ciliduo.cyou)"
         },
         {
           "id": "2aa41b7d81b4",
@@ -4418,7 +4445,8 @@
             "diagnosis": "title=资源, size=3219",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
             "note": "legacy status_detail=dead; legacy status=red"
-          }
+          },
+          "notes": "SKIP: SPA shell, mirror of F.05 (sofan.run)"
         },
         {
           "id": "427ce8860b2c",
@@ -4567,7 +4595,8 @@
             "magnets_found": 0,
             "sample_title": "91BT 磁力链接搜索引擎，聚合BT种子资源，覆盖电影、游戏等。快速更新和免费访问，功能支持关键词搜索、一键复制。简洁高效，适合P2P探索。",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
-          }
+          },
+          "notes": "SKIP: SPA shell, anti-adblock redirect (eeenav)"
         },
         {
           "id": "cee135aa6c75",
@@ -4666,8 +4695,8 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "green",
+            "status_detail": "ok",
             "last_checked_at": "2026-05-28T10:06:55.092480+00:00",
             "magnets_found": 0,
             "sample_title": "BT1207 好用的磁力链接搜索引擎",
@@ -4675,7 +4704,12 @@
             "last_check": "2026-04-21T00:51:45.993605+00:00",
             "note": "cloak_verify: jump/redirect page, not a search engine",
             "fail_streak": 0
-          }
+          },
+          "tier_override": {
+            "tier": "tier2_handler",
+            "platform": "thatcdn"
+          },
+          "notes": "GREEN: thatcdn redirect to bt1207so.cc/top/un.top"
         },
         {
           "id": "22db2863c125",
@@ -4897,7 +4931,8 @@
             "magnets_found": 0,
             "sample_title": "盗梦空间 Inception 2010 Bluray 2160p DTS-HDMA5.1 HDR x265 10bit-DreamHD",
             "diagnosis": "导航站发现候选，待自动验证"
-          }
+          },
+          "notes": "SKIP: SPA shell, mirror of F.37 (0cili.nl)"
         },
         {
           "id": "23d3ea89589d",
@@ -4947,7 +4982,8 @@
             "sample_title": "磁力发 四千万磁力资源搜索|免费BT下载|高清影视种子搜索",
             "diagnosis": "导航站发现候选，待自动验证",
             "note": "legacy status_detail=parked; legacy status=red"
-          }
+          },
+          "notes": "SKIP: SPA shell with CryptoJS, 0 results via proxy"
         },
         {
           "id": "7344db5de4f5",
