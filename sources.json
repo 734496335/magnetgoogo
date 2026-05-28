@@ -4196,7 +4196,8 @@
             "sample_title": "天堂磁力",
             "diagnosis": "导航站dh0.cn发现候选，待自动验证",
             "note": "legacy status_detail=has_keywords_needs_browser"
-          }
+          },
+          "notes": "needs_tier2_handler_or_2captcha: CF 403, CloakBrowser 43s 0 results"
         },
         {
           "id": "ca292a9992dd",
@@ -4355,7 +4356,8 @@
             "sample_title": "磁力夜 好用的磁力链接搜索引擎,提供在线磁力搜索。磁力君收录亿级磁力链接下载资源，每天实时更新！",
             "diagnosis": "导航站发现候选，待自动验证",
             "note": "legacy status_detail=parked; legacy status=red"
-          }
+          },
+          "notes": "needs_tier2_handler_or_2captcha: CF 403"
         },
         {
           "id": "455a1d36b3c7",
@@ -8434,14 +8436,15 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "waf",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "magnets_found": 15,
             "sample_title": "test-drive-unlimited-2.7z",
             "fail_streak": 0,
             "note": "demoted: 0% success across all users per analytics (browser rendering fails)"
-          }
+          },
+          "notes": "404 on search endpoint, domain may have changed structure"
         },
         {
           "id": "6v520_001",
@@ -9068,7 +9071,8 @@
             "magnets_found": 0,
             "sample_title": "",
             "note": "Auto health check: yellow→green. cloudflare_search"
-          }
+          },
+          "notes": "needs_tier2_handler_or_2captcha: CF 403"
         },
         {
           "id": "zyscj_clgclg",
