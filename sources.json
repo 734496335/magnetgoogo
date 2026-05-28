@@ -748,7 +748,7 @@
             "magnets_found": 0,
             "sample_title": "白日提灯[全40集] 4K"
           },
-          "notes": "needs_tier2_handler_or_2captcha: CF 403, CloakBrowser cannot solve, search_template has no {query}"
+          "notes": "SKIP: cloud drive sharing site (夸克/百度网盘), not a magnet search engine"
         },
         {
           "id": "52fbe59cf95c",

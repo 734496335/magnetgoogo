@@ -21,6 +21,18 @@
 - 2 DEAD (E.02 expired, E.06 404, E.08 redirects)
 - 净增独立品牌：0
 
+## §Task P1 复审（2026-05-28）
+
+> 人工抽查发现 E.01-E.05/E.07 的 WAF-HARDER 判定可能有误，CloakBrowser 实际通过了 CF，真因是 request_template 配错。
+
+| ID | 原终态 | 新终态 | 真实 search_template | n_magnets |
+|---|---|---|---|---|
+| E.01 | WAF-HARDER | SKIP | N/A | 0 | cloud drive sharing site (夸克/百度网盘), not magnet search |
+| E.03 | WAF-HARDER | YELLOW-fixed | /search/{query_hex}_1.html | 1 (headed) |
+| E.04 | WAF-HARDER | _pending_ | | |
+| E.05 | WAF-HARDER | _pending_ | | |
+| E.07 | WAF-HARDER | _pending_ | | |
+
 ## Task F — Selector 失效品牌批量修复（45 源）
 
 > 终态枚举：`GREEN-promoted` / `YELLOW-tweaked` / `DEAD` / `WAF-HARDER` / `SKIP`
