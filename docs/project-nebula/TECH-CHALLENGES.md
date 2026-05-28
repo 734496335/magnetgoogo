@@ -120,23 +120,61 @@
 
 ---
 
-## CHALLENGE-002 — Cloudflare Turnstile 交互式 CAPTCHA 无法绕过
+## CHALLENGE-002 — thatcdn 平台自定义 captcha（原 CF Turnstile，重新定性）
 
 - **严重程度**：high
-- **状态**：piloting（Scrapling StealthyFetcher v2 集成中）
+- **状态**：tier-routed（已在 crawler_v3 架构层留路由位，等 Tier 2 handler 逆向）
 - **首次记录**：2026-05-16
-- **业务影响**：4-6 个 yellow 源被 Turnstile 阻挡（laowangzo, wuqianso, xiongmaogb, lemonun, ...）
-- **当前方案 & 缺陷**：
-  - V1 裸 Selenium 完全无 stealth，必被识别
-  - 客户端 VerifyWebView 有反指纹注入但移动端 WebView 仍被拦
-- **已尝试**：
-  - 2026-05-16 CloakBrowser stealth 注入（navigator.webdriver/canvas noise/...）→ 对 JS 挑战有效，对**交互式 Turnstile 无效**
-  - 2026-05-21 Scrapling StealthyFetcher（Patchright + browserforge）集成到 v2 healer → 待验证
-- **候选方案**：
-  - **flaresolverr**（FlareSolverr/FlareSolverr）：成熟的 CF 绕过代理，docker 一键起；但响应慢、对 Turnstile 也是部分有效
-  - **2captcha / capsolver API**：付费打码，$2-3 / 1000 次，**最后兜底方案**
-  - **TLS 指纹层突破** = curl_cffi（Scrapling Fetcher 已集成）
-- **下一步**：跑 v2 healer 全量 yellow，统计真实突破率
+- **重新定性时间**：2026-05-28（v3 探针确认）
+- **业务影响**：4 个 yellow 源被阻挡（xiongmaogb / lemonun / wuqianso / laowangzo）
+
+### 关键发现（2026-05-28 v3 探针）
+
+之前一直把这事当作"Turnstile"是误判。**实际不是 Cloudflare Turnstile**，而是 thatcdn 平台共用模板 + 服务端的自定义 anti-bot：
+
+| 测试 | URL | 现象 |
+|---|---|---|
+| 直接 GET 搜索 URL | `https://xiongmaogb.top/search?keyword=spider` | **3.5KB 首页**而非搜索结果 |
+| CloakBrowser headless + humanize=True | 同上 | 同样返回首页表单（CF Turnstile 不存在） |
+| CloakBrowser 0.3.31 + Chromium 146.0.7680.177.5 | 同上 | 30s 内无变化 |
+
+**结论**：服务端通过未知校验（cookie / referer / JS-set 头）决定是否返回真实结果。CloakBrowser 即使过指纹也无效，因为它根本不是浏览器指纹问题。
+
+同样模式覆盖：xiongmaogb.top / lemonun.top / wuqianso.org / laowangzo.top（共用 `prod.b5.thatcdn.com` CDN + Bootstrap 3.3.7 + 自研 anti-bot）。
+
+### 已尝试（按时间倒序）
+
+1. **2026-05-28** v3 + CloakBrowser 0.3.31 + humanize=True → 仍失败（**确认 CloakBrowser 无效**，跟 v1 结论一致）
+2. **2026-05-21** Scrapling StealthyFetcher（Patchright + browserforge） → HTML 拿到了，是首页表单不是结果（确认是服务端逻辑而非指纹）
+3. **2026-05-16** CloakBrowser 0.3.x stealth 注入 → 对 CF JS Challenge 有效，对 thatcdn 自定义 anti-bot **无效**
+
+### 当前方案（v3 架构）
+
+`magnet/crawler_v3/handlers/thatcdn.py` 占位 handler 已注册。`sources.json` 4 个 thatcdn yellow 源已配置 `tier_override: tier2_handler/thatcdn`。
+路由：`Tier 2 Handler → Tier 0 → Tier 1`（前者未实现就降级，框架已工作）。
+
+### 候选方案
+
+- ⭐⭐⭐ **JS 逆向 thatcdn one.js**（首选，hello_js_reverse_skill + js-reverse-mcp）：
+  - 用 Camoufox 进入 xiongmaogb.top，DevTools Network 抓表单提交后真实请求
+  - 找到 cookie / token 生成逻辑，翻译成 Python
+  - 4 个源一锅端 + 未来同平台新源零成本接入
+  - 估算 1–3 天，硬截止 3 天
+- **flaresolverr**：对自定义 anti-bot 不一定有效（专门针对 CF）
+- **2captcha / capsolver**：thatcdn 不是标准 captcha，付费打码用不上
+- **放弃 4 个源**：影响低（同平台总产出 < 5%），但不专业
+
+### 下一步
+
+1. 用 hello_js_reverse_skill workflow 对 thatcdn one.js 做完整逆向
+2. 实现 `magnet/crawler_v3/handlers/thatcdn.py::thatcdn_search`
+3. 跑 `python -m magnet.crawler_v3 verify-yellow "蜘蛛侠"` 验证 4/4 通过
+4. 4 yellow → green，更新 sources.json health.status
+
+### 更新日志
+
+- 2026-05-16 —— 初建（误判为 Turnstile）
+- 2026-05-28 —— v3 探针重新定性为 thatcdn 平台自定义 anti-bot；状态改 piloting → tier-routed
 
 ---
 

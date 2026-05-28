@@ -43,8 +43,15 @@ def classify(source: dict) -> TierPlan:
         else:
             return TierPlan(order=_with_fallbacks(kind), reason=f"tier_override={forced}")
 
-    # Heuristics on sources.json metadata
-    requires_browser = source.get("requires_browser") or source.get("site", {}).get("requires_browser")
+    # Heuristics on sources.json metadata (canonical schema 0.1)
+    caps = source.get("capabilities") or {}
+    search = source.get("search") or {}
+    requires_browser = (
+        caps.get("requires_browser")
+        or search.get("requires_browser")
+        or search.get("requires_waf_bypass")
+        or source.get("requires_browser")
+    )
     status_detail = (source.get("health") or {}).get("status_detail")
 
     if requires_browser or status_detail == "waf":

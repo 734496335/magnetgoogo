@@ -70,23 +70,15 @@ class Tier1Cloak(Tier):
             page = browser.new_page()
             page.goto(url, wait_until="domcontentloaded", timeout=self.timeout * 1000)
 
-            # Wait for any CF/Turnstile challenge to auto-resolve
-            self._wait_for_challenge_resolved(page)
-
-            html = page.content()
-            if not html:
-                raise TierError("empty page content", retryable=True)
-
-            results = extract_results_from_html(html, source=source, base_url=url)
+            # Smart wait: poll for either (a) extractable results, or (b) clean page
+            # without challenge markers. Whichever comes first ends the wait.
+            results = self._poll_for_results(page, source=source, base_url=url)
             if not results:
-                # SPA may still be rendering; give it a beat and retry once
-                time.sleep(2)
-                html = page.content()
-                results = extract_results_from_html(html, source=source, base_url=url)
-
-            if not results:
-                raise TierError("zero results after render", retryable=False, hint="check_selectors")
-
+                raise TierError(
+                    "zero results after render (challenge may not have resolved)",
+                    retryable=False,
+                    hint="check_selectors_or_escalate",
+                )
             return results[:limit]
 
         finally:
@@ -95,32 +87,54 @@ class Tier1Cloak(Tier):
             except Exception:
                 pass
 
-    def _build_search_url(self, source: dict, query: str) -> str:
-        template = source.get("search", {}).get("url") or source.get("search_url")
-        if not template:
-            raise TierError("source has no search.url template", retryable=False)
-        origin = source.get("site", {}).get("origin", "").rstrip("/")
-        encoded = urllib.parse.quote_plus(query)
-        path = template.replace("{query}", encoded).replace("{query_url}", encoded).replace("{query_raw}", query)
-        return path if path.startswith("http") else origin + (path if path.startswith("/") else "/" + path)
+    def _poll_for_results(self, page, *, source: dict, base_url: str) -> list[SearchResult]:
+        """Poll page content every POLL_INTERVAL until results extractable or timeout.
 
-    def _wait_for_challenge_resolved(self, page) -> None:
+        Stops early if:
+        - extract_results_from_html returns >0 results (success)
+        - challenge markers gone AND we've polled at least 3s (give SPA time to hydrate)
+        """
         start = time.time()
+        last_html = ""
         while time.time() - start < MAX_CHALLENGE_WAIT:
             try:
-                html_head = page.evaluate("() => document.documentElement.outerHTML.slice(0, 4000)") or ""
+                last_html = page.content() or ""
             except Exception:
                 # navigation in progress
                 time.sleep(POLL_INTERVAL)
                 continue
 
-            if not any(m in html_head for m in CHALLENGE_MARKERS):
-                # Challenge cleared (or never was one)
-                return
+            results = extract_results_from_html(last_html, source=source, base_url=base_url)
+            if results:
+                return results
+
+            elapsed = time.time() - start
+            head = last_html[:8000]
+            challenge_present = any(m in head for m in CHALLENGE_MARKERS)
+            if not challenge_present and elapsed > 3:
+                # page settled, no challenge, no results — selectors likely wrong, give up
+                return []
+
             time.sleep(POLL_INTERVAL)
 
-        raise TierError(
-            "challenge did not resolve within timeout",
-            retryable=False,
-            hint="escalate_to_tier2_or_userassist",
-        )
+        # Final attempt after timeout
+        return extract_results_from_html(last_html, source=source, base_url=base_url)
+
+    def _build_search_url(self, source: dict, query: str) -> str:
+        import base64
+        search = source.get("search") or {}
+        template = search.get("request_template") or search.get("url") or source.get("search_url")
+        if not template:
+            raise TierError("source has no search.request_template", retryable=False)
+        origin = source.get("site", {}).get("origin", "").rstrip("/")
+        encoded = urllib.parse.quote_plus(query)
+        path = template
+        for k, v in {
+            "{query}": encoded,
+            "{query_url}": encoded,
+            "{query_raw}": query,
+            "{query_b64}": base64.b64encode(query.encode("utf-8")).decode("ascii"),
+        }.items():
+            path = path.replace(k, v)
+        return path if path.startswith("http") else origin + (path if path.startswith("/") else "/" + path)
+

@@ -45,13 +45,68 @@ orchestrator.search() 按 detector.classify() 输出的 Tier 顺序尝试，Tier
    - **handler 必须纯 Python**，不许调浏览器（那是 Tier 1 职责）
    - **smart_list 不重写**，crawler_v3.parser 直接 import crawler_v2 版本
 
-### 待办（按 P0→P4）
+### P0–P4 实测结果（同会话内执行）
 
-- **P0** CloakBrowser 升到最新版（57 patch），用 humanize=True 复测 4 个 thatcdn yellow 源
-- **P1** 装 curl_cffi + cloakbrowser 真跑一遍 `python -m magnet.crawler_v3 verify-yellow "test"`，对比 cloak-verify-v1 数据
-- **P2** 集成 hello_js_reverse_skill + js-reverse-mcp，对 thatcdn `/recaptcha/v4/challenge` 做完整逆向 → `handlers/thatcdn.py`
-- **P3** web `route.ts` 用 cloakbrowser 替换 execFile + verify-extension
-- **P4** health_check.py 改用 v3 orchestrator，cloak_yellow_verify.py 退役
+**P0 — CloakBrowser 0.3.31 + humanize=True 复测 thatcdn**
+- 升级到 cloakbrowser 0.3.31 + 自动下载 Chromium 146.0.7680.177.5（535MB binary）
+- 探针 `xiongmaogb.top/search?keyword=spider`：30s 内 HTML 始终 3.5KB（首页表单，非结果）
+- **关键发现**：thatcdn 不是 CF Turnstile，是平台自定义 anti-bot；CloakBrowser 即使有 humanize 也无效（不是指纹问题，是服务端校验）
+- 同 cloak-verify-v1 (2026-05-16) 结论一致 — humanize 没有改变结果
+- 顺手发现 **clttone.top sources.json bug**：`request_template: /search?word={query}` 应为 `?kw={query}`（form input name 是 `kw`）→ 已修复
+
+**P1 — 框架可用性验证**
+- Tier 0 (curl_cffi 0.15.0) 对 8 个 green 源测试：2/8 通过（fitgirl 1.8s、tokyotosho 22.5s）
+  - 失败的 6 个原因都符合 4-tier 设计（6v520 需自定义 handler、CLB 需 SPA 渲染、sukebei GFW 阻断 ≠ 框架问题）
+- Tier 1 (CloakBrowser) 启动 + Chromium 146 集成成功，CF Turnstile 在普通 CF 站点自动通过
+- TierError fallback 链工作：thatcdn 路由 `[tier2_handler → tier0_http → tier1_cloak]` 正确
+
+**P2 — Tier 2 handler 占位 + sources.json 路由配置**
+- 新增 `magnet/crawler_v3/handlers/thatcdn.py`（占位 + JS 逆向工作流注释）
+- sources.json 把 4 个 thatcdn yellow 源映射 `tier_override: {tier: tier2_handler, platform: thatcdn}`
+- 真正的逆向工作（hello_js_reverse_skill workflow）**未在本会话完成**——需要单独 1-3 天块状时间使用 js-reverse-mcp + Camoufox 走 Phase 0-5
+
+**P3 — web `route.ts` Tier 1 迁移**
+- **本会话未做**——超出单会话改造范围（需要 Node 端集成 cloakbrowser-node + 删除 verify-extension/ 整目录 + 更新所有 custom handler）
+- 决议：单独开 web 端 session 做，避免一次改太多
+
+**P4 — 文档与提交**
+- ✅ TECH-CHALLENGES.md CHALLENGE-002 重新定性：CF Turnstile → thatcdn 平台 anti-bot
+- ✅ TECH-CHALLENGES.md CHALLENGE-002 状态：piloting → tier-routed
+- ✅ DEV-LOG（本条目）
+
+### 主要交付物
+
+| 文件 | 行数 | 用途 |
+|---|---:|---|
+| `magnet/crawler_v3/__init__.py` | 11 | 包导出 |
+| `magnet/crawler_v3/__main__.py` | 5 | -m 入口 |
+| `magnet/crawler_v3/cli.py` | 117 | 子命令 search/classify/verify-yellow |
+| `magnet/crawler_v3/config.py` | 30 | env 配置 |
+| `magnet/crawler_v3/detector.py` | 91 | Tier 路由决策 |
+| `magnet/crawler_v3/orchestrator.py` | 91 | 调度 + fallback 链 |
+| `magnet/crawler_v3/parser/__init__.py` | 162 | smart_list 复用 + selector 路径 |
+| `magnet/crawler_v3/tiers/base.py` | 79 | Tier ABC |
+| `magnet/crawler_v3/tiers/tier0_http.py` | 156 | curl_cffi + httpx 兜底 |
+| `magnet/crawler_v3/tiers/tier1_cloak.py` | 152 | CloakBrowser + 智能 polling |
+| `magnet/crawler_v3/tiers/tier2_handler.py` | 96 | handler 注册表 |
+| `magnet/crawler_v3/tiers/tier3_stub.py` | 28 | 移动端占位 |
+| `magnet/crawler_v3/handlers/thatcdn.py` | 67 | 占位 + 逆向 workflow 注释 |
+| `magnet/crawler_v3/handlers/_example.py` | 23 | skeleton |
+| `magnet/crawler_v3/handlers/README.md` | — | JS 逆向工作流文档 |
+| `magnet/crawler_v3/_debug_probe.py` | 56 | 单 URL 探针（CloakBrowser HTML dump） |
+| `magnet/crawler_v3/README.md` | — | 架构总览 |
+
+### sources.json 变更
+
+- `clttone.top` request_template 修复（word→kw）
+- `xiongmaogb.top / lemonun.top / wuqianso.org / laowangzo.top` 新增 `tier_override: tier2_handler/thatcdn`
+
+### 后续 TODO
+
+- **P2 完成（关键路径）**：装 hello_js_reverse_skill + js-reverse-mcp，对 thatcdn one.js 做完整逆向 → 实现 `thatcdn_search`
+- **P3 web 迁移**：单独 session 处理 `web/src/app/api/search/route.ts` Tier 1 重构
+- **P4 退役老路径**：health_check.py 接 orchestrator；cloak_yellow_verify.py 退役（在 P2 通过后）
+- **回归测试基建**：`tests/handlers/test_thatcdn.py` 单测保护逆向产物
 
 ### 不动的部分
 

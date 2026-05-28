@@ -51,7 +51,11 @@ def extract_results_from_html(
     if not html:
         return []
 
-    selectors = source.get("selectors") or {}
+    selectors = (
+        source.get("selectors")
+        or ((source.get("search") or {}).get("parse_metadata") or {}).get("selectors")
+        or {}
+    )
     if selectors and BeautifulSoup is not None:
         results = _extract_via_selectors(html, selectors, base_url=base_url)
         if results:

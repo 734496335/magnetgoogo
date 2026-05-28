@@ -71,9 +71,10 @@ class Tier0Http(Tier):
     # ── helpers ──
 
     def _build_search_url(self, source: dict, query: str) -> str:
-        template = source.get("search", {}).get("url") or source.get("search_url")
+        search = source.get("search") or {}
+        template = search.get("request_template") or search.get("url") or source.get("search_url")
         if not template:
-            raise TierError("source has no search.url template", retryable=False)
+            raise TierError("source has no search.request_template", retryable=False)
 
         origin = source.get("site", {}).get("origin", "").rstrip("/")
         encoded = urllib.parse.quote_plus(query)
@@ -103,7 +104,8 @@ class Tier0Http(Tier):
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
         }
-        referer = source.get("search", {}).get("referer")
+        search = source.get("search") or {}
+        referer = search.get("referer") or (search.get("parse_metadata") or {}).get("referer")
         if referer:
             headers["Referer"] = referer
         return headers
