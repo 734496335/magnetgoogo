@@ -342,4 +342,19 @@ Step 5 站点搜索结果是 detail 链接而非 magnet?
 
 ---
 
+## 10. Completion Report
+
+**Phase 2.5 implemented by Claude (Opus 4.7) on 2026-05-28**
+
+### Net results:
+- **Task P2 (tier1 bug fix)**: Split CHALLENGE_MARKERS into CF_STRONG_MARKERS + CF_WEAK_TITLE_MARKERS. "请稍候" / "正在进行安全验证" now only checked in `<title>`. 4 unit tests added (52/52 pass).
+- **Task P1 (5 source re-audit)**:
+  - E.01 seedhub.cc → **SKIP** (cloud drive sharing site, not magnet search)
+  - E.03 cilixingqiu.net → **YELLOW-fixed** (real URL `/search/{query_hex}_1.html`, Turnstile blocks headless)
+  - E.04 tiantangcili.net → **YELLOW-fixed** (real param `key` not `q`, Turnstile blocks headless)
+  - E.05 ciliri.shop → **SKIP** (403 from site itself, not CF)
+  - E.07 magnetcatcat.com → **WAF-HARDER-confirmed** (Turnstile unsolvable without solver service)
+- **Net GREEN gain**: +0 (all 5 were correctly non-GREEN; E.03/E.04 fixed but still need headed+Turnstile)
+- **Commits**: 6 (1 tier1 fix + 5 source re-audits)
+
 **起点**：从 **E.03 (cilixingqiu.net)** 开始 — 已知 CloakBrowser 通过 CF（人工已验证），最有可能修出 GREEN。
