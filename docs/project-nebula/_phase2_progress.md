@@ -27,8 +27,8 @@
 | ID | brand | origin | 终态 | n_magnets | 备注 |
 |---|---|---|---|---|---|
 | F.01 | btso | https://btso.cc | _pending_ | | |
-| F.02 | btbtt | https://btbtt12.com | _pending_ | | |
-| F.03 | animetime | https://animetime.cc | _pending_ | | |
+| F.02 | btbtt | https://btbtt12.com | DEAD | 0 | connection timeout, unreachable |
+| F.03 | animetime | https://animetime.cc | DEAD | 0 | connection timeout, unreachable |
 | F.04 | BT联盟 | https://btlm.work | _pending_ | | |
 | F.05 | 搜番 | https://sofan.run | _pending_ | | |
 | F.06 | BT蚂蚁磁力 | https://btmayi.top | _pending_ | | |

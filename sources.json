@@ -402,13 +402,14 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-28T03:18:52.121236+00:00",
             "magnets_found": 0,
             "note": "GFW blocked, JS anti-bot redirect, sometimes redirects to google",
             "diagnosis": "可达但无磁力内容 — title: Redirecting... (已失效/重定向)"
-          }
+          },
+          "notes": "connection timeout, unreachable"
         },
         {
           "id": "e91a5f50eb78",
@@ -780,15 +781,16 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-28T03:27:10.875363+00:00",
             "magnets_found": 0,
             "sample_title": "[shincaps] Baka to Test to Shoukanjuu - 13 (BS-NTV 1440x1080 MPEG2 AAC).ts",
             "fail_streak": 0,
             "user_active": true,
             "user_ok_30d": 181
-          }
+          },
+          "notes": "connection timeout, unreachable"
         },
         {
           "id": "a7b8c9d0e1f2",
