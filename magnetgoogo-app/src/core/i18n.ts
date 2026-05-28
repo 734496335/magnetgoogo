@@ -29,10 +29,10 @@ const zh = {
   emptyQueryToast: '请输入搜索内容',
 
   // ── Search results ──
-  searchingStatus: (sources: number, results: number) =>
-    `正在搜索 ${sources} 个源，找到 ${results} 条结果`,
-  searchDoneStatus: (sources: number, results: number) =>
-    `搜索了 ${sources} 个源，找到 ${results} 条结果`,
+  searchingStatus: (_sources: number, results: number) =>
+    `正在搜索精选磁力源，找到 ${results} 条结果`,
+  searchDoneStatus: (_sources: number, results: number) =>
+    `已搜索精选磁力源，找到 ${results} 条结果`,
   sortRelevance: '相关性',
   sortSize: '大小',
   sortDate: '时间',
@@ -49,7 +49,7 @@ const zh = {
   settings: '设置',
   sectionSources: '数据源',
   syncSources: '拉取最新源',
-  syncSuccess: (count: number) => `成功获取 ${count} 个源`,
+  syncSuccess: (_count: number) => `已同步精选磁力源`,
   notSynced: '尚未同步',
   lastSync: '上次同步',
   sectionLanguage: '语言/Language',
@@ -105,6 +105,11 @@ const zh = {
   noResultsHint: '没有找到相关结果',
   noResultsSuggestion: '试试其他关键词，或检查拼写',
 
+  // ── Compliance mode ──
+  complianceBannerLine1: '此版本为合规版，解锁更多搜索源，请到官网了解',
+  complianceBannerLink: '前往官网',
+  complianceSearchPlaceholder: '搜索开源软件、学术资料...',
+
   // ── Misc ──
   fileCount: (n: number) => `文件数 ${n}`,
 };
@@ -118,10 +123,10 @@ const en: typeof zh = {
   emptyQueryToast: 'Please enter a search term',
 
   // ── Search results ──
-  searchingStatus: (sources, results) =>
-    `Searching ${sources} sources, found ${results} results`,
-  searchDoneStatus: (sources, results) =>
-    `Searched ${sources} sources, found ${results} results`,
+  searchingStatus: (_sources, results) =>
+    `Searching curated sources, found ${results} results`,
+  searchDoneStatus: (_sources, results) =>
+    `Searched curated sources, found ${results} results`,
   sortRelevance: 'Relevance',
   sortSize: 'Size',
   sortDate: 'Date',
@@ -138,7 +143,7 @@ const en: typeof zh = {
   settings: 'Settings',
   sectionSources: 'Sources',
   syncSources: 'Pull latest sources',
-  syncSuccess: (count) => `Fetched ${count} sources`,
+  syncSuccess: (_count) => `Curated sources synced`,
   notSynced: 'Not synced',
   lastSync: 'Last sync',
   sectionLanguage: 'Language',
@@ -194,6 +199,11 @@ const en: typeof zh = {
   noResultsHint: 'No results found',
   noResultsSuggestion: 'Try different keywords or check your spelling',
 
+  // ── Compliance mode ──
+  complianceBannerLine1: 'This is the compliant edition. Unlock more sources at our website.',
+  complianceBannerLink: 'Visit website',
+  complianceSearchPlaceholder: 'Open-source software, academic papers...',
+
   // ── Misc ──
   fileCount: (n) => `${n} files`,
 };
@@ -205,10 +215,10 @@ const es: typeof zh = {
   searchButton: 'Buscar magnets',
   emptyQueryToast: 'Escribe algo para buscar',
 
-  searchingStatus: (sources, results) =>
-    `Buscando en ${sources} fuentes, ${results} resultados`,
-  searchDoneStatus: (sources, results) =>
-    `${sources} fuentes buscadas, ${results} resultados`,
+  searchingStatus: (_sources, results) =>
+    `Buscando en fuentes seleccionadas, ${results} resultados`,
+  searchDoneStatus: (_sources, results) =>
+    `Fuentes seleccionadas consultadas, ${results} resultados`,
   sortRelevance: 'Relevancia',
   sortSize: 'Tamaño',
   sortDate: 'Fecha',
@@ -224,7 +234,7 @@ const es: typeof zh = {
   settings: 'Ajustes',
   sectionSources: 'Fuentes',
   syncSources: 'Descargar fuentes',
-  syncSuccess: (count) => `${count} fuentes obtenidas`,
+  syncSuccess: (_count) => `Fuentes seleccionadas sincronizadas`,
   notSynced: 'Sin sincronizar',
   lastSync: 'Última sincronización',
   sectionLanguage: 'Idioma',
@@ -273,6 +283,10 @@ const es: typeof zh = {
   noResultsHint: 'Sin resultados',
   noResultsSuggestion: 'Prueba otras palabras clave',
 
+  complianceBannerLine1: 'Versión compatible. Desbloquea más fuentes en nuestro sitio web.',
+  complianceBannerLink: 'Visitar sitio',
+  complianceSearchPlaceholder: 'Software libre, artículos académicos...',
+
   fileCount: (n) => `${n} archivos`,
 };
 
@@ -283,10 +297,10 @@ const ru: typeof zh = {
   searchButton: 'Искать магнеты',
   emptyQueryToast: 'Введите поисковый запрос',
 
-  searchingStatus: (sources, results) =>
-    `Поиск по ${sources} источникам, найдено ${results}`,
-  searchDoneStatus: (sources, results) =>
-    `Найдено ${results} в ${sources} источниках`,
+  searchingStatus: (_sources, results) =>
+    `Поиск по подобранным источникам, найдено ${results}`,
+  searchDoneStatus: (_sources, results) =>
+    `Найдено ${results} в подобранных источниках`,
   sortRelevance: 'Релевантность',
   sortSize: 'Размер',
   sortDate: 'Дата',
@@ -302,7 +316,7 @@ const ru: typeof zh = {
   settings: 'Настройки',
   sectionSources: 'Источники',
   syncSources: 'Загрузить источники',
-  syncSuccess: (count) => `Получено ${count} источников`,
+  syncSuccess: (_count) => `Подобранные источники синхронизированы`,
   notSynced: 'Не синхронизировано',
   lastSync: 'Последняя синхронизация',
   sectionLanguage: 'Язык',
@@ -351,6 +365,10 @@ const ru: typeof zh = {
   noResultsHint: 'Ничего не найдено',
   noResultsSuggestion: 'Попробуйте другие ключевые слова',
 
+  complianceBannerLine1: 'Совместимая версия. Разблокируйте больше источников на нашем сайте.',
+  complianceBannerLink: 'На сайт',
+  complianceSearchPlaceholder: 'Открытое ПО, научные статьи...',
+
   fileCount: (n) => `${n} файлов`,
 };
 
@@ -361,10 +379,10 @@ const pt: typeof zh = {
   searchButton: 'Buscar magnets',
   emptyQueryToast: 'Digite algo para buscar',
 
-  searchingStatus: (sources, results) =>
-    `Buscando em ${sources} fontes, ${results} resultados`,
-  searchDoneStatus: (sources, results) =>
-    `${sources} fontes pesquisadas, ${results} resultados`,
+  searchingStatus: (_sources, results) =>
+    `Buscando em fontes selecionadas, ${results} resultados`,
+  searchDoneStatus: (_sources, results) =>
+    `Fontes selecionadas pesquisadas, ${results} resultados`,
   sortRelevance: 'Relevância',
   sortSize: 'Tamanho',
   sortDate: 'Data',
@@ -380,7 +398,7 @@ const pt: typeof zh = {
   settings: 'Configurações',
   sectionSources: 'Fontes',
   syncSources: 'Baixar fontes',
-  syncSuccess: (count) => `${count} fontes obtidas`,
+  syncSuccess: (_count) => `Fontes selecionadas sincronizadas`,
   notSynced: 'Não sincronizado',
   lastSync: 'Última sincronização',
   sectionLanguage: 'Idioma',
@@ -429,6 +447,10 @@ const pt: typeof zh = {
   noResultsHint: 'Nenhum resultado encontrado',
   noResultsSuggestion: 'Tente outras palavras-chave',
 
+  complianceBannerLine1: 'Versão compatível. Desbloqueie mais fontes no nosso site.',
+  complianceBannerLink: 'Visitar site',
+  complianceSearchPlaceholder: 'Software livre, artigos acadêmicos...',
+
   fileCount: (n) => `${n} arquivos`,
 };
 
@@ -439,10 +461,10 @@ const ja: typeof zh = {
   searchButton: 'マグネット検索',
   emptyQueryToast: '検索キーワードを入力してください',
 
-  searchingStatus: (sources, results) =>
-    `${sources}件のソースを検索中、${results}件の結果`,
-  searchDoneStatus: (sources, results) =>
-    `${sources}件のソースから${results}件の結果`,
+  searchingStatus: (_sources, results) =>
+    `厳選ソースを検索中、${results}件の結果`,
+  searchDoneStatus: (_sources, results) =>
+    `厳選ソースから${results}件の結果`,
   sortRelevance: '関連性',
   sortSize: 'サイズ',
   sortDate: '日付',
@@ -458,7 +480,7 @@ const ja: typeof zh = {
   settings: '設定',
   sectionSources: 'ソース',
   syncSources: '最新ソースを取得',
-  syncSuccess: (count) => `${count}件のソースを取得`,
+  syncSuccess: (_count) => `厳選ソースを同期しました`,
   notSynced: '未同期',
   lastSync: '前回の同期',
   sectionLanguage: '言語',
@@ -507,6 +529,10 @@ const ja: typeof zh = {
   noResultsHint: '結果が見つかりません',
   noResultsSuggestion: '他のキーワードをお試しください',
 
+  complianceBannerLine1: 'コンプライアンス版です。公式サイトでより多くのソースを解放。',
+  complianceBannerLink: '公式サイトへ',
+  complianceSearchPlaceholder: 'オープンソース、学術資料...',
+
   fileCount: (n) => `${n}ファイル`,
 };
 
@@ -517,10 +543,10 @@ const ko: typeof zh = {
   searchButton: '마그넷 검색',
   emptyQueryToast: '검색어를 입력하세요',
 
-  searchingStatus: (sources, results) =>
-    `${sources}개 소스 검색 중, ${results}개 결과`,
-  searchDoneStatus: (sources, results) =>
-    `${sources}개 소스에서 ${results}개 결과`,
+  searchingStatus: (_sources, results) =>
+    `엄선된 소스 검색 중, ${results}개 결과`,
+  searchDoneStatus: (_sources, results) =>
+    `엄선된 소스에서 ${results}개 결과`,
   sortRelevance: '관련성',
   sortSize: '크기',
   sortDate: '날짜',
@@ -536,7 +562,7 @@ const ko: typeof zh = {
   settings: '설정',
   sectionSources: '소스',
   syncSources: '최신 소스 받기',
-  syncSuccess: (count) => `${count}개 소스 받음`,
+  syncSuccess: (_count) => `엄선된 소스 동기화됨`,
   notSynced: '동기화 안 됨',
   lastSync: '마지막 동기화',
   sectionLanguage: '언어',
@@ -585,6 +611,10 @@ const ko: typeof zh = {
   noResultsHint: '결과를 찾을 수 없습니다',
   noResultsSuggestion: '다른 키워드로 검색해 보세요',
 
+  complianceBannerLine1: '규정 준수 버전입니다. 공식 사이트에서 더 많은 소스를 해제하세요.',
+  complianceBannerLink: '공식 사이트',
+  complianceSearchPlaceholder: '오픈소스, 학술 자료...',
+
   fileCount: (n) => `${n}개 파일`,
 };
 
@@ -595,10 +625,10 @@ const fr: typeof zh = {
   searchButton: 'Rechercher',
   emptyQueryToast: 'Saisissez un terme de recherche',
 
-  searchingStatus: (sources, results) =>
-    `Recherche dans ${sources} sources, ${results} résultats`,
-  searchDoneStatus: (sources, results) =>
-    `${sources} sources consultées, ${results} résultats`,
+  searchingStatus: (_sources, results) =>
+    `Recherche dans les sources sélectionnées, ${results} résultats`,
+  searchDoneStatus: (_sources, results) =>
+    `Sources sélectionnées consultées, ${results} résultats`,
   sortRelevance: 'Pertinence',
   sortSize: 'Taille',
   sortDate: 'Date',
@@ -614,7 +644,7 @@ const fr: typeof zh = {
   settings: 'Paramètres',
   sectionSources: 'Sources',
   syncSources: 'Télécharger les sources',
-  syncSuccess: (count) => `${count} sources obtenues`,
+  syncSuccess: (_count) => `Sources sélectionnées synchronisées`,
   notSynced: 'Non synchronisé',
   lastSync: 'Dernière synchronisation',
   sectionLanguage: 'Langue',
@@ -663,6 +693,10 @@ const fr: typeof zh = {
   noResultsHint: 'Aucun résultat trouvé',
   noResultsSuggestion: 'Essayez d\'autres mots-clés',
 
+  complianceBannerLine1: 'Version conforme. Débloquez plus de sources sur notre site.',
+  complianceBannerLink: 'Visiter le site',
+  complianceSearchPlaceholder: 'Logiciels libres, articles académiques...',
+
   fileCount: (n) => `${n} fichiers`,
 };
 
@@ -673,10 +707,10 @@ const de: typeof zh = {
   searchButton: 'Magnets suchen',
   emptyQueryToast: 'Bitte Suchbegriff eingeben',
 
-  searchingStatus: (sources, results) =>
-    `Suche in ${sources} Quellen, ${results} Ergebnisse`,
-  searchDoneStatus: (sources, results) =>
-    `${sources} Quellen durchsucht, ${results} Ergebnisse`,
+  searchingStatus: (_sources, results) =>
+    `Suche in ausgewählten Quellen, ${results} Ergebnisse`,
+  searchDoneStatus: (_sources, results) =>
+    `Ausgewählte Quellen durchsucht, ${results} Ergebnisse`,
   sortRelevance: 'Relevanz',
   sortSize: 'Größe',
   sortDate: 'Datum',
@@ -692,7 +726,7 @@ const de: typeof zh = {
   settings: 'Einstellungen',
   sectionSources: 'Quellen',
   syncSources: 'Quellen laden',
-  syncSuccess: (count) => `${count} Quellen geladen`,
+  syncSuccess: (_count) => `Ausgewählte Quellen synchronisiert`,
   notSynced: 'Nicht synchronisiert',
   lastSync: 'Letzte Synchronisierung',
   sectionLanguage: 'Sprache',
@@ -741,6 +775,10 @@ const de: typeof zh = {
   noResultsHint: 'Keine Ergebnisse gefunden',
   noResultsSuggestion: 'Versuchen Sie andere Suchbegriffe',
 
+  complianceBannerLine1: 'Konforme Version. Mehr Quellen auf unserer Website freischalten.',
+  complianceBannerLink: 'Zur Website',
+  complianceSearchPlaceholder: 'Open-Source-Software, akademische Artikel...',
+
   fileCount: (n) => `${n} Dateien`,
 };
 
@@ -751,10 +789,10 @@ const ar: typeof zh = {
   searchButton: 'بحث مغناطيس',
   emptyQueryToast: 'يرجى إدخال كلمة بحث',
 
-  searchingStatus: (sources, results) =>
-    `جارٍ البحث في ${sources} مصدر، وُجد ${results} نتيجة`,
-  searchDoneStatus: (sources, results) =>
-    `تم البحث في ${sources} مصدر، ${results} نتيجة`,
+  searchingStatus: (_sources, results) =>
+    `جارٍ البحث في مصادر مختارة، وُجد ${results} نتيجة`,
+  searchDoneStatus: (_sources, results) =>
+    `تم البحث في مصادر مختارة، ${results} نتيجة`,
   sortRelevance: 'الصلة',
   sortSize: 'الحجم',
   sortDate: 'التاريخ',
@@ -770,7 +808,7 @@ const ar: typeof zh = {
   settings: 'الإعدادات',
   sectionSources: 'المصادر',
   syncSources: 'تحميل المصادر',
-  syncSuccess: (count) => `تم تحميل ${count} مصدر`,
+  syncSuccess: (_count) => `تم مزامنة المصادر المختارة`,
   notSynced: 'غير متزامن',
   lastSync: 'آخر مزامنة',
   sectionLanguage: 'اللغة',
@@ -818,6 +856,10 @@ const ar: typeof zh = {
 
   noResultsHint: 'لم يتم العثور على نتائج',
   noResultsSuggestion: 'جرّب كلمات مفتاحية أخرى',
+
+  complianceBannerLine1: 'نسخة متوافقة. افتح المزيد من المصادر على موقعنا الرسمي.',
+  complianceBannerLink: 'زيارة الموقع',
+  complianceSearchPlaceholder: 'برامج مفتوحة المصدر، أبحاث أكاديمية...',
 
   fileCount: (n) => `${n} ملفات`,
 };

@@ -20,13 +20,18 @@ import * as SecureStore from 'expo-secure-store';
 import { File, Paths, Directory } from 'expo-file-system';
 import { decryptSources } from './crypto';
 import { getAppVersion } from './configChecker';
+import { COMPLIANCE_MODE } from './complianceConfig';
+
+const SOURCE_FILE = COMPLIANCE_MODE ? '/sources-green.enc.json' : '/sources.enc.json';
 
 // ── Endpoints (new repo: mg-data) ────────────────────────────────────
 // All endpoints are raced in parallel; first valid response wins.
+const CN_ALI = 'https://cn.magnetgoogo.com';
 const CDN_BASE = 'https://cdn.jsdelivr.net/gh/734496335/mg-data@main';
 const RAW_BASE = 'https://raw.githubusercontent.com/734496335/mg-data/main';
-const GATEWAY_BASE = 'https://maggoogo-gateway.734496335lp.workers.dev';
-const DEV_BASE = 'http://192.168.5.207:9090';
+const GATEWAY_BASE = 'https://api.naoshiquan.com';
+const GATEWAY_OLD = 'https://maggoogo-gateway.734496335lp.workers.dev';
+const CN_BASE = 'https://magnetgoogo.com';
 const DEFAULT_REMOTE_URL = CDN_BASE;
 
 // Disk cache (new expo-file-system API)
@@ -209,10 +214,13 @@ function _extractGreen(raw: any): SourceRule[] {
   let list: SourceRule[] = [];
   if (Array.isArray(sourceData)) {
     list = sourceData;
-  } else if (sourceData.rulesets?.[0]?.rules) {
-    list = sourceData.rulesets[0].rules;
-  } else if (sourceData.rulesets) {
-    list = sourceData.rulesets;
+  } else if (sourceData.rulesets && Array.isArray(sourceData.rulesets)) {
+    // Flatten all rules from ALL rulesets (not just the first one)
+    for (const rs of sourceData.rulesets) {
+      if (rs.rules && Array.isArray(rs.rules)) {
+        list.push(...rs.rules);
+      }
+    }
   } else if (sourceData.sources) {
     list = sourceData.sources;
   }
@@ -279,7 +287,7 @@ export async function syncSources(
 ): Promise<{ sources: SourceRule[]; meta: SourceMeta }> {
   const endpoints = url
     ? [url.replace(/\/$/, '')]
-    : [CDN_BASE, RAW_BASE, GATEWAY_BASE, DEV_BASE];
+    : [CN_ALI, CN_BASE, CDN_BASE, RAW_BASE, GATEWAY_BASE, GATEWAY_OLD];
 
   const appVer = getAppVersion();
   const authToken = await getAuthToken();
@@ -295,41 +303,50 @@ export async function syncSources(
   let encPayload = '';
   let usedUrl = '';
 
-  // ── Strategy: race all endpoints in parallel (encrypted) ──
+  // ── Strategy: race all endpoints, sequential fallback ──
+  const allEndpoints = [...endpoints, CN_BASE].filter((v, i, a) => a.indexOf(v) === i);
+
+  // Tier 1: race all endpoints (8s timeout) — fastest wins
   try {
-    const result = await raceFetchOk(endpoints, '/sources.enc.json', headers);
+    const result = await raceFetchOk(allEndpoints, SOURCE_FILE, headers);
     encPayload = result.text;
     const decrypted = decryptSources(encPayload);
     raw = JSON.parse(decrypted);
     usedUrl = result.url;
   } catch (raceErr: any) {
-    // All encrypted endpoints failed; try plaintext as last resort (dev only)
-    console.log(`[SourceStore] All encrypted endpoints failed: ${raceErr.message}`);
-    try {
-      const result = await raceFetchOk([DEV_BASE], '/sources.json', headers);
-      raw = JSON.parse(result.text);
-      usedUrl = result.url;
-      console.log(`[SourceStore] Loaded plaintext sources from dev`);
-    } catch {
-      throw new Error(`拉取失败: ${raceErr.message}`);
+    console.log(`[SourceStore] Tier 1 failed: ${raceErr.message}, trying sequentially...`);
+    // Tier 2: try each endpoint sequentially with longer timeout (CN first)
+    const fallbackOrder = [CN_ALI, CN_BASE, GATEWAY_BASE, CDN_BASE, RAW_BASE, GATEWAY_OLD];
+    let found = false;
+    for (const base of fallbackOrder) {
+      try {
+        const resp = await fetchWithTimeout(`${base}${SOURCE_FILE}`, { headers }, 15000);
+        if (!resp.ok) continue;
+        const text = await resp.text();
+        if (!text || text.length < 10) continue;
+        const decrypted = decryptSources(text);
+        raw = JSON.parse(decrypted);
+        encPayload = text;
+        usedUrl = base;
+        found = true;
+        console.log(`[SourceStore] ✓ Fallback succeeded via ${base}`);
+        break;
+      } catch (e: any) {
+        console.log(`[SourceStore] ${base} failed: ${e.message}`);
+      }
+    }
+    if (!found) {
+      throw new Error(`所有端点均不可达，请检查网络`);
     }
   }
 
-  // ── Unwrap envelope (new format with expiry metadata) ──
+  // ── Unwrap envelope — only enforce version gating, ignore expiry ──
   let expiryHours = DEFAULT_EXPIRY_HOURS;
   if (raw.payload && raw.expires_at) {
-    if (raw.min_app_version) {
-      if (_compareSemver(appVer, raw.min_app_version) < 0) {
-        throw new Error(`请更新App到 ${raw.min_app_version} 以上版本`);
-      }
+    if (raw.min_app_version && _compareSemver(appVer, raw.min_app_version) < 0) {
+      throw new Error(`请更新App到 ${raw.min_app_version} 以上版本`);
     }
-    const expiresAt = new Date(raw.expires_at).getTime();
-    if (Date.now() > expiresAt) {
-      const expiredAgo = Math.round((Date.now() - expiresAt) / 3600000);
-      throw new Error(`源数据已过期（${expiredAgo}小时前），请等待更新`);
-    }
-    expiryHours = Math.max(1, Math.round((expiresAt - Date.now()) / 3600000));
-    console.log(`[SourceStore] Envelope: schema=${raw.schema_version}, expires=${raw.expires_at}`);
+    console.log(`[SourceStore] Envelope: schema=${raw.schema_version}, issued=${raw.issued_at}`);
   }
 
   const green = _extractGreen(raw);

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import {
   loadSources,
   loadMeta,
@@ -13,6 +13,8 @@ interface SourceState {
   loading: boolean;
   syncing: boolean;
   error: string | null;
+  /** Transient toast message for sync events (auto-clears). */
+  syncToast: string | null;
   refresh: () => Promise<void>;
 }
 
@@ -22,6 +24,7 @@ const Ctx = createContext<SourceState>({
   loading: true,
   syncing: false,
   error: null,
+  syncToast: null,
   refresh: async () => {},
 });
 
@@ -31,8 +34,33 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [syncToast, setSyncToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load cached sources on mount; auto-sync if no disk cache
+  const showToast = useCallback((msg: string, durationMs = 3000) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setSyncToast(msg);
+    toastTimer.current = setTimeout(() => setSyncToast(null), durationMs);
+  }, []);
+
+  const doSync = useCallback(async (silent: boolean) => {
+    setSyncing(true);
+    setError(null);
+    if (!silent) showToast('正在同步数据源…', 10000);
+    try {
+      const { sources: fresh, meta: m } = await syncSources();
+      setSources(fresh);
+      setMeta(m);
+      showToast(`已同步 ${fresh.length} 个数据源`);
+    } catch (e: any) {
+      setError(e.message);
+      showToast(`同步失败: ${e.message}`, 4000);
+    } finally {
+      setSyncing(false);
+    }
+  }, [showToast]);
+
+  // Load cached sources on mount; auto-sync if empty or expired
   useEffect(() => {
     (async () => {
       try {
@@ -47,37 +75,16 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
       } catch (e: any) {
         console.log(`[SourceContext] Cache load error: ${e.message}`);
       }
-      // No cached sources → auto-sync from network
+      // No cached sources or cache expired → auto-sync
       setLoading(false);
-      setSyncing(true);
-      try {
-        const { sources: fresh, meta: m } = await syncSources();
-        setSources(fresh);
-        setMeta(m);
-      } catch (e: any) {
-        setError(e.message);
-      } finally {
-        setSyncing(false);
-      }
+      doSync(false);
     })();
-  }, []);
+  }, [doSync]);
 
-  const refresh = async () => {
-    setSyncing(true);
-    setError(null);
-    try {
-      const { sources: fresh, meta: m } = await syncSources();
-      setSources(fresh);
-      setMeta(m);
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setSyncing(false);
-    }
-  };
+  const refresh = useCallback(() => doSync(false), [doSync]);
 
   return (
-    <Ctx.Provider value={{ sources, meta, loading, syncing, error, refresh }}>
+    <Ctx.Provider value={{ sources, meta, loading, syncing, error, syncToast, refresh }}>
       {children}
     </Ctx.Provider>
   );

@@ -7,25 +7,23 @@ import type { ConfigCheckResult } from '../core/configChecker';
 interface Props {
   result: ConfigCheckResult;
   visible: boolean;
+  onDismiss: () => void;
 }
 
-export default function ForceUpdateModal({ result, visible }: Props) {
+export default function OptionalUpdateModal({ result, visible, onDismiss }: Props) {
   const [downloading, setDownloading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('');
-  const downloadRef = useRef<FileSystem.DownloadResumable | null>(null);
 
   const installApk = useCallback(async (fileUri: string) => {
     try {
       const contentUri = await FileSystem.getContentUriAsync(fileUri);
       await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
         data: contentUri,
-        flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+        flags: 1,
         type: 'application/vnd.android.package-archive',
       });
     } catch (e: any) {
-      console.log('[Update] Install intent failed:', e.message);
-      // Fallback: open in browser
       Linking.openURL(result.downloadUrl).catch(() => {});
     }
   }, [result.downloadUrl]);
@@ -45,14 +43,11 @@ export default function ForceUpdateModal({ result, visible }: Props) {
     const fileUri = FileSystem.cacheDirectory + 'magnetgoogo-update.apk';
 
     try {
-      // Clean up old file
       const info = await FileSystem.getInfoAsync(fileUri);
       if (info.exists) await FileSystem.deleteAsync(fileUri, { idempotent: true });
 
       const dl = FileSystem.createDownloadResumable(
-        url,
-        fileUri,
-        {},
+        url, fileUri, {},
         (dp) => {
           if (dp.totalBytesExpectedToWrite > 0) {
             const pct = dp.totalBytesWritten / dp.totalBytesExpectedToWrite;
@@ -63,16 +58,14 @@ export default function ForceUpdateModal({ result, visible }: Props) {
           }
         },
       );
-      downloadRef.current = dl;
 
-      const result = await dl.downloadAsync();
-      if (result?.uri) {
+      const dlResult = await dl.downloadAsync();
+      if (dlResult?.uri) {
         setStatusText('下载完成，正在安装…');
         setProgress(1);
-        await installApk(result.uri);
+        await installApk(dlResult.uri);
       }
     } catch (e: any) {
-      console.log('[Update] Download failed:', e.message);
       setStatusText('下载失败');
       Alert.alert('下载失败', '请使用浏览器下载安装', [
         { text: '前往下载', onPress: () => Linking.openURL(url).catch(() => {}) },
@@ -82,20 +75,19 @@ export default function ForceUpdateModal({ result, visible }: Props) {
     }
   }, [result.downloadUrl, downloading, installApk]);
 
-  const openMirror = (url: string) => {
-    Linking.openURL(url).catch(() => {});
-  };
+  const latestVersion = result.config?.latest_version || '';
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onDismiss}>
       <View style={s.overlay}>
         <View style={s.card}>
           <View style={s.iconWrap}>
-            <Text style={s.icon}>⬆️</Text>
+            <Text style={s.icon}>🎉</Text>
           </View>
-          <Text style={s.title}>需要更新</Text>
+          <Text style={s.title}>发现新版本</Text>
+          <Text style={s.versionBadge}>v{latestVersion}</Text>
           <Text style={s.desc}>
-            当前版本过旧，无法继续使用。{'\n'}请更新到最新版本。
+            新版本已发布，建议更新以获得更好的体验。
           </Text>
 
           {result.announcement ? (
@@ -117,11 +109,17 @@ export default function ForceUpdateModal({ result, visible }: Props) {
             </TouchableOpacity>
           )}
 
+          {!downloading && (
+            <TouchableOpacity style={s.skipBtn} onPress={onDismiss} activeOpacity={0.7}>
+              <Text style={s.skipBtnText}>稍后再说</Text>
+            </TouchableOpacity>
+          )}
+
           {!downloading && result.mirrors.length > 0 && (
             <View style={s.mirrors}>
               <Text style={s.mirrorsLabel}>备用下载：</Text>
               {result.mirrors.map((url, i) => (
-                <TouchableOpacity key={i} onPress={() => openMirror(url)}>
+                <TouchableOpacity key={i} onPress={() => Linking.openURL(url).catch(() => {})}>
                   <Text style={s.mirrorLink}>备用链接 {i + 1}</Text>
                 </TouchableOpacity>
               ))}
@@ -136,7 +134,7 @@ export default function ForceUpdateModal({ result, visible }: Props) {
 const s = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
@@ -153,17 +151,28 @@ const s = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#F0FDF4',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   icon: { fontSize: 28 },
   title: {
     fontSize: 20,
     fontWeight: '700',
     color: '#1E293B',
-    marginBottom: 8,
+    marginBottom: 6,
+  },
+  versionBadge: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4285F4',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 12,
   },
   desc: {
     fontSize: 14,
@@ -185,7 +194,7 @@ const s = StyleSheet.create({
     lineHeight: 18,
   },
   primaryBtn: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#4285F4',
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 32,
@@ -197,8 +206,17 @@ const s = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  skipBtn: {
+    marginTop: 12,
+    paddingVertical: 8,
+  },
+  skipBtnText: {
+    fontSize: 14,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
   mirrors: {
-    marginTop: 16,
+    marginTop: 12,
     alignItems: 'center',
   },
   mirrorsLabel: {
@@ -208,7 +226,7 @@ const s = StyleSheet.create({
   },
   mirrorLink: {
     fontSize: 13,
-    color: '#3B82F6',
+    color: '#4285F4',
     paddingVertical: 4,
   },
   progressWrap: {
@@ -226,7 +244,7 @@ const s = StyleSheet.create({
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#4285F4',
     borderRadius: 4,
   },
   progressText: {

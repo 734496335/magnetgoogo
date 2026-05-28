@@ -22,7 +22,7 @@ import { useLang } from '../core/LangContext';
 import { useTheme } from '../core/ThemeContext';
 import { getAppVersion } from '../core/configChecker';
 
-const FEEDBACK_API = 'https://maggoogo-gateway.734496335lp.workers.dev/api/feedback';
+const FEEDBACK_API = 'https://api.naoshiquan.com/api/feedback';
 
 export default function FeedbackFAB() {
   const { lang, t } = useLang();
@@ -163,18 +163,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(66,133,244,0.9)',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
+    backgroundColor: 'rgba(66,133,244,0.75)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
     shadowColor: '#4285F4',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 4,
   },
   fabLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#fff',
   },

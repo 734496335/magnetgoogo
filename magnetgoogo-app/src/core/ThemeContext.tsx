@@ -51,17 +51,17 @@ const LIGHT: Colors = {
 };
 
 const DARK: Colors = {
-  bg: '#121212',
-  card: '#1e1e1e',
-  text: '#e4e4e7',
+  bg: '#0f0f0f',
+  card: '#1c1c1e',
+  text: '#e8e8ec',
   textSecondary: '#a1a1aa',
   textTertiary: '#71717a',
   accent: '#60a5fa',
-  border: '#2a2a2e',
-  inputBg: 'rgba(30,30,30,0.9)',
+  border: '#333338',
+  inputBg: '#2c2c2e',
   statusBar: 'light',
   shadow: '#000',
-  chipBg: '#27272a',
+  chipBg: '#2c2c2e',
   chipActiveBg: '#3b82f6',
   tagBg: '#1e293b',
   tagText: '#60a5fa',

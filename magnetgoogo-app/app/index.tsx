@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View,
   Text,
@@ -12,6 +13,8 @@ import {
   Easing,
   Dimensions,
   ScrollView,
+  InteractionManager,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,16 +25,18 @@ import { useTheme } from '../src/core/ThemeContext';
 import { getHistory, addHistory, removeHistory, clearHistory, type HistoryItem } from '../src/core/searchHistory';
 import { getFavorites, type FavoriteItem } from '../src/core/favorites';
 import FeedbackFAB from '../src/components/FeedbackFAB';
+import { COMPLIANCE_MODE, WEBSITE_URL } from '../src/core/complianceConfig';
+import { getLatestReport, printReport } from '../src/core/searchDebugLogger';
 
-const SCREEN_W = Dimensions.get('window').width;
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const BTN_W = SCREEN_W * 0.78;
 
-// ── Flowing gradient button ─────────────────────────────────────────
-// 5-color cycle repeated identically → scrolling one BTN_W returns to same visual
+// ── Glass gradient button (CSS GlassButton faithful port) ────────────
+// Colors matched to CSS: #4ea1ff → #b855ff → #ff6289 → #ffbc55 → #6dedad
 const GRADIENT_COLORS = [
-  '#4facfe', '#a855f7', '#ff6b9d', '#ffa751', '#7bf48c',
-  '#4facfe', '#a855f7', '#ff6b9d', '#ffa751', '#7bf48c',
-  '#4facfe',
+  '#4ea1ff', '#b855ff', '#ff6289', '#ffbc55', '#6dedad',
+  '#4ea1ff', '#b855ff', '#ff6289', '#ffbc55', '#6dedad',
+  '#4ea1ff',
 ] as const;
 
 function FlowingGradientButton({
@@ -65,22 +70,46 @@ function FlowingGradientButton({
       onPress={onPress}
       activeOpacity={0.85}
     >
-      <View style={styles.btnOuter}>
-        {/* Scrolling gradient strip (2x width) */}
-        <Animated.View style={[styles.gradientStrip, { transform: [{ translateX }] }]}>
+      {/* Outer Glow (模拟弥散的彩色投影) */}
+      <View style={styles.btnShadowWrapper}>
+        <View style={styles.btnOuter}>
+
+          {/* Layer 1: 底层绚丽滚动渐变 (100%纯净，不加任何模糊) */}
+          <Animated.View style={[styles.gradientStrip, { transform: [{ translateX }] }]}>
+            <LinearGradient
+              colors={GRADIENT_COLORS}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={{ width: BTN_W * 2, height: 54 }}
+            />
+          </Animated.View>
+
+          {/* Layer 2: 顶部高光 (模拟玻璃顶部的强反射光，制造“鼓起”的错觉) */}
           <LinearGradient
-            colors={GRADIENT_COLORS}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={{ width: BTN_W * 2, height: 54 }}
+            colors={['rgba(255,255,255,0.8)', 'rgba(255,255,255,0)']}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 0.45 }}
+            style={StyleSheet.absoluteFill}
           />
-        </Animated.View>
-        {/* Glass highlight on top half */}
-        <View style={styles.glassBorder} />
-        {/* Label */}
-        <View style={styles.btnContentRow}>
-          <Text style={styles.btnText}>{label}</Text>
-          <Ionicons name="arrow-forward" size={20} color="#fff" />
+
+          {/* Layer 3: 底部边缘反光与内阴影 (增加底部的立体厚度) */}
+          <LinearGradient
+            colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.08)', 'rgba(255,255,255,0.5)']}
+            locations={[0.5, 0.85, 1]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+
+          {/* Layer 4: 高对比度白边 (模拟玻璃切割边缘) */}
+          <View style={styles.glassBorderFrame} />
+
+          {/* Layer 5: 内容层 */}
+          <View style={styles.btnContentRow}>
+            <Text style={styles.btnText}>{label}</Text>
+            <Ionicons name="arrow-forward" size={20} color="#fff" />
+          </View>
+
         </View>
       </View>
     </TouchableOpacity>
@@ -138,7 +167,31 @@ export default function HomeScreen() {
   useEffect(() => {
     getHistory().then(setHistory);
     loadFavorites();
+    // Print latest debug report directly to console.log on startup
+    const r = getLatestReport();
+    if (r) {
+      console.log("\n[PULLED REPORT] Print Latest Search Debug Report:");
+      printReport(r);
+    }
   }, [loadFavorites]);
+
+  // Refresh favorites + history every time the screen regains focus
+  // (e.g. returning from search where user may have added favorites)
+  // Defer reads until after the navigation animation finishes to avoid jank
+  useFocusEffect(
+    useCallback(() => {
+      const task = InteractionManager.runAfterInteractions(() => {
+        loadFavorites();
+        getHistory().then(setHistory);
+        const r = getLatestReport();
+        if (r) {
+          console.log("\n[PULLED REPORT FOCUS] Print Latest Search Debug Report:");
+          printReport(r);
+        }
+      });
+      return () => task.cancel();
+    }, [loadFavorites]),
+  );
 
   const handleSearch = async () => {
     if (!query.trim()) {
@@ -186,23 +239,33 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Push content to ~40% vertical position (visual center, slightly above true center) */}
-      <View style={{ flex: 3 }} />
+      {/* Push content to ~28% vertical position */}
+      <View style={{ height: SCREEN_H * 0.22 }} />
 
-      {/* Brand block: logo + slogan as a tight unit */}
-      <Image
-        source={require('../assets/logo.png')}
-        style={styles.logo}
-        resizeMode="contain"
-      />
-      <Text style={[styles.subtitle, { color: colors.textTertiary }]}>{t.slogan}</Text>
+      {/* Brand block: magnet icon + text logo + slogan */}
+      <View style={styles.brandRow}>
+        <Image
+          source={require('../assets/icon.png')}
+          style={styles.magnetIcon}
+          resizeMode="contain"
+        />
+        <Image
+          source={require('../assets/logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </View>
+      <Text style={[styles.subtitle, { color: colors.textTertiary }]}>
+        {t.sloganPrefix}
+        <Text style={{ color: colors.accent, fontWeight: '600' }}>{t.sloganBrand}</Text>
+      </Text>
 
       {/* Interaction block: search + button */}
-      <View style={[styles.searchField, { backgroundColor: colors.inputBg, shadowColor: colors.shadow }]}>
+      <View style={[styles.searchField, { backgroundColor: colors.inputBg, shadowColor: colors.shadow, borderColor: colors.border }]}>
         <Ionicons name="search" size={20} color="#858da0" style={{ marginRight: 12 }} />
         <TextInput
           style={[styles.searchInput, { color: colors.text }]}
-          placeholder={t.searchPlaceholder}
+          placeholder={COMPLIANCE_MODE ? t.complianceSearchPlaceholder : t.searchPlaceholder}
           placeholderTextColor={colors.textTertiary}
           value={query}
           onChangeText={setQuery}
@@ -218,6 +281,31 @@ export default function HomeScreen() {
       </View>
 
       <FlowingGradientButton onPress={handleSearch} label={t.searchButton} />
+
+      {/* Compliance banner */}
+      {COMPLIANCE_MODE && (
+        <TouchableOpacity
+          style={styles.complianceBanner}
+          onPress={() => Linking.openURL(WEBSITE_URL)}
+          activeOpacity={0.8}
+        >
+          <LinearGradient
+            colors={['#f0fdf4', '#ecfdf5', '#f0fdf4']}
+            style={styles.complianceBannerBg}
+          >
+            <View style={styles.complianceBadge}>
+              <Ionicons name="shield-checkmark" size={18} color="#fff" />
+            </View>
+            <Text style={styles.complianceLine1}>
+              {t.complianceBannerLine1}
+            </Text>
+            <View style={styles.complianceLinkRow}>
+              <Text style={styles.complianceLinkText}>{t.complianceBannerLink}</Text>
+              <Ionicons name="chevron-forward" size={14} color="#6366f1" />
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
 
       {/* Search history */}
       {history.length > 0 && (
@@ -261,7 +349,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
       )}
 
-      <View style={{ flex: 5 }} />
+      <View style={{ flex: 1 }} />
 
       <FeedbackFAB />
     </KeyboardAvoidingView>
@@ -283,10 +371,19 @@ const styles = StyleSheet.create({
   settingsBtn: {
     padding: 8,
   },
-  logo: {
-    width: 240,
-    height: 68,
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 10,
+  },
+  magnetIcon: {
+    width: 68,
+    height: 68,
+    marginRight: 0,
+  },
+  logo: {
+    width: 220,
+    height: 60,
   },
   subtitle: {
     fontSize: 14,
@@ -302,7 +399,9 @@ const styles = StyleSheet.create({
     borderRadius: 27,
     backgroundColor: 'rgba(255,255,255,0.85)',
     paddingHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 28,
+    borderWidth: 1,
+    borderColor: '#e0dcd6',
     shadowColor: '#b4aa9b',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
@@ -320,18 +419,24 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     alignItems: 'center',
   },
-  btnOuter: {
+  btnShadowWrapper: {
     width: BTN_W,
     height: 54,
+    borderRadius: 27,
+    shadowColor: '#ff6289',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.45,
+    shadowRadius: 20,
+    elevation: 10,
+    backgroundColor: '#fff',
+  },
+  btnOuter: {
+    width: '100%',
+    height: '100%',
     borderRadius: 27,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#a855f7',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    elevation: 8,
   },
   gradientStrip: {
     position: 'absolute',
@@ -340,29 +445,30 @@ const styles = StyleSheet.create({
     height: 54,
     width: BTN_W * 2,
   },
-  glassBorder: {
+  glassBorderFrame: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: '48%',
-    borderTopLeftRadius: 27,
-    borderTopRightRadius: 27,
-    backgroundColor: 'rgba(255,255,255,0.20)',
+    bottom: 0,
+    borderRadius: 27,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.75)',
   },
   btnContentRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    zIndex: 10,
   },
   btnText: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     color: '#fff',
-    letterSpacing: 0.3,
-    textShadowColor: 'rgba(0,0,0,0.18)',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0,0,0,0.15)',
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    textShadowRadius: 3,
   },
   toastWrap: {
     position: 'absolute',
@@ -445,5 +551,55 @@ const styles = StyleSheet.create({
   favEntryCount: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  complianceBanner: {
+    width: '100%',
+    marginTop: 22,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#86efac',
+    overflow: 'hidden',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  complianceBannerBg: {
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    gap: 8,
+  },
+  complianceBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#10b981',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  complianceLine1: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#065f46',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  complianceLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginTop: 2,
+    backgroundColor: 'rgba(99,102,241,0.1)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  complianceLinkText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#6366f1',
   },
 });

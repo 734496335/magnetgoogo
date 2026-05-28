@@ -1,6 +1,6 @@
 {
   "name": "magnetgoogo-app",
-  "version": "0.1.8",
+  "version": "0.1.10",
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
@@ -20,6 +20,7 @@
     "expo-constants": "~18.0.13",
     "expo-crypto": "~15.0.8",
     "expo-file-system": "~19.0.21",
+    "expo-intent-launcher": "~13.0.8",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.11",
     "expo-router": "~6.0.23",

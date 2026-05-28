@@ -10,9 +10,12 @@
 import Constants from 'expo-constants';
 
 // Endpoints raced in parallel — first valid response wins.
+const CN_ALI = 'https://cn.magnetgoogo.com';
+const CF_PAGES = 'https://magnetgoogo.com';
 const CDN_BASE = 'https://cdn.jsdelivr.net/gh/734496335/mg-data@main';
 const RAW_BASE = 'https://raw.githubusercontent.com/734496335/mg-data/main';
-const GATEWAY_BASE = 'https://maggoogo-gateway.734496335lp.workers.dev';
+const GATEWAY_BASE = 'https://api.naoshiquan.com';
+const GATEWAY_OLD = 'https://maggoogo-gateway.734496335lp.workers.dev';
 
 /** Fetch with timeout (default 6s — short because we race). */
 function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 6000): Promise<Response> {
@@ -72,9 +75,12 @@ export async function checkConfig(): Promise<ConfigCheckResult> {
 
   // Race all endpoints in parallel
   const urls = [
+    `${CN_ALI}/config.json`,
+    `${CF_PAGES}/config.json`,
     `${CDN_BASE}/config.json`,
     `${RAW_BASE}/config.json`,
     `${GATEWAY_BASE}/config.json`,
+    `${GATEWAY_OLD}/config.json`,
   ];
 
   const headers = {

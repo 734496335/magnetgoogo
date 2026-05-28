@@ -11,6 +11,8 @@ import {
   Easing,
   Linking,
   Image,
+  Platform,
+  Vibration,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import { useSources } from '../src/core/SourceContext';
 import { useLang } from '../src/core/LangContext';
+import { isBlockedContent } from '../src/core/complianceConfig';
 import {
   SearchResult,
   ResultCardModel,
@@ -32,6 +35,73 @@ import { VerifyManager, type VerifyRequest } from '../src/core/VerifyManager';
 import VerifyWebView from '../src/components/VerifyWebView';
 import FeedbackFAB from '../src/components/FeedbackFAB';
 import { useTheme } from '../src/core/ThemeContext';
+import { trackSearch, trackCopy, trackOpen, trackSourceResult } from '../src/core/analytics';
+import { startReport, type ReportBuilder, type ResultItemLog } from '../src/core/searchDebugLogger';
+import { computeRelevance } from '../src/core/types';
+import { BrandTracker } from '../src/core/brandDedup';
+
+// ── Search throttle (5s cooldown) ──────────────────────────────────────
+const SEARCH_COOLDOWN_MS = 3000;
+let _lastSearchTime = 0;
+
+// ── Module-level search session (survives component unmount) ────────────
+// When the user navigates away, the search promises keep running and
+// updating this cache.  When the component re-mounts, it restores
+// state from here instead of re-searching.
+interface _Session {
+  query: string;
+  rawResults: SearchResult[];
+  searching: boolean;
+  sourceCount: number;
+  doneCount: number;
+  abortRef: { current: boolean };
+  // Mounted component's setState callbacks — null when unmounted
+  _notify: (() => void) | null;
+}
+let _session: _Session | null = null;
+
+// ── Skeleton card component ─────────────────────────────────────────
+function SkeletonCard({ cardBg, shimmerBg, tileBg }: { cardBg: string; shimmerBg: string; tileBg: string }) {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.7, duration: 800, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+      ]),
+    ).start();
+  }, [opacity]);
+  const bar = (w: number | `${number}%`, h: number, mt = 0) => (
+    <Animated.View style={{ width: w, height: h, borderRadius: h / 2, backgroundColor: shimmerBg, opacity, marginTop: mt }} />
+  );
+  return (
+    <View style={{ backgroundColor: cardBg, borderRadius: 24, padding: 16, marginBottom: 12, marginHorizontal: 16 }}>
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <Animated.View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: tileBg, opacity }} />
+        <View style={{ flex: 1 }}>
+          {bar('90%' as `${number}%`, 14)}
+          {bar('60%' as `${number}%`, 14, 6)}
+          {bar('40%' as `${number}%`, 12, 8)}
+        </View>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 6, marginTop: 12 }}>
+        {bar(52, 22)}
+        {bar(44, 22)}
+        {bar(36, 22)}
+      </View>
+    </View>
+  );
+}
+
+function SkeletonList({ cardBg, shimmerBg, tileBg }: { cardBg: string; shimmerBg: string; tileBg: string }) {
+  return (
+    <View style={{ paddingTop: 8 }}>
+      {[0, 1, 2, 3].map((i) => (
+        <SkeletonCard key={i} cardBg={cardBg} shimmerBg={shimmerBg} tileBg={tileBg} />
+      ))}
+    </View>
+  );
+}
 
 // ── Bouncing dots component ─────────────────────────────────────────
 function BouncingDots() {
@@ -61,7 +131,11 @@ function BouncingDots() {
 }
 
 // ── Animated card wrapper ───────────────────────────────────────────
+const MAX_ANIMATED_CARDS = 8;
 function AnimatedCard({ index, children }: { index: number; children: React.ReactNode }) {
+  // Only animate first N cards; rest render instantly to reduce overhead
+  if (index >= MAX_ANIMATED_CARDS) return <View>{children}</View>;
+
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(24)).current;
 
@@ -113,9 +187,40 @@ export default function SearchScreen() {
   const { sources } = useSources();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { t } = useLang();
+  const { lang, t } = useLang();
   const { colors } = useTheme();
-  const resultAccum = useRef<SearchResult[]>([]);
+
+  // ── Sync with module-level session on mount / unmount ──
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncFromSession = useCallback(() => {
+    if (!_session) return;
+    const models = deduplicateResults(_session.rawResults)
+      .map((r, i) => toResultCardModel(r, i, _session!.query, t));
+    setResults(models);
+    setSearching(_session.searching);
+    setSourceCount(_session.sourceCount);
+    setDoneCount(_session.doneCount);
+    setQuery(_session.query);
+  }, [t]);
+
+  // Debounced version: batch rapid _notify calls (every source completion)
+  const debouncedSync = useCallback(() => {
+    if (syncTimerRef.current) return;           // already scheduled
+    syncTimerRef.current = setTimeout(() => {
+      syncTimerRef.current = null;
+      syncFromSession();
+    }, 300);
+  }, [syncFromSession]);
+
+  useEffect(() => {
+    // Subscribe: session calls this when async results arrive
+    if (_session) _session._notify = debouncedSync;
+    return () => {
+      // Unsubscribe on unmount — search keeps running in background
+      if (_session) _session._notify = null;
+      if (syncTimerRef.current) { clearTimeout(syncTimerRef.current); syncTimerRef.current = null; }
+    };
+  }, [debouncedSync]);
 
   useEffect(() => {
     getFavorites().then((favs) => setFavSet(new Set(favs.map((f) => f.magnet))));
@@ -131,54 +236,149 @@ export default function SearchScreen() {
   const doSearch = useCallback(
     async (term: string) => {
       if (!term.trim() || sources.length === 0) return;
+
+      // Search throttle: 5s cooldown
+      const now = Date.now();
+      const elapsed = now - _lastSearchTime;
+      if (elapsed < SEARCH_COOLDOWN_MS) {
+        const wait = Math.ceil((SEARCH_COOLDOWN_MS - elapsed) / 1000);
+        Alert.alert('', lang === 'zh' ? `搜索太频繁，请${wait}秒后再试` : `Please wait ${wait}s before searching again`);
+        return;
+      }
+      _lastSearchTime = now;
+
       addHistory(term.trim());
+
+      // Abort any previous session
+      if (_session) _session.abortRef.current = true;
+
+      // Create new session
+      const session: _Session = {
+        query: term,
+        rawResults: [],
+        searching: true,
+        sourceCount: 0,
+        doneCount: 0,
+        abortRef: { current: false },
+        _notify: debouncedSync,
+      };
+      _session = session;
+
       setSearching(true);
       setResults([]);
       setSortKey('relevance');
       setSortDir('desc');
-      resultAccum.current = [];
       setDoneCount(0);
 
-      // Sort: high-quality sources first, verification/browser sources last
-      const allSources = [...sources].sort((a, b) => {
-        const aV = (a as any).search?.requires_browser ? 1 : VerifyManager.isVerifyOrigin((a as any).site?.origin) ? 1 : 0;
-        const bV = (b as any).search?.requires_browser ? 1 : VerifyManager.isVerifyOrigin((b as any).site?.origin) ? 1 : 0;
-        if (aV !== bV) return aV - bV;
-        // Within same tier, sort by quality score descending
+      // 3-tier scheduling: direct(fast) → detail/custom(medium) → browser(slow)
+      const getSpeedTier = (s: any): number => {
+        if (s.search?.requires_browser) return 2;
+        if (VerifyManager.isVerifyOrigin(s.site?.origin)) return 2;
+        if (s.capabilities?.supports_detail) return 1;
+        if (s.search?.requires_csrf) return 1;
+        const h = s.search?.handler || '';
+        if (h && h !== 'std') return 1;
+        return 0;
+      };
+      const sortedSources = [...sources].sort((a, b) => {
+        const aTier = getSpeedTier(a);
+        const bTier = getSpeedTier(b);
+        if (aTier !== bTier) return aTier - bTier;
         const aScore = (a as any).quality?.score ?? 50;
         const bScore = (b as any).quality?.score ?? 50;
         return bScore - aScore;
       });
+      const allSources = sortedSources;
+      session.sourceCount = allSources.length;
       setSourceCount(allSources.length);
 
-      // Concurrency-limited pool: run up to 8 source searches at a time (locally on device)
-      const CONCURRENCY = 8;
+      // ── Brand-level dedup: runtime tracker ──
+      const brandTracker = new BrandTracker();
+
+      // ── Debug report ──
+      const debugReport = startReport(term, allSources.length);
+
+      const CONCURRENCY = 15;
       let cursor = 0;
       const runNext = async (): Promise<void> => {
-        while (cursor < allSources.length) {
+        while (cursor < allSources.length && !session.abortRef.current) {
           const idx = cursor++;
           const rule = allSources[idx];
+          const srcName = (rule as any).site?.name || 'unknown';
+          const srcOrigin = (rule as any).site?.origin || '';
+          const srcQuality = (rule as any).quality?.score ?? 0;
+          const srcWaf = !!(rule as any).search?.requires_waf_bypass;
+          const srcBrowser = !!(rule as any).search?.requires_browser;
+          // Runtime brand dedup: skip if this brand already has enough successes
+          if (brandTracker.shouldSkip(rule)) {
+            debugReport.recordSource(srcName, srcOrigin, 'skipped', 0, 0, {
+              requiresWaf: srcWaf, requiresBrowser: srcBrowser, qualityScore: srcQuality,
+            });
+            session.doneCount++;
+            session._notify?.();
+            continue;
+          }
+          const srcHost = srcOrigin ? (() => { try { return new URL(srcOrigin).hostname; } catch { return srcName; } })() : srcName;
+          const t0 = Date.now();
           try {
             const items = await searchSource(rule as any, term);
-            if (items.length > 0) {
-              // Map engine ResultItem → app SearchResult
-              const mapped: SearchResult[] = items.map((r) => ({
-                title: r.title,
-                magnet: r.magnet,
-                size: r.size,
-                date: r.date,
-                source: r.source,
-                site_name: r.site_name,
-              }));
-              resultAccum.current.push(...mapped);
-              const deduped = deduplicateResults(resultAccum.current);
-              const models = deduped.map((r, i) => toResultCardModel(r, i, term, t));
-              setResults(models);
+            const elapsed = Date.now() - t0;
+            trackSourceResult(srcHost, items.length > 0, items.length, elapsed);
+            // Record to debug report — full per-item breakdown
+            const itemLogs: ResultItemLog[] = items.map(r => ({
+              title: r.title,
+              hash: (r.magnet.match(/btih:([a-fA-F0-9]+)/i)?.[1] || '').slice(0, 16),
+              size: r.size || '',
+              relevance: computeRelevance(r.title, term),
+            }));
+            debugReport.recordSource(
+              srcName, srcOrigin,
+              items.length > 0 ? 'ok' : 'empty',
+              items.length, elapsed,
+              {
+                sampleTitles: items.slice(0, 3).map(r => r.title),
+                sampleHashes: items.slice(0, 3).map(r => (r.magnet.match(/btih:([a-fA-F0-9]+)/i)?.[1] || '').slice(0, 12)),
+                items: itemLogs,
+                requiresWaf: srcWaf,
+                requiresBrowser: srcBrowser,
+                qualityScore: srcQuality,
+              },
+            );
+            if (items.length > 0) brandTracker.recordSuccess(rule);
+            if (items.length > 0 && !session.abortRef.current) {
+              const mapped: SearchResult[] = items
+                .filter((r) => !isBlockedContent(r.title))
+                .map((r) => ({
+                  title: r.title,
+                  magnet: r.magnet,
+                  size: r.size,
+                  date: r.date,
+                  source: r.source,
+                  site_name: r.site_name,
+                }));
+              session.rawResults.push(...mapped);
+              session._notify?.();
             }
-          } catch {
-            // skip failed source
+          } catch (err: any) {
+            const elapsed = Date.now() - t0;
+            const msg = err?.message || 'unknown';
+            const isBlacklisted = msg === '__blacklisted__';
+            trackSourceResult(srcHost, false, 0, elapsed, msg);
+            debugReport.recordSource(
+              srcName, srcOrigin,
+              isBlacklisted ? 'skipped' : elapsed > 9000 ? 'timeout' : 'error',
+              0, elapsed,
+              {
+                error: isBlacklisted ? 'blacklisted (session)' : msg,
+                requiresWaf: srcWaf,
+                requiresBrowser: srcBrowser,
+                qualityScore: srcQuality,
+              },
+            );
           } finally {
-            setDoneCount((c) => c + 1);
+            brandTracker.recordDone(rule);
+            session.doneCount++;
+            session._notify?.();
           }
         }
       };
@@ -186,14 +386,26 @@ export default function SearchScreen() {
         Array.from({ length: Math.min(CONCURRENCY, allSources.length) }, () => runNext()),
       );
 
-      setSearching(false);
+      session.searching = false;
+      trackSearch(term, session.rawResults.length);
+      debugReport.finish();
+      session._notify?.();
     },
-    [sources],
+    [sources, syncFromSession],
   );
 
+  // ── On mount: restore existing session or start new search ──
   useEffect(() => {
-    if (q) doSearch(q);
-  }, [q, doSearch]);
+    if (!q) return;
+    if (_session && _session.query === q) {
+      // Same query — restore from session (search may still be running)
+      syncFromSession();
+    } else {
+      // New query — start fresh search
+      doSearch(q);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
 
   // ── Sorting + relevance divider ─────────────────────────────────────────
   const sortedResults = React.useMemo((): ListItem[] => {
@@ -210,7 +422,7 @@ export default function SearchScreen() {
       }
       return arr;
     }
-    arr.sort((a, b) => {
+    const cmp = (a: ResultCardModel, b: ResultCardModel) => {
       let va: number, vb: number;
       if (sortKey === 'size') {
         va = parseSizeBytes(a.sizeLabel);
@@ -220,8 +432,19 @@ export default function SearchScreen() {
         vb = parseDate(b.dateLabel);
       }
       return sortDir === 'desc' ? vb - va : va - vb;
-    });
-    return arr;
+    };
+    // Split into high/low relevance, sort each group independently
+    const high = arr.filter(r => r.relevance >= RELEVANCE_THRESHOLD);
+    const low = arr.filter(r => r.relevance < RELEVANCE_THRESHOLD);
+    high.sort(cmp);
+    low.sort(cmp);
+    if (high.length > 0 && low.length > 0) {
+      const out: ListItem[] = [...high];
+      out.push({ _divider: true, id: '__relevance_divider__' });
+      out.push(...low);
+      return out;
+    }
+    return [...high, ...low];
   }, [results, sortKey, sortDir]);
 
   const toggleSort = (key: SortKey) => {
@@ -242,6 +465,8 @@ export default function SearchScreen() {
   const handleCopy = async (model: ResultCardModel) => {
     try {
       await Clipboard.setStringAsync(model.magnet);
+      trackCopy();
+      Vibration.vibrate(Platform.OS === 'android' ? 30 : 10);
       setCopiedId(model.id);
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
@@ -250,6 +475,7 @@ export default function SearchScreen() {
   };
 
   const handleOpen = (magnet: string) => {
+    trackOpen();
     Linking.openURL(magnet).catch(() =>
       Alert.alert(t.cannotOpen, t.cannotOpenMsg),
     );
@@ -292,7 +518,7 @@ export default function SearchScreen() {
 
     return (
       <AnimatedCard index={index}>
-        <View style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.shadow }]}>
+        <View style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.shadow, borderColor: colors.border }]}>
           <View style={styles.cardRow}>
             <LinearGradient
               colors={theme.tileColors as [string, string]}
@@ -307,48 +533,50 @@ export default function SearchScreen() {
               <View style={styles.cardMetaRow}>
                 <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>
                   {item.kindLabel}
-                  {item.sizeLabel ? ` | ${item.sizeLabel}` : ''}
-                  {item.fileCountLabel ? ` | ${item.fileCountLabel}` : ''}
-                  {item.dateLabel ? ` | ${item.dateLabel}` : ''}
+                  {item.sizeLabel ? ` · ${item.sizeLabel}` : ''}
+                  {item.fileCountLabel ? ` · ${item.fileCountLabel}` : ''}
+                  {item.dateLabel ? ` · ${item.dateLabel}` : ''}
                 </Text>
               </View>
             </View>
           </View>
 
-          {/* Tags + Buttons row */}
-          <View style={styles.tagsRow}>
-            {item.tags.map((tag) => (
-              <View key={tag} style={[styles.tagPill, { backgroundColor: colors.tagBg }]}>
-                <Text style={[styles.tagText, { color: colors.tagText }]}>{tag}</Text>
-              </View>
-            ))}
-
-            <View style={styles.btnGroup}>
-              {hasMagnet && (
-                <>
-                  <TouchableOpacity
-                    onPress={() => handleToggleFav(item)}
-                    activeOpacity={0.8}
-                    style={[styles.favBtn, { borderColor: isFav ? '#6366f1' : colors.border }]}
-                  >
-                    <Ionicons name={isFav ? 'bookmark' : 'bookmark-outline'} size={14} color={isFav ? '#6366f1' : '#d0d5dd'} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleCopy(item)} activeOpacity={0.8}>
-                    <LinearGradient colors={['#4e8aff', '#2c63f4']} style={styles.actionBtn}>
-                      <Ionicons name="copy-outline" size={13} color="#fff" />
-                      <Text style={styles.actionBtnText}>{copied ? t.copied : t.copyMagnet}</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleOpen(item.magnet)} activeOpacity={0.8}>
-                    <LinearGradient colors={['#ff8a4c', '#f06529']} style={styles.actionBtn}>
-                      <Ionicons name="open-outline" size={13} color="#fff" />
-                      <Text style={styles.actionBtnText}>{t.openMagnet}</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </>
-              )}
+          {/* Tags row */}
+          {item.tags.length > 0 && (
+            <View style={styles.tagsRow}>
+              {item.tags.map((tag) => (
+                <View key={tag} style={[styles.tagPill, { backgroundColor: colors.tagBg }]}>
+                  <Text style={[styles.tagText, { color: colors.tagText }]}>{tag}</Text>
+                </View>
+              ))}
             </View>
-          </View>
+          )}
+
+          {/* Action buttons row */}
+          {hasMagnet && (
+            <View style={styles.btnRow}>
+              <TouchableOpacity
+                onPress={() => handleToggleFav(item)}
+                activeOpacity={0.8}
+                style={[styles.favBtn, { borderColor: isFav ? '#6366f1' : colors.border, backgroundColor: colors.card }]}
+              >
+                <Ionicons name={isFav ? 'bookmark' : 'bookmark-outline'} size={14} color={isFav ? '#6366f1' : colors.textTertiary} />
+              </TouchableOpacity>
+              <View style={{ flex: 1 }} />
+              <TouchableOpacity onPress={() => handleCopy(item)} activeOpacity={0.8}>
+                <LinearGradient colors={['#4e8aff', '#2c63f4']} style={styles.actionBtn}>
+                  <Ionicons name="copy-outline" size={13} color="#fff" />
+                  <Text style={styles.actionBtnText}>{copied ? t.copied : t.copyMagnet}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleOpen(item.magnet)} activeOpacity={0.8}>
+                <LinearGradient colors={['#ff8a4c', '#f06529']} style={styles.actionBtn}>
+                  <Ionicons name="open-outline" size={13} color="#fff" />
+                  <Text style={styles.actionBtnText}>{t.openMagnet}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </AnimatedCard>
     );
@@ -383,7 +611,7 @@ export default function SearchScreen() {
           style={styles.topLogo}
           resizeMode="contain"
         />
-        <View style={[styles.topSearch, { backgroundColor: colors.inputBg }]}>
+        <View style={[styles.topSearch, { backgroundColor: colors.inputBg, shadowColor: colors.shadow }]}>
           <Ionicons name="search" size={16} color={colors.textTertiary} />
           <TextInput
             style={[styles.topInput, { color: colors.text }]}
@@ -411,6 +639,12 @@ export default function SearchScreen() {
               {t.searchingStatus(sourceCount, results.length)}
             </Text>
             <BouncingDots />
+            <TouchableOpacity
+              style={[styles.cancelBtn, { backgroundColor: colors.chipBg }]}
+              onPress={() => { if (_session) _session.abortRef.current = true; setSearching(false); }}
+            >
+              <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>{lang === 'zh' ? '停止' : 'Stop'}</Text>
+            </TouchableOpacity>
           </View>
         ) : results.length > 0 ? (
           <Text style={styles.statusText}>
@@ -423,6 +657,12 @@ export default function SearchScreen() {
             <TouchableOpacity onPress={() => router.push('/settings')}>
               <Text style={styles.emptyLink}>{t.goToSettings}</Text>
             </TouchableOpacity>
+          </View>
+        ) : q ? (
+          <View style={styles.emptyState}>
+            <Text style={{ fontSize: 48 }}>🔍</Text>
+            <Text style={styles.emptyText}>{t.noResultsHint}</Text>
+            <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>{t.noResultsSuggestion}</Text>
           </View>
         ) : null}
       </View>
@@ -437,13 +677,24 @@ export default function SearchScreen() {
       )}
 
       {/* Results */}
-      <FlatList<ListItem>
-        data={sortedResults}
-        renderItem={renderListItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}
-      />
+      {searching && results.length === 0 ? (
+        <SkeletonList cardBg={colors.card} shimmerBg={colors.border} tileBg={colors.chipBg} />
+      ) : (
+        <FlatList<ListItem>
+          data={sortedResults}
+          renderItem={renderListItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
+          refreshing={false}
+          onRefresh={() => doSearch(query)}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          initialNumToRender={6}
+          updateCellsBatchingPeriod={100}
+        />
+      )}
 
       <FeedbackFAB />
 
@@ -534,6 +785,8 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
     shadowColor: '#e4dfd6',
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.3,
@@ -584,6 +837,12 @@ const styles = StyleSheet.create({
     gap: 6,
     flexWrap: 'wrap',
   },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 6,
+  },
   tagPill: {
     backgroundColor: '#f0f4ff',
     borderRadius: 12,
@@ -594,11 +853,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#4285F4',
-  },
-  btnGroup: {
-    flexDirection: 'row',
-    marginLeft: 'auto',
-    gap: 6,
   },
   actionBtn: {
     flexDirection: 'row',
@@ -621,6 +875,11 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 15,
     color: '#9aa3b4',
+  },
+  emptySubtext: {
+    fontSize: 13,
+    color: '#b0b8c8',
+    marginTop: -4,
   },
   emptyLink: {
     fontSize: 14,
@@ -661,5 +920,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#E65100',
     fontWeight: '600',
+  },
+  cancelBtn: {
+    marginLeft: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: '#f4f2ef',
+  },
+  cancelBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9aa3b4',
   },
 });

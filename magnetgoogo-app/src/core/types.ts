@@ -172,12 +172,20 @@ export function extractTags(title: string): string[] {
     [/web-?dl/i, 'WEB-DL'],
     [/remux/i, 'REMUX'],
     [/hdr/i, 'HDR'],
-    [/dolby|atmos|dts/i, 'DTS'],
+    [/dolby.?vision|\bDoVi\b|\bDV\b|杜比视界/i, '杜比视界'],
+    [/\batmos\b|杜比全景声|全景声/i, '全景声'],
+    [/\bdolby\b|杜比/i, '杜比'],
+    [/\bDTS[\b-]/i, 'DTS'],
     [/hevc|x265|h\.?265/i, 'HEVC'],
-    [/中[文字]|国[语粤]|简体|繁体/i, '中文'],
+    [/\bcrack(?:ed)?\b|破解|注册机|\bkeygen\b|\bpatch(?:ed)?\b|激活|免激活|\bactivat/i, '破解'],
+    [/中[文字]|国[语粤]|简体|繁体|(?:中英|双语|内[嵌挂封]|内置字幕)|(?:\b(?:CMCT|CHD|CHDWEB|DFAN|iNT-TLF|TLF|WIKI[Ff]ans?|YYeTs|人人影视|FIX字幕侠|AI双语|New字幕组|BMDru|TTG|FRDS|MySiLU|52KHD)\b)|字幕组/i, '中字'],
   ];
   for (const [re, label] of patterns) {
     if (re.test(title) && !tags.includes(label)) tags.push(label);
+  }
+  // Remove generic 杜比 when a more specific Dolby tag already present
+  if ((tags.includes('杜比视界') || tags.includes('全景声')) && tags.includes('杜比')) {
+    tags.splice(tags.indexOf('杜比'), 1);
   }
   return tags.slice(0, 4);
 }
@@ -200,7 +208,9 @@ export function parseSizeLabel(sizeStr?: string): string {
   if (!sizeStr) return '';
   // Extract the first valid size pattern, ignoring surrounding junk/newlines
   const m = sizeStr.match(/(\d+\.?\d*)\s*(TB|GB|MB|KB|TiB|GiB|MiB|KiB|bytes?)\b/i);
-  return m ? m[0] : '';
+  if (!m) return '';
+  // Normalize binary units → decimal: GiB→GB, MiB→MB, TiB→TB, KiB→KB
+  return m[0].replace(/TiB/gi, 'TB').replace(/GiB/gi, 'GB').replace(/MiB/gi, 'MB').replace(/KiB/gi, 'KB');
 }
 
 function kindLabelText(kind: Kind, t?: Translations): string {
@@ -229,21 +239,39 @@ function kindLabelText(kind: Kind, t?: Translations): string {
   return fallback[kind];
 }
 
+/** Strip separators for fuzzy code matching (e.g. "SDDE-720" → "sdde720"). */
+function normalize(s: string): string {
+  return s.toLowerCase().replace(/[\s\-_.+]+/g, '');
+}
+
 /** Compute relevance score: how well does the title match the query? */
 export function computeRelevance(title: string, query: string): number {
   if (!query || !title) return 0;
   const tl = title.toLowerCase();
   const ql = query.toLowerCase().trim();
-  // exact match
+  // exact substring match
   if (tl.includes(ql)) return 100;
-  // keyword match
-  const kws = ql.split(/[\s_\-+]+/).filter(w => w.length >= 1);
-  if (kws.length === 0) return 0;
-  let matched = 0;
-  for (const kw of kws) {
-    if (tl.includes(kw)) matched++;
+  // normalized match (SDDE-720 ≈ sdde720 ≈ SDDE 720)
+  const tn = normalize(title);
+  const qn = normalize(query);
+  if (tn.includes(qn)) return 100;
+  // keyword match: split by explicit separators first
+  let kws = ql.split(/[\s_\-+]+/).filter(w => w.length >= 1);
+  // Smart tokenize: also split at letter↔digit boundaries (sdde87 → sdde, 87)
+  if (kws.length === 1 && /[a-z]\d|\d[a-z]/i.test(kws[0])) {
+    const parts = kws[0].split(/(?<=[a-z])(?=\d)|(?<=\d)(?=[a-z])/i).filter(w => w.length >= 1);
+    if (parts.length > 1) kws = parts;
   }
-  const ratio = matched / kws.length;
+  if (kws.length === 0) return 0;
+  // Weight tokens: longer tokens (the code part) matter more than short ones (the number)
+  let totalWeight = 0;
+  let matchedWeight = 0;
+  for (const kw of kws) {
+    const w = Math.max(kw.length, 1);
+    totalWeight += w;
+    if (tl.includes(kw) || tn.includes(normalize(kw))) matchedWeight += w;
+  }
+  const ratio = matchedWeight / totalWeight;
   // Penalty: very short/generic titles
   const lenPenalty = title.length < 8 ? -30 : 0;
   return Math.round(ratio * 80) + lenPenalty;

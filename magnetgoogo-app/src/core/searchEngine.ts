@@ -79,6 +79,9 @@ function cleanDate(raw: string): string {
   if (d1) return d1[1].replace(/\//g, '-');
   const d2 = raw.match(/(\d{1,2}[-/]\d{1,2}[-/]\d{4})/);
   if (d2) return d2[1].replace(/\//g, '-');
+  // Chinese date: 2024年3月15日
+  const d5 = raw.match(/(\d{4})\u5e74(\d{1,2})\u6708(\d{1,2})\u65e5/);
+  if (d5) return `${d5[1]}-${d5[2].padStart(2, '0')}-${d5[3].padStart(2, '0')}`;
   const d3 = raw.match(
     /((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\.?\s+\d{1,2},?\s+\d{4})/i,
   );
@@ -170,6 +173,11 @@ function extractFromSearchPage(
     if (!size && magnet) {
       const sizeMatch = item.text().match(/([\d.]+)\s*(TB|TiB|GB|GiB|MB|MiB|KB|KiB)\b/i);
       if (sizeMatch) size = sizeMatch[0].replace(/iB\b/i, 'B');
+      // Chinese sites often have no space: "1.5GB"
+      if (!size) {
+        const cnSize = item.text().match(/([\d.]+)(TB|GB|MB|KB)/i);
+        if (cnSize) size = `${cnSize[1]} ${cnSize[2]}`;
+      }
     }
 
     // Date
@@ -182,13 +190,20 @@ function extractFromSearchPage(
       const dateMatch =
         txt.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/) ||
         txt.match(/(\d{1,2}[-/]\d{1,2}[-/]\d{4})/) ||
+        txt.match(/(\d{4})\u5e74(\d{1,2})\u6708(\d{1,2})\u65e5/) ||
         txt.match(
           /((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\.?\s+\d{1,2},?\s+\d{4})/i,
         ) ||
         txt.match(
           /(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\.?\s+\d{4})/i,
         );
-      if (dateMatch) date = dateMatch[1];
+      if (dateMatch) {
+        if (dateMatch[2] && dateMatch[3]) {
+          date = `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`;
+        } else {
+          date = dateMatch[1];
+        }
+      }
     }
 
     // Seeders / Leechers
@@ -300,7 +315,7 @@ async function fetchDetailResults(
 ): Promise<ResultItem[]> {
   const results: ResultItem[] = [];
   const seen = new Set<string>();
-  const urlsToFetch = detailUrls.slice(0, Math.min(detailUrls.length, 8));
+  const urlsToFetch = detailUrls.slice(0, Math.min(detailUrls.length, 12));
 
   const _norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
   const _sln = _norm(siteName);
@@ -339,7 +354,7 @@ async function fetchDetailResults(
     // Fallback: regex extract from full HTML (handles onclick="copyMagnetLink('magnet:...')" etc.)
     if (foundMagnets.length === 0) {
       const htmlStr = $.html();
-      const re = /magnet:\?xt=urn:btih:[a-fA-F0-9]{40}/gi;
+      const re = /magnet:\?xt=urn:btih:[a-fA-F0-9]{32,40}/gi;
       let m;
       while ((m = re.exec(htmlStr)) !== null) foundMagnets.push(m[0]);
     }
@@ -397,6 +412,10 @@ async function fetchDetailResults(
         const sizeMatch = getBodyText().match(/([\d.]+)\s*(TB|TiB|GB|GiB|MB|MiB|KB|KiB)\b/i);
         if (sizeMatch) size = sizeMatch[0].replace(/iB\b/i, 'B');
       }
+      if (!size) {
+        const cnSize = getBodyText().match(/([\d.]+)(TB|GB|MB|KB)/i);
+        if (cnSize) size = `${cnSize[1]} ${cnSize[2]}`;
+      }
 
       // Date
       let date = '';
@@ -406,6 +425,10 @@ async function fetchDetailResults(
       if (!date) {
         const dateMatch = getBodyText().match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
         if (dateMatch) date = dateMatch[1];
+      }
+      if (!date) {
+        const cnDate = getBodyText().match(/(\d{4})\u5e74(\d{1,2})\u6708(\d{1,2})\u65e5/);
+        if (cnDate) date = `${cnDate[1]}-${cnDate[2].padStart(2, '0')}-${cnDate[3].padStart(2, '0')}`;
       }
 
       // Seeders / Leechers
@@ -738,6 +761,14 @@ async function fetchRarbggo(
         const title =
           d$('h1').first().text().trim() ||
           d$('title').first().text().replace(/\s*[-|].*$/, '').trim();
+        const bodyText = d$('body').text();
+        let detailSize = '';
+        const sizeM = bodyText.match(/([\d.]+)\s*(TB|TiB|GB|GiB|MB|MiB|KB|KiB)\b/i);
+        if (sizeM) detailSize = sizeM[0].replace(/iB\b/i, 'B');
+        let detailDate = '';
+        const dateM = bodyText.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
+        if (dateM) detailDate = dateM[1];
+
         d$('a[href^="magnet:"]').each((_: number, el: any) => {
           const mag = d$(el).attr('href') || '';
           const hash = mag.match(/btih:([a-fA-F0-9]+)/i)?.[1]?.toLowerCase();
@@ -746,8 +777,8 @@ async function fetchRarbggo(
             results.push({
               title: title || 'Unknown Title',
               magnet: mag,
-              size: '',  // no size available
-              date: '',
+              size: normalizeSize(detailSize),
+              date: cleanDate(detailDate),
               seeders: 0,
               leechers: 0,
               source: dUrl,
@@ -986,7 +1017,7 @@ async function fetchClkd(
 ): Promise<ResultItem[]> {
   const results: ResultItem[] = [];
   try {
-    const url = `${origin}/api/search?q=${encodeURIComponent(query)}`;
+    const url = `${origin}/clkd/api/search?keyword=${encodeURIComponent(query)}`;
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), 10_000);
     const resp = await fetch(url, {
@@ -995,10 +1026,10 @@ async function fetchClkd(
     });
     clearTimeout(timer);
     if (!resp.ok) return results;
-    const data = await resp.json() as any;
-    const items = data.list || [];
+    const json = await resp.json() as any;
+    const items = json.data?.list || json.list || [];
     for (const item of items.slice(0, 20)) {
-      const hash = item.hashInfo;
+      const hash = item.hashInfo || item.id;
       if (!hash) continue;
       const magnet = `magnet:?xt=urn:btih:${hash}`;
       const sizeBytes = item.torrentSize || 0;
@@ -1008,7 +1039,10 @@ async function fetchClkd(
       else if (sizeBytes >= 1e6) size = `${(sizeBytes / 1e6).toFixed(1)} MB`;
       else if (sizeBytes > 0) size = `${(sizeBytes / 1e3).toFixed(0)} KB`;
 
-      const name = item.torrentName || extractTitleFromMagnet(magnet) || 'Unknown';
+      let name = item.torrentName || extractTitleFromMagnet(magnet) || 'Unknown';
+      // Clean HTML highlight tags
+      name = name.replace(/<em[^>]*>/g, '').replace(/<\/em>/g, '');
+
       const date = item.createTime ? item.createTime.split('T')[0] : '';
 
       results.push({
@@ -1083,28 +1117,40 @@ export async function searchSource(
 
   // ── SPA sources: render via WebView (like Legado's BackstageWebView) ──
   if (rule.search.requires_browser) {
-    console.log(`[SearchEngine] ${siteName} requires browser rendering — requesting WebView`);
+    console.log(`[SPA:${siteName}] requires browser → WebView (url=${searchUrl})`);
     const vr = await VerifyManager.requestVerification(
       searchUrl, 'spa_render', origin, siteName,
     );
     if (vr.success && vr.html) {
+      console.log(`[SPA:${siteName}] WebView OK — html=${vr.html.length}B cookies=${(vr.cookies||'').length}B`);
       // Store any cookies from the WebView session
       if (vr.cookies) storeCookiesForOrigin(origin, vr.cookies);
       const $ = cheerio.load(vr.html);
       const { results: spaResults, detailUrls: spaDetailUrls, titleHints: spaTH, sizeHints: spaSH, dateHints: spaDH } =
         extractFromSearchPage($, selectors, origin, siteName, score);
+      console.log(`[SPA:${siteName}] parse: results=${spaResults.length} detailUrls=${spaDetailUrls.length} selector.list_item="${selectors.list_item}" selector.title="${selectors.title}"`);
+      if (spaResults.length === 0 && spaDetailUrls.length === 0) {
+        // Debug: dump page text snippet to understand why nothing matched
+        const bodyText = ($('body').text() || '').replace(/\s+/g, ' ').trim();
+        console.log(`[SPA:${siteName}] EMPTY — bodyText[0:300]="${bodyText.slice(0, 300)}"`);
+        const title = $('title').text();
+        console.log(`[SPA:${siteName}] pageTitle="${title}" listItems=${$(selectors.list_item).length}`);
+      }
       const spaCleaned = spaResults.filter((r) => r.title && r.title !== 'Unknown Title' && r.title.length >= 4);
       // Follow detail pages if needed
       if (supportsDetail && detailSelectors && spaDetailUrls.length > 0 && spaCleaned.length < 20) {
+        console.log(`[SPA:${siteName}] detail-follow: ${spaDetailUrls.length} urls, detailMagnetSel="${detailSelectors.magnet}"`);
         const spaDetailResults = await fetchDetailResults(
           spaDetailUrls, detailSelectors, origin, siteName, score,
           20 - spaCleaned.length, spaTH, spaSH, spaDH, query,
         );
+        console.log(`[SPA:${siteName}] detail results: ${spaDetailResults.length} (magnets: ${spaDetailResults.filter(r => r.magnet).length})`);
         spaCleaned.push(...spaDetailResults);
       }
+      console.log(`[SPA:${siteName}] final: ${spaCleaned.length} results`);
       return spaCleaned.slice(0, 30);
     }
-    console.log(`[SearchEngine] WebView render failed for ${siteName}: ${vr.error}`);
+    console.log(`[SPA:${siteName}] WebView FAILED: ${vr.error}`);
     return [];
   }
 

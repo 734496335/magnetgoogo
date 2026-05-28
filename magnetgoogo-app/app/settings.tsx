@@ -233,6 +233,23 @@ export default function SettingsScreen() {
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
           </TouchableOpacity>
+          {__DEV__ && (<>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <TouchableOpacity
+            style={styles.syncRow}
+            onPress={() => router.push('/debug')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="flask-outline" size={20} color="#8b5cf6" />
+            <View style={styles.rowContent}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>{lang === 'zh' ? '搜索调试报告' : 'Search Debug Report'}</Text>
+              <Text style={[styles.rowSub, { color: colors.textTertiary }]}>
+                {lang === 'zh' ? '每次搜索的详细源级日志' : 'Per-source breakdown for each search'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+          </TouchableOpacity>
+          </>)}
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <TouchableOpacity
             style={styles.syncRow}

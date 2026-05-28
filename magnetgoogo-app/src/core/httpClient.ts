@@ -4,6 +4,7 @@
  */
 import iconv from 'iconv-lite';
 import { Buffer } from 'buffer';
+import { Paths, File as FSFile } from 'expo-file-system';
 
 const FETCH_HEADERS: Record<string, string> = {
   'User-Agent':
@@ -13,17 +14,62 @@ const FETCH_HEADERS: Record<string, string> = {
     'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
 };
 
-// ── Simple in-memory cookie store ────────────────────────────────────
+// ── Persistent cookie store ──────────────────────────────────────────
+// Cookies are saved permanently. If they expire, the server returns a
+// challenge and the verification flow re-triggers automatically.
 const cookieJar = new Map<string, { cookies: string; ts: number }>();
-const COOKIE_TTL = 30 * 60 * 1000; // 30 min
+
+function getCookieFile(): FSFile {
+  return new FSFile(Paths.document, 'verify-cookies.json');
+}
+
+/** Load persisted cookies from disk (call once at app startup). */
+export async function loadPersistedCookies(): Promise<void> {
+  try {
+    const file = getCookieFile();
+    if (!file.exists) return;
+    const json = await file.text();
+    const data = JSON.parse(json) as Record<string, { cookies: string; ts: number }>;
+    let loaded = 0;
+    for (const [origin, entry] of Object.entries(data)) {
+      cookieJar.set(origin, entry);
+      loaded++;
+    }
+    if (loaded > 0) console.log(`[httpClient] Loaded ${loaded} persisted cookie origins`);
+  } catch (e) {
+    console.log('[httpClient] Failed to load persisted cookies:', e);
+  }
+}
+
+let _persistTimer: ReturnType<typeof setTimeout> | null = null;
+function schedulePersist() {
+  if (_persistTimer) return;
+  _persistTimer = setTimeout(() => {
+    _persistTimer = null;
+    try {
+      const data: Record<string, { cookies: string; ts: number }> = {};
+      for (const [origin, entry] of cookieJar.entries()) {
+        data[origin] = entry;
+      }
+      const file = getCookieFile();
+      if (!file.exists) file.create();
+      file.write(JSON.stringify(data));
+    } catch (e) {
+      console.log('[httpClient] Failed to persist cookies:', e);
+    }
+  }, 500);
+}
+
+/** Remove persisted cookies for an origin (called when challenge re-appears). */
+export function invalidateCookies(origin: string) {
+  console.log(`[Verify:Cookie] Invalidating cookies for ${origin}`);
+  cookieJar.delete(origin);
+  schedulePersist();
+}
 
 function getStoredCookies(origin: string): string {
   const entry = cookieJar.get(origin);
   if (!entry) return '';
-  if (Date.now() - entry.ts > COOKIE_TTL) {
-    cookieJar.delete(origin);
-    return '';
-  }
   return entry.cookies;
 }
 
@@ -130,6 +176,7 @@ export async function fetchPage(
   url: string,
   extraCookies?: string,
   timeoutMs = 10_000,
+  referer?: string,
 ): Promise<FetchResult> {
   try {
     const origin = new URL(url).origin;
@@ -137,8 +184,10 @@ export async function fetchPage(
     const allCookies = [storedCookies, extraCookies]
       .filter(Boolean)
       .join('; ');
+    if (storedCookies) console.log(`[Verify:Cookie] Sending stored cookies for ${origin}: ${storedCookies.slice(0, 80)}...`);
     const headers: Record<string, string> = { ...FETCH_HEADERS };
     if (allCookies) headers['Cookie'] = allCookies;
+    if (referer) headers['Referer'] = referer;
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -155,6 +204,7 @@ export async function fetchPage(
     // Challenge detection
     const challenge = detectChallenge(resp.status, html, url);
     if (challenge) {
+      console.log(`[Verify:Challenge] Detected ${challenge.type} on ${new URL(url).origin} (status=${resp.status}, hasCookies=${!!storedCookies})`);
       return { html: null, status: resp.status, challenge };
     }
 
@@ -182,6 +232,8 @@ export function storeCookiesForOrigin(origin: string, cookies: string) {
   const existing = getStoredCookies(origin);
   const merged = existing ? mergeCookies(existing, cookies) : cookies;
   cookieJar.set(origin, { cookies: merged, ts: Date.now() });
+  console.log(`[Verify:Cookie] Stored cookies for ${origin}: ${merged.slice(0, 80)}...`);
+  schedulePersist();
 }
 
 /**

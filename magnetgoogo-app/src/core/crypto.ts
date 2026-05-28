@@ -16,6 +16,7 @@
  */
 
 import CryptoJS from 'crypto-js';
+import pako from 'pako';
 
 // ── Key fragments ────────────────────────────────────────────────────
 // The real 32-byte key is split into 4 hex fragments, each XOR'd with
@@ -71,6 +72,27 @@ export function decryptSources(encryptedPayload: string): string {
     mode: CryptoJS.mode.CBC,
     padding: CryptoJS.pad.Pkcs7,
   });
+
+  // Check if payload is gzip-compressed
+  const isGzipped = JSON.parse(encryptedPayload).gz === true;
+  if (isGzipped) {
+    // Convert WordArray to Uint8Array, then gunzip
+    const words = decrypted.words;
+    const sigBytes = decrypted.sigBytes;
+    const bytes = new Uint8Array(sigBytes);
+    for (let i = 0; i < sigBytes; i++) {
+      bytes[i] = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
+    }
+    try {
+      const decompressed = pako.inflate(bytes, { to: 'string' });
+      if (!decompressed) {
+        throw new Error('Decompression returned empty result');
+      }
+      return decompressed;
+    } catch (e: any) {
+      throw new Error(`Decompression failed: ${e.message}`);
+    }
+  }
 
   const plaintext = decrypted.toString(CryptoJS.enc.Utf8);
   if (!plaintext) {
