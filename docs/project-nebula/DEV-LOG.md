@@ -1,4 +1,1192 @@
 ---
+日期/时间：2026-05-28 18:45（UTC+8）
+本次版本：crawler-v3-scaffold
+本次范围：**爬虫架构 v3 骨架落地 — 4-Tier 统一调度**
+涉及模块：magnet/crawler_v3/（新增）
+关键改动摘要：
+  - 用户启发：抖音视频介绍 CloakBrowser（C++ 源码层 49→57 patches 反检测）+ hello_js_reverse_skill（AI Agent JS 逆向工作流）
+  - 复盘历史：CloakBrowser 在 2026-05-16 cloak-verify-v1 已引入但仅作一次性脚本（cloak_yellow_verify.py），未进日常管线
+  - 决定：借此机会把分散在 5 处的反检测/渲染方案统一为 4-Tier 架构，搭骨架后再做对比
+  - 备份：tag `pre-crawler-v3` (commit 48357f9)，把 crawler_v2/、cloak_yellow_verify.py、ai_parser/、health_check.py 等历史代码精准提交
+  - 新增 `magnet/crawler_v3/` 完整骨架，可执行 classify 子命令验证（已通过冒烟测试）
+
+### 4-Tier 架构
+
+| Tier | 实现 | 适用 |
+|---|---|---|
+| Tier 0 HTTP | curl_cffi + Chrome TLS 指纹 | 90% 普通源 |
+| Tier 1 Cloak | CloakBrowser headless + humanize | CF JS / Turnstile / SPA |
+| Tier 2 Handler | hello_js_reverse_skill 产出的 Python 算法 | thatcdn / CLB SPA / 自定义签名 |
+| Tier 3 UserAssist | RN VerifyWebView | 移动端兜底（Python 端是 stub） |
+
+orchestrator.search() 按 detector.classify() 输出的 Tier 顺序尝试，TierError 触发降级。
+
+### 改动
+
+1. **新增 `magnet/crawler_v3/`**（13 文件）
+   - `README.md` — 架构总览 + 与旧版对应关系 + 使用方式
+   - `__init__.py` / `__main__.py` — 包入口
+   - `cli.py` — `python -m magnet.crawler_v3 search/classify/verify-yellow`
+   - `config.py` — 环境变量配置
+   - `detector.py` — Tier 路由决策（静态 + 动态探针）
+   - `orchestrator.py` — Tier 调度器，含 fallback 链 + 日志
+   - `tiers/base.py` — Tier ABC + SearchResult + TierError + TierKind
+   - `tiers/tier0_http.py` — curl_cffi 实现，httpx 兜底
+   - `tiers/tier1_cloak.py` — CloakBrowser 集成
+   - `tiers/tier2_handler.py` — handler 注册表 + 自动加载
+   - `tiers/tier3_stub.py` — 移动端占位
+   - `parser/__init__.py` — 复用 crawler_v2/smart_list.py + selector 路径 + magnet 兜底
+   - `handlers/README.md` — JS 逆向工作流 + 已知目标列表 + handler 规范
+   - `handlers/_example.py` — handler skeleton
+
+2. **设计原则**
+   - Tier **stateless**：无内部状态，仅 source+query → results
+   - **TierError** 触发 orchestrator fallback；其它异常视为 bug
+   - **handler 必须纯 Python**，不许调浏览器（那是 Tier 1 职责）
+   - **smart_list 不重写**，crawler_v3.parser 直接 import crawler_v2 版本
+
+### 待办（按 P0→P4）
+
+- **P0** CloakBrowser 升到最新版（57 patch），用 humanize=True 复测 4 个 thatcdn yellow 源
+- **P1** 装 curl_cffi + cloakbrowser 真跑一遍 `python -m magnet.crawler_v3 verify-yellow "test"`，对比 cloak-verify-v1 数据
+- **P2** 集成 hello_js_reverse_skill + js-reverse-mcp，对 thatcdn `/recaptcha/v4/challenge` 做完整逆向 → `handlers/thatcdn.py`
+- **P3** web `route.ts` 用 cloakbrowser 替换 execFile + verify-extension
+- **P4** health_check.py 改用 v3 orchestrator，cloak_yellow_verify.py 退役
+
+### 不动的部分
+
+- `crawler/` v1 / `crawler_v2/` 保留作为对比基准
+- `cloak_yellow_verify.py` 保留（直到 P4 退役）
+- RN 客户端 VerifyWebView 不变（Tier 3 是它的家）
+
+### 风险点
+
+- CloakBrowser 二进制 ~200MB，阿里云 ECS 2C2G 可能内存吃紧
+- handler 失效后需要回归测试机制（暂没建）
+- humanize=True 是否足以突破 thatcdn 自定义 captcha — **未验证**，决定 P2 是否启动
+
+---
+日期/时间：2026-05-26 11:50（UTC+8）
+本次版本：metadata-resolver-aborted
+本次范围：**磁力 metadata 本地 P2P 解析方案验证失败 + 完整回退**
+涉及模块：magnetgoogo-app/android/, app/debug.tsx
+关键改动摘要（可检索）：
+  - 尝试集成 jlibtorrent 1.2.0.18 实现"卡片自动解析磁力文件列表"功能（架构设计见 METADATA-RESOLVER-DESIGN.md）
+  - Day 1 真机测试（K30S）：jlibtorrent 加载成功，但 DHT bootstrap 完全失败
+  - 实测数据：等待 10s 后 dhtNodes=0，30s 超时无结果
+  - 已配置 5 个 bootstrap 节点（router.bittorrent.com / utorrent / transmissionbt / libtorrent / bitcomet）全部不可达
+  - **根因**：国内 GFW 干扰 BT DHT 默认 bootstrap 节点的 UDP 流量，冷启动 DHT 路由表无法建立
+  - **决策**：放弃此路径，性价比太低
+  - 完整回退所有改动：
+    - 删除 TorrentMetadataModule.kt + TorrentMetadataPackage.kt
+    - 移除 MainApplication.kt 中的 Package 注册
+    - 移除 build.gradle 中的 jlibtorrent 依赖
+    - 移除 AndroidManifest.xml 的 usesCleartextTraffic
+    - 恢复 debug.tsx 到原始状态
+  - METADATA-RESOLVER-DESIGN.md 顶部加"已暂停"声明（不删除，保留作为知识沉淀）
+关键发现：
+  - 国内 BT 下载能用是因为已建立路由表的客户端（迅雷等）有大量节点缓存，但**首次冷启动**的客户端无法 bootstrap
+  - 标准 BT DHT 在国内冷启动可达性 ≈ 0%（与之前判断的"国内 BT 普遍可用"相反）
+  - 类似功能在国内可行的替代方案：HTTP cache API 兜底（itorrents.org/btcache.me）— 但本次决定不做
+修改文件清单（删除/修改）：
+  - `- magnetgoogo-app/android/app/src/main/java/com/magnetgoogo/app/TorrentMetadataModule.kt`
+  - `- magnetgoogo-app/android/app/src/main/java/com/magnetgoogo/app/TorrentMetadataPackage.kt`
+  - `~ magnetgoogo-app/android/app/src/main/java/com/magnetgoogo/app/MainApplication.kt`
+  - `~ magnetgoogo-app/android/app/build.gradle`
+  - `~ magnetgoogo-app/android/app/src/main/AndroidManifest.xml`
+  - `~ magnetgoogo-app/app/debug.tsx`
+  - `~ docs/project-nebula/METADATA-RESOLVER-DESIGN.md`（加废弃声明）
+风险与未决事项：
+  - 当前 K30S 上的 debug APK 还含有未删的 jlibtorrent 代码，下次重新构建即可清理
+  - debug-rkstorage.db / app-debug.apk / build/intermediates 等 gradle 中间产物仍引用 jlibtorrent，需要 gradlew clean 一次彻底清理
+验证方式：
+  - 重新构建 debug APK：`cd android && ./gradlew clean app:assembleDebug`
+  - 验证没有 jlibtorrent 相关错误
+待办：
+  - [ ] 下次需要 release 版本前，gradlew clean 一次彻底清掉 jlibtorrent 残留
+  - [ ] 不再做 metadata 本地解析功能，回到搜索源 debug 主线
+---
+---
+日期/时间：2026-05-25 20:30（UTC+8）
+本次版本：v0.3.17 / App v0.1.10
+本次范围：**批量存活检测 → 17 源降级 + searchEngine 解析增强 5 项**
+涉及模块：searchEngine.ts / sources.json
+关键改动摘要（可检索）：
+  - **detail-follow 并发限从 8→12**：阿狸搜等返回 15 条的 detail-follow 源不再丢结果
+  - **magnet regex 支持 32-char base32 hash**：`{40}` → `{32,40}`，覆盖更多源格式
+  - **中文日期解析**：`2024年3月15日` → `2024-03-15`，覆盖搜索页+detail 页+cleanDate 函数
+  - **中文 size 无空格格式**：`1.5GB` → `1.5 GB`，搜索页+detail 页 fallback
+  - **fetchRarbggo size/date 提取**：detail 页 body text regex，不再返回空 size
+  - **sources.json Knaben 模板修正**：`/search/%7B{query}%7D` → `/search/{query}`
+本次实测/数据：
+  - 阿狸搜 probe：15 list items, detail page → 2 magnets + h1 title + 771.59 MB size ✅
+  - sukebei probe：q=SSNI → 75 magnets, torrent-list 正常 ✅
+  - so2.btsow.top probe：SPA 壳 5087 bytes，成人关键词有数据（green 状态正确）
+  - btsow.pics probe：SPA 壳 1333 bytes，needs browser（yellow 正确）
+  - animetime.cc：timeout 不可达
+  - TypeScript 编译：searchEngine.ts 无新增错误
+  - validate_enum: ALL VALID
+  - curated deploy: 98 sources (98 green), 88,086 bytes → mg-data
+批量存活检测（58 个标准 green 源 q=Inception）：
+  - **37/58 正常**（magnets>0 on search page）
+  - **15 NO_MAGNETS**（detail-follow 正常行为，非 bug）
+  - **6 broken** → 首轮降级
+降级清单（共 17 个 green→gray/yellow）：
+  Round 1 (6): cld140.buzz(404), 529072.xyz(redirect gate), 529073.xyz(timeout), lulutang.com(conn reset), magnetcatcat.com(CF→yellow), animetime.cc(timeout)
+  Round 2 (11): SOBT 全家 sobt19/22/23/24.top(全404), CLM clm50/52.top(404), ØMagnet 0cili.nl/org/com + cilisousuo.cc/co(全404/9B)
+存活确认（无需降级）：
+  - CLB 家族：clb21-26.top + clb12.xyz 全活（detail-follow, q=test 有 10 条）
+  - ZZB 家族：zzb01/04/05/06/07.top + zhongziba.cc + seed8.org 全活（base64 query, 15 detail links）
+  - CLMM (clmmbt.com)：20 magnets, 55998B 正常
+  - TPB 家族：19 proxy 全活
+修改文件清单：
+  - `~ magnetgoogo-app/src/core/searchEngine.ts`（5 项通用解析增强 + fetchRarbggo 修复）
+  - `~ magnetgoogo-app/app/search.tsx`（trackSourceResult src → hostname）
+  - `~ encrypt_sources.py`（UTF-8 wrapper）
+  - `~ sources.json`（Knaben 模板修正 + 17 源降级）
+  - `~ mg-data/sources.enc.json`（98 green 重新部署）
+待办：
+  - [ ] 下次发版 APK 包含全部 searchEngine 增强
+  - [ ] 9 个 yellow 源（全 user_active=false）暂搁
+  - [ ] SOBT/CLM/ØMagnet 品牌需发现新域名（域名轮换）
+---
+
+---
+日期/时间：2026-05-25 19:00（UTC+8）
+本次版本：v0.3.15 / App v0.1.10
+本次范围：**JSON API 源修复 + kd705 handler bug fix + 前端 src 字段统一 + 源配置修正**
+涉及模块：searchEngine.ts / search.tsx / analytics.ts / encrypt_sources.py / sources.json
+关键改动摘要（可检索）：
+  - **kd705 handler bug fix**：响应是 `{code, data: {list: [...]}}` 但代码直接取 `data.list`（undefined），改为 `json.data?.list || json.list`
+  - **CiliMo / kd705 → green**：API probe 确认可正常返回 20+ 结果，手动 promote
+  - **Knaben URL 模板修正**：`/search/%7B{query}%7D` → `/search/{query}`（模板有多余花括号编码）
+  - **encrypt_sources.py GBK 修复**：添加 UTF-8 stdout wrapper，不再需要 `PYTHONIOENCODING` 环境变量
+  - **前端 trackSourceResult src 统一为 hostname**：`new URL(origin).hostname` 替代 `site.name`，后端 telemetry 不再需要 multi-key 模糊匹配
+本次实测/数据：
+  - CiliMo probe：`total=523, results=20` for "Inception"
+  - kd705 probe：`code=200, data.list` 20 items for "Inception"
+  - Knaben：SSL timeout（GFW，保留 yellow）
+  - sukebei.nyaa.si：no torrent-list（可能 GFW 返回空壳，保留 yellow）
+  - 阿狸搜：正常返回 15 detail links（app detail-follow 可用，verify batch 无法跟踪）
+  - animetime.cc：timeout 不可达
+  - JavBus/美剧迷/BTSOW：需 browser/captcha（保留 yellow）
+  - **最终 curated**：76 源（69 green + 7 user_active-only yellow）
+  - validate_enum: ALL VALID
+  - mg-data deploy: OK
+修改文件清单：
+  - `~ magnetgoogo-app/src/core/searchEngine.ts`（kd705 handler fix）
+  - `~ magnetgoogo-app/app/search.tsx`（src → hostname）
+  - `~ encrypt_sources.py`（UTF-8 wrapper）
+  - `~ sources.json`（CiliMo/kd705 green + Knaben template）
+  - `~ mg-data/sources.enc.json`（重新部署）
+待办清单：
+  - [x] encrypt_sources.py GBK fix
+  - [x] 9 源诊断分析
+  - [x] kd705 handler bug fix
+  - [x] CiliMo/kd705 promote green
+  - [x] Knaben template fix
+  - [x] 前端 src 统一 hostname
+  - [x] mg-data 重新部署
+  - [ ] JavBus age-verify cookie bypass（需 Tier 1 cookie chain）
+  - [ ] BTSOW SPA 渲染（需 requires_browser=true）
+  - [ ] 美剧迷人机验证（需 Tier 2）
+  - [ ] 下次发版 APK 包含 kd705 fix + src 统一
+---
+
+---
+日期/时间：2026-05-25 18:20（UTC+8）
+本次版本：v0.3.14 / App v0.1.10
+本次范围：**客户端精选过滤上线 + gray batch 复活 3 源 + 搜索体验质量验证**
+涉及模块：encrypt_sources.py / magnetgoogo-app/src/core/i18n.ts / sources.json
+关键改动摘要（可检索）：
+  - **encrypt_sources.py 新增 `--curated` flag**：
+    - `filter_curated(raw)` 函数保留 status=green ∪ user_active 子集
+    - 客户端拉到的 enc.json 只含 76 个精选源（从 243 减少 69%）
+    - sources.json 保持全量不变（满足 AGENTS.md 不删源规则）
+  - **i18n 10 种语言隐藏源数量**：
+    - 中文：「正在搜索精选磁力源，找到 X 条结果」/「已同步精选磁力源」
+    - 英文：「Searching curated sources, found X results」
+    - 其他 8 语种同步更新
+  - **gray batch 完成（124 源 / concurrent=4 / 带代理）**：
+    - 3 个 gray → green：yhdm33.com, thepiratebay.baby, 1337xx.to
+    - 44 个 gray → yellow (parsing_failed)
+    - 6 个 gray → yellow (waf)
+    - 71 个留 gray（真死）
+  - **mg-data CDN 部署**：76 sources, 18.7KB enc payload, min_app_version=0.1.10
+  - **Release APK v0.1.10 打包 + 安装 K30S**（versionCode=7, release keystore）
+本次实测/数据/性能：
+  - **最终 sources.json 状态**：total=243 / green=67 / yellow=105 / gray=71
+  - **Curated 子集**：76 源（67 green + 9 user_active-only yellow）
+  - **Smoke test（raw GET + regex）**：
+    - 中文 query「张婉莹」10 源采样 → 30% direct magnet hit
+    - 英文 query「Inception」20 源采样 → 50% direct magnet hit
+    - 真实 app 有 detail-follow + cheerio 解析，预计 70-80%
+  - **validate_enum**: ALL VALID
+  - **mg-data deploy**: git push OK (a5fa529..latest)
+关键发现：
+  - **源数量减少 69% 对用户体验是正向的**：去掉 167 个无响应/死源，搜索更快（无需等 timeout），结果更干净
+  - **gray batch 不太值得全跑**：124 个只复活 3 个（2.4% 回收率），耗时 1.5h+
+  - **代理是 gray batch 必须**：不设 HTTPS_PROXY 会导致大量 GFW 假阳性
+修改文件清单：
+  - `~ encrypt_sources.py`（filter_curated + --curated flag）
+  - `~ magnetgoogo-app/src/core/i18n.ts`（10 语言文案）
+  - `~ sources.json`（gray batch 更新 health）
+  - `~ mg-data/sources.enc.json`（76 curated 加密部署）
+待办清单：
+  - [x] encrypt_sources --curated 功能
+  - [x] i18n 隐藏源数量
+  - [x] gray batch 跑完 + 写盘
+  - [x] mg-data 重新部署 76 curated
+  - [x] APK v0.1.10 打包安装
+  - [x] smoke test 质量验证
+  - [ ] **K30S 真机测试搜索体验**（设备下次连接 USB 即可验证，APK + CDN 都已就绪）
+  - [ ] 前端 trackSourceResult 统一 src 为 hostname
+  - [ ] admin dashboard 渲染 user_active + curated 列
+  - [ ] CiliMo / kd705 JSON API 支持（目前 yellow，应 green）
+---
+
+---
+日期/时间：2026-05-23 07:55（UTC+8）
+本次版本：v0.3.13
+本次范围：**v0.3.12 端到端落地 + 修 telemetry 索引前端 src 字段不一致 + backfill 暴露 5 个被严重误杀的高价值源**
+涉及模块：magnet/telemetry.py / magnet/verify_and_heal.py
+关键改动摘要（可检索）：
+  - **跑了 v0.3.12 的 yellow batch（62 源 / concurrent=4 / ~17 分钟）**：
+    - 10 个 yellow → green 复活：RRJAV, zzb04/05/06/07, zhongziba, seed8, clb.im, cilibao.app, cilibao.top（中文 bait + {query_b64} 修复联合生效）
+    - 2 个 yellow → gray：bthook.club（DNS 解析失败）+ 磁力天堂(cltt03)（unreachable）— 真死
+    - 50 个保持 yellow（多数是 connection reset / SSRF protection / WAF）
+  - **发现 v0.3.12 user_active guard 落盘 0 个的根因**（埋点字段前端格式不统一）：
+    - 用户埋点 `src` 字段：u3c3 类源上报裸 hostname (`u3c3.com`)，但中文磁力站源（zzb / cili / kd 家族）上报的是 `site.name` 字面量（`种子吧(zzb04)`、`磁力魔(CiliMo)`）
+    - v0.3.12 telemetry.load_telemetry() 用 `_host_of()` 强制 normalize → 名字风格的 src 全部丢失
+    - 修复：load_telemetry 改为按**原始 src 字面量索引**（保留中文/括号/大小写），新增 `_candidate_keys(origin, name)` 在 lookup 时同时尝试 hostname / `www.host` / site.name
+    - `host_active(stats, origin, name=...)` 和 `host_ok_count(...)` 都加 `name` 关键字参数
+    - verify_and_heal `update_health` 调用点同步传入 `name=site['name']`
+  - **新写 backfill 脚本一次过给 sources.json 标 user_active**（无需重跑 batch）：
+    - 遍历所有 rule，对 host_active 为 True 的源加 `health.user_active=true` + `health.user_ok_30d=N`
+    - 同时执行不变式检查：active host 处于 gray → 强制拉回 yellow（detail='parsing_failed'）
+本次实测/数据/性能：
+  - **修复后 host_active() 5/5 高价值源全部识别**：
+    - 种子吧(zzb04) ok30=956 / 种子吧(zzb05) ok30=962 / 磁力魔(CiliMo) ok30=1501 / 磁力口袋(kd705) ok30=195 / u3c3.com ok30=443
+  - **29 个真正 active host**（之前 41 是因为 _host_of 把 site.name 也错误 normalize 进 host_stats，重复计数）
+  - **Backfill 落盘**：
+    - 41 个 rule 加 user_active 标记
+    - **5 个被严重误杀的高价值源从 gray 拉回 yellow**：
+      - BTSOW (1740 real-user ok / 30d) ⭐⭐⭐
+      - 阿狸搜 (1203 ok)
+      - Knaben (1064 ok)
+      - animetime.cc (179 ok)
+      - sukebei.nyaa.si (83 ok)
+  - **最终 sources.json 状态**（pre v0.3.11 → post v0.3.13）：
+    - green: 53 → 63 (+10)
+    - yellow: 62 → 55 (-7，但内含从 gray 拉回的 5 个)
+    - gray: 127 → 124 (-3 净减)
+  - **不变式 INVARIANT OK**：no active host is at gray
+  - **schema validate_enum**：ALL VALID
+关键发现：
+  - **BTSOW 1740 ok / 30d 但被 verifier 降到 gray** —— 这是 30 天里用户使用率排名前 5 的源。如果没有 user_active guard，下一次 healing 流水线会触发 brand_rediscovery 找替换，把一个明星源彻底丢弃。这就是 guard 防的事故
+  - **前端埋点字段格式不一致是数据层的隐藏债**：客户端代码同时用 `site.name` 和 `urlparse(origin).hostname` 当 `src`，未来应当在 `magnetgoogo-app/app/search.tsx` 的 `trackSourceResult` 调用点统一为 hostname，但短期 telemetry 侧多键 fallback 是更安全的兼容方案
+  - **Backfill > Re-verify**：当核心问题在标注层（不在网络层），backfill 比重新跑 17min 的 verify 高效一个数量级。本次几秒钟落盘 41 标 + 5 拉回
+  - **三条防线现在闭环了**：
+    1. bait 来自用户高频成功 query（最不易搜不出结果）
+    2. {query_b64} 占位符正确处理（48 个中文站不再发字面量 URL）
+    3. user_active guard 拦住任何降到 gray 的尝试（41 个源受保护）
+修改文件清单（新增/修改/删除）：
+  - `~ magnet/telemetry.py`（load_telemetry 用原始 src 索引 / 新增 _candidate_keys / host_active+host_ok_count 加 name=）
+  - `~ magnet/verify_and_heal.py`（update_health 传 name= 给 telemetry）
+  - `~ sources.json`（10 yellow→green / 5 gray→yellow / 41 user_active 标 / 2 真死 yellow→gray）
+本次构建/校验命令：
+  1. `python verify_and_heal.py --filter-status yellow --concurrent 4` → 10 复活 ✓
+  2. `python magnet/telemetry.py` → 29 active hosts（前端 src 多格式已兼容）✓
+  3. `python _backfill_user_active.py` → 41 标 + 5 gray→yellow ✓
+  4. `python validate_enum.py` → **ALL VALID**
+  5. INVARIANT 检查：no active host at gray ✓
+复核要点/审查路径：
+  - 首先：`magnet/telemetry.py` `_candidate_keys` 函数 + `host_active` / `host_ok_count` 加 name 参数
+  - 然后：`magnet/verify_and_heal.py` L226-244（update_health 传 name=）
+  - 最后：sources.json 全文 grep `"user_active": true` 应见 41 条 + grep `"status": "gray"` 不应有任何带 user_active 的源
+待办清单（按优先级）：
+  - [x] **HIGH** v0.3.12 写盘落地 — DONE
+  - [x] **HIGH** 修 telemetry 前端 src 字段不一致 — DONE
+  - [x] **HIGH** Backfill 41 个 active rule + 拉回 5 个误杀 — DONE
+  - [ ] **HIGH** 跑 gray batch（124 个）— 需要中文 bait + b64 联合修复后再过一次，剩余可能还有 N 个被错降的（bthook.club / cltt03 真死，但其他可能假死）
+  - [ ] **MID** 前端 `magnetgoogo-app/app/search.tsx` 的 `trackSourceResult` 统一 src 为 hostname（消除数据层债务）
+  - [ ] **MID** admin dashboard 渲染 user_active 字段（在 sources 表加 ⭐ 列 + 30d ok 计数）
+  - [ ] **MID** CiliMo / kd705 类 JSON API 支持（已受 guard 保护，但仍 yellow，应转 green）
+  - [ ] **MID** AI selector_synth 走 50 个 yellow（多数 parse_fail）
+  - [ ] **LOW** 清理 clb 家族 14 个 404 + 52BT
+  - [ ] **LOW** v2 stack extractor 同步 {query_b64} 修复
+---
+
+---
+日期/时间：2026-05-23 00:35（UTC+8）
+本次版本：v0.3.12
+本次范围：**bait 用真实用户高频成功 query + user_active 护栏（永不再误杀活跃源）**
+涉及模块：magnet/telemetry.py (NEW) / magnet/verify_and_heal.py
+关键改动摘要（可检索）：
+  - **新模块 `magnet/telemetry.py`**（~190 行，零依赖，stdlib only）：
+    - `load_telemetry(lookback_days=30)`：读 `admin-server/cache/batches.json`，按 30 天窗口聚合 → 返回 `{host_stats, query_stats, meta}`
+    - `host_stats[host] = {ok, fail, last_ok_ts}`（src 字段已是裸 hostname，与 `urlparse(origin).hostname` 直接匹配）
+    - `query_stats[q] = {count, hits, lang}`（hits = 返回结果数 > 0 的次数）
+    - `top_queries_by_lang(per_lang=6, min_count=3, min_hit_rate=0.6)`：按语言桶（中文/英文）排序，挑出**高频 + 历史命中率 ≥60%** 的 query — "最不可能搜不出内容的词"按定义
+    - `host_active(stats, host, min_ok=10)`：30 天内有 ≥10 次 src_ok → True
+    - 缓存缺失 / 损坏 → 全部 helper 降级为 no-op（不影响 fresh checkout）
+    - CLI 模式：`python magnet/telemetry.py` 直接打印 top queries + active host 数
+  - **verify_and_heal `_init_telemetry()` 启动钩子**：
+    - main() 进入时 load 一次，用 telemetry top zh 覆盖 `BRAINT_BAITS['CHINESE']`（保留 2 个静态 fallback 在尾部），用 top en 覆盖 `BRAINT_BAITS['GENERAL']`
+    - 实测注入：`CHINESE = ['张婉莹', '蜘蛛侠', '捷克街头', '热带鱼', '前任3', '七天眼镜妹', 'Avengers', 'Inception']`
+    - 这 6 个中文词在 30 天埋点里**都有 ≥60% hit_rate**，是"最不可能让 verifier 搜出 0 结果"的 ground truth bait
+  - **update_health() user_active 不可降级护栏**（核心防御）：
+    - 任何一次 update_health 调用，先 `host_active(origin)` 判断
+    - **若 verify 想降级到 gray + host 30d 内 ≥10 次 src_ok → 强行 pin 到 yellow**，detail='parsing_failed'，加 `health.user_active=true` + `health.user_ok_30d=N`，打印 `🚨 [user_active] {name} verify→gray but {N} real-user successes in 30d — pinning to yellow`
+    - 若 verify 判 green/yellow + active → 只标注 `user_active=true`，不干预
+    - 若 host 已不再 active → 清理旧的 user_active 标志
+    - 设计理由：verifier 是合成实验（合成 bait + 合成 timing），用户埋点是物理实验（真用户 + 真网络）。物理实验永远 trump 合成实验
+  - **stdout UTF-8 重配置**（修 Windows GBK 控制台无法打印葡语/西语高频 query 的崩溃）
+本次实测/数据/性能：
+  - **Telemetry 加载**：121,120 events / 3,779 batches / 120 hosts / 1,158 unique queries
+  - **41 个 host 受保护**（30d ≥10 次 src_ok）— 包括 u3c3.com (441), CiliMo (1478), zzb04/05 (948/954), 美剧迷 (175), kd705 (195) 等所有 v0.3.11 cross-ref 发现的 false-yellow 源
+  - **bait 注入实测**：btso.cc 验证已经在用 `张婉莹/蜘蛛侠/捷克街头/热带鱼/前任3/七天眼镜妹/Avengers/Inception` 依次重试（Scrapling fetch log 确认 8 次中文 + 英文 query）
+  - **Guard 单元测试**：CASE 1 (active+unreachable→yellow ✓) / CASE 2 (inactive+unreachable→gray ✓) / CASE 3 (active+ok→green+annotated ✓)。3/3 PASS
+  - **下一次写盘 yellow batch 预期**：v0.3.11 跑 6/17 yellow 恢复 + 现在加 user_active 护栏，即使有 11 个仍然 verify_fail，它们也不会被错降到 gray，并且会在 dashboard 上打 user_active 标
+关键发现：
+  - **"最不可能搜不出结果的词"按定义就是用户已经成功搜过的词**。硬编码片名（Inception/Avengers）只是某个开发者的猜测，距离用户真实分布很远（成人/中文/小众内容占了 zh top 6 的 4 个）
+  - **user_active 护栏是项目第一次让用户埋点反过来约束源健康判断**。之前 admin-server 采集了 3 个月数据，但只在 dashboard 显示，从未参与 sources.json 写盘决策。现在闭环了
+  - **schema 兼容**：`user_active` / `user_ok_30d` 是新增的自由字段，不在枚举约束内；status_detail 仍走 enum (`parsing_failed`)，validate_enum.py ALL VALID
+  - **Karpathy 收束**：v0.3.12 把"用户成功率"从仪表盘指标升级为**写盘前的硬约束**。verify_rule 仍然可以判错，但它的判错不再有破坏力——guard 会拦住
+修改文件清单（新增/修改/删除）：
+  - `+ magnet/telemetry.py`（NEW，~190 行）
+  - `~ magnet/verify_and_heal.py`（+UTF-8 stdout / +import telemetry / +_init_telemetry() / +update_health user_active guard / 30 行净增）
+本次构建/校验命令：
+  1. `python magnet/telemetry.py` → events=121120 / top zh + en queries / 41 active hosts ✓
+  2. `python _test_user_active_guard.py` → 3/3 PASS ✓
+  3. `python verify_and_heal.py --filter-status yellow --max-count 2 --no-write` → telemetry load + bait override 日志确认生效 ✓
+  4. `python validate_enum.py` → **ALL VALID**
+复核要点/审查路径：
+  - 首先：`magnet/telemetry.py` 全文（小且自包含）
+  - 然后：`magnet/verify_and_heal.py` L168-198 (`_init_telemetry`) + L201-242 (`update_health` 护栏分支) + L265-266 (main 钩子)
+  - 设计契约：`telemetry.host_active` 返回 True 的源**永远不应该出现在 sources.json 里 status=gray** — 这是不变式
+待办清单（按优先级）：
+  - [x] **HIGH** bait 用真实用户高频成功 query — DONE（CHINESE 6 词全部注入，命中率 ≥60%）
+  - [x] **HIGH** user_active 护栏 — DONE（41 个 active host 受保护）
+  - [ ] **HIGH** 跑 `verify_and_heal --filter-status yellow --concurrent 4` 写盘 → 期待 zzb04/05 + 美剧迷 + CiliMo 等转 green / pin yellow + user_active
+  - [ ] **HIGH** 跑 gray batch（127 个）— 之前误降的源会被 guard 拉回 yellow
+  - [ ] **MID** 把 user_active 字段渲染到 admin dashboard（如已存在 status_detail 列 → 加 ⭐ icon）
+  - [ ] **MID** CiliMo / kd705 类 JSON API 支持（用户埋点显示 top-2 活跃，仍 yellow 但已受 guard 保护）
+  - [ ] **MID** AI selector_synth 走 47 个真 yellow
+  - [ ] **LOW** 清理 clb 家族 14 个 404 死站 + 52BT
+  - [ ] **LOW** v2 stack extractor 同步 {query_b64} 修复（verify_rule 走 v1，暂不阻塞）
+---
+
+---
+日期/时间：2026-05-22 23:58（UTC+8）
+本次版本：v0.3.11
+本次范围：**用户埋点反向核验 → 暴露 verify_rule 两个真 bug → 修 {query_b64} 占位符 + 中文 bait 注入**
+涉及模块：crawler/extractor.py / verify_and_heal.py
+关键改动摘要（可检索）：
+  - **build_search_url 加 {query_b64} + {query_quoted} + 正确 URL-encode**（crawler/extractor.py L26-40）：
+    - 原代码 `path.replace('{query}', query)` — 不 encode 中文（broken on strict servers）+ 完全不处理 `{query_b64}` 占位符 → URL 留字面量 `%7Bquery_b64%7D` 直接发出
+    - 新逻辑：先 b64 编码替换 `{query_b64}`（zzb/clb/clm/sobt/cltt 等 48 个源使用），再 percent-encode 替换 `{query}`，额外支持 `{query_quoted}`
+    - 影响面：sources.json 中 48 个 rule 用 `{query_b64}` 模板 — 之前**全部发错请求**，但因 v1 stack 时代实现过这个逻辑，v2 切换时丢了
+  - **BRAINT_BAITS CHINESE 桶用中文 bait + 增 ADULT 桶**（verify_and_heal.py L32-43）：
+    - 原 CHINESE bucket: `['Inception', 'Inception', 'Big Buck Bunny']` — 名字是中文桶但内容全英文，根本搜不出中文站的资源
+    - 新 CHINESE: `['复仇者联盟', '速度与激情', '蜘蛛侠', '三体', 'Avengers', 'Inception']` — 真用户用什么我们就用什么（埋点 confirmed）
+    - 新 ADULT bucket: `['SSIS', 'MIDV', 'STARS', 'JUL']` — javbus/rrjav 用代码风格查询，不是电影名
+    - classify_site 扩展：加 ADULT 分支前置 + Chinese 关键词扩展（zhongzi/zzb/kd7/mag/meiju/6v/sofan）+ 域名后缀回退（.cn/.top/.cyou/.club/.work/.biz/.de → CHINESE）
+本次实测/数据/性能：
+  - **用户埋点 cross-ref 跑通**（30 天 admin-server/cache/batches.json → 3757 batches / 119989 events / 293 devices）：
+    - 60 个 yellow/parsing_failed 中 13 个有用户真实成功记录（false negative）
+    - Top 5 误杀：磁力魔(CiliMo) 1478ok/86%/28213 magnets/210 设备 ⭐⭐ / 种子吧(zzb05) 954ok/64% / 种子吧(zzb04) 948ok/63% / 磁力口袋(kd705) 195ok / 美剧迷 175ok
+  - **5 个高价值源 v0.3.11 修复后再测**：
+    - 种子吧(zzb05) `no_magnets` → **ok 3 magnets 7s** ✓（{query_b64} 修复直接生效）
+    - 种子吧(zzb04) `no_magnets` → **ok 3 magnets 7s** ✓
+    - CiliMo / kd705 仍 no_magnets — 它们是 JSON API endpoint（`/api/search?q=...`），不返回 HTML magnets，需要 search.handler='api_json' 专用 handler，是下一轮的事
+    - 美剧迷 仍 no_magnets — 导航站，magnet 在详情页/外链，需要 detail_follow + selector_synth
+  - **全量 17 个 yellow/{query_b64} 源 batch 测试**：
+    - **6/17 revived**（含 zzb04/05 + 4 个其他，11 个仍 fail 因 selector 也挂了/connection reset/真死）
+    - 总耗时 471s，单源均 28s
+  - **未做写盘**：当前 sources.json health 状态仍是 v0.3.10 跑完的结果（53 green / 127 gray / 62 yellow），需要再跑一次 `verify_and_heal --filter-status yellow --concurrent 4`（不带 --no-write）才能把 6 个 revived 落地。预计跑完后 green = 53+6 ≈ 59
+关键发现：
+  - **「verify_rule no_magnets ≠ source dead」是项目设计缺陷**：verify 拿英文 bait + naïve URL replace 测试中文站，结果系统性误杀。真相只能用用户埋点反向核验（之前 admin-server 已采集 3 个月数据但从未用于源健康判断）
+  - **{query_b64} 占位符是历史包袱**：sources.json 里 48 个源使用，主要是 clb/zzb/sobt/clm/cltt 中文磁力站家族（防爬虫用 base64 编码 q）。v2 stack 重写时漏了这个分支，所有这些源 search request 都发的是字面量 URL → 全部 yellow/parsing_failed 是 deterministic
+  - **BRAINT_BAITS CHINESE 桶用英文是 bug，不是策略**：估计是早期 v0.1 时代占位符没替换。该 bug 5+ 个月没人发现，因为没人 cross-ref 真实用户数据
+  - **Karpathy 式收束**：把"客户端用户成功率"作为 verify 的 ground truth — 这是唯一不会骗自己的指标。后续 verify_and_heal 应当读 admin-server/cache 数据，把 src_ok>0 的源 health 锁定为 green，不允许 verify 自己降级
+修改文件清单（新增/修改/删除）：
+  - `~ magnet/crawler/extractor.py`（+base64 import + quote import + build_search_url 加 {query_b64}/{query_quoted}/URL-encode {query}）
+  - `~ magnet/verify_and_heal.py`（BRAINT_BAITS CHINESE 桶 + ADULT 桶 + classify_site 扩展）
+本次构建/校验命令：
+  1. `python _test_5hot.py` → 用 5 个高价值源验证 build_search_url 修复（zzb04/05 → ok 3 magnets）
+  2. `python _test_b64_yellow.py` → 全量 17 个 yellow/{query_b64} 源批测（**6/17 revived**）
+  3. （未跑）`python verify_and_heal.py --filter-status yellow --concurrent 4` → 写盘落地 6 个 revived
+  4. `python validate_enum.py` → ALL VALID（未变更 schema）
+复核要点/审查路径：
+  - 首先：crawler/extractor.py 第 1-5 行（imports）+ 第 26-40 行（build_search_url 完整重写）
+  - 然后：verify_and_heal.py 第 32-43 行（BRAINT_BAITS）+ 第 46-66 行（classify_site）
+  - 最后：admin-server/cache/batches.json 是真相之源（30 天用户埋点 / src_ok / src_fail / ms）
+待办清单（按优先级）：
+  - [x] **HIGH** {query_b64} 占位符修复 — DONE（zzb04/05 已 ok，全量 6/17 revived）
+  - [x] **HIGH** 中文 bait 注入 BRAINT_BAITS — DONE
+  - [ ] **HIGH** 跑 `verify_and_heal --filter-status yellow --concurrent 4` 写盘把 6 个 revived 落地（预计 30-60 分钟）
+  - [ ] **HIGH** 同样跑 gray batch（127 个）— 之前 v0.3.10 跑 gray 时 build_search_url 还没修，可能有 N 个 gray 实际是 {query_b64} 假死
+  - [ ] **HIGH** CiliMo / kd705 类 JSON API endpoint 支持 — 加 `search.handler='api_json'` + parse strategy（用户埋点显示这俩源是 top-2 活跃，必须修）
+  - [ ] **HIGH** 清理 clb 家族 14 个 404 死站（onboarded v0.3.7，全部过期）+ 52BT
+  - [ ] **MID** 美剧迷 / 6v520 类导航站：magnet 在详情页/外链，需要 detail_follow + selector_synth
+  - [ ] **MID** 把「用户埋点 cross-ref」做成常规验证步骤：verify_and_heal 写盘前对照 admin-server/cache/batches.json 的 src_ok 数据，避免再次把活跃源降级。最简单实现：load batches.json → 算 30 天 src_ok rate → 若源在 yellow/gray 但 src_ok > 0 → 保留 yellow 不降 gray，并打 `🚨 active_users` 标
+  - [ ] **MID** AI selector_synth 走 47 个真 yellow（非 b64 也非 JSON API 的）
+  - [ ] **LOW** 同步 v2 stack (crawler_v2/extractor.py) 是否也有 {query_b64} bug — 大概率有，但 verify_rule 走 v1 MagnetExtractor，所以本次先 v1 修了
+---
+
+---
+日期/时间：2026-05-22 19:42（UTC+8）
+本次版本：v0.3.10
+本次范围：**4 条 HIGH/MID 一并交付：search→home 早退 + detail_follow Stealthy 升级 + onboard --use-llm + verify_and_heal --concurrent**
+涉及模块：crawler_v2/extractor.py / crawler_v2/healer.py / scripts/onboard_candidate.py / verify_and_heal.py
+关键改动摘要（可检索）：
+  - **search→home 早退检测**（解 v0.3.9 遗留 laowangzo 类性能瓶颈）：
+    - MagnetExtractorV2 加 `_search_dead_redirect` sticky flag + `_is_redirect_to_home(req, fin)` helper。Scrapling Fetcher.get 后比较 `resp.url` 与 input URL：若 input 含 path/query 但 final 落到 bare origin → 标记 flag。后续 search() 调用第一行检查 flag → 立即 return []
+    - HealerV2 复制同样逻辑 + 三处早退点：(a) test_queries 循环第二个 bait 起 break，(b) StealthyFetcher fallback 跳过，(c) detail_follow 跳过。理由：search 已知 redirect，浏览器 fallback 看到的是同样主页，detail anchors 是无关导航
+    - **实测 laowangzo: 176s → 48s（3.7x）**。yts.rs / clb.im 不受影响（不 redirect）
+  - **detail_follow_v2 hits=0 时升级 StealthyFetcher**（解 bt4g 类 JS 详情页）：
+    - `_try_detail_follow` 中 HTTP fetch detail 200 但 regex 找不到 magnet → 自动调 `_fetch_via_stealth_browser(du)` 再 regex 一次。一次升级，不 N 次重试
+    - 覆盖场景：bt4g（detail 页 status=200, magnet 在 JS）、其他 SPA 类详情页
+  - **onboard_candidate --use-llm + --search-url**（解 sobt/clm SPA 候选）：
+    - probe_search_url 返回 None 时（如 sobt.org/clm41.xyz），走 `crawler_v2.ai.synthesize_selectors_for_url`（Crawl4AI + MiMo reasoning）
+    - 用户必须显式提供 --search-url 模板（LLM 不自动发现搜索 URL，避免幻觉）
+    - 输出 rule JSON 草稿带 `_onboarded.probe_method='llm_selector_synth'` + `llm_provider` + `magnets_validated` 元数据
+  - **verify_rule 加 detail_follow last-ditch fallback**（v0.3.10 实测后补）：
+    - MagnetExtractorV2.search() 在 list-page (Fetcher + requests + StealthyFetcher) 全部 0 magnets 时，最后调 `_search_via_detail_follow(query, limit=3)` 兜底。详情页 fetch 用 `_fetch_with_fallback`（Scrapling → requests fallback，解 clb.im 类 SSRF 阻挡）
+    - 实测修复 4/5 false-PARSE-FAIL: yts.rs / yts.do / 0cili.nl / 0cili.org（之前都标 list_page 但磁链实际只在 detail）。knaben.org 仍 fail（detail 页结构特殊，next iteration 可加 selector_synth）
+    - 成本边界：限制 max 3 detail URLs / call，每个 source 最多多花 ~15-30s 当 list-page fail 时；list-page 健康源走不到这一步，零开销
+    - 副作用：clb.im / cilibao.app 这类 list_page 标签源在 bait mismatch (Inception 中文站搜不到) 时多走完整链路 → 30-40s。可接受（之后会进 healer.heal_and_retry 也是相同延迟）
+  - **verify_and_heal --concurrent N**：
+    - per-rule worker 函数 + threading.Lock 保护 summary dict
+    - 每个 worker 独立 HealerV2 实例（cache per-instance，不能跨线程共享）
+    - 输出按 source 整体 buffer + 单次 print（避免并发输出交错）
+    - 默认 N=1（sequential，行为不变）；N=4-8 适合健康源批量复核
+实测数据：
+  - laowangzo: **176s → 48s**（3.7x speedup）— 早退三道闸门生效
+  - yts.rs (detail_follow_v2): 27s ✓ 5 magnets ✓ 不受影响
+  - clb.im (http_heuristic_v2): 24s ✓ 10 magnets ✓ 不受影响
+  - validate_enum.py ALL VALID
+  - server.js syntax OK
+  - **批量子集实测**（30 个 green 源 / --concurrent 4 / --no-write）：
+    - 总耗时 ~9 分钟（均摊 18s/源 serial-equivalent）
+    - **24/30 仍 green**（21 OK + 1 HEAL-OK + 2 不变）= 80% 健康保持率
+    - **5 PARSE-FAIL**: knaben.org / 0cili.nl / 0cili.org / yts.rs / yts.do（注意：yts.rs 用 verify_one --query Avengers 是 ok，batch 用默认 baits Inception 等失败 → bait 不匹配问题）
+    - 2 GRAY: clb13.xyz [404] / animetime.cc [unreachable]
+    - 0 早退触发（合理 — green 源搜索都正常）
+    - 外推 240 全量：约 60-80 分钟（concurrent=4）vs v0.3.7 估算的 2-4 小时
+  - **detail_follow last-ditch 实测**（7 个代表性源 / 加 fallback 后）：
+    - 修了 4 个：yts.rs (1s ok) / yts.do (4s ok) / 0cili.nl (6s ok 5 magnets) / 0cili.org (6s ok 5 magnets)
+    - 仍 fail 1 个：knaben.org (3s no_magnets) — detail 页结构特殊
+    - 副作用 2 个：clb.im (43s no_magnets) / cilibao.app (38s no_magnets) — bait Inception 中文站无结果，走完整链路
+  - **🚨 全量真实验证（gray 50 + green 118 + yellow 65 三轮 × concurrent 4，累计 ~3 小时）暴露重大数据陈旧问题**：
+    - **最终 green 数：118 → 53（-65 / -55%）**
+    - **DELTA 全表**：green=-65，gray=+39，yellow=+26
+    - 退化（demoted from green）：66 个 = 27 个 → gray/404 + 10 个 → gray/unreachable + 28 个 → yellow/parsing_failed + 1 个 → yellow/waf
+    - 主受灾家族：**clb 家族 v0.3.7 onboard 的 14 个站全部 404**（clb1/2/3/6/13/15/16/17/18/19/20/12/13.cc/17.top 等），52BT (529072.xyz) 也 404
+    - 真实复活：**2 个**（gray/unreachable→green: 6v520.com；yellow/waf→green: 0magnet.co）
+    - **根因**：v0.3.6 切到 v2 stack 后 sources.json 的 health 状态从未在 v2 stack 下做过全量复核，标 green/healed 的实际是 v1 extractor 的判断 + 中间几周 clb 家族集体过期但没人重跑 verify。v0.3.10 这次全量验证是「v2 stack 第一次面对真相」
+    - **后续动作**：clb 家族 14 个 404 站可批量删除（永久过期）；28 个 ex-green parsing_failed 是 AI selector_synth 的下一波目标；新真实基线 = 53 green
+  - **🎯 用户埋点反向验证暴露 13 个 FALSE-NEGATIVE 黄源**（cross-ref admin-server/cache/batches.json 30 天数据 / 3757 batches / 119989 events / 293 devices）：
+    - 60 个 yellow/parsing_failed 中，**13 个在真实用户场景下成功率 > 0**（用户用中文 query 搜出真实磁链）
+    - **5 个高价值误杀**（应立即恢复 green）：
+      - 磁力魔(CiliMo)        1478 ok / 86% rate / 28213 magnets / 210 设备
+      - 种子吧(zzb05)          954 ok / 64% rate /  5366 magnets / 191 设备
+      - 种子吧(zzb04)          948 ok / 63% rate /  5331 magnets / 193 设备
+      - 磁力口袋(kd705)         195 ok / 12% rate /  3900 magnets /  56 设备
+      - 美剧迷                  175 ok / 10% rate /  5157 magnets / 168 设备
+    - **根因**：BRAINT_BAITS 默认是 Inception/Interstellar 等英文电影名。中文磁力站（磁力魔/种子吧/美剧迷）搜「Inception」当然 0 结果。客户端用户用「庆余年/三体/速度与激情 X」中文 query → 成功率 60-86%
+    - **修复路径**：BRAINT_BAITS 加中文 bait（"复仇者联盟" / "三体" / "庆余年" / "速度与激情" / "蜘蛛侠" 等），按域名后缀（.cn/.top/.xyz/.cyou/.club/.work/.biz）+ family 自动注入。预计恢复至少 5-13 个 green
+    - **47 个真 yellow**：33 个从未被用户访问（dormant）+ 14 个用户访问全失败（真 dead）— 这些走 AI selector_synth 或弃用
+关键发现：
+  - **早退节省的不只是网络时间**：搜索 redirect 主页时，原代码会跑 Stealthy（启动 Chromium ~10s + fetch ~10s = 20-30s）→ 然后从主页拿一堆「detail-like」anchors（导航站全是 nav links）→ 5 × 20s fetch 这些假详情页 = ~100s。真正的成本在 fallback 链路上的浪费，不是单次 fetch
+  - **detail_follow Stealthy 升级是策略转变**：v0.3.5-9 的 detail_follow 是「HTTP-only」，对 SPA 详情页失效。v0.3.10 加一次升级让它对混合站点（list_page 静态、detail_page 动态）也有效，但每个 detail 多花 10-20s 浏览器时间，所以只在 hits=0 时升级，避免 false positive 浪费
+  - **--use-llm 的成本边界**：Crawl4AI 启动浏览器 + MiMo 推理 token = 单次 60-120s + ~$0.01。比 search_form_probe 慢 6-12 倍但能搞定 SPA。设计上要求 --search-url 显式输入是为了避免 LLM 幻觉（万一它说 /search?q={query} 实际上不存在）
+  - **--concurrent 的限制**：HealerV2 cache per-instance，所以并发跑没问题但不共享缓存（小代价）。但 Scrapling 全局还是有 GIL/connection limit；实测 N=4-8 是安全上限，N=12+ 容易触发对方站 rate limit
+修改文件清单（新增/修改/删除）：
+  - `~ magnet/crawler_v2/extractor.py`（+_search_dead_redirect + _is_redirect_to_home + search() 早退 + _fetch_html_via_scrapling 检测）
+  - `~ magnet/crawler_v2/healer.py`（同上 mirror + reset_cache 清 flag + 3 处早退点 + detail_follow Stealthy 升级）
+  - `~ magnet/scripts/onboard_candidate.py`（+--use-llm + --search-url + LLM fallback 路径渲染 rule，~50 行）
+  - `~ magnet/verify_and_heal.py`（+--concurrent N + per-rule _process_rule worker + threading.Lock + ThreadPoolExecutor 调度）
+关键契约变更：无（纯能力扩展，命令行参数都是 default-off 兼容）
+风险与未决事项：
+  - **laowangzo 仍 48s 而非 < 10s**：剩余时间花在 verify_rule 的 4-6 baits（每次走 extractor.search → 第一次 fetch 触发早退后续立即 []，但每个 search 还是要 build_search_url + fetch 一次 = 4-6 × ~5s = 25s）。要进一步优化得让 verify_rule 把 _search_dead_redirect 也提前查一次
+  - --use-llm 路径未实测（要 MIMO_API_KEY + Crawl4AI 浏览器 + 时间），仅完成代码 wiring。下次有 SPA 候选时可端到端验证
+  - --concurrent 路径未实测（需要 N>1 跑全量验证用），代码 review 通过 import threading 锁、buffer 输出、per-thread Healer 都正确
+验证方式：
+  1. `python -m scripts.verify_one --name "老王磁力(laowangzo)" --query Inception` → 应得 elapsed ~48s（v0.3.9: 176s）+ "skipping StealthyFetcher" + "skipping detail_follow"
+  2. `python -m scripts.verify_one --name yts.rs --query Avengers` → 仍 ok / 5 magnets / detail_follow_v2
+  3. `python -m scripts.verify_one --name clb.im --query Avengers` → 仍 healed / 10 magnets / http_heuristic_v2
+  4. （未实测）`python -m scripts.onboard_candidate --host sobt.org --family sobt --use-llm --search-url 'https://sobt.org/search?q={query}'` → 走 LLM 路径
+  5. （未实测）`python verify_and_heal.py --filter-status green --max-count 20 --no-write --concurrent 4` → 4 worker 并行
+  6. `python validate_enum.py` → ALL VALID
+复核要点/审查路径：
+  - 首先：crawler_v2/extractor.py 第 ~37-49 行（_is_redirect_to_home）+ 第 ~70-76 行（_fetch 检测）+ 第 ~134-140 行（search 早退）
+  - 然后：crawler_v2/healer.py 第 ~44-93 行（同 mirror）+ 第 ~292-297 行（test_queries 早退）+ 第 ~408-419 行（Stealthy 早退）+ 第 ~458-481 行（detail_follow 早退）
+  - 再次：scripts/onboard_candidate.py 第 ~89-165 行（--use-llm 整段）
+  - 最后：verify_and_heal.py 第 ~224-331 行（_process_rule worker + ThreadPoolExecutor 调度）
+待办清单（按优先级）：
+  - [x] **HIGH** verify_rule 加 detail_follow last-ditch — DONE（4/5 false-PARSE-FAIL 恢复）
+  - [ ] **HIGH** 清理 clb 家族 14 个 404 死站（onboarded v0.3.7，全部过期）+ 52BT (529072.xyz) — 这些站永久 404 没救了，应批量删除/标 dead，让 53 green 是干净基线
+  - [ ] **HIGH** **中文 bait 注入** verify_and_heal.py BRAINT_BAITS — 加 ["复仇者联盟", "三体", "庆余年", "速度与激情", "蜘蛛侠", "鬼吹灯"] 等中文 bait，按域名后缀（.cn/.top/.xyz/.cyou/.club/.work/.biz/.com 中文站）和 family 自动选择优先级。**杠杆点**：恢复 5-13 个 false-yellow 源（含 CiliMo / zzb04-zzb07 / 美剧迷 等真实活跃源），直接把 53 green → 58-66
+  - [ ] **HIGH** 28 个 ex-green parsing_failed 走 AI selector_synth 修复路径（onboard_candidate --use-llm 模式 + 现有 url 重新 synthesize）— 中文 bait 注入后再看哪些剩余 yellow
+  - [ ] **MID** knaben.org detail 页适配（最后一个未恢复的 false-PARSE-FAIL）— 需要看 detail 页结构 + 可能加专用 detail_link selector
+  - [ ] **MID** verify_rule 也加 _search_dead_redirect 早退（让 laowangzo 从 48s 进一步降到 ~10s）
+  - [ ] **MID** --use-llm 端到端实测（需要找一个明确 SPA 候选 + MIMO_API_KEY 在 .env）
+  - [ ] **MID** 把「用户埋点 cross-ref」做成常规验证步骤：verify_and_heal 写盘前对照 admin-server/cache/batches.json 的 src_ok 数据，避免把活跃源降级
+  - [ ] **LOW** search_form_probe query-string 详情页支持（`/view.php?id=123`）
+  - [ ] **LOW** 52BT punycode 站 IDN 重定向特殊处理
+---
+
+---
+日期/时间：2026-05-22 19:18（UTC+8）
+本次版本：v0.3.9
+本次范围：**v2 healer + extractor 加 session-级 fetch 缓存（解部分死循环）**
+涉及模块：crawler_v2/healer.py / crawler_v2/extractor.py
+关键改动摘要（可检索）：
+  - **HealerV2.__init__ 加 _fetch_cache + reset_cache()**：key=(kind, url), value=(status, html)。kind 区分 'scrapling' / 'stealth'，因为同一 URL 可能用不同 fetcher（HTTP fail → Stealthy 兜底）
+  - **heal_and_retry 入口 self.reset_cache()**：单次 heal_and_retry 视为一个 session。跨 rule 不共享缓存（避免 CDN 共享假阳性），同 session 内 dedupe URL 调用
+  - **MagnetExtractorV2.__init__ 加 _html_cache**：key=(method, url, body_tuple)。同 extractor 实例（== 单 rule）内多 baits 命中同 URL 时复用
+  - **缓存 100 条上限**：HealerV2 cap=100，超出 silently drop（防 OOM 但不影响正确性）
+实测数据：
+  - yts.rs: 5 magnets / 25s (v0.3.7: 17s — 网络波动，cache 未命中因 detail URLs 各不同)
+  - clb.im: 10 magnets / 27s (v0.3.7: 16s — 同上)
+  - laowangzo: **依然 ~120s**（cache 未起作用 — 见下面"关键发现"）
+  - validate_enum.py ALL VALID
+关键发现：
+  - **cache 修复了部分场景，但没修 laowangzo 这种结构性死循环**：当 search URL 被 302 redirect 到主页时，每个 bait → 不同 search URL → cache key 不同 → 都 cache miss。Scrapling 实际请求的是 search URL，redirect 后 final URL 是主页，但 cache 用的是 input URL（search URL）做 key。**真正的修复**是在 extractor.search 内检测 final URL == origin → 标记 "search-redirects-home" sticky flag → break baits（早退）
+  - **cache 修复了什么**：detail_follow 阶段 N 个 detail URLs 间偶尔重复（如 yts.rs 某些 query 返回相同 detail link）；search URL + detail URL 在同 session 内重复出现（heal_and_retry 多 fallback 路径都 fetch origin）。这两类场景在 cache 命中时立即返回，省 2-3s/命中
+  - **架构启示**：cache 是必要的「卫生」措施（防 OOM、防慢站把单 rule 拖到 5 分钟），但不是「laowangzo 全量验证慢」的真正修复。后者需要 search-redirects-home 早退检测
+修改文件清单（新增/修改/删除）：
+  - `~ magnet/crawler_v2/healer.py`（+__init__ + _cache_get/set/reset_cache + 在 _fetch_via_scrapling/_fetch_via_stealth_browser 加 cache 读写 + heal_and_retry 入口 reset_cache）
+  - `~ magnet/crawler_v2/extractor.py`（+__init__ _html_cache + _cache_key + 在两个 fetch 方法加 cache 读写）
+关键契约变更：无（纯内部优化）
+风险与未决事项：
+  - **HIGH（最重要）** search-redirects-home 早退检测：在 extractor.search 调 fetcher 后，比较 resp.url 与 origin。若几乎相等（去 trailing slash） → 标记 self._search_dead = True → 后续 baits 全 short-circuit return []。能让 laowangzo 类 SPA 站从 120s → 5s
+  - **HIGH** detail_follow_v2 失败时升级 StealthyFetcher 二跳（bt4g 类 JS 详情页修复，待办未变）
+  - **HIGH** sobt/clm 走 selector_synth (Crawl4AI + MiMo) → onboard（待办未变）
+验证方式：
+  1. `python -m scripts.verify_one --name yts.rs --query Avengers` → 仍 ok / detail_follow_v2 / 5 magnets
+  2. `python -m scripts.verify_one --name clb.im --query Avengers` → 仍 healed / 10 magnets
+  3. `python validate_enum.py` → ALL VALID
+  4. （手工）read healer.py 第 ~44-69 行，确认 cache helpers + reset_cache
+复核要点/审查路径：
+  - 首先：crawler_v2/healer.py line 44-69（cache helpers + reset_cache）+ heal_and_retry 入口 self.reset_cache()
+  - 然后：crawler_v2/extractor.py line 29-43（_html_cache + _cache_key）+ 两个 fetch 方法的 cache 读写
+  - 最后：评估为何 laowangzo 没受益（DEV-LOG 关键发现段已说清楚）
+待办清单（按优先级）：
+  - [ ] **HIGH** extractor.search 加 search-redirects-home 早退检测（解 laowangzo 类站根本性能问题）
+  - [ ] **HIGH** detail_follow_v2 二跳升级 StealthyFetcher（bt4g 类 JS 详情页）
+  - [ ] **HIGH** sobt/clm 走 selector_synth (Crawl4AI + MiMo) → onboard
+  - [ ] **MID** search_form_probe query-string 详情页支持
+  - [ ] **MID** verify_and_heal 加 --concurrent N 并发（修完早退后并发才有意义）
+  - [ ] **LOW** 52BT punycode 站 IDN 重定向特殊处理
+---
+
+---
+日期/时间：2026-05-22 19:10（UTC+8）
+本次版本：v0.3.8
+本次范围：**admin dashboard 加 parse_strategy / brand_family / onboarded 视图；sobt+clm 家族候选实测；verify_and_heal CLI 参数化**
+涉及模块：admin-server/server.js / admin_templates/dashboard.html / verify_and_heal.py / DEV-LOG
+关键改动摘要（可检索）：
+  - **`/api/sources/details` 新增 3 个聚合块**：parseStrategyStats（list_page vs detail_follow）/ brandFamilyStats（clb/clm/sobt/52bt 家族健康统计）/ onboardedRules（v0.3.7+ onboard_candidate 推广源列表）。每条 rule 数据增加 4 字段：parse_strategy / brand_family / onboarded_version / onboarded_at
+  - **dashboard.html 加 Row 4 + Row 5**：「解析策略分布」+「品牌家族集群」+「自动入库源」三块。家族 gray ≥ 50% 时 cell 红色加粗，提示 verify_and_heal 自动 rediscovery 触发条件
+  - **verify_and_heal.py CLI 参数化**：新增 --names (CSV) / --max-count N / --filter-status {green|yellow|gray} / --no-write，支持代表性子集 dry run，避免每次跑全量 240 源（V2 stack 单源 60-300s，全量 ≥ 2 小时）
+  - **sobt/clm 家族候选实测**：跑 brand_rediscover --family {sobt,clm}，分别拿到 4-5 个 strong 候选（sobt.org/sobt.app/sobt.me + clm41.xyz/official-cilimao.com）。逐个 onboard：**4/4 失败**（probe 拿不到搜索 URL 模式，137-249s 后 None）→ 揭示 search_form_probe 局限：对 JS-rendered SPA / 非常规 form 结构无效
+  - **代表性 verify 子集实测**：filter_status=yellow + max_count=5 跑了 [1/5] 0magnet.co + [2/5] BT4G。bt4g detail_follow_v2 实际跑了 5 个详情页（_DETAIL_PATH_HINTS 启发兜底），但 detail 上 magnet 在 JS 不在 HTML → PARSE-FAIL
+实测数据：
+  - 当前 sources.json 分布（v2 stack 视图）：
+    - parse_strategy: list_page=236, detail_follow=7
+    - brand_family: clb=25, clm=13, sobt=6, 52bt=3
+    - onboarded (v0.3.7): clb.im / cilibao.app / cilibao.top（全 green）
+  - search_form_probe 对 4 个候选：sobt.org (156s/None), sobt.app (249s/None), clm41.xyz (137s/None), official-cilimao.com (66s/None)
+  - validate_enum.py ALL VALID
+关键发现：
+  - **search_form_probe 当前覆盖率 ~50%**：磁力宝家族（clb.im / cilibao.app / cilibao.top）3/3 通过；sobt + clm 家族 0/4 通过。前者是 SSR + form 表单的传统站，后者多为 SPA 或非常规结构。下一步是接 selector_synth (Crawl4AI + LLM) 路径
+  - **bt4g 案例：detail_follow_v2 启动了但 magnet 在 JS**：v2 healer fetch 5 个 detail page 全部 200，但 regex 找不到 magnet hash → 详情页需要 StealthyFetcher 浏览器渲染才能拿到 JS 注入的 magnet。当前 detail_follow_v2 只走 HTTP fetcher，对 JS 详情页无效。修复路径：v2 healer 在 detail_follow 失败时再升级到 StealthyFetcher 跟二跳
+  - **v2 healer 对 laowangzo 类站重复 fetch 主页 40+ 次**：搜索 302 redirect 到主页 + healer 内部缺缓存导致循环。每个源 ~100-300s 让全量 verify_and_heal 不可行 — 必须先加 fetch 缓存（一次 session 内 URL 去重）
+  - **admin dashboard 的诊断价值**：现在能一眼看出哪个家族开始集体塌方（gray 占比红字告警），不需要等 verify_and_heal 全量跑完
+修改文件清单（新增/修改/删除）：
+  - `~ admin-server/server.js`（+3 个 aggregate stats blocks，+4 字段 per-rule）
+  - `~ admin_templates/dashboard.html`（+Row 4 / Row 5 卡片，+3 个 Alpine 状态字段，+loadSources 读 3 个新字段）
+  - `~ magnet/verify_and_heal.py`（+CLI 参数 --names/--max-count/--filter-status/--no-write）
+  - 清理：`- _tmp_batch_onboard.py / _tmp_clb_verify.py / _tmp_dlinks.py / _tmp_probe_dbg.py / _promote_clb_family.js / magnet/_verify_*.log`
+关键契约变更：
+  - `/api/sources/details` 响应新增 3 个 top-level 字段（parseStrategyStats / brandFamilyStats / onboardedRules），向后兼容
+  - 每个 rule 新增 4 个 enriched 字段（parse_strategy / brand_family / onboarded_version / onboarded_at）
+风险与未决事项：
+  - **HIGH** v2 healer 缺 fetch 缓存 → 全量 verify_and_heal 单源 100-300s 不可行；需要加 session 级 URL 去重缓存（修在 _fetch_via_scrapling / _fetch_via_stealthy）
+  - **HIGH** sobt/clm 家族新主域名仍未 onboard — 需要走 selector_synth (Crawl4AI + MiMo) 路径，search_form_probe 三路 fallback 已穷尽
+  - **MID** detail_follow_v2 当前只走 HTTP；对 JS-rendered 详情页（如 bt4g）需要升级到 StealthyFetcher 二跳
+  - search_form_probe query-string 详情页支持（`/view.php?id=123`）仍未做，但当前 4 个 detail_follow 源都是 path-driven 没碰到此场景
+验证方式：
+  1. 启动 admin-server (PORT=3800)，访问 http://localhost:3800/dashboard，进「源配置」概览 sub-tab → 应看到 Row 4「解析策略分布」+「品牌家族集群」两个卡片，Row 5「自动入库源」表格
+  2. `node -e "const d=require('./sources.json'); ..."` 验证 sources.json: 7 detail_follow / 4 families / 3 onboarded
+  3. `python verify_and_heal.py --filter-status yellow --max-count 5 --no-write` → 跑代表性子集不污染 sources.json
+  4. `python validate_enum.py` → ALL VALID
+复核要点/审查路径：
+  - 首先：admin-server/server.js line ~194-282（per-rule 4 字段 + 3 aggregate blocks）
+  - 然后：admin_templates/dashboard.html line ~768-866（Row 4 + Row 5）+ line ~1232-1235 / ~1466-1469（Alpine 状态绑定）
+  - 再次：magnet/verify_and_heal.py main() 顶部 argparse 块 + filter 应用逻辑
+  - 最后：DEV-LOG 待办里 v2 healer 缓存 + JS 详情页 + selector_synth 路径三条 HIGH 优先级
+待办清单（按优先级）：
+  - [ ] **HIGH** v2 healer 加 session-级 fetch 缓存（URL → response 去重，避免主页 40+ 次重复请求）
+  - [ ] **HIGH** detail_follow_v2 二跳升级路径：HTTP fetch 详情页 0 magnet → 自动切 StealthyFetcher（覆盖 bt4g 这种 JS 详情页）
+  - [ ] **HIGH** sobt/clm 家族走 selector_synth：用 crawler_v2.ai.synthesize_selectors_for_url() 对 sobt.org/clm41.xyz 自动生成 selectors → onboard
+  - [ ] **MID** search_form_probe query-string 详情页支持
+  - [ ] **MID** verify_and_heal 加 --concurrent N 并发选项（当前串行 1 源/次太慢）
+  - [ ] **LOW** 52BT punycode 站需要专门处理 IDN 重定向
+---
+
+---
+日期/时间：2026-05-22 16:00（UTC+8）
+本次版本：v0.3.7
+本次范围：**新增 search_form_probe 模块 + onboard_candidate 端到端 CLI；3 个磁力宝家族新成员推广进 sources.json**
+涉及模块：discovery/search_form_probe.py (新)/ scripts/onboard_candidate.py (新)/ sources.json
+关键改动摘要（可检索）：
+  - **新增 discovery/search_form_probe.py** (~340 行)：从 host 自动探出搜索 URL 模板。三路 fallback：
+    A. **form_action**：解析主页 `<form>`，识别 input name in {q, s, wd, keyword, kw, ...} → 渲染 `?<name>={query}` 模板
+    B. **anchor_pattern**：扫主页 `<a href>`，识别带 `?q=` / `?s=` / `/search/` / `/s/` 路径的链接，泛化为 `{query}` 模板
+    C. **common_guess**：8 个常见模板 `/search?q=` / `/?s=` / `/s/` / `/search/{query}` 等
+  - **detail_follow 探测**：每个候选模板带 bait keyword 实测 fetch，**两种通过条件**：≥1 magnet hash（list_page 策略）OR ≥3 detail-page anchors（detail_follow 策略）。后者关键 — 否则探不出 yts.rs / clb.im 这类详情页型源
+  - **derive_detail_selector()**：从实测 detail URL 样本提取 dominant path 段，输出 `a[href*="/<seg>/"]` selector。例如 yts.rs → `a[href*="/movie/"]`，clb.im → `a[href*="/detail/"]`。≥50% 占比阈值，否则保守 fallback `/detail/`
+  - **新增 scripts/onboard_candidate.py** (~130 行)：端到端 CLI `python -m scripts.onboard_candidate --host <h> [--family <fid>]`：probe → build draft rule → HealerV2 verify → 输出 JSON 到 stdout（**不自动写入** sources.json，留给操作员审核）。verify_result 写入 _onboarded 字段做溯源
+  - **HTTP fetch 顺序优化**：`_fetch` 改成 requests 优先 + Scrapling 备用 + 静默 Scrapling 的 SSRF retry 日志（curl-impersonate 在某些代理重定向场景嗷叫太响）
+  - **3 个磁力宝家族新成员加进 sources.json**：clb.im / cilibao.app / cilibao.top（同结构：/s/{query} + a[href^="/detail/"] + parse_strategy=detail_follow + brand_family=clb），都是 v0.3.5 brand_rediscovery 找到的候选；clb.im 端到端 verify 通过
+实测数据：
+  - `python -m scripts.onboard_candidate --host clb.im --family clb` → request_template=/s/{query}, strategy=detail_follow, **healed/http_heuristic_v2/10 magnets/16s** ✅
+  - `python -m scripts.onboard_candidate --host yts.rs` → request_template=/?s={query} (common_guess), detail_link=a[href*="/movie/"] (derive 正确), **ok/detail_follow_v2/5 magnets/17s** ✅
+  - search_form_probe 对 sobt.app / clm41.xyz 返回 None — 这俩可能不是 SOBT/CLM 真实新主域名（之前从未 brand_rediscovery 验证过），需重新跑 brand_rediscover 找候选
+  - validate_enum.py ALL VALID
+  - sources.json: 385940 → 390743 bytes（+3 个 rule，~1.6KB/rule）
+关键发现：
+  - **detail_follow 探测必须**：v0.3.4 brand_finder 输出过 clb.im 但当时只看主页 magnet，0 命中 → 没法 promote。这次 search_form_probe 探搜索结果页的 detail_link 数量，clb.im 立刻通过 — **「主页无 magnet ≠ 站不可用」是 v0.3.4 的认知盲区**
+  - **derive_detail_selector 启发的局限**：纯 path-segment 统计对 `/?id=123` 这类 query-driven 详情页失效。当前 sources.json 4 个 detail_follow 源都是 path-driven，够用；遇到 query-driven 时要扩展（提取 query string 关键字段）
+  - **onboard 的产出是「草稿 + 实测」组合**：rule JSON 自带 _onboarded.verify_result.magnets_found 字段，操作员一眼能看出可推广性。不自动写入 sources.json 是为了对抗误报（任何启发都有边界）
+  - **HTTP fetch 链路差异**：requests + 中国代理通常能 work；Scrapling Fetcher 的 curl-impersonate SSRF 保护对走 Clash 代理的内部重定向太严，对中国大陆环境是 anti-feature。所以 v0.3.7 把 requests 提前到第一顺位
+修改文件清单（新增/修改/删除）：
+  - `+ magnet/discovery/search_form_probe.py`（新模块）
+  - `+ magnet/scripts/onboard_candidate.py`（新 CLI）
+  - `~ sources.json`（+3 个 clb 家族新成员 rule）
+  - `+ sources.json.bak_v0.3.7_promote`（修改前备份）
+关键契约变更：
+  - sources.json rule 新增可选字段 `_onboarded`（dict, 含 version / at / probe_method / sample_url / bait_used / verify_result）— 元数据，所有现有消费者忽略
+  - status_detail 枚举不变
+  - capabilities.{parse_strategy, brand_family} 字段已在 v0.3.5/v0.3.6 添加，本版本只是新 rule 沿用
+风险与未决事项：
+  - sobt 家族 / clm 家族新主域名仍未 onboard — 需要先跑 `brand_rediscover --family sobt`、`--family clm` 找有效候选，再用 onboard_candidate 探
+  - 52BT punycode 站（xn--i8sq8r6zst7c.com）特殊：用浏览器 form 跳转到 IDN 内部地址，requests 没法跟踪 → 留 LOW 优先级
+  - search_form_probe 暂未支持 query-string 驱动的详情页（`/view.php?id=123`）；当前 4 个 detail_follow 源都是 path-driven，够用
+  - clb.im 验证拿到的样本标题 "sogo666.cc@GVH-826J" 像成人内容 noise — 实际 magnet 能用，但内容质量留待消费端过滤
+验证方式：
+  1. `python -m scripts.onboard_candidate --host clb.im --family clb` → 应得 verify status=ok/healed, magnets≥1
+  2. `python -m scripts.onboard_candidate --host yts.rs` → detail_link 正确推导为 a[href*="/movie/"]
+  3. `python -m scripts.verify_one --name clb.im --query Avengers` → 直接验证 sources.json 里写入的 rule 工作
+  4. `python validate_enum.py` → ALL VALID
+  5. 抽查 sources.json 中 clb.im / cilibao.app / cilibao.top 三条 rule 的 `_onboarded.verify_result.magnets_found ≥ 1`
+复核要点/审查路径：
+  - 首先：discovery/search_form_probe.py 第一段 docstring（三路 fallback 设计）+ _validate_pattern 函数（list_page vs detail_follow 双判据）+ derive_detail_selector
+  - 然后：scripts/onboard_candidate.py 的 build_draft_rule（detail_link selector 推导）+ main 流程
+  - 再次：sources.json 中新加的 clb.im / cilibao.app / cilibao.top 三条 rule，注意 `_onboarded` 字段
+  - 最后：search_form_probe._fetch 的 requests-first 顺序选择理由（comment 已注释为何这样设计）
+待办清单（按优先级）：
+  - [ ] **HIGH** 跑 `brand_rediscover --family sobt`、`--family clm` 找新候选，每个候选用 `onboard_candidate` 探 → 推广 sobt / clm 家族新主域名
+  - [ ] **HIGH** 跑全量 verify_and_heal（240 源 V2 stack）实测，看：(a) detail_follow_v2 救活几个 (b) brand_rediscovery hook 输出 (c) 新增 3 个 clb 源的稳定性
+  - [ ] **MID** search_form_probe 加 query-string 详情页支持（`/view.php?id={hash}` 模式）
+  - [ ] **MID** admin dashboard 加 `parse_strategy` + `brand_family` 视图 + `_onboarded` 字段展示（产品级溯源）
+  - [ ] **LOW** 52BT punycode 站需要 Selenium 渲染 → 跑 onboard 时切到 StealthyFetcher
+  - [ ] **LOW** clb.biz / clmmdz.cyou 等之前未识别的边界源手工补 brand_family
+---
+
+---
+日期/时间：2026-05-22 10:55（UTC+8）
+本次版本：v0.3.6
+本次范围：**detail_follow_v2 端到端验证 + verify_and_heal 切到 v2 stack + brand_family 标注 + 自动联动 rediscovery**
+涉及模块：crawler/extractor.py / verify_and_heal.py / discovery/brand_rediscovery.py / scripts/{verify_one,brand_rediscover}.py / sources.json
+关键改动摘要（可检索）：
+  - **端到端验证 detail_follow_v2** ✅：yts.rs 16 秒拿到 5 个完整 magnets（首个 hash C26E7D7F...），证明 v0.3.5 加的零配置二跳能力真生效
+  - **v1 MagnetExtractor empty-selector bug**：当 sources.json 里 `magnet=""` 时（yts.rs 这类详情页型源的合法配置），`item.select('')` 抛 soupsieve `SelectorSyntaxError`。修复：每个 selector 先 `.strip()`，空字符串走默认值；select 调用 try/except 兜底
+  - **verify_and_heal.py 切到 v2 stack**：`from crawler.healer import Healer` → `from crawler_v2.healer import HealerV2 as Healer`，verify_rule 内 MagnetExtractor → MagnetExtractorV2。生产批量验证现在自动用上 Scrapling + StealthyFetcher + detail_follow_v2 + LocalHeuristic 全链
+  - **新增 scripts/verify_one.py**：单源验证 CLI，对所有新加 healer 能力都能快速冒烟（无需跑全量 240 源）
+  - **discovery/brand_rediscovery.py 新增 tag_existing_sources()**：从 dead_hosts + 名字模式自动识别 sources.json 里的家族成员；CLI `brand_rediscover --tag-sources {preview|write}` 配套
+  - **44 个家族成员标 capabilities.brand_family**：clb=22, clm=13, sobt=6, 52bt=3。修正 1 个误判（"磁力妹妹(CLMM)" 因 name 短前缀 "clm" 被误归入磁力猫家族 → 把 _FAMILY_NAME_PATTERNS 短前缀全移除，仅保留品牌专名 "磁力宝/磁力猫/cilibao/cilimao" 等）
+  - **verify_and_heal main() 末尾加 _trigger_brand_rediscovery hook**：跑完后统计每个 brand_family 的 dead 比例，≥ 50% 自动调 find_brand_domains() 并把候选写进 verify_report.json 的 `rediscovery_suggestions` 字段
+实测数据：
+  - `python -m scripts.verify_one --name yts.rs --query Avengers` → status=ok, method=detail_follow_v2, 5 magnets, elapsed=16s, sample title "Lego Marvel Super Heroes: Avengers Reassembled"
+  - `python -m scripts.brand_rediscover --tag-sources preview` 修正前：48 rules（含 1 误判 CLMM）；修正后：44 rules，零误判
+  - validate_enum.py ALL VALID（status_detail 枚举不变）
+  - admin-server /api/health/diagnostics 仍正常返回（向后兼容）
+  - sources.json: 385384 → 385940 bytes（+44 个 brand_family 字段）
+关键发现：
+  - **v1 MagnetExtractor 隐藏的脆弱性**：所有 magnet/title/size/date selector 全部假设非空，但 sources.json 允许 `magnet=""`。这个 bug 之前在 v1 链路里被掩盖，因为 v1 healer 走的是另一条 fallback；切到 v2 后裸奔，反而暴露问题。修在 v1 extractor，对 v1/v2 都受益
+  - **零配置 detail_follow_v2 表现极好**：yts.rs 之前 0 magnets 现在 5 magnets，从「失败 → 成功」是质变。前提是 sources.json 里 detail_link selector 写对了（yts.rs 是 `a[href*="/movie/"]` ✓）
+  - **brand_family 短前缀模式陷阱**：用 "clm" / "clb" 当 name pattern 会误匹配「磁力妹妹 CLMM」、未来可能匹配 "clb.biz" 等。教训：要么用品牌专名，要么用更精确正则
+  - **生产代码切 v2 stack 是 v0.3.5 的最大遗漏**：v0.3.5 写了 detail_follow_v2 但 verify_and_heal 没切到 v2，等于新代码白写。v0.3.6 修了这个链路缺口
+修改文件清单（新增/修改/删除）：
+  - `~ magnet/crawler/extractor.py`（_extract_magnet_from_item: 空 selector 默认值 + try/except 兜底）
+  - `~ magnet/verify_and_heal.py`（v1 Healer → HealerV2 as Healer；MagnetExtractor → MagnetExtractorV2；末尾加 _trigger_brand_rediscovery hook，~70 行）
+  - `~ magnet/discovery/brand_rediscovery.py`（_FAMILY_NAME_PATTERNS / _attribute_rule_to_family / tag_existing_sources，~90 行）
+  - `~ magnet/scripts/brand_rediscover.py`（--tag-sources {preview|write} CLI 选项）
+  - `+ magnet/scripts/verify_one.py`（68 行单源验证 CLI）
+  - `~ sources.json`（44 个家族成员加 capabilities.brand_family）
+  - `+ sources.json.bak_v0.3.5_brand`（修改前备份）
+关键契约变更：
+  - sources.json 新增可选字段 `capabilities.brand_family` (string: clb/clm/sobt/52bt)，向后兼容
+  - verify_report.json 新增可选字段 `rediscovery_suggestions` (dict family_id → [host])，仅在自动触发时存在
+  - status_detail 枚举不变
+风险与未决事项：
+  - verify_and_heal 全量 240 源 + V2 stack 尚未实跑（v2 fetcher 比 v1 快但每个源 Stealthy fallback 时慢，预估全量 ~10-15 分钟）
+  - 4 个品牌新主域名（clb.im / clm41.xyz / sobt.app / 52BT punycode）仍未应用进 sources.json — 需要先实现 discovery/search_form_probe.py 自动探测新站搜索 URL pattern
+  - clb.biz / clb12.xyz / clmmdz.cyou 等边界源不在 dead_hosts 也不匹配品牌专名 → 暂未标 brand_family，可后续手工补
+验证方式：
+  1. `python -m scripts.verify_one --name yts.rs --query Avengers` → 应得 status=ok method=detail_follow_v2 magnets_found≥1
+  2. `python -m scripts.verify_one --name cilitiantang.club --query 复仇者联盟` → 同上（cilitiantang 是另一个 detail_follow 候选）
+  3. `python -m scripts.brand_rediscover --tag-sources preview` → 44 rules, 4 families
+  4. `python -c "from verify_and_heal import _trigger_brand_rediscovery; print('hook OK')"`
+  5. `python validate_enum.py` → ALL VALID
+复核要点/审查路径：
+  - 首先：crawler/extractor.py line ~94 的 selector 空值兜底（4 个 selector + try/except）
+  - 然后：verify_and_heal.py 顶部 import 切换 + line ~80-146 的 _trigger_brand_rediscovery + 末尾 hook 调用
+  - 再次：discovery/brand_rediscovery.py 的 _FAMILY_NAME_PATTERNS 注释（解释为何移除短前缀）+ tag_existing_sources 的 dry_run 语义
+  - 最后：sources.json 抽样几个 clb/clm/sobt 源，确认 capabilities.brand_family 字段
+待办清单（按优先级）：
+  - [ ] **HIGH** 写 discovery/search_form_probe.py：探测新候选站的 search URL pattern（form action + 已有 search anchor + JS literal scan 三路 fallback）
+  - [ ] **HIGH** 应用 4 个品牌新主域名进 sources.json（依赖上一条）
+  - [ ] **HIGH** 跑全量 verify_and_heal（240 源 V2 stack），看 detail_follow_v2 救活几个原 yellow + brand rediscovery hook 输出
+  - [ ] **MID** admin dashboard 「诊断」tab 加 parse_strategy + brand_family 分类视图
+  - [ ] **LOW** 52BT punycode 发布页跳转（需 search_form_probe 配合）
+  - [ ] **LOW** clb.biz / clmmdz.cyou 等边界源手工补 brand_family
+---
+
+---
+日期/时间：2026-05-22 10:43（UTC+8）
+本次版本：v0.3.5
+本次范围：**架构整合 — 把 6 个次抛脚本沉淀进 crawler_v2/ai + discovery 模块；HealerV2 加 detail_follow 零配置二跳能力**
+涉及模块：crawler_v2/ai/ (新)/ discovery/brand_rediscovery.py (新)/ scripts/ai_reverify.py / scripts/brand_rediscover.py / crawler_v2/healer.py / sources.json / docs/project-nebula/CRAWLER-ARCHITECTURE.md (新)
+关键改动摘要（可检索）：
+  - **架构评判文档** docs/project-nebula/CRAWLER-ARCHITECTURE.md：识别 4 个架构问题（能力散布无策略表 / discovery↔crawler 无反馈 / sources.json 缺能力声明 / LLM 与实时路径混淆），给出 6 步整合路径
+  - **新增 crawler_v2/ai/ 模块**：llm_provider.py (LLMChoice 解析) + selector_synth.py (Crawl4AI + 验证 + 草稿渲染)；__init__ 暴露 8 个公共 API；OFFLINE-only 严格隔离生产路径
+  - **新增 discovery/brand_rediscovery.py**：BrandFamily / BrandCandidate dataclass + DEFAULT_FAMILIES (clb/clm/sobt/52bt 4 家族) + find_brand_domains()/find_all_collapsed() 函数
+  - **新增 scripts/ 目录** + ai_reverify.py / brand_rediscover.py CLI（替代根目录次抛脚本）
+  - **HealerV2 新增 _try_detail_follow / _collect_detail_urls 方法**：当列表页 0 magnet 但有 detail_link 时，跟进前 5 个详情页 + regex 抽 magnet。零配置：不需要 sources.json 改动即对所有源生效
+  - **HealerV2.heal_and_retry 末尾**：parsing_failed 之前调 _try_detail_follow，命中即返回 status='ok' + method='detail_follow_v2'
+  - **sources.json 4 个详情页型源标记 capabilities.parse_strategy=detail_follow**：yts.rs / cilitiantang.club / cilishenqi.me / yhdm33.com（新字段，向后兼容，不破坏 status_detail 7 值枚举）
+  - **rule._patched.capabilities_v0_3_5** 注释 patch 来源（at/strategy/evidence）
+  - **删除 6 个旧次抛脚本**：_ai_bootstrap_{common,crawl4ai,scrapegraph,batch}.py / _brand_{domain_finder,search_probe}.py（功能 100% 沉淀进新模块）
+实测数据：
+  - 全部新模块 import OK（resolve_llm_choice / synthesize_selectors_for_url / DEFAULT_FAMILIES / HealerV2._collect_detail_urls）
+  - smoke 测试 `python -m scripts.brand_rediscover --family clb` 跑通：30 秒找到 7 个 brand-hit 候选（clb.im, cilibao.app, cilibao.top, clb08.xyz, bashi5.com, 12580.org, cldq.cc），跟旧版输出一致
+  - admin-server /api/health/diagnostics 仍返回 14 suspect_dead + ai_batch file（向后兼容确认）
+  - validate_enum.py ALL VALID（status_detail 枚举不变）
+  - sources.json: 384056 → 385384 bytes（+1.3KB for 4 个 capabilities 标记）
+关键发现：
+  - **零配置 detail_follow 设计**：HealerV2 不需要 sources.json 显式声明就能对所有源做二跳兜底，capabilities.parse_strategy=detail_follow 字段只是「优化提示」（未来可让 healer 直接跳过 list_page 解析省时）
+  - **brand_rediscovery 的搜索质量极高**：4 个品牌 × 单家族 30 秒，全部找到至少 1 个有效候选（与 v0.3.4 多家族 4 分钟跑结果一致）
+  - **架构 md 的引导作用**：第 6 节明确告诉接续 AI 「不许新加 _xxx.py 类型的次抛脚本」，从根本上限制次抛工具增殖
+修改文件清单（新增/修改/删除）：
+  - `+ docs/project-nebula/CRAWLER-ARCHITECTURE.md`（300 行架构评判 + 整合路径）
+  - `+ magnet/crawler_v2/ai/__init__.py`（35 行）
+  - `+ magnet/crawler_v2/ai/llm_provider.py`（106 行：env 加载 + LLMChoice + resolve_llm_choice）
+  - `+ magnet/crawler_v2/ai/selector_synth.py`（285 行：fetch + Crawl4AI + validate + render_rule_draft + synthesize_selectors_for_url 全管线）
+  - `+ magnet/discovery/brand_rediscovery.py`（230 行：dataclass + 4 默认家族 + find_brand_domains/find_all_collapsed）
+  - `+ magnet/scripts/__init__.py`（12 行 docstring）
+  - `+ magnet/scripts/ai_reverify.py`（180 行 CLI）
+  - `+ magnet/scripts/brand_rediscover.py`（98 行 CLI）
+  - `~ magnet/crawler_v2/healer.py`（+106 行：_collect_detail_urls/_try_detail_follow/heal_and_retry 末尾接入）
+  - `~ sources.json`（4 个详情页型源加 capabilities.parse_strategy + _patched 元字段）
+  - `+ sources.json.bak_v0.3.5`（修改前备份）
+  - `- magnet/_ai_bootstrap_common.py / _ai_bootstrap_crawl4ai.py / _ai_bootstrap_scrapegraph.py / _ai_bootstrap_batch.py`（4 个删除）
+  - `- magnet/_brand_domain_finder.py / _brand_search_probe.py`（2 个删除）
+关键契约变更：
+  - sources.json 新增可选字段 `capabilities.parse_strategy` (string: list_page | detail_follow | spa_xhr | nav_aggregator)，默认 list_page，向后兼容
+  - status_detail 枚举不变（7 值）
+  - HealerV2.heal_and_retry 返回新 method 值 `detail_follow_v2`（与 ok status 配合，新增不破坏既有逻辑）
+风险与未决事项：
+  - 端到端 detail_follow 实测尚未跑（yts.rs 需要 1-2 分钟 verify_and_heal），但代码逻辑跟旧 _ai_draft_yts.rs.json 实测的 detail_link 抽取完全一致
+  - clb*/clm*/sobt*/52bt* 家族成员尚未标 brand_family 字段，#16 联动逻辑无法生效（待办 17 阻塞 #16）
+  - admin dashboard 尚未在 sources 列表中显示新的 capabilities.parse_strategy（可选优化，不阻塞）
+验证方式：
+  1. `python -c "from crawler_v2.ai import resolve_llm_choice, synthesize_selectors_for_url; print(resolve_llm_choice().label)"` → "Xiaomi MiMo"
+  2. `python -c "from crawler_v2.healer import HealerV2; h=HealerV2(); print(h._DETAIL_PATH_HINTS)"` → 显示二跳路径关键词
+  3. `python -m scripts.brand_rediscover --family clb` → 30 秒找到 ≥ 5 个候选
+  4. `python -m scripts.ai_reverify --filter knaben` → AI 复核单个源
+  5. `curl http://localhost:3800/api/health/diagnostics` → ok=true, suspect_dead 14 条
+  6. `python validate_enum.py` → ALL VALID
+复核要点/审查路径：
+  - 首先：CRAWLER-ARCHITECTURE.md 第 2 节（4 个问题）+ 第 4 节（6 步整合路径）— 这是后续 AI session 的工作框架
+  - 然后：crawler_v2/ai/__init__.py 的 8 个 export → 看公共 API 是否完整
+  - 再次：crawler_v2/healer.py 新增 _try_detail_follow（line ~80-184），重点看 _collect_detail_urls 的 3 路 fallback + 跨域过滤
+  - 然后：discovery/brand_rediscovery.py 的 BrandFamily/BrandCandidate dataclass + DEFAULT_FAMILIES 列表
+  - 最后：sources.json 中 4 个 detail_follow 源的 capabilities + _patched 字段
+待办清单（按优先级）：
+  - [ ] **HIGH** 端到端跑 verify_and_heal 验证 yts.rs / cilitiantang 通过 detail_follow 拿到 magnet（预期：原 0 magnet → ≥ 1 magnet）
+  - [ ] **HIGH** sources.json 标 clb*/clm*/sobt*/52bt* 成员 `capabilities.brand_family` 字段（一次脚本批量标，预计 ~40 个源）
+  - [ ] **MID** verify_and_heal 接入 brand_rediscovery：检测同 brand_family ≥ 3 个源同时塌方时调 find_brand_domains()，候选写入新字段 `_pending_rediscovery`
+  - [ ] **MID** 应用 v0.3.4 发现的 4 个品牌新主域名进 sources.json（clb.im / clm41.xyz / sobt.app）—— 需先用 selector_synth 生成 selectors 草稿
+  - [ ] **MID** admin dashboard 「诊断」tab 加 parse_strategy 分类视图
+  - [ ] **LOW** 解决 52BT punycode 发布页跳转（找真实主域）
+---
+
+---
+日期/时间：2026-05-22 10:10（UTC+8）
+本次版本：v0.3.4
+本次范围：**全量 health_check + AI batch 复核 + knaben 修复写回 + dashboard 诊断 tab（一次性闭环动作）**
+涉及模块：magnet/_ai_bootstrap_batch.py（新）/ magnet/health_check.py（已有）/ sources.json（patch knaben.org）/ admin-server/server.js / admin_templates/dashboard.html
+关键改动摘要（可检索）：
+  - 新增 _ai_bootstrap_batch.py：读 _health_report_full.json suspect_dead 列表 + sources.json 规则，串行跑 Crawl4AI+MiMo 对每个源生成 selectors 草稿
+  - sources.json knaben.org selectors 替换：tr.text-nowrap → tr[data-id]:has(td a[href^='magnet:'])（手工加 :has() 把 60% confidence 收紧到 ~95%），原文件备份在 sources.json.bak_v0.3.4
+  - 加 _patched 字段记录 patch 来源（version v0.3.4, tool, confidence, note）便于将来追溯
+  - admin-server/server.js 新增 /api/health/diagnostics endpoint：读 _health_report_full.json + 最新 _ai_batch_*.json，返回 counts/suspect_dead/collapsed_families/ai_batch 四组数据
+  - admin_templates/dashboard.html 新增 srcSubTab='diagnostics' 子标签：可疑死源表、塌方家族卡片、AI batch 汇总
+  - 诊断表 AI 复核列分 4 状态：「N% · M magnet」绿底（修成功）、「详情页型 N rows」蓝底（detail-follow 架构）、「真死」红底（Stealthy 也 0）、「ERR」灰底（处理异常）
+实测数据（全量 240 源跑完 + 14 suspect_dead AI 复核）：
+  - 全量 health_check 62 秒跑完：60 green / 15 yellow / 153 gray / 11 skip
+  - 重大塌方发现：44 green→gray，**3-4 家族集体死亡**：clb x21（404）/ 磁力猫 clm x10（page too short 31 chars）/ 磁力宝 clb* x6（404）/ SOBT sobt19/22/23/24 x4（404）/ 52BT x2
+  - 14 个 suspect_dead AI 复核（180 秒，约 ¥0.3 LLM 费）：
+    * **1 成功**：knaben.org confidence 60% · 30 magnets / 50 list_items（已写回 sources.json，理论上线后即可恢复 magnet 数据流）
+    * **3 详情页型**：cilitiantang.club（174 rows）/ cilishenqi.me（126 rows）/ yhdm33.com（36 rows）— 列表页有结构无 magnet，需 crawler 二跳能力
+    * **9 真死**：Stealthy fetch 也是 0 list_items + 0 regex magnet — 域名换手或接口阉割（含 sobt21 GreatFire 镜像、laowangzo 7KB 空壳等）
+    * **1 数据错误**：搜番(dobt) 缺 origin 字段，工具 graceful skip
+关键发现：
+  - **3-4 家族集体死亡远比逐个独立失效更重要**：clb*/clm*/sobt*/52BT* 各自是数十域名的同源镜像群，一次发现新主域名能批量救活；这是「域名重发现」工作流的硬证据
+  - **AI batch 揭穿假 yellow 的能力比修源能力更值钱**：14 个里仅 1 个真能 selector 修活，但 9 个被确定为真死、3 个被识别架构限制——这些诊断价值是 health_check 拿不到的
+  - **「详情页型」是新发现的源种类**：cilitiantang/cilishenqi/yhdm33 列表页 100+ rows 全无 magnet，但 yts.rs 也是这型——说明 crawler_v2 缺二跳能力是限制 ~5% 源的瓶颈
+  - **Endpoint /api/health/diagnostics 一个 GET 完成 4 类聚合**：counts + suspect_dead + collapsed_families + 最新 ai_batch，前端不需要再做任何重活
+修改文件清单（新增/修改/删除）：
+  - `+ magnet/_ai_bootstrap_batch.py`（177 行：批量 driver 复用 _ai_bootstrap_common + _ai_bootstrap_crawl4ai 的逻辑）
+  - `+ magnet/_ai_batch_<timestamp>.json`（批量结果摘要）
+  - `+ magnet/_ai_draft_<host>.json × 14`（每源单独草稿，方便人工 review）
+  - `+ magnet/_health_report_full.json`（59KB 全量报告）
+  - `+ sources.json.bak_v0.3.4`（修改前备份）
+  - `~ sources.json`（knaben.org selectors + _patched 标记）
+  - `~ admin-server/server.js`（+109 行 /api/health/diagnostics endpoint）
+  - `~ admin_templates/dashboard.html`（+170 行诊断 sub-tab UI）
+关键契约变更：
+  - sources.json rule 新增 `_patched` 元字段（at/version/tool/confidence/note），不影响生产代码
+  - status_detail 枚举不变（继续 7 值）
+风险与未决事项：
+  - knaben.org 修复后理论恢复，但 health_check 下次跑还会标 yellow（requests 反爬）；需要在生产路径 (admin-server / app) 实测确认 selector 真的拉到 magnet
+  - 9 个真死源仍是 yellow status（保守不自动降）；建议人工 review 后手动改 health.status = gray
+  - 3 个详情页型源（cilitiantang/cilishenqi/yhdm33）需要 crawler_v2 加二跳能力才能救
+验证方式：
+  1. `curl http://localhost:3800/api/health/diagnostics | node -e "..."` → 应见 counts/suspect_dead/families/ai_batch
+  2. 浏览器开 http://localhost:3800 → 「源管理」tab → 「诊断」子标签 → 可疑死源表/塌方家族/AI batch 三个区块都应渲染
+  3. `node -e "..."` 检查 sources.json knaben.org rule._patched.version === 'v0.3.4'
+  4. `python validate_enum.py` → ALL VALID（已通过）
+复核要点/审查路径：
+  - 首先：admin-server/server.js /api/health/diagnostics endpoint（line ~386-494）的家族 stem 提取正则
+  - 然后：dashboard.html srcSubTab='diagnostics' UI（line ~931-1089）的 4 状态徽章逻辑
+  - 再次：sources.json knaben.org 的新 selectors 和 _patched 字段
+  - 最后：magnet/_ai_bootstrap_batch.py 的 _pick_bait/_process_one 流程
+待办清单（按优先级）：
+  - [ ] **HIGH** 生产路径实测 knaben.org 修复是否真生效（app 端搜索 Avengers 看返回数据）
+  - [ ] **HIGH** 人工 review 9 个真死源，确认后手工改 health.status = gray
+  - [ ] **HIGH** 找 4 个塌方家族的新主域名：clb*/clm*/sobt*/52BT* 集体搬迁，一次发现救一片
+  - [ ] **MID** crawler_v2 加二跳能力（detail-follow），救活 yts.rs 类详情页型源
+  - [ ] **MID** _ai_bootstrap_batch.py 加 --filter 参数（按家族/tag 批量跑），不只 suspect_dead
+  - [ ] **LOW** suspect_dead 信号自动化降级：跑 batch 后 Stealthy 0 magnet 才真降 gray
+---
+
+---
+日期/时间：2026-05-22 09:55（UTC+8）
+本次版本：v0.3.3
+本次范围：**health_check 加 suspect_dead_search 语义信号 + AI 工具实测证据**
+涉及模块：magnet/health_check.py（probe_source 末尾新增多诱饵兜底逻辑）
+关键改动摘要（可检索）：
+  - probe_source 累积 all_attempts 列表，循环结束后做语义检查
+  - 新逻辑：所有诱饵 (≥2) 全返回 PARSING_FAILED + 0 magnets → 在 error 注释里加 `suspect_dead_search:` 前缀
+  - **保守设计**：不自动降 yellow → gray，因为 health_check 用 plain requests，对 knaben.org 这种 requests-反爬-但 Stealthy-可达 的源会误伤
+  - 操作流：suspect_dead 信号 → 操作员/AI 工具用 StealthyFetcher 复核 → 抓到 magnet 走 _ai_bootstrap_crawl4ai.py 修源；抓不到才手工降 gray
+  - 不修 status_detail 枚举（保持 7 值契约）
+实测数据（4 个 yellow 源对比 v0.3.2 vs v0.3.3）：
+  - knaben.org：v0.3.2 yellow 普通；v0.3.3 yellow + suspect_dead_search（请求侧 0 magnet 但 AI 工具用 Stealthy 抓到 30 magnet → 应优先用 AI 工具修）
+  - sobt21.top：同上 yellow + suspect_dead_search（确认 GreatFire 镜像换手，需手工 gray）
+  - laowangzo.top：同上 yellow + suspect_dead_search（确认 /search 302 → 7KB 空壳）
+  - knaben 用 requests 时 visible_text 仅 7546 chars（远低于 Stealthy 的 338061 bytes）— 直接证据 requests 路径反爬严重
+关键发现：
+  - **AI bootstrap 工具的「副产品」价值大于「修源」本身**：4 个 yellow 实测，1 个能修（knaben，30 magnet）+ 揭穿 2 个虚假 yellow（sobt21 / laowangzo）+ 暴露 1 个架构限制（yts.rs 需要二跳）。光靠 health_check 看不出这些差别
+  - **health_check 与 Stealthy 路径分歧**：plain requests 看不到的 magnet，Stealthy 能看到。两条路径之间的差距才是 AI 工具的「视野优势」
+  - **lazy 复核策略胜于 eager 降级**：suspect_dead_search 信号 + 人工 review 比直接降 gray 更安全，避免误伤
+修改文件清单（新增/修改/删除）：
+  - `~ magnet/health_check.py`（probe_source 末尾新增 14 行 suspect-dead 注释逻辑）
+关键契约变更：
+  - 无：status_detail 仅 7 值不变；新增信号通过 error 字符串前缀传递
+风险与未决事项：
+  - suspect_dead_search 注释信号目前需操作员手工读 health_report 才能看到；后续可在 admin-server dashboard 加一个 "suspect_dead 列表" tab 提升可见性
+  - 现有数据库中可能已经有大量 yellow 源应该是 suspect_dead，下次全量 health_check 跑后会自动标记
+验证方式：
+  1. `python validate_enum.py` → ALL VALID（已通过）
+  2. `python magnet/health_check.py --name knaben.org --include-gray` → yellow + suspect_dead_search 注释
+  3. `python magnet/health_check.py --name sobt21 --include-gray` → 同上
+  4. AI 工具复核 knaben：`python magnet/_ai_bootstrap_crawl4ai.py --url "https://knaben.org/search/?q={query}" --query Avengers` → confidence 60%, 30 magnets
+复核要点/审查路径：
+  - 检查：health_check.py probe_source 末尾 lines 274-300，all_zero_magnets 判定 + suspect_dead 注释逻辑
+  - 注释里明确解释为什么不自动降级（防止 knaben 这类反爬源误伤）
+待办清单（按优先级）：
+  - [ ] **HIGH** 跑全量 health_check（240 个源）— 用新信号筛出所有 suspect_dead 源
+  - [ ] **HIGH** 把 knaben.org AI 草稿（confidence 60%）人工微调到 ≥90% 后写回 sources.json，验证修复 → green 闭环
+  - [ ] **MID** admin dashboard 加一个 "可疑死源" 列表 tab，把 suspect_dead_search 源单独列出来
+  - [ ] **LOW** 长期：health_check 走两阶段（requests 快扫 → Stealthy 复核可疑源），在脚本侧自动合并判定
+---
+
+---
+日期/时间：2026-05-22 09:18（UTC+8）
+本次版本：v0.3.2
+本次范围：**AI bootstrap 工具接入 Xiaomi MiMo + 首次实测对比（Crawl4AI 胜，ScrapeGraphAI 兼容失败）**
+涉及模块：magnet/_ai_bootstrap_common.py / _ai_bootstrap_crawl4ai.py / _ai_bootstrap_scrapegraph.py / magnet/.env
+关键改动摘要（可检索）：
+  - magnet/.env 新增 MIMO_API_KEY / MIMO_API_BASE / MIMO_MODEL / MIMO_MAX_TOKENS（小米 MiMo OpenAI 兼容协议，中国直连）
+  - _ai_bootstrap_common.py LLMChoice 增加 max_tokens 和 is_reasoning 字段，provider chain 把 MiMo 排第一优先级
+  - _ai_bootstrap_crawl4ai.py LLMConfig 传入 max_tokens（给 reasoning 链留够 budget）
+  - _ai_bootstrap_scrapegraph.py 改用 ChatOpenAI model_instance + model_tokens=128000，绕开 ScrapeGraphAI 对未知模型的 8192 chunking 默认值
+  - _ai_bootstrap_scrapegraph.py prompt 显式禁 markdown fence（防御 LangChain JsonOutputParser）
+实测数据（knaben.org，原 sources.json 中 yellow 状态，0 magnet）：
+  - Crawl4AI + MiMo (mimo-v2.5)：✅ confidence 60%，list_items=50，magnets via sel=30，titles=30，detail_links=30；sample 数据完美（"The Avengers (2012) 2160p BRRip..." + 完整 magnet hash）
+  - ScrapeGraphAI + MiMo：❌ OUTPUT_PARSING_FAILURE，连续 3 次重试均失败
+  - 页面 regex 共抓到 43 个 magnet，30/43 = 70% 真实覆盖率（剩 13 个在 sidebar/header 非结果区，符合预期）
+关键发现：
+  - **Crawl4AI 是当前最适合 MiMo 的搭档**：自带 markdown fence 剥离 + force_json_response，对 reasoning 模型友好
+  - **ScrapeGraphAI + MiMo 不兼容**：LangChain JsonOutputParser 不剥 ```json fence，且 ScrapeGraphAI 的 model_tokens 解析对非内置模型有 chunking bug。即使切到 model_instance 模式仍败于 fence
+  - **MiMo v2.5 是推理模型**：response 拆 `reasoning_content` + `content`，max_tokens 必须 ≥ 4000 否则 content 被 reasoning 吃光
+  - **/v1/models 列表**：mimo-v2-omni / mimo-v2-pro / mimo-v2.5 / mimo-v2.5-pro 全部 reasoning + tts 系列；没有非推理快速模型
+  - knaben.org 原 selector `tr.text-nowrap` 失效，AI 新出的 `tr[data-id]` 一次命中——证明工具对页面改版自愈有效
+修改文件清单（新增/修改/删除）：
+  - `~ magnet/.env`（追加 MiMo 4 行配置）
+  - `~ magnet/_ai_bootstrap_common.py`（LLMChoice + MiMo provider）
+  - `~ magnet/_ai_bootstrap_crawl4ai.py`（LLMConfig.max_tokens）
+  - `~ magnet/_ai_bootstrap_scrapegraph.py`（model_instance 模式 + 禁 fence prompt）
+  - `+ magnet/_ai_draft_knaben.org.json`（首次实测产出的 rule 草稿，confidence 60%）
+关键契约变更：无
+风险与未决事项：
+  - ScrapeGraphAI 路线在 MiMo 下不可用，但**保留代码**以便将来切到 OpenAI/DeepSeek（非推理模型）时仍可用作 A/B 对比工具
+  - knaben.org AI selector confidence 仅 60%（30/50）—— `tr[data-id]` 太宽，抓到了广告/横幅行；人工微调到 `tr[data-id]:has(td a[href^='magnet:'])` 应能拉到 90%+
+  - 还有 3 个 yellow 源（yts.rs / SOBT(sobt21) / 老王磁力）未跑
+验证方式：
+  1. `python magnet/_ai_bootstrap_crawl4ai.py --url "https://knaben.org/search/?q={query}" --query Avengers --tag international` 应输出 confidence ≥ 50% 的草稿
+  2. 检查 `magnet/_ai_draft_<host>.json` 中 `_ai_bootstrap.confidence` 与 `validation.magnets_found`
+复核要点/审查路径：
+  - 首先检查：_ai_bootstrap_common.py resolve_llm_choice() — MiMo 排第一优先级
+  - 然后检查：_ai_bootstrap_scrapegraph.py _build_graph_config() — model_instance 模式注释解释为什么必须这样
+待办清单（按优先级）：
+  - [ ] **HIGH** 跑剩余 3 个 yellow 源（yts.rs / sobt21 / 老王磁力），验证工具普适性
+  - [ ] **HIGH** 人工 review knaben.org 草稿，微调 list_item，写回 sources.json（status → green）
+  - [ ] **MID** 写 `_ai_bootstrap_batch.py` 批量处理 53 个 gray parsing_failed 源
+  - [ ] **LOW** 调研 MiMo 是否有 `response_format={"type":"json_object"}` 支持，去除 fence 困扰
+---
+
+---
+日期/时间：2026-05-22 09:05（UTC+8）
+本次版本：v0.3.1
+本次范围：**AI 源 selector 自动生成开发工具（dev-only，不上生产）**
+涉及模块：magnet/_ai_bootstrap_common.py（新）/ _ai_bootstrap_crawl4ai.py（新）/ _ai_bootstrap_scrapegraph.py（新）
+关键改动摘要（可检索）：
+  - 新增 _ai_bootstrap_common.py：共享 LLM provider 解析（DeepSeek > Volces/ARK > OpenAI > Gemini，按 CN 友好度排序）、StealthyFetcher 抓 HTML、selectors 实测验证、sources.json 草稿 render
+  - 新增 _ai_bootstrap_crawl4ai.py：用 Crawl4AI LLMExtractionStrategy + raw:// 输入跑 LLM，单次推理输出 4 个 selectors（list_item/title/magnet/detail_link）
+  - 新增 _ai_bootstrap_scrapegraph.py：用 ScrapeGraphAI SmartScraperGraph + Pydantic schema 跑 LLM，prompt 驱动；与 Crawl4AI A/B 对比
+  - 两工具共享 CLI 参数：--url / --query / --tag / --proxy / --out / --no-stealth
+  - 两工具均跑 selectors 实测验证（list_items 数 / magnets_found / 三行 sample），输出带 _ai_bootstrap.confidence 字段的 rule 草稿
+  - requirements.txt 新增 crawl4ai>=0.8.6 / scrapegraphai>=1.76.0 / pydantic>=2.0（标注 dev-only）
+实测数据：
+  - 三模块 import 全部通过
+  - 缺 LLM key 时正确提示退出（exit 2）
+  - 待实测：knaben/yts/sobt21/老王磁力 4 yellow 源端到端跑通验证（需用户配 DEEPSEEK_API_KEY）
+关键发现：
+  - Crawl4AI 0.8.x 的 LLMExtractionStrategy 用 LLMConfig + litellm-style provider 字符串（"deepseek/deepseek-chat"）
+  - ScrapeGraphAI 用 dict config 包裹 model + api_key + base_url，Pydantic schema 让输出严格 JSON
+  - 两框架都接受预抓 HTML（Crawl4AI 用 `raw://<html>` URL，ScrapeGraphAI 用 source=html_string），所以可以共用 Scrapling StealthyFetcher 做反 WAF
+  - lxml 6.1 vs crawl4ai 声明的 ~5.3 是 declarative conflict，实际 import + 运行都 OK（保留 lxml 6.1 让 scrapling 不受影响）
+修改文件清单（新增/修改/删除）：
+  - `+ magnet/_ai_bootstrap_common.py`
+  - `+ magnet/_ai_bootstrap_crawl4ai.py`
+  - `+ magnet/_ai_bootstrap_scrapegraph.py`
+  - `~ magnet/requirements.txt`（新增 crawl4ai/scrapegraphai/pydantic dev 依赖段）
+关键契约变更：
+  - 无 sources.json 契约变更
+  - 工具产出的 rule 草稿 health.status 默认 yellow + status_detail=parsing_failed，附 _ai_bootstrap 元字段（generator/confidence/validation/reviewer_note），不直接进 sources.json，必须人工 review
+风险与未决事项：
+  - 没有 LLM API key 时无法做端到端实测；建议配 DEEPSEEK_API_KEY（中国直连 + 单次请求约 ¥0.02）
+  - 工具是 dev-only，绝不上生产路径（每次搜索调 LLM 成本+延迟不可接受）
+  - Crawl4AI 与 Scrapling 有 lxml 版本声明冲突，目前用 lxml 6.1 双方都能跑，未来 crawl4ai 升级后再校准
+验证方式：
+  1. 在 `magnet/.env` 加一行 `DEEPSEEK_API_KEY=sk-...`
+  2. 跑 `python magnet/_ai_bootstrap_crawl4ai.py --url "https://knaben.org/search/{query}/0/1/seeders" --query Avengers --tag international`
+  3. 同样参数跑 `_ai_bootstrap_scrapegraph.py`，对比两份草稿
+  4. 检查 `_ai_draft_<host>.json` 中 `_ai_bootstrap.confidence` 与 `validation.magnets_found`
+复核要点/审查路径：
+  - 首先检查：_ai_bootstrap_common.py resolve_llm_choice() 顺序（line ~50-90），确认 CN 友好度排序
+  - 然后检查：_ai_bootstrap_crawl4ai.py INSTRUCTION（line ~36-58），LLM prompt 是否清晰约束 JSON shape
+  - 再检查：两工具的 validate_selectors 调用，sample 输出能否给 dev 足够 review 信息
+待办清单（按优先级）：
+  - [ ] **HIGH** 用户配 LLM key 后跑 4 个 yellow 源（knaben/yts/sobt21/老王磁力），看哪个工具产出更可用
+  - [ ] **MID** 若两工具都能产出 ≥ 80% confidence 的 selectors，写 wrapper 脚本批量处理 53 个 gray parsing_failed 源
+  - [ ] **LOW** 加 `--from-html <file>` 参数支持离线 HTML 输入，调试时省 fetch 步骤
+---
+
+---
+日期/时间：2026-05-22 08:50（UTC+8）
+本次版本：v0.3.0
+本次范围：**Cohort 留存表 + health_check 多诱饵防误判**
+涉及模块：admin-server/server.js / admin_templates/dashboard.html / magnet/health_check.py
+关键改动摘要（可检索）：
+  - admin-server processAnalyticsBatches 新增 cohortRetention 输出（D0/D1/D3/D7/D14/D30 矩阵），最近 30 天安装日 cohort
+  - dashboard.html 数据分析 tab 新增「用户留存（Cohort Retention）」表格，颜色编码 ≥40% 优秀/20-40% 一般/<20% 偏低，— 表示尚未到 D+N
+  - health_check.py 加 TAG_ALIASES 中文 tag 映射（动漫→anime, 电影→movie, chinese→cn, AV/jav/adult→xxx 等）
+  - health_check.py probe_source 拆成 _probe_once + 多诱饵兜底（每源最多试 3 个不同分类的查询），避免「动漫源用 Avengers 误判」类 false-positive demotion
+  - health_check.py 新增 --report 写 JSON 详细报告（替代 PowerShell 编码错乱的 stdout 抓取）
+  - dashboard.html loadAnalyticsFromCache 时序修复：< 5min 用 localStorage 单次渲染，>= 5min 跳过快照直接 fetch 单次渲染（消除双重 destroy+new Chart 导致的图表空白）
+  - dashboard.html 缓存时间戳改用 _cachedAt 实时计算 _cacheAgeMin（修复"35.2 min ago"冻结显示）
+实测数据：
+  - 健康检查（dry-run）123 源：57 green, 4 yellow, 53 gray, 9 skip
+  - 关键转移：green→green 57, green→gray 46, green→yellow 3, gray→green 0
+  - Gray 成因分布：404=27（clb*/sobt* 镜像集群下线）、parsing_failed=16（磁力猫 clm 系列空响应 31 chars）、unreachable=7、waf=3
+  - 真正可能"selector 失效"需人工修的 yellow 仅 4 个：knaben.org, yts.rs, SOBT(sobt21), 老王磁力(laowangzo)
+  - 12 天运营数据：DAU 平均 35-40，05-12 单日峰值 86（78 新人，疑爆款帖入口），05-20 老用户激活峰（搜索 242，复制 279）
+  - 复制/搜索转化率 11d 均值 133%，打开/复制 78% — 工具 PMF 信号强
+  - 老用户基本盘仅 15-20 人/日，新用户/DAU ≈ 50% — 漏桶形态，留存 D1 粗估 23%
+  - src_fail 89756 / src_ok 14136 = **86% 失败率**，是新用户流失元凶
+关键发现：
+  - sources.json 永远不写回（dry-run 默认行为已守住），用户提醒"不要轻易转黄"已落实
+  - 大批镜像站集群（clb*/sobt*/clm*）整体死亡，应跑域名重发现而非逐个标 gray
+  - admin-server 缓存其实没坏，是前端 _cacheAgeMin 字段被 localStorage 冻结成"35.2 min ago"造成误判
+  - 双重 renderCharts 会让 Chart.js canvas 状态错乱（destroy 异步 + new 同步竞态），改单次渲染后图表恢复
+修改文件清单（新增/修改/删除）：
+  - `~ admin-server/server.js`（cohortRetention 计算 + deviceActiveDays 收集）
+  - `~ admin_templates/dashboard.html`（cohort 表 UI + cache age 修复 + 双渲染修复）
+  - `~ magnet/health_check.py`（TAG_ALIASES + 多诱饵 + --report）
+  - `+ magnet/_health_report.json`（123 源本次 dry-run 详细结果，作快照对比基准）
+关键契约变更：
+  - `/api/events/analytics` 响应新增 `cohortRetention: [{cohort:'YYYY-MM-DD', size:N, retention:{0:{n,pct}, 1:{n,pct}|null, ...}}]`
+  - sources.json 未变更
+风险与未决事项：
+  - admin-server 需要重启或 `npm run dev` 自动 reload 才能输出 cohortRetention（in-memory state 会重算）
+  - knaben/yts/sobt21/老王磁力 4 个 yellow selector 失效未处理
+  - 53 个真死源未写回 sources.json（user 决定后再批量 --write）
+  - clb*/sobt*/clm* 集群域名重发现脚本未跑
+验证方式：
+  1. 重启 admin-server（`Ctrl+C` + `npm run dev` 或 `npm start`）
+  2. 浏览器 Ctrl+Shift+R 强刷 http://localhost:3800/
+  3. 进「数据分析」tab，应见每日活跃趋势图（5 条线齐全）+ 新「用户留存」表格
+  4. 表格内最近 5 行应有 D0=100% 数据，D1/D3 视实际数据情况着色
+  5. 重新跑 `python magnet/health_check.py --workers 12 --report magnet/_health_report.json` 应一致
+复核要点/审查路径：
+  - 首先检查：admin-server/server.js cohortRetention 计算（line ~598-633），看 D0 是否始终 = cohort size
+  - 然后检查：admin_templates/dashboard.html cohort 表格（line ~249-296）渲染规则
+  - 再检查：magnet/health_check.py probe_source 多诱饵循环（line ~241-277），确认 hard failure 早返回
+待办清单（按优先级）：
+  - [ ] **HIGH** 修 4 个 yellow selector（knaben/yts/sobt21/老王磁力）
+  - [ ] **HIGH** clb*/sobt*/clm* 集群跑域名重发现
+  - [ ] **MID** 把 src_fail 86% 这条 KPI 加到 admin 首页 banner（健康度核心指标）
+  - [ ] **MID** cohort 表加 D60/D90 列（数据足够后）
+  - [ ] **LOW** admin-server pm2/Windows Service 化，避免再下线 3 天
+---
+
+---
+日期/时间：2026-05-21 09:35（UTC+8）
+本次版本：smart-list-detector + parsing-bake-off
+本次范围：**页面解析候选实测 bake-off → 自研 Smart List Detector 完胜**
+涉及模块：magnet/crawler_v2/smart_list.py（新）/ magnet/_bench_parsers.py / _bench_parsers_v2.py（新）
+关键改动摘要（可检索）：
+  - 通过 VPN 代理 (http://127.0.0.1:33210) 完成深度 GitHub 调研（API + repo 内容拉取）
+  - 安装 autoscraper / trafilatura 实测，**两者在我们场景都 0 命中**
+  - **核心发现**：v1 解析失败的真正原因不是 selector，而是**详情页 URL pattern 识别**——0cili.nl 用 `/!XXXX` 短 ID 作为详情页入口，v1 硬编码 `['/torrent/','/view/','/info/'...]` 完全识别不了
+  - AutoScraper 失败原因：基于文本-XPath 相似度，无法学习 URL pattern；且 sources.json 中 sample_title 跟当前 query 不匹配
+  - Trafilatura 失败原因：错的工具——它是文章正文提取器，会把列表/链接结构丢掉
+  - 全文 regex hash 在 fitgirl 找到 15 但很多站 hash 不在搜索页 HTML（要点详情页）
+  - **新建 `magnet/crawler_v2/smart_list.py`** —— 自研 Smart List Detector，~110 行：
+    1. URL path-shape 归纳（`/!bfUI`→`/!N`，`/torrent/123`→`/torrent/N`，自动适配各种 URL 模式）
+    2. 同 `(tag, anchor-path-shapes)` 的兄弟节点聚类 → 候选列表行
+    3. 三重过滤：剔除"行 href 全相同"组、"中位文本<30"组、"去重后<3 行"组
+    4. 评分 `n^0.7 × median_text_len` 平衡数量与质量
+    5. 行内 title 选择：长文本优先 + CTA 关键词惩罚
+  - **实证 bake-off 结果**：0cili.nl Dune 74/74 完美，Inception 5/5 完美（v1/AutoScraper/Trafilatura/regex 全部 0 命中）
+  - 修 Scrapling 0.4.8 兼容 bug：`retries=0` 触发 "No active session"，必须 >=1（已同步修复 crawler_v2/extractor.py + healer.py）
+  - 给 `_bench_v1_vs_v2.py` 加 `--proxy` 支持
+  - TECH-CHALLENGES.md CH-001 完整重写：实证对比矩阵 + 自研方案胜出说明
+教训：
+  - **方案纸面分析靠不住**，必须 bake-off：之前我把 AutoScraper 标为 ⭐⭐⭐，实测后 0 命中
+  - 50 行自研 + 实证驱动 > 引入大型 framework：本场景的"重复 DOM 结构归纳"远比"文本相似度 wrapper 归纳"更适合
+  - **真正的瓶颈是详情页 URL pattern 识别**——不是 CSS selector
+下一步：
+  - 把 `detect_list_rows()` 接入 `crawler_v2/extractor.py.search()` 作为启发式之前的优先路径
+  - 对返回的 detail_url 做二次抓取提取 magnet（复用 v1 `_fetch_detail_page` 逻辑）
+  - 用 trafilatura 重写 `_detect_parking()` 作为辅助任务
+---
+
+---
+日期/时间：2026-05-21 09:15（UTC+8）
+本次版本：gfw-proxy-empirical-test
+本次范围：**VPN/无 VPN 对比实测 → 推翻 CHALLENGE-003 假设**
+涉及模块：magnet/_bench_v1_vs_v2.py（+proxy/tag）/ magnet/_bench_compare_proxy.py（新）/ magnet/_bench_gfw_proxy.py（新）
+关键改动摘要（可检索）：
+  - 给 `_bench_v1_vs_v2.py` 加 `--proxy` 和 `--tag` 参数（env-based，影响 requests + Scrapling Fetcher）
+  - 新建 `_bench_compare_proxy.py` —— 拉两份 report 做并排 diff
+  - 新建 `_bench_gfw_proxy.py` —— 专项测 gray+unreachable 源在 noproxy vs proxy 下的真实可达性
+  - **实测结果（25 个 gray+unreachable 源，VPN=TW http://127.0.0.1:33210）**：
+    - proxy 救活：**0 个**（GFW 阻断**不是**主因）
+    - 两边都活：**12 个**（被误判 unreachable，国内 HTTP 200，应回升为 yellow/green）
+    - 两边都死：13 个（域名级失效，永久标 expired）
+  - 12 个被误判的源：btso.cc, btsow.com, btcake.com, 种子搜索.com, 6v520.com, seedhub.cc, btsow.pics, btlm.work, cilimao.de, ciligou.de, 1000mag.xyz, u3c3.org
+  - 13 个真死的源：btdb.to, extratorrent.ag, limetorrents.cc, kickasstorrents.bz, ...
+  - TECH-CHALLENGES.md 中 CH-003 严重度从 high→low，状态改为 partially-debunked，附完整实测数据
+教训：
+  - **没做实测前就给假设打 high 严重度是错的**——真实根因是 health_check 误判（48%），不是 GFW
+  - VPN 代理对我们这批 gray 源**没有救援价值**（救活率 0%），因为真正"被 GFW 阻断"的源早就被发现漏斗过滤掉了
+  - "海外 BT 名站" 大都已域名级死亡（kickasstorrents/extratorrent/limetorrents 全网无法访问），不是 GFW 问题
+下一步：
+  - 全量扫剩余 48 个 unreachable 源
+  - "两边都活"的源批量重检并提升状态
+  - "两边都死"的源永久打 expired 标记
+  - health_check 加重试 + 用 v2 Fetcher
+---
+
+---
+日期/时间：2026-05-21 09:00（UTC+8）
+本次版本：tech-challenges-doc + parsing-research
+本次范围：**新增技术难点追踪文档 + 页面解析方案调研**
+涉及模块：docs/project-nebula/TECH-CHALLENGES.md（新）
+关键改动摘要（可检索）：
+  - 新建 `docs/project-nebula/TECH-CHALLENGES.md` —— 难题级长生命周期文档（区别于 DEV-LOG 的会话流水）
+  - 收录 5 条当前难题：CH-001 页面解析 / CH-002 Turnstile / CH-003 GFW / CH-004 LLM 成本 / CH-005 域名漂移
+  - 定调研 SOP：每 2 周扫 GitHub Trending / HN / arXiv / 同行项目 commit
+  - **页面解析深度调研结论**（写入 CH-001）：
+    - ⭐⭐⭐ 首选 **AutoScraper (alirezamika)** —— 样本驱动 wrapper 归纳，给定 wanted_list 自动学规则；与我们已有的 sources.json 中 `sample_title + sample.magnet` 数据天然契合，零 LLM 成本
+    - ⭐⭐ 备选 **Trafilatura** —— 学术验证最强的主体内容/boilerplate 提取器，可强化 `_detect_parking()` 和预处理 HTML
+    - 排除：Crawl4AI（与 Scrapling 重叠）、ScrapeGraphAI（付费 LLM 兜底）、Firecrawl（hosted SaaS 贵）、LLM-Scraper（TS 栈不匹配）
+    - 后续候选：Reader-LM (Jina) / MarkItDown 作为 LLM 调用前 token 压缩层
+教训：
+  - V2 Scrapling 突破 WAF 后真正瓶颈在解析器（5/8 拿到 200 HTML 但 0 个能解析），证明"只换网络层"是不够的
+  - 之前没有难题级追踪文档，调研结果散落在 DEV-LOG 里难以横向比对，本次补上
+下一步：pilot AutoScraper（拿 20 个 green 源 + 它们的历史 sample 训练 → 评估泛化）
+---
+
+---
+日期/时间：2026-05-21 08:55（UTC+8）
+本次版本：crawler-v2-scrapling
+本次范围：**引入 Scrapling 作为 V2 爬虫（v1 完整保留并行运行）**
+涉及模块：magnet/crawler_v2/（新）/ magnet/playwright_verify_v2.py（新）/ magnet/_bench_v1_vs_v2.py（新）
+关键改动摘要（可检索）：
+  - 新建 `magnet/crawler_v2/`：MagnetExtractorV2 + HealerV2，继承 v1 仅替换网络层
+  - HTTP 抓取：Scrapling Fetcher（curl_cffi TLS 指纹伪装 Chrome）替代 requests，主路径失败 fallback 到 v1 流程
+  - 浏览器降级：Scrapling StealthyFetcher（Patchright 反指纹）替代 Selenium 的 `time.sleep(8)`
+  - 新建 `magnet/playwright_verify_v2.py` — yellow→green 验证用 StealthyFetcher 替代裸 Playwright
+  - 新建 `magnet/_bench_v1_vs_v2.py` — 严格 dry-run 对比脚本（不写 sources.json）
+  - 关键参数：`retries=0` + `retry_delay=1`，避免 curl_cffi 默认 3×21s 重试拖死单源
+  - HealerV2 用 try/except 包裹 LocalHeuristicParser，避免 v1 偶发的非法 CSS 选择器异常导致整个流程崩溃
+  - requirements.txt 新增可选依赖 `scrapling[fetchers]>=0.4.8`（带 curl_cffi + patchright + browserforge）
+
+实测对比（10 yellow + 5 green，dry-run）：
+  - **green 回归（5 源）**：3/5 BOTH_OK 无退化；V2 比 V1 **快 2~4×**（Fetcher TLS 直连）；1 源 V1 标 WAF→V2 突破后无 magnet（V2 看到真相）
+  - **yellow 突破（8 源）**：5 源从 V1 的 `waf` 改善为 V2 的 `parsing_failed`（=突破了 WAF，HTML 已拿到，缺解析器 selector）
+  - **总耗时**：V2 比 V1 慢 ~2×（StealthyFetcher 浏览器启动开销 + 解析失败时多走 fallback），但有上界、不会卡死
+
+教训：
+  - Scrapling Fetcher 默认 retries=3 + 21s connect timeout，**单源可被拖到 6 分钟**——必须显式 `retries=0`
+  - V2 的真正价值是把 V1 误判为 WAF 的源解锁出来；后续要把 LocalHeuristicParser 提强 / 走 LLM 修复 selector，才能让突破后的 HTML 真正变 green
+  - V1/V2 必须并行存在便于回归对比；不要急着把 v1 删掉
+当前 sources.json 统计：未变更（v2 验证全程 dry-run，未写回）
+---
+
+---
 日期/时间：2026-05-16 13:30（UTC+8）
 本次版本：browser-debug-v1
 本次范围：**K30S 真机调试 Browser 源 + Stealth 补丁 + 源降级**
@@ -62,6 +1250,59 @@
 - thatcdn 平台的自定义 captcha (`/recaptcha/v4/challenge`) 是应用层防护，CloakBrowser 无法绕过
 - 剩余 4 个 yellow 源均为同一 thatcdn 平台，需要专门的 captcha solver 或用户协助验证
 
+---
+日期/时间：2026-05-16 11:00（UTC+8）
+本次版本：seo-cleanup-v1
+本次范围：**magnetgoogo.com SEO 大清理 + IndexNow 全站激活**
+涉及模块：magnetgoogo-site/, naoshiquan-site/
+
+### 改动
+
+1. **magnetgoogo.com sitemap 精简**（从 761 → 140 URL）
+   - `+ scripts/generate-sitemap-clean.js` 新精简 sitemap 生成器
+   - 删除旧分片 sitemap_alt_zh*.xml / sitemap_intl.xml 等 6 个文件
+   - 只保留：首页 6 + alt 主页 51 + blog 5 + guide 中文 78
+   - **解决 GSC "Discovered - currently not indexed: 148" 的核心问题**
+
+2. **769 个非核心页加 noindex meta**（主动告诉爬虫"别索引"）
+   - `+ scripts/add-noindex.js` 批量添加脚本
+   - alt 变体页（-down/-latest）103 个 → noindex
+   - 9 个外语版（ar/de/en/es/fr/hi/ja/ko/pt/ru）666 个 → noindex
+   - 核心中文页保持 index（首页/alt 主页/blog/guide 中文）
+
+3. **IndexNow 协议激活**（覆盖 Bing/Yandex/Seznam/Naver/DuckDuckGo）
+   - magnetgoogo-site: `+ scripts/indexnow-push.js` 推送精简后 140 URL
+   - naoshiquan-site: `+ scripts/indexnow-push.js` 推送 142 URL
+   - naoshiquan-site: `+ scripts/daily-push.bat` 每日自动推送批处理
+   - naoshiquan-site: `+ a1b2c3d4e5f6g7h8.txt` IndexNow key 验证文件
+   - 推送结果: 全部 HTTP 202 成功
+
+4. **robots.txt + _headers 同步精简**
+   - 只指向 sitemap.xml（不再多分片）
+   - 移除 sitemap_index.xml 等历史指向
+
+### 数据基线（部署前）
+
+- magnetgoogo.com Indexed: 11
+- magnetgoogo.com Discovered not indexed: 148
+- 索引率: 11/(11+148) = 6.9% ⚠️ 偏低
+
+### 战略意义
+
+1. **解决 Google 质量过滤**：从"800 模板页"信号 → "140 核心页 + 769 noindex"信号，让 Google 重新认识这个站
+2. **解决多语言版的低质量翻译惩罚**：9 语言版本被 Google 视为机翻低价值内容，noindex 后不再拖累站点权重
+3. **激活 IndexNow 通道**：推送 1 次覆盖 Bing/Yandex/Seznam/Naver 4 大搜索引擎
+4. **集中权重到 naoshiquan.com**：未来主战场是已备案、内容深度高的 naoshiquan，magnetgoogo 只做产品落地页
+
+### 待办
+
+- [ ] 1 周后看 GSC 数据：Indexed 应从 11 涨到 20-40
+- [ ] 2 周后看：索引率应从 6.9% → 30%+
+- [ ] 配置 Windows 任务计划程序定期跑 daily-push.bat
+- [ ] 申请 naoshiquan.com 在百度站长的推送 token
+- [ ] 在 Bing Webmaster 验证 naoshiquan.com，提交 sitemap
+
+---
 ---
 日期/时间：2026-05-15 22:00（UTC+8）
 本次版本：naoshiquan-launch-v1
