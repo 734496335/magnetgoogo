@@ -108,6 +108,93 @@ def cmd_verify_yellow(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_recheck(args: argparse.Namespace) -> int:
+    """Recheck yellow sources; upgrade to green if they pass."""
+    from .orchestrator import search
+
+    sources = _filter_sources(_load_sources(), None, "yellow")
+    if not sources:
+        print("No yellow sources found")
+        return 0
+
+    print(f"Rechecking {len(sources)} yellow source(s) with query={args.query!r}")
+    if not args.commit:
+        print("(dry-run — use --commit to write changes)\n")
+
+    upgraded = 0
+    changed = False
+    for src in sources:
+        name = src.get("site", {}).get("name", "?")
+        origin = src.get("site", {}).get("origin", "?")
+        results = search(src, args.query, limit=5)
+        magnets = sum(1 for r in results if r.magnet)
+        ok = magnets >= 3
+        status = "PASS" if ok else "FAIL"
+        print(f"  {status:8s}  {name:30s}  {origin:40s}  magnets={magnets}")
+        if ok and args.commit:
+            src.setdefault("health", {})["status"] = "green"
+            src["health"]["status_detail"] = "ok"
+            src["health"]["magnets_found"] = magnets
+            if results:
+                src["health"]["sample_title"] = results[0].title[:80]
+            upgraded += 1
+            changed = True
+
+    if changed:
+        with open(SOURCES_FILE, "w", encoding="utf-8") as f:
+            json.dump(
+                {"rulesets": [{"rules": _load_sources()}]},
+                f, ensure_ascii=False, indent=2,
+            )
+            f.write("\n")
+        print(f"\nUpgraded {upgraded} source(s) to green (sources.json updated)")
+    else:
+        print(f"\n{upgraded} source(s) would be upgraded (dry-run)")
+
+    return 0
+
+
+def cmd_brand_stats(args: argparse.Namespace) -> int:
+    """Print brand-level coverage statistics."""
+    sources = _load_sources()
+    brands: dict[str, dict] = {}  # brand -> {green: N, yellow: N, gray: N}
+    no_brand = 0
+    for src in sources:
+        brand = (src.get("site") or {}).get("brand", "")
+        if not brand:
+            no_brand += 1
+            continue
+        status = (src.get("health") or {}).get("status", "unknown")
+        if brand not in brands:
+            brands[brand] = {"green": 0, "yellow": 0, "gray": 0, "other": 0}
+        if status in brands[brand]:
+            brands[brand][status] += 1
+        else:
+            brands[brand]["other"] += 1
+
+    total_brands = len(brands)
+    green_brands = sum(1 for b in brands.values() if b["green"] > 0)
+    yellow_only = sum(1 for b in brands.values() if b["yellow"] > 0 and b["green"] == 0)
+    gray_only = sum(1 for b in brands.values() if b["gray"] > 0 and b["green"] == 0 and b["yellow"] == 0)
+
+    print(f"Total sources: {len(sources)}")
+    print(f"Sources without brand: {no_brand}")
+    print(f"Total brands: {total_brands}")
+    print(f"Green-covered brands: {green_brands}")
+    print(f"Yellow-only brands: {yellow_only}")
+    print(f"Gray-only brands: {gray_only}")
+    coverage = green_brands / (green_brands + yellow_only) * 100 if (green_brands + yellow_only) else 0
+    print(f"Brand coverage: {coverage:.1f}%")
+
+    if args.top:
+        print(f"\nTop {args.top} brands by source count:")
+        for brand, counts in sorted(brands.items(), key=lambda x: sum(x[1].values()), reverse=True)[:args.top]:
+            total = sum(counts.values())
+            print(f"  {brand:30s}  g={counts['green']:2d} y={counts['yellow']:2d} gray={counts['gray']:2d}  ({total})")
+
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="magnet.crawler_v3", description="crawler_v3 4-tier search")
     p.add_argument("--debug", action="store_true", help="verbose logging")
@@ -128,6 +215,15 @@ def main(argv: list[str] | None = None) -> int:
     p_verify = sub.add_parser("verify-yellow", help="batch-verify all yellow sources")
     p_verify.add_argument("query")
     p_verify.set_defaults(fn=cmd_verify_yellow)
+
+    p_recheck = sub.add_parser("recheck", help="recheck yellow sources, optionally upgrade to green")
+    p_recheck.add_argument("query", help="search query to test")
+    p_recheck.add_argument("--commit", action="store_true", help="write upgrades to sources.json")
+    p_recheck.set_defaults(fn=cmd_recheck)
+
+    p_brand = sub.add_parser("brand-stats", help="print brand-level coverage statistics")
+    p_brand.add_argument("--top", type=int, default=0, help="show top N brands by source count")
+    p_brand.set_defaults(fn=cmd_brand_stats)
 
     args = p.parse_args(argv)
     logging.basicConfig(
