@@ -729,7 +729,8 @@
             "last_checked_at": "2026-05-28T03:25:11.594857+00:00",
             "magnets_found": 0,
             "sample_title": "白日提灯[全40集] 4K"
-          }
+          },
+          "notes": "needs_tier2_handler_or_2captcha: CF 403, CloakBrowser cannot solve, search_template has no {query}"
         },
         {
           "id": "52fbe59cf95c",

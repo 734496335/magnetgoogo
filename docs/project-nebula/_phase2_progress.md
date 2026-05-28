@@ -6,7 +6,7 @@
 
 | ID | brand | origin | 终态 | 用时 | n_magnets | 备注 / 关键发现 |
 |---|---|---|---|---|---|---|
-| E.01 | seedhub | https://www.seedhub.cc | _pending_ | | | |
+| E.01 | seedhub | https://www.seedhub.cc | WAF-HARDER | 0 | CF 403, CloakBrowser 0 results, search_template 无 {query} | |
 | E.02 | 0magnet | https://0magnet.co | _pending_ | | | |
 | E.03 | 磁力星球 | https://www.cilixingqiu.net | _pending_ | | | |
 | E.04 | 天堂磁力 | https://www.tiantangcili.net | _pending_ | | | |
