@@ -142,16 +142,25 @@
     </div>
 
     <!-- Tab: Analytics -->
-    <div x-show="activeTab === 'analytics'" x-cloak class="fade-in space-y-6" x-init="$watch('activeTab', v => { if (v === 'analytics' && !analyticsData) loadAnalytics(); })">
+    <div x-show="activeTab === 'analytics'" x-cloak class="fade-in space-y-6" x-init="$watch('activeTab', v => { if (v === 'analytics' && !analyticsData) loadAnalyticsFromCache(); })">
 
       <!-- Refresh bar -->
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between flex-wrap gap-2">
         <h2 class="text-lg font-bold text-slate-800">实时数据分析</h2>
         <div class="flex items-center gap-3">
-          <span class="text-xs text-slate-400" x-show="analyticsData" x-text="'数据窗口: 最近30天 · 上次刷新 ' + (analyticsData?._loadedAt || '')"></span>
+          <span class="text-xs text-slate-400" x-show="analyticsData && analyticsData._cached"
+                x-text="'缓存于 ' + (analyticsData?._cachedAt ? new Date(analyticsData._cachedAt).toLocaleTimeString('zh-CN',{hour12:false}) : '') + (analyticsData?._cacheAgeMin !== undefined ? ' (' + analyticsData._cacheAgeMin + '分钟前)' : '') + ' · 本地 ' + (analyticsData?._totalLocalBatches || 0) + ' 条'"></span>
+          <span class="text-xs text-green-500 font-medium" x-show="analyticsData && analyticsData._refreshed"
+                x-text="'✓ +' + (analyticsData?._newBatches || 0) + ' 新数据 (' + ((analyticsData?._fetchMs || 0)/1000).toFixed(1) + 's)'"></span>
           <button @click="loadAnalytics()" :disabled="analyticsLoading"
-                  class="px-4 py-2 bg-brand-50 text-brand-600 rounded-xl text-sm font-medium hover:bg-brand-100 transition-all disabled:opacity-50">
-            <span x-text="analyticsLoading ? '加载中...' : '刷新数据'"></span>
+                  class="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-200 transition-all disabled:opacity-50"
+                  title="读取服务器缓存（秒级响应）">
+            <span x-text="analyticsLoading ? '加载中...' : '加载缓存'"></span>
+          </button>
+          <button @click="loadAnalyticsForceRefresh()" :disabled="analyticsRefreshing"
+                  class="px-3 py-1.5 bg-brand-50 text-brand-600 rounded-lg text-xs font-medium hover:bg-brand-100 transition-all disabled:opacity-50"
+                  title="从 R2 拉取最新数据（可能需要 30 秒+）">
+            <span x-text="analyticsRefreshing ? '正在从R2拉取...' : '🔄 拉取最新'"></span>
           </button>
         </div>
       </div>
@@ -160,7 +169,7 @@
       <div x-show="analyticsLoading && !analyticsData" class="text-center py-16">
         <div class="inline-flex items-center gap-2 text-slate-400">
           <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-          正在从 CF Gateway 拉取埋点数据...
+          正在加载数据...
         </div>
       </div>
 
@@ -237,10 +246,59 @@
             <div class="h-48"><canvas id="chartHourly"></canvas></div>
           </div>
 
-          <!-- Search Queries + Version/Country -->
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Cohort Retention Table -->
+          <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm" x-show="(analyticsData.cohortRetention || []).length > 0">
+            <div class="flex items-baseline justify-between mb-4">
+              <h3 class="font-semibold text-slate-700">用户留存（Cohort Retention）</h3>
+              <span class="text-xs text-slate-400">按安装日分组 · 各列为 D+N 当天回访比例</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="text-xs text-slate-500 border-b border-slate-200">
+                  <tr>
+                    <th class="text-left font-medium py-2 pr-3 whitespace-nowrap">安装日</th>
+                    <th class="text-right font-medium py-2 px-2 whitespace-nowrap">人数</th>
+                    <template x-for="d in [0,1,3,7,14,30]" :key="d">
+                      <th class="text-right font-medium py-2 px-2 whitespace-nowrap" x-text="'D' + d"></th>
+                    </template>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="row in (analyticsData.cohortRetention || []).slice().reverse()" :key="row.cohort">
+                    <tr class="border-b border-slate-100 hover:bg-slate-50">
+                      <td class="py-2 pr-3 text-slate-700 whitespace-nowrap" x-text="row.cohort"></td>
+                      <td class="py-2 px-2 text-right text-slate-500" x-text="row.size"></td>
+                      <template x-for="d in [0,1,3,7,14,30]" :key="d">
+                        <td class="py-2 px-2 text-right whitespace-nowrap"
+                            :class="row.retention[d] === null ? 'text-slate-300' : (row.retention[d].pct >= 40 ? 'text-emerald-700 font-medium bg-emerald-50' : row.retention[d].pct >= 20 ? 'text-amber-700' : 'text-slate-500')">
+                          <template x-if="row.retention[d] === null">
+                            <span>—</span>
+                          </template>
+                          <template x-if="row.retention[d] !== null">
+                            <span>
+                              <span x-text="row.retention[d].pct + '%'"></span>
+                              <span class="text-xs text-slate-400 ml-1" x-text="'(' + row.retention[d].n + ')'"></span>
+                            </span>
+                          </template>
+                        </td>
+                      </template>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <div class="text-xs text-slate-400 mt-3 leading-relaxed">
+              <span class="inline-block px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 mr-2">≥40% 优秀</span>
+              <span class="inline-block px-2 py-0.5 rounded text-amber-700 mr-2">20–40% 一般</span>
+              <span class="inline-block px-2 py-0.5 rounded text-slate-500 mr-2">&lt;20% 偏低</span>
+              <span class="text-slate-400">— 表示尚未到 D+N 那天，数据不足。 D0 = 安装当天活跃；括号内为绝对人数。</span>
+            </div>
+          </div>
+
+          <!-- Search Queries + Version -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Top Search Queries -->
-            <div class="lg:col-span-1 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
               <h3 class="font-semibold text-slate-700 mb-3">搜索热词 TOP 20</h3>
               <div class="max-h-80 overflow-y-auto space-y-1.5">
                 <template x-for="(item, i) in (analyticsData.topQueries || []).slice(0, 20)" :key="i">
@@ -275,17 +333,48 @@
               </div>
             </div>
 
-            <!-- Country Distribution -->
-            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-              <h3 class="font-semibold text-slate-700 mb-3">地区分布</h3>
-              <div class="h-56 flex items-center justify-center"><canvas id="chartCountry"></canvas></div>
-              <div class="mt-3 space-y-1 max-h-24 overflow-y-auto">
-                <template x-for="[c, n] in Object.entries(analyticsData.countryDist || {}).sort((a,b) => b[1] - a[1])" :key="c">
-                  <div class="flex justify-between text-xs">
-                    <span class="text-slate-600" x-text="c"></span>
-                    <span class="text-slate-400" x-text="n + ' 批次'"></span>
-                  </div>
-                </template>
+          </div>
+
+          <!-- Geo Distribution — full width row -->
+          <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-semibold text-slate-700 text-lg">地域分布 <span class="text-sm font-normal text-slate-400">(按独立设备数)</span></h3>
+              <div class="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+                <button @click="geoTab = 'today'" :class="geoTab === 'today' ? 'bg-white shadow-sm text-brand-600' : 'text-slate-500'"
+                        class="px-3 py-1.5 rounded-md text-xs font-medium transition-all">今日</button>
+                <button @click="geoTab = 'yesterday'" :class="geoTab === 'yesterday' ? 'bg-white shadow-sm text-brand-600' : 'text-slate-500'"
+                        class="px-3 py-1.5 rounded-md text-xs font-medium transition-all">昨日</button>
+                <button @click="geoTab = 'total'" :class="geoTab === 'total' ? 'bg-white shadow-sm text-brand-600' : 'text-slate-500'"
+                        class="px-3 py-1.5 rounded-md text-xs font-medium transition-all">累计</button>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <!-- Country Pie -->
+              <div>
+                <p class="text-xs text-slate-400 mb-2 font-medium">国家/地区分布</p>
+                <div class="h-72 flex items-center justify-center" style="position:relative"><canvas id="chartCountry" width="300" height="280"></canvas></div>
+              </div>
+              <!-- City Pie -->
+              <div>
+                <p class="text-xs text-slate-400 mb-2 font-medium">城市分布 TOP 10</p>
+                <div class="h-72 flex items-center justify-center" style="position:relative"><canvas id="chartCity" width="300" height="280"></canvas></div>
+              </div>
+              <!-- City Detail List -->
+              <div>
+                <p class="text-xs text-slate-400 mb-2 font-medium">城市明细</p>
+                <div class="space-y-1.5 max-h-72 overflow-y-auto">
+                  <template x-for="(item, i) in (geoTab === 'today' ? (analyticsData.todayCityDist || []) : geoTab === 'yesterday' ? (analyticsData.yesterdayCityDist || []) : (analyticsData.cityDist || []))" :key="item.city">
+                    <div class="flex items-center gap-2 text-xs">
+                      <span class="w-5 text-right font-bold" :class="i < 3 ? 'text-brand-600' : 'text-slate-400'" x-text="i + 1"></span>
+                      <span class="text-slate-700 font-medium flex-1 truncate" x-text="item.city"></span>
+                      <div class="w-20 bg-slate-100 rounded-full h-1.5">
+                        <div class="bg-indigo-500 h-1.5 rounded-full" :style="'width:' + Math.min(100, Math.round(item.n / ((geoTab === 'today' ? (analyticsData.todayCityDist || [])[0]?.n : (analyticsData.cityDist || [])[0]?.n) || 1) * 100)) + '%'"></div>
+                      </div>
+                      <span class="text-slate-500 w-8 text-right shrink-0 font-medium" x-text="item.n"></span>
+                    </div>
+                  </template>
+                  <p x-show="(geoTab === 'today' ? (analyticsData.todayCityDist || []) : geoTab === 'yesterday' ? (analyticsData.yesterdayCityDist || []) : (analyticsData.cityDist || [])).length === 0" class="text-slate-400 text-xs text-center py-4">暂无数据</p>
+                </div>
               </div>
             </div>
           </div>
@@ -326,6 +415,105 @@
             </div>
           </div>
 
+          <!-- Device List -->
+          <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold text-slate-700">用户明细 <span class="text-sm font-normal text-slate-400" x-text="'(' + filteredDevices.length + '/' + (analyticsData.devices?.length || 0) + ' 台)'"></span></h3>
+              <input type="text" x-model="deviceSearch" placeholder="搜索设备/城市..."
+                     class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs w-40 focus:ring-2 focus:ring-brand-500/20 outline-none">
+            </div>
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-xs text-slate-400">活跃:</span>
+              <template x-for="f in [{k:'today',l:'今天'},{k:'yesterday',l:'昨日'},{k:'3d',l:'3日内'},{k:'week',l:'本周'},{k:'month',l:'本月'},{k:'all',l:'全部'}]" :key="f.k">
+                <button @click="deviceActivityFilter = f.k"
+                        :class="deviceActivityFilter === f.k ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'"
+                        class="px-2.5 py-1 rounded-md text-xs font-medium transition-all" x-text="f.l"></button>
+              </template>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm" x-show="analyticsData.devices?.length > 0">
+                <thead>
+                  <tr class="border-b border-slate-100">
+                    <th class="text-left py-2 px-2 text-slate-400 font-medium text-xs">设备ID</th>
+                    <th class="text-left py-2 px-2 text-slate-400 font-medium text-xs">位置</th>
+                    <th class="text-left py-2 px-2 text-slate-400 font-medium text-xs">版本</th>
+                    <th class="text-left py-2 px-2 text-slate-400 font-medium text-xs">系统</th>
+                    <th @click="sortDevicesBy('lastSeen')" class="text-left py-2 px-2 text-slate-400 font-medium text-xs cursor-pointer hover:text-brand-600">最后活跃 <span x-show="deviceSortField==='lastSeen'" x-text="deviceSortAsc?'↑':'↓'"></span></th>
+                    <th @click="sortDevicesBy('starts')" class="text-right py-2 px-2 text-slate-400 font-medium text-xs cursor-pointer hover:text-brand-600">启动 <span x-show="deviceSortField==='starts'" x-text="deviceSortAsc?'↑':'↓'"></span></th>
+                    <th @click="sortDevicesBy('searches')" class="text-right py-2 px-2 text-slate-400 font-medium text-xs cursor-pointer hover:text-brand-600">搜索 <span x-show="deviceSortField==='searches'" x-text="deviceSortAsc?'↑':'↓'"></span></th>
+                    <th @click="sortDevicesBy('copies')" class="text-right py-2 px-2 text-slate-400 font-medium text-xs cursor-pointer hover:text-brand-600">复制 <span x-show="deviceSortField==='copies'" x-text="deviceSortAsc?'↑':'↓'"></span></th>
+                    <th @click="sortDevicesBy('opens')" class="text-right py-2 px-2 text-slate-400 font-medium text-xs cursor-pointer hover:text-brand-600">打开 <span x-show="deviceSortField==='opens'" x-text="deviceSortAsc?'↑':'↓'"></span></th>
+                    <th @click="sortDevicesBy('events')" class="text-right py-2 px-2 text-slate-400 font-medium text-xs cursor-pointer hover:text-brand-600">总事件 <span x-show="deviceSortField==='events'" x-text="deviceSortAsc?'↑':'↓'"></span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="dev in filteredDevices" :key="dev.did">
+                    <tr class="border-b border-slate-50 hover:bg-blue-50/30 transition-colors">
+                      <td class="py-1.5 px-2 font-mono text-xs text-slate-600" x-text="dev.did"></td>
+                      <td class="py-1.5 px-2 text-xs">
+                        <span class="text-slate-700" x-text="dev.city || dev.region || dev.country || '-'"></span>
+                        <span x-show="dev.city && dev.country" class="text-slate-300 ml-1" x-text="dev.country"></span>
+                      </td>
+                      <td class="py-1.5 px-2 text-xs"><span class="bg-slate-100 px-1.5 py-0.5 rounded font-mono" x-text="dev.appV || '-'"></span></td>
+                      <td class="py-1.5 px-2 text-xs text-slate-500 truncate max-w-[80px]" x-text="dev.os || '-'" :title="dev.os"></td>
+                      <td class="py-1.5 px-2 text-xs text-slate-400 whitespace-nowrap" x-text="dev.lastSeen ? fmtDate(dev.lastSeen) : '-'"></td>
+                      <td class="py-1.5 px-2 text-right text-xs text-slate-500" x-text="dev.starts || 0"></td>
+                      <td class="py-1.5 px-2 text-right text-xs font-medium text-indigo-600" x-text="dev.searches || 0"></td>
+                      <td class="py-1.5 px-2 text-right text-xs text-green-600" x-text="dev.copies || 0"></td>
+                      <td class="py-1.5 px-2 text-right text-xs text-amber-600" x-text="dev.opens || 0"></td>
+                      <td class="py-1.5 px-2 text-right text-xs font-bold text-slate-700" x-text="dev.events || 0"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+              <p x-show="!analyticsData.devices?.length" class="text-slate-400 text-sm text-center py-8">暂无设备数据</p>
+            </div>
+          </div>
+
+          <!-- Search Details -->
+          <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold text-slate-700">搜索明细 <span class="text-sm font-normal text-slate-400" x-text="'(' + filteredSearchDetails.length + ' 条)'"></span></h3>
+              <input type="text" x-model="searchDetailSearch" placeholder="搜索关键词/设备..."
+                     class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs w-40 focus:ring-2 focus:ring-brand-500/20 outline-none">
+            </div>
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-xs text-slate-400">时间:</span>
+              <template x-for="f in [{k:'today',l:'今天'},{k:'yesterday',l:'昨日'},{k:'week',l:'本周'},{k:'month',l:'本月'},{k:'all',l:'全部'}]" :key="f.k">
+                <button @click="searchActivityFilter = f.k"
+                        :class="searchActivityFilter === f.k ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'"
+                        class="px-2.5 py-1 rounded-md text-xs font-medium transition-all" x-text="f.l"></button>
+              </template>
+            </div>
+            <div class="overflow-x-auto max-h-96 overflow-y-auto">
+              <table class="w-full text-sm" x-show="filteredSearchDetails.length > 0">
+                <thead class="sticky top-0 bg-white">
+                  <tr class="border-b border-slate-100">
+                    <th class="text-left py-2 px-2 text-slate-400 font-medium text-xs">时间</th>
+                    <th class="text-left py-2 px-2 text-slate-400 font-medium text-xs">搜索词</th>
+                    <th class="text-right py-2 px-2 text-slate-400 font-medium text-xs">结果数</th>
+                    <th class="text-left py-2 px-2 text-slate-400 font-medium text-xs">设备</th>
+                    <th class="text-left py-2 px-2 text-slate-400 font-medium text-xs">位置</th>
+                    <th class="text-left py-2 px-2 text-slate-400 font-medium text-xs">版本</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="(s, i) in filteredSearchDetails" :key="i">
+                    <tr class="border-b border-slate-50 hover:bg-slate-50/50">
+                      <td class="py-1.5 px-2 text-xs text-slate-400 whitespace-nowrap" x-text="s.ts ? new Date(s.ts).toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '-'"></td>
+                      <td class="py-1.5 px-2 text-xs font-medium text-indigo-700 max-w-[200px] truncate" x-text="s.q || '-'" :title="s.q"></td>
+                      <td class="py-1.5 px-2 text-right text-xs" :class="s.n > 0 ? 'text-green-600 font-medium' : 'text-red-400'" x-text="s.n"></td>
+                      <td class="py-1.5 px-2 text-xs font-mono text-slate-500" x-text="s.did || '-'"></td>
+                      <td class="py-1.5 px-2 text-xs text-slate-500" x-text="(s.city || '-') + (s.country ? ' · ' + s.country : '')"></td>
+                      <td class="py-1.5 px-2 text-xs"><span class="bg-slate-100 px-1.5 py-0.5 rounded font-mono" x-text="s.appV || '-'"></span></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+              <p x-show="filteredSearchDetails.length === 0" class="text-slate-400 text-sm text-center py-8">暂无搜索记录</p>
+            </div>
+          </div>
+
           <!-- Recent Events Stream -->
           <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
             <h3 class="font-semibold text-slate-700 mb-3">最近事件流 <span class="text-sm font-normal text-slate-400">(最新50条)</span></h3>
@@ -345,7 +533,7 @@
                   <span class="text-slate-500 truncate" x-text="ev.q ? '「' + ev.q + '」' : (ev.src || '')"></span>
                   <span class="text-slate-300 shrink-0" x-show="ev.n" x-text="ev.n + '条'"></span>
                   <span class="text-slate-300 shrink-0" x-show="ev.ms" x-text="ev.ms + 'ms'"></span>
-                  <span class="ml-auto text-slate-300 shrink-0" x-text="ev.did"></span>
+                  <span class="ml-auto text-slate-300 shrink-0" x-text="(ev.city ? ev.city + ' · ' : '') + ev.did"></span>
                 </div>
               </template>
               <p x-show="!analyticsData.recentEvents?.length" class="text-slate-400 text-sm text-center py-8">暂无事件</p>
@@ -576,6 +764,105 @@
             </div>
           </div>
         </div>
+
+        <!-- Row 4 (v0.3.5+): parse_strategy + brand_family breakdown -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- parse_strategy breakdown -->
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+            <h3 class="font-semibold text-slate-700 mb-1 text-sm flex items-center gap-2">
+              解析策略分布
+              <span class="text-[10px] font-normal text-slate-400">capabilities.parse_strategy · v0.3.5+</span>
+            </h3>
+            <p class="text-[11px] text-slate-500 mb-3">list_page = 列表页直接抽 magnet；detail_follow = 详情页二跳（HealerV2 自动启用）</p>
+            <div class="space-y-2">
+              <template x-for="ps in (parseStrategyStats || [])" :key="ps.strategy">
+                <div class="flex items-center gap-2">
+                  <span class="w-28 text-xs font-mono"
+                        :class="ps.strategy==='detail_follow' ? 'text-purple-600' : 'text-slate-600'"
+                        x-text="ps.strategy"></span>
+                  <div class="flex-1 flex h-2.5 rounded-full overflow-hidden bg-slate-100">
+                    <div class="bg-green-500 h-full" :style="'width:'+Math.round(ps.green/(ps.total||1)*100)+'%'"></div>
+                    <div class="bg-yellow-400 h-full" :style="'width:'+Math.round(ps.yellow/(ps.total||1)*100)+'%'"></div>
+                    <div class="bg-slate-300 h-full" :style="'width:'+Math.round(ps.gray/(ps.total||1)*100)+'%'"></div>
+                  </div>
+                  <span class="w-10 text-right text-xs font-bold text-slate-700" x-text="ps.total"></span>
+                  <span class="w-20 text-right text-[10px] text-slate-400" x-text="'🟢'+ps.green+' 🟡'+ps.yellow+' ⚫'+ps.gray"></span>
+                </div>
+              </template>
+              <p x-show="!(parseStrategyStats||[]).length" class="text-xs text-slate-400 italic">无 parse_strategy 标记数据</p>
+            </div>
+          </div>
+
+          <!-- brand_family breakdown -->
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+            <h3 class="font-semibold text-slate-700 mb-1 text-sm flex items-center gap-2">
+              品牌家族集群
+              <span class="text-[10px] font-normal text-slate-400">capabilities.brand_family · v0.3.6+</span>
+            </h3>
+            <p class="text-[11px] text-slate-500 mb-3">家族整体死亡比例 ≥ 50% 时，verify_and_heal 自动触发 DDG 域名重发现</p>
+            <div class="space-y-2">
+              <template x-for="bf in (brandFamilyStats || [])" :key="bf.family">
+                <div class="flex items-center gap-2">
+                  <span class="w-20 text-xs font-mono font-bold text-indigo-600" x-text="bf.family"></span>
+                  <div class="flex-1 flex h-2.5 rounded-full overflow-hidden bg-slate-100">
+                    <div class="bg-green-500 h-full" :style="'width:'+Math.round(bf.green/(bf.total||1)*100)+'%'"></div>
+                    <div class="bg-yellow-400 h-full" :style="'width:'+Math.round(bf.yellow/(bf.total||1)*100)+'%'"></div>
+                    <div class="bg-slate-300 h-full" :style="'width:'+Math.round(bf.gray/(bf.total||1)*100)+'%'"></div>
+                  </div>
+                  <span class="w-10 text-right text-xs font-bold text-slate-700" x-text="bf.total"></span>
+                  <span class="w-16 text-right text-[10px]"
+                        :class="(bf.gray/(bf.total||1))>=0.5 ? 'text-red-500 font-bold' : 'text-slate-400'"
+                        x-text="'死'+bf.gray+'/'+bf.total"></span>
+                </div>
+              </template>
+              <p x-show="!(brandFamilyStats||[]).length" class="text-xs text-slate-400 italic">无 brand_family 标记数据</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 5 (v0.3.7+): onboarded sources table -->
+        <div x-show="(onboardedRules||[]).length" class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+          <h3 class="font-semibold text-slate-700 mb-1 text-sm flex items-center gap-2">
+            自动入库源 (onboard_candidate)
+            <span class="text-[10px] font-normal text-slate-400">_onboarded.* · v0.3.7+</span>
+            <span class="text-[10px] font-medium text-slate-500 ml-auto" x-text="(onboardedRules||[]).length + ' 个源'"></span>
+          </h3>
+          <p class="text-[11px] text-slate-500 mb-3">由 scripts/onboard_candidate.py 推广进来的源 — 含原始探测元数据</p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead class="bg-slate-50 text-slate-500">
+                <tr>
+                  <th class="px-2 py-2 text-left">源</th>
+                  <th class="px-2 py-2 text-left">版本</th>
+                  <th class="px-2 py-2 text-left">家族</th>
+                  <th class="px-2 py-2 text-left">策略</th>
+                  <th class="px-2 py-2 text-left">状态</th>
+                  <th class="px-2 py-2 text-right">magnets</th>
+                  <th class="px-2 py-2 text-left">at</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="o in (onboardedRules||[])" :key="o.site_name">
+                  <tr class="border-t border-slate-100 hover:bg-slate-50">
+                    <td class="px-2 py-1.5 font-mono" x-text="o.site_name"></td>
+                    <td class="px-2 py-1.5 text-slate-500" x-text="o.version"></td>
+                    <td class="px-2 py-1.5 font-mono text-indigo-600" x-text="o.brand_family || '-'"></td>
+                    <td class="px-2 py-1.5 font-mono"
+                        :class="o.parse_strategy==='detail_follow' ? 'text-purple-600' : 'text-slate-600'"
+                        x-text="o.parse_strategy"></td>
+                    <td class="px-2 py-1.5">
+                      <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+                            :class="o.status==='green' ? 'bg-green-100 text-green-700' : o.status==='yellow' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'"
+                            x-text="o.status"></span>
+                    </td>
+                    <td class="px-2 py-1.5 text-right font-bold text-slate-700" x-text="o.magnets_found"></td>
+                    <td class="px-2 py-1.5 text-[10px] text-slate-400" x-text="o.at"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <!-- ═══════ Sub-tab: 品牌 ═══════ -->
@@ -740,6 +1027,166 @@
         <p class="text-xs text-slate-400 text-right" x-show="sourceDiscovery.last_updated" x-text="'数据更新: ' + (sourceDiscovery.last_updated || '')"></p>
       </div>
 
+      <!-- ═══════ Sub-tab: 诊断 (suspect_dead + collapsed families + AI batch) ═══════ -->
+      <div x-show="srcSubTab === 'diagnostics'" x-init="$watch('srcSubTab', v => { if (v === 'diagnostics' && !diagnostics) loadDiagnostics(); })" class="space-y-5">
+
+        <!-- Header / refresh -->
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h3 class="font-semibold text-slate-700 text-sm">健康诊断</h3>
+            <p class="text-xs text-slate-400 mt-0.5">数据源: <code class="bg-slate-100 px-1 rounded">magnet/_health_report_full.json</code> · 报告时间: <span x-text="diagnostics?.report_mtime ? fmtDate(diagnostics.report_mtime) : '-'"></span></p>
+          </div>
+          <button @click="loadDiagnostics()" :disabled="diagnosticsLoading"
+                  class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg">
+            <span x-show="!diagnosticsLoading">刷新</span>
+            <span x-show="diagnosticsLoading">加载中...</span>
+          </button>
+        </div>
+
+        <!-- Empty state -->
+        <div x-show="diagnostics && !diagnostics.ok" class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+          <span x-text="diagnostics?.message || '尚未生成 health report'"></span>
+        </div>
+
+        <template x-if="diagnostics?.ok">
+          <div class="space-y-5">
+
+            <!-- Counts summary -->
+            <div class="grid grid-cols-4 gap-3">
+              <div class="bg-white rounded-xl p-3 border border-green-200 text-center">
+                <p class="text-[10px] text-green-500 uppercase">Green</p>
+                <p class="text-2xl font-bold text-green-600" x-text="diagnostics.counts?.green || 0"></p>
+              </div>
+              <div class="bg-white rounded-xl p-3 border border-yellow-200 text-center">
+                <p class="text-[10px] text-yellow-500 uppercase">Yellow</p>
+                <p class="text-2xl font-bold text-yellow-600" x-text="diagnostics.counts?.yellow || 0"></p>
+              </div>
+              <div class="bg-white rounded-xl p-3 border border-slate-200 text-center">
+                <p class="text-[10px] text-slate-400 uppercase">Gray</p>
+                <p class="text-2xl font-bold text-slate-400" x-text="diagnostics.counts?.gray || 0"></p>
+              </div>
+              <div class="bg-white rounded-xl p-3 border border-orange-200 text-center">
+                <p class="text-[10px] text-orange-500 uppercase">塌方 (g→gray)</p>
+                <p class="text-2xl font-bold text-orange-600" x-text="diagnostics.collapsed_total || 0"></p>
+              </div>
+            </div>
+
+            <!-- Suspect dead sources -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+              <div class="flex items-baseline justify-between mb-3">
+                <h3 class="font-semibold text-slate-700 text-sm">可疑死源 <span class="text-xs font-normal text-slate-400" x-text="'(' + (diagnostics.suspect_dead?.length || 0) + ')'"></span></h3>
+                <span class="text-xs text-slate-400">requests 路径 0 magnet · AI 工具用 Stealthy 复核可能能救</span>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-xs">
+                  <thead class="text-slate-500 border-b border-slate-200">
+                    <tr>
+                      <th class="text-left py-2 px-2 font-medium">源</th>
+                      <th class="text-left py-2 px-2 font-medium">变迁</th>
+                      <th class="text-right py-2 px-2 font-medium">延迟</th>
+                      <th class="text-center py-2 px-2 font-medium">AI 复核</th>
+                      <th class="text-left py-2 px-2 font-medium">说明</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="s in (diagnostics.suspect_dead || [])" :key="s.name">
+                      <tr class="border-b border-slate-50 hover:bg-slate-50">
+                        <td class="py-2 px-2 font-mono text-slate-700" x-text="s.name"></td>
+                        <td class="py-2 px-2 text-slate-500">
+                          <span x-text="s.old_status"></span> → <span class="font-bold" x-text="s.new_status"></span>
+                        </td>
+                        <td class="py-2 px-2 text-right text-slate-500" x-text="s.latency_ms + 'ms'"></td>
+                        <td class="py-2 px-2 text-center">
+                          <template x-for="b in (diagnostics.ai_batch?.results || [])" :key="b.name">
+                            <span x-show="b.name === s.name">
+                              <template x-if="b.error">
+                                <span class="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[10px]" :title="b.error">ERR</span>
+                              </template>
+                              <template x-if="!b.error && b.magnets_found > 0">
+                                <span class="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-bold"
+                                      :title="'sample: ' + (b.sample_title || '')"
+                                      x-text="(Math.round((b.confidence||0)*100)) + '% · ' + b.magnets_found + ' magnet'"></span>
+                              </template>
+                              <template x-if="!b.error && b.magnets_found === 0 && b.list_items > 0">
+                                <span class="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px]"
+                                      :title="b.list_items + ' rows but no magnet — likely detail-follow type'">详情页型 <span x-text="b.list_items"></span></span>
+                              </template>
+                              <template x-if="!b.error && b.magnets_found === 0 && b.list_items === 0">
+                                <span class="px-1.5 py-0.5 bg-red-50 text-red-600 rounded text-[10px]" title="Stealthy fetch also returned 0 — likely truly dead">真死</span>
+                              </template>
+                            </span>
+                          </template>
+                        </td>
+                        <td class="py-2 px-2 text-slate-500 text-[11px]" x-text="s.error_summary"></td>
+                      </tr>
+                    </template>
+                    <tr x-show="!diagnostics.suspect_dead?.length">
+                      <td colspan="5" class="py-6 text-center text-slate-400">无可疑死源</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Collapsed families -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm" x-show="diagnostics.collapsed_families?.length > 0">
+              <div class="flex items-baseline justify-between mb-3">
+                <h3 class="font-semibold text-slate-700 text-sm">塌方家族（一次倒一片） <span class="text-xs font-normal text-slate-400" x-text="'(' + (diagnostics.collapsed_families?.length || 0) + ' 家族)'"></span></h3>
+                <span class="text-xs text-slate-400">同名族多个域名同时失败 = 集体搬迁，应做域名重发现</span>
+              </div>
+              <div class="space-y-3">
+                <template x-for="f in (diagnostics.collapsed_families || [])" :key="f.stem">
+                  <div class="border border-slate-100 rounded-xl p-3 bg-slate-50/40">
+                    <div class="flex items-baseline justify-between mb-2">
+                      <div>
+                        <span class="font-mono text-sm font-bold text-slate-800" x-text="f.stem"></span>
+                        <span class="text-xs text-slate-500 ml-2" x-text="f.count + ' 个域名集体塌方'"></span>
+                      </div>
+                      <div class="text-[10px] flex gap-1.5">
+                        <template x-for="(cnt, dt) in f.details" :key="dt">
+                          <span class="px-1.5 py-0.5 rounded" :class="{
+                            'bg-red-50 text-red-600': dt==='404'||dt==='expired',
+                            'bg-yellow-50 text-yellow-700': dt==='parsing_failed'||dt==='waf',
+                            'bg-slate-100 text-slate-500': dt==='unreachable'
+                          }" x-text="dt + ' x' + cnt"></span>
+                        </template>
+                      </div>
+                    </div>
+                    <div class="text-[11px] text-slate-500 font-mono leading-relaxed" x-text="(f.members||[]).join(', ')"></div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- AI batch summary -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm" x-show="diagnostics.ai_batch?.results">
+              <div class="flex items-baseline justify-between mb-3">
+                <h3 class="font-semibold text-slate-700 text-sm">AI Bootstrap 批量复核结果</h3>
+                <span class="text-xs text-slate-400">
+                  <span x-text="diagnostics.ai_batch?.llm || '?'"></span> ·
+                  <span x-text="diagnostics.ai_batch?.file || ''"></span>
+                </span>
+              </div>
+              <div class="grid grid-cols-3 gap-3 text-center mb-3">
+                <div>
+                  <p class="text-[10px] text-slate-400">复核数</p>
+                  <p class="text-xl font-bold text-slate-700" x-text="diagnostics.ai_batch?.results?.length || 0"></p>
+                </div>
+                <div>
+                  <p class="text-[10px] text-green-500">成功 (≥1 magnet)</p>
+                  <p class="text-xl font-bold text-green-600" x-text="(diagnostics.ai_batch?.results || []).filter(r => r.magnets_found > 0).length"></p>
+                </div>
+                <div>
+                  <p class="text-[10px] text-blue-500">详情页型</p>
+                  <p class="text-xl font-bold text-blue-600" x-text="(diagnostics.ai_batch?.results || []).filter(r => r.magnets_found === 0 && r.list_items > 0).length"></p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </template>
+      </div>
+
     </div>
 
   </main>
@@ -782,6 +1229,10 @@
         sourceBrandStats: [],
         sourceDetailStats: [],
         sourceGreenBrands: [],
+        // v0.3.5+ capability views
+        parseStrategyStats: [],
+        brandFamilyStats: [],
+        onboardedRules: [],
         sourceDiscovery: {},
         sourceGeneratedAt: '',
         srcSubTab: 'overview',
@@ -790,14 +1241,25 @@
           { id: 'brands', label: '品牌' },
           { id: 'list', label: '列表' },
           { id: 'discovery', label: '导航与发布页' },
+          { id: 'diagnostics', label: '诊断' },
         ],
+        diagnostics: null,
+        diagnosticsLoading: false,
         brandFilter: '',
         brandSearch: '',
         feedbackList: [],
         feedbackLoading: false,
         analyticsData: null,
         analyticsLoading: false,
+        analyticsRefreshing: false,
         chartInstances: {},
+        deviceSearch: '',
+        deviceSortField: 'searches',
+        deviceSortAsc: false,
+        deviceActivityFilter: 'all',
+        searchActivityFilter: 'today',
+        searchDetailSearch: '',
+        geoTab: 'today',
         toast: { show: false, ok: true, message: '' },
 
         // Version config form
@@ -866,6 +1328,7 @@
           await this.loadSources();
           await this.loadFeedback();
           this.loading = false;
+          this.$watch('geoTab', () => this.renderGeoChart());
         },
 
         async loadOverview() {
@@ -884,6 +1347,99 @@
           } catch (e) {
             this.showToast(false, '加载失败: ' + e.message);
           }
+        },
+
+        sortDevicesBy(field) {
+          if (this.deviceSortField === field) { this.deviceSortAsc = !this.deviceSortAsc; }
+          else { this.deviceSortField = field; this.deviceSortAsc = false; }
+        },
+
+        _activityCutoff() {
+          const f = this.deviceActivityFilter;
+          if (f === 'all') return '';
+          const now = new Date();
+          if (f === 'today') {
+            return now.toISOString().slice(0, 10);
+          }
+          if (f === 'yesterday') {
+            return { from: new Date(now.getTime() - 86400000).toISOString().slice(0, 10), to: now.toISOString().slice(0, 10) };
+          }
+          if (f === '3d') {
+            return new Date(now.getTime() - 3 * 86400000).toISOString().slice(0, 10);
+          }
+          if (f === 'week') {
+            return new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10);
+          }
+          if (f === 'month') {
+            return new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10);
+          }
+          return '';
+        },
+
+        get filteredDevices() {
+          let list = [...(this.analyticsData?.devices || [])];
+          // Activity time filter
+          const cutoff = this._activityCutoff();
+          if (cutoff) {
+            if (typeof cutoff === 'object' && cutoff.from) {
+              list = list.filter(d => { const ls = (d.lastSeen || '').slice(0, 10); return ls >= cutoff.from && ls < cutoff.to; });
+            } else {
+              list = list.filter(d => (d.lastSeen || '') >= cutoff);
+            }
+          }
+          // Sort
+          const sf = this.deviceSortField;
+          const asc = this.deviceSortAsc;
+          if (sf) {
+            list.sort((a, b) => {
+              let va = a[sf] ?? '', vb = b[sf] ?? '';
+              if (typeof va === 'number') return asc ? va - vb : vb - va;
+              return asc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+            });
+          }
+          if (!this.deviceSearch) return list;
+          const q = this.deviceSearch.toLowerCase();
+          return list.filter(d =>
+            (d.did || '').toLowerCase().includes(q) ||
+            (d.city || '').toLowerCase().includes(q) ||
+            (d.region || '').toLowerCase().includes(q) ||
+            (d.country || '').toLowerCase().includes(q) ||
+            (d.appV || '').toLowerCase().includes(q)
+          );
+        },
+
+        _searchCutoff() {
+          const f = this.searchActivityFilter;
+          if (f === 'all') return '';
+          const now = new Date();
+          if (f === 'today') return now.toISOString().slice(0, 10);
+          if (f === 'yesterday') {
+            return { from: new Date(now.getTime() - 86400000).toISOString().slice(0, 10), to: now.toISOString().slice(0, 10) };
+          }
+          if (f === 'week') return new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10);
+          if (f === 'month') return new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10);
+          return '';
+        },
+
+        get filteredSearchDetails() {
+          let list = [...(this.analyticsData?.searchDetails || [])];
+          const cutoff = this._searchCutoff();
+          if (cutoff) {
+            if (typeof cutoff === 'object' && cutoff.from) {
+              list = list.filter(s => { const d = new Date(s.ts).toISOString().slice(0, 10); return d >= cutoff.from && d < cutoff.to; });
+            } else {
+              list = list.filter(s => new Date(s.ts).toISOString().slice(0, 10) >= cutoff);
+            }
+          }
+          if (this.searchDetailSearch) {
+            const q = this.searchDetailSearch.toLowerCase();
+            list = list.filter(s =>
+              (s.q || '').toLowerCase().includes(q) ||
+              (s.did || '').toLowerCase().includes(q) ||
+              (s.city || '').toLowerCase().includes(q)
+            );
+          }
+          return list;
         },
 
         get filteredBrands() {
@@ -907,9 +1463,47 @@
             this.sourceBrandStats = data.brandStats || [];
             this.sourceDetailStats = data.detailStats || [];
             this.sourceGreenBrands = data.greenBrands || [];
+            // v0.3.5+ capability views
+            this.parseStrategyStats = data.parseStrategyStats || [];
+            this.brandFamilyStats = data.brandFamilyStats || [];
+            this.onboardedRules = data.onboardedRules || [];
             this.sourceDiscovery = data.discovery || {};
             this.sourceGeneratedAt = data.generated_at || '';
           } catch (e) { /* ignore */ }
+        },
+
+        loadAnalyticsFromCache() {
+          try {
+            const cached = localStorage.getItem('mg_analytics_cache');
+            if (cached) {
+              const data = JSON.parse(cached);
+              // Recompute cache age from absolute _cachedAt instead of using
+              // the frozen snapshot value stored in localStorage. Without
+              // this, the UI always shows the age that was current when
+              // the response was last persisted (e.g. "35.2 minutes ago"
+              // forever), even if the admin-server has been offline for days.
+              let ageMin = Infinity;
+              if (data._cachedAt) {
+                const ageMs = Date.now() - new Date(data._cachedAt).getTime();
+                if (!isNaN(ageMs) && ageMs >= 0) {
+                  data._cacheAge = Math.round(ageMs / 1000);
+                  data._cacheAgeMin = Math.round(ageMs / 60000);
+                  ageMin = data._cacheAgeMin;
+                }
+              }
+              // If localStorage snapshot is fresh (< 5 min), use it directly
+              // and skip the network fetch. Avoids double-render of charts
+              // (which corrupts Chart.js canvas state and blanks the lines).
+              if (ageMin < 5) {
+                this.analyticsData = data;
+                this.$nextTick(() => { this.renderCharts(); setTimeout(() => this.renderGeoChart(), 800); });
+                return;
+              }
+              // Stale snapshot: skip rendering it (would cause double-paint
+              // when fresh data arrives). Just fetch new data and render once.
+            }
+          } catch (e) { /* ignore */ }
+          this.loadAnalytics();
         },
 
         async loadAnalytics() {
@@ -919,12 +1513,28 @@
             const data = await res.json();
             data._loadedAt = new Date().toLocaleTimeString('zh-CN', { hour12: false });
             this.analyticsData = data;
-            // Render charts after DOM updates
-            this.$nextTick(() => this.renderCharts());
+            try { localStorage.setItem('mg_analytics_cache', JSON.stringify(data)); } catch (e) { /* quota */ }
+            this.$nextTick(() => { this.renderCharts(); setTimeout(() => this.renderGeoChart(), 800); });
           } catch (e) {
             this.showToast(false, '分析数据加载失败: ' + e.message);
           }
           this.analyticsLoading = false;
+        },
+
+        async loadAnalyticsForceRefresh() {
+          this.analyticsRefreshing = true;
+          try {
+            const res = await fetch('/api/events/refresh', { method: 'POST' });
+            const data = await res.json();
+            data._loadedAt = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+            this.analyticsData = data;
+            try { localStorage.setItem('mg_analytics_cache', JSON.stringify(data)); } catch (e) { /* quota */ }
+            this.$nextTick(() => { this.renderCharts(); setTimeout(() => this.renderGeoChart(), 800); });
+            this.showToast(true, '数据已从 R2 刷新，耗时 ' + ((data._fetchMs || 0) / 1000).toFixed(1) + 's');
+          } catch (e) {
+            this.showToast(false, '刷新失败: ' + e.message);
+          }
+          this.analyticsRefreshing = false;
         },
 
         destroyChart(id) {
@@ -934,16 +1544,22 @@
           }
         },
 
+        _COLORS: {
+          brand: '#3b82f6', indigo: '#6366f1', green: '#22c55e', red: '#ef4444',
+          amber: '#f59e0b', purple: '#a855f7', slate: '#64748b', cyan: '#06b6d4',
+          pink: '#ec4899', lime: '#84cc16', teal: '#14b8a6', orange: '#f97316',
+        },
+        get _PIE_COLORS() {
+          const C = this._COLORS;
+          return [C.brand, C.indigo, C.green, C.red, C.amber, C.purple, C.slate, C.cyan, C.pink, C.lime, C.teal, C.orange];
+        },
+
         renderCharts() {
           if (!this.analyticsData || typeof Chart === 'undefined') return;
           const d = this.analyticsData;
 
-          const COLORS = {
-            brand: '#3b82f6', indigo: '#6366f1', green: '#22c55e', red: '#ef4444',
-            amber: '#f59e0b', purple: '#a855f7', slate: '#64748b', cyan: '#06b6d4',
-            pink: '#ec4899', lime: '#84cc16', teal: '#14b8a6', orange: '#f97316',
-          };
-          const PIE_COLORS = [COLORS.brand, COLORS.indigo, COLORS.green, COLORS.red, COLORS.amber, COLORS.purple, COLORS.slate, COLORS.cyan, COLORS.pink, COLORS.lime];
+          const COLORS = this._COLORS;
+          const PIE_COLORS = this._PIE_COLORS;
 
           // ── Daily Activity Line Chart ──
           if (d.daily?.length > 0) {
@@ -955,7 +1571,8 @@
                 data: {
                   labels: d.daily.map(r => r.day.slice(5)),
                   datasets: [
-                    { label: '设备数', data: d.daily.map(r => r.devices), borderColor: COLORS.brand, backgroundColor: COLORS.brand + '20', fill: true, tension: 0.3 },
+                    { label: 'DAU', data: d.daily.map(r => r.devices), borderColor: COLORS.brand, backgroundColor: COLORS.brand + '20', fill: true, tension: 0.3 },
+                    { label: '新用户', data: d.daily.map(r => r.newDevices || 0), borderColor: COLORS.cyan, backgroundColor: COLORS.cyan + '20', fill: true, tension: 0.3 },
                     { label: '搜索', data: d.daily.map(r => r.searches), borderColor: COLORS.indigo, tension: 0.3 },
                     { label: '复制', data: d.daily.map(r => r.copies), borderColor: COLORS.green, tension: 0.3 },
                     { label: '启动', data: d.daily.map(r => r.starts), borderColor: COLORS.slate, borderDash: [4, 4], tension: 0.3 },
@@ -1040,21 +1657,57 @@
             }
           }
 
-          // ── Country Doughnut ──
-          const cEntries = Object.entries(d.countryDist || {}).sort((a, b) => b[1] - a[1]);
-          if (cEntries.length > 0) {
-            this.destroyChart('country');
-            const ctx = document.getElementById('chartCountry');
-            if (ctx) {
-              this.chartInstances.country = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                  labels: cEntries.map(([k]) => k),
-                  datasets: [{ data: cEntries.map(([, v]) => v), backgroundColor: PIE_COLORS.slice(0, cEntries.length) }],
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '50%' },
-              });
-            }
+          // ── Geo charts rendered via separate delayed call ──
+          // (other charts above render fine because they're higher in DOM)
+        },
+
+        renderGeoChart() {
+          const d = this.analyticsData;
+          if (!d) return;
+          const tab = this.geoTab;
+          const countryDist = tab === 'today' ? (d.todayCountryDist || {}) : tab === 'yesterday' ? (d.yesterdayCountryDist || {}) : (d.countryDist || {});
+          const cityArr = tab === 'today' ? (d.todayCityDist || []) : tab === 'yesterday' ? (d.yesterdayCityDist || []) : (d.cityDist || []);
+          const chartOpts = {
+            responsive: false,
+            plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } },
+            cutout: '45%',
+          };
+
+          // Country pie
+          this.destroyChart('country');
+          const countryEntries = Object.entries(countryDist).sort((a, b) => b[1] - a[1]).slice(0, 12);
+          const cCanvas = document.getElementById('chartCountry');
+          const PIE_COLORS = this._PIE_COLORS;
+          console.log('[GeoChart] country canvas:', cCanvas, 'entries:', countryEntries.length, 'w:', cCanvas?.offsetWidth);
+          if (cCanvas && countryEntries.length > 0) {
+            cCanvas.width = cCanvas.parentElement.offsetWidth || 300;
+            cCanvas.height = 260;
+            this.chartInstances.country = new Chart(cCanvas, {
+              type: 'doughnut',
+              data: {
+                labels: countryEntries.map(([k]) => k),
+                datasets: [{ data: countryEntries.map(([, v]) => v), backgroundColor: PIE_COLORS.slice(0, countryEntries.length) }],
+              },
+              options: chartOpts,
+            });
+          }
+
+          // City pie
+          this.destroyChart('city');
+          const cityEntries = cityArr.slice(0, 10).map(c => [c.city, c.n]);
+          const cityCanvas = document.getElementById('chartCity');
+          console.log('[GeoChart] city canvas:', cityCanvas, 'entries:', cityEntries.length, 'w:', cityCanvas?.offsetWidth);
+          if (cityCanvas && cityEntries.length > 0) {
+            cityCanvas.width = cityCanvas.parentElement.offsetWidth || 300;
+            cityCanvas.height = 260;
+            this.chartInstances.city = new Chart(cityCanvas, {
+              type: 'doughnut',
+              data: {
+                labels: cityEntries.map(([k]) => k),
+                datasets: [{ data: cityEntries.map(([, v]) => v), backgroundColor: PIE_COLORS.slice(0, cityEntries.length) }],
+              },
+              options: chartOpts,
+            });
           }
         },
 
@@ -1069,6 +1722,18 @@
             this.feedbackList = [];
           }
           this.feedbackLoading = false;
+        },
+
+        async loadDiagnostics() {
+          this.diagnosticsLoading = true;
+          try {
+            const res = await fetch('/api/health/diagnostics');
+            this.diagnostics = await res.json();
+          } catch (e) {
+            console.warn('Diagnostics load failed:', e);
+            this.diagnostics = { ok: false, message: e.message };
+          }
+          this.diagnosticsLoading = false;
         },
 
         async deleteFeedback(id) {

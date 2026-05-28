@@ -2,6 +2,11 @@ name = "maggoogo-gateway"
 main = "src/index.js"
 compatibility_date = "2024-09-01"
 
+# Custom domain — GFW blocks workers.dev, so we use our own domain
+routes = [
+  { pattern = "api.naoshiquan.com/*", zone_name = "naoshiquan.com" }
+]
+
 [vars]
 # GitHub raw base URL for upstream content
 GITHUB_RAW = "https://raw.githubusercontent.com/734496335/mg-data/main"
@@ -14,3 +19,17 @@ CACHE_TTL = "300"
 [[kv_namespaces]]
 binding = "FEEDBACK"
 id = "f243ed0ab6b64f3a8e28fc636d3dcc38"
+
+[[kv_namespaces]]
+binding = "EVENTS"
+id = "6dead29b039c4343b97a3601412f7ef6"
+
+# R2 bucket for APK releases
+[[r2_buckets]]
+bucket_name = "maggoogo-releases"
+binding = "RELEASES"
+
+# R2 bucket for analytics events
+[[r2_buckets]]
+bucket_name = "maggoogo-analytics"
+binding = "ANALYTICS"

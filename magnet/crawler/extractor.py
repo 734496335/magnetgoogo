@@ -1,7 +1,8 @@
+import base64
 import requests
 import re
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, quote
 
 
 class MagnetExtractor:
@@ -24,7 +25,18 @@ class MagnetExtractor:
 
     def build_search_url(self, query):
         base = self.url.rstrip('/')
-        path = self.search_path.replace('{query}', query)
+        path = self.search_path
+        # v0.3.11: support {query_b64} placeholder used by 种子吧/zzb mirrors,
+        # plus proper URL-encoding for {query} (was passing raw chars before,
+        # which broke for Chinese queries on strict servers).
+        if '{query_b64}' in path:
+            b64 = base64.b64encode(query.encode('utf-8')).decode('ascii')
+            path = path.replace('{query_b64}', b64)
+        if '{query_quoted}' in path:
+            path = path.replace('{query_quoted}', quote(query, safe=''))
+        if '{query}' in path:
+            # Default: percent-encode (safe for both ASCII and Chinese)
+            path = path.replace('{query}', quote(query, safe=''))
         return base + path
 
     def extract_magnets(self, html, base_url=None):
@@ -89,14 +101,19 @@ class MagnetExtractor:
         return []
 
     def _extract_magnet_from_item(self, item, soup, base_url):
-        magnet_sel = self.selectors.get('magnet', 'a[href^="magnet:"]')
-        title_sel = self.selectors.get('title', 'a[href*="/torrent/"]')
-        size_sel = self.selectors.get('size', 'span.size')
-        date_sel = self.selectors.get('date', 'span.date')
+        # Empty-string selectors are legitimate (e.g. yts.rs has magnet="" because
+        # its magnets live only on detail pages). Use defaults for empty/missing.
+        magnet_sel = (self.selectors.get('magnet') or '').strip() or 'a[href^="magnet:"]'
+        title_sel = (self.selectors.get('title') or '').strip() or 'a[href*="/torrent/"]'
+        size_sel = (self.selectors.get('size') or '').strip() or 'span.size'
+        date_sel = (self.selectors.get('date') or '').strip() or 'span.date'
         magnet_link = None
-        magnet_anchors = item.select(magnet_sel) if hasattr(item, 'select') else []
-        if not magnet_anchors:
-            magnet_anchors = soup.select(magnet_sel)
+        try:
+            magnet_anchors = item.select(magnet_sel) if hasattr(item, 'select') else []
+            if not magnet_anchors:
+                magnet_anchors = soup.select(magnet_sel)
+        except Exception:
+            magnet_anchors = []
         for a in magnet_anchors:
             href = a.get('href', '')
             if href and 'magnet:' in href:

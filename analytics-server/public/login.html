@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>MagGoogo Analytics</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0f172a;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.login{width:90%;max-width:360px;text-align:center;padding:40px 24px}
+.logo{font-size:32px;margin-bottom:8px}
+h1{font-size:20px;font-weight:700;margin-bottom:6px}
+.sub{color:#64748b;font-size:14px;margin-bottom:32px}
+input{width:100%;padding:14px 16px;border:1px solid #334155;background:#1e293b;color:#fff;border-radius:12px;font-size:16px;outline:none;margin-bottom:16px;-webkit-appearance:none}
+input:focus{border-color:#3b82f6}
+button{width:100%;padding:14px;background:linear-gradient(135deg,#3b82f6,#10b981);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer}
+button:active{transform:scale(0.98)}
+.err{color:#ef4444;font-size:13px;margin-top:8px;display:none}
+</style>
+</head>
+<body>
+<div class="login">
+  <div class="logo">📊</div>
+  <h1>Magnet Googo Analytics</h1>
+  <p class="sub">运营数据面板</p>
+  <form onsubmit="return doLogin()">
+    <input type="password" id="pw" placeholder="输入密码" autocomplete="current-password">
+    <button type="submit">进入</button>
+  </form>
+  <p class="err" id="err">密码错误</p>
+</div>
+<script>
+async function doLogin(){
+  const pw = document.getElementById('pw').value;
+  try {
+    const r = await fetch('api/auth', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password:pw})});
+    if(r.ok){ location.reload(); return false; }
+  } catch{}
+  document.getElementById('err').style.display='block';
+  return false;
+}
+</script>
+</body>
+</html>

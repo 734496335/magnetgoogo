@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>MagGoogo Analytics</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--text:#e2e8f0;--sub:#94a3b8;--accent:#3b82f6;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--purple:#8b5cf6}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:env(safe-area-inset-bottom)}
+.header{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(12px)}
+.header h1{font-size:16px;font-weight:700}
+.header .refresh{background:none;border:1px solid var(--border);color:var(--sub);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer}
+.header .refresh:active{background:var(--border)}
+.tabs{display:flex;gap:4px;padding:8px 16px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:8px 16px;border-radius:20px;font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;background:var(--card);color:var(--sub);border:1px solid var(--border);flex-shrink:0}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.content{padding:12px 16px}
+.section{display:none}
+.section.active{display:block}
+/* KPI Cards */
+.kpi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px}
+.kpi .label{font-size:11px;color:var(--sub);margin-bottom:4px}
+.kpi .value{font-size:24px;font-weight:700}
+.kpi .value.green{color:var(--green)}
+.kpi .value.blue{color:var(--accent)}
+.kpi .value.purple{color:var(--purple)}
+.kpi .value.yellow{color:var(--yellow)}
+/* Chart container */
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px}
+.chart-card h3{font-size:14px;font-weight:600;margin-bottom:12px}
+.chart-wrap{position:relative;height:200px}
+/* Table */
+.tbl{width:100%;font-size:12px;border-collapse:collapse}
+.tbl th{text-align:left;color:var(--sub);font-weight:500;padding:8px 6px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--card)}
+.tbl td{padding:8px 6px;border-bottom:1px solid rgba(51,65,85,.4)}
+.tbl tr:active{background:rgba(59,130,246,.1)}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.badge.green{background:rgba(16,185,129,.15);color:var(--green)}
+.badge.red{background:rgba(239,68,68,.15);color:var(--red)}
+.badge.yellow{background:rgba(245,158,11,.15);color:var(--yellow)}
+/* List items */
+.list-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(51,65,85,.3)}
+.list-item .name{font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list-item .count{font-size:14px;font-weight:600;color:var(--accent);margin-left:12px}
+/* Loading */
+.loading{text-align:center;padding:60px 0;color:var(--sub)}
+.loading .spinner{display:inline-block;width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Event stream */
+.ev{font-size:12px;padding:8px 0;border-bottom:1px solid rgba(51,65,85,.2)}
+.ev .time{color:var(--sub);font-size:11px}
+.ev .type{font-weight:600;margin:0 6px}
+.ev .type.search{color:var(--accent)}
+.ev .type.copy{color:var(--green)}
+.ev .type.start{color:var(--purple)}
+.ev .type.src_ok{color:var(--green)}
+.ev .type.src_fail{color:var(--red)}
+/* Pull to refresh hint */
+@media(max-width:640px){
+  .kpi .value{font-size:20px}
+  .chart-wrap{height:180px}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📊 MagGoogo</h1>
+  <div style="display:flex;gap:8px;align-items:center">
+    <select id="dayRange" style="background:var(--card);border:1px solid var(--border);color:var(--sub);padding:6px 8px;border-radius:8px;font-size:12px">
+      <option value="7">7天</option>
+      <option value="30" selected>30天</option>
+      <option value="90">90天</option>
+    </select>
+    <button class="refresh" onclick="loadData()">刷新</button>
+  </div>
+</div>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" data-tab="overview">概览</div>
+  <div class="tab" data-tab="trend">趋势</div>
+  <div class="tab" data-tab="search">搜索</div>
+  <div class="tab" data-tab="source">源性能</div>
+  <div class="tab" data-tab="geo">地区</div>
+  <div class="tab" data-tab="device">设备</div>
+  <div class="tab" data-tab="stream">实时</div>
+</div>
+
+<div class="content">
+  <!-- Overview -->
+  <div class="section active" id="sec-overview">
+    <div class="kpi-grid">
+      <div class="kpi"><div class="label">今日活跃</div><div class="value green" id="k-todayDev">-</div></div>
+      <div class="kpi"><div class="label">今日搜索</div><div class="value blue" id="k-todaySearch">-</div></div>
+      <div class="kpi"><div class="label">累计用户</div><div class="value purple" id="k-totalDev">-</div></div>
+      <div class="kpi"><div class="label">累计搜索</div><div class="value yellow" id="k-totalSearch">-</div></div>
+      <div class="kpi"><div class="label">累计事件</div><div class="value" id="k-totalEvents">-</div></div>
+      <div class="kpi"><div class="label">数据批次</div><div class="value" id="k-totalBatch">-</div></div>
+    </div>
+    <div class="chart-card">
+      <h3>每日活跃用户</h3>
+      <div class="chart-wrap"><canvas id="chartDAU"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>版本分布</h3>
+      <div class="chart-wrap"><canvas id="chartVersion"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Trend -->
+  <div class="section" id="sec-trend">
+    <div class="chart-card">
+      <h3>每日搜索量</h3>
+      <div class="chart-wrap"><canvas id="chartSearches"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>每日复制 / 打开 磁力链接</h3>
+      <div class="chart-wrap"><canvas id="chartActions"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>新增 vs 回访用户</h3>
+      <div class="chart-wrap"><canvas id="chartNewRet"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Search -->
+  <div class="section" id="sec-search">
+    <div class="chart-card">
+      <h3>搜索热词 TOP 20</h3>
+      <div id="queryList"></div>
+    </div>
+  </div>
+
+  <!-- Source -->
+  <div class="section" id="sec-source">
+    <div class="chart-card" style="overflow-x:auto">
+      <h3>源性能排行</h3>
+      <table class="tbl">
+        <thead><tr><th>源</th><th>成功</th><th>失败</th><th>成功率</th><th>均耗时</th></tr></thead>
+        <tbody id="srcBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Geo -->
+  <div class="section" id="sec-geo">
+    <div class="chart-card">
+      <h3>国家/地区分布</h3>
+      <div class="chart-wrap"><canvas id="chartCountry"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>城市 TOP 20</h3>
+      <div id="cityList"></div>
+    </div>
+  </div>
+
+  <!-- Device -->
+  <div class="section" id="sec-device">
+    <div class="chart-card" style="overflow-x:auto">
+      <h3>活跃设备（最近）</h3>
+      <table class="tbl">
+        <thead><tr><th>设备</th><th>城市</th><th>版本</th><th>搜索</th><th>复制</th><th>最后活跃</th></tr></thead>
+        <tbody id="devBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Stream -->
+  <div class="section" id="sec-stream">
+    <div class="chart-card">
+      <h3>实时事件流</h3>
+      <div id="eventStream"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let DATA = null;
+const charts = {};
+
+// Tab switching
+document.getElementById('tabs').addEventListener('click', e => {
+  const tab = e.target.closest('.tab');
+  if (!tab) return;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  tab.classList.add('active');
+  document.getElementById('sec-' + tab.dataset.tab).classList.add('active');
+});
+
+document.getElementById('dayRange').addEventListener('change', () => loadData());
+
+async function loadData() {
+  const days = document.getElementById('dayRange').value;
+  try {
+    const r = await fetch(`api/analytics?days=${days}&token=${getCookie('auth')}`);
+    if (r.status === 401) { location.reload(); return; }
+    DATA = await r.json();
+    render();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function getCookie(name) {
+  const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+function render() {
+  if (!DATA) return;
+  const s = DATA.summary;
+
+  // KPIs
+  el('k-todayDev').textContent = s.todayDevices;
+  el('k-todaySearch').textContent = s.todaySearches;
+  el('k-totalDev').textContent = s.totalDevices;
+  el('k-totalSearch').textContent = s.totalSearches;
+  el('k-totalEvents').textContent = s.totalEvents;
+  el('k-totalBatch').textContent = s.totalBatches;
+
+  // DAU chart
+  makeChart('chartDAU', 'line', {
+    labels: DATA.daily.map(d => d.day.slice(5)),
+    datasets: [{ label: '活跃用户', data: DATA.daily.map(d => d.devices), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,.1)', fill: true, tension: 0.3 }]
+  });
+
+  // Searches chart
+  makeChart('chartSearches', 'line', {
+    labels: DATA.daily.map(d => d.day.slice(5)),
+    datasets: [{ label: '搜索量', data: DATA.daily.map(d => d.searches), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.1)', fill: true, tension: 0.3 }]
+  });
+
+  // Actions chart
+  makeChart('chartActions', 'line', {
+    labels: DATA.daily.map(d => d.day.slice(5)),
+    datasets: [
+      { label: '复制', data: DATA.daily.map(d => d.copies), borderColor: '#10b981', tension: 0.3 },
+      { label: '打开', data: DATA.daily.map(d => d.opens), borderColor: '#f59e0b', tension: 0.3 },
+    ]
+  });
+
+  // New vs Returning
+  makeChart('chartNewRet', 'bar', {
+    labels: DATA.daily.map(d => d.day.slice(5)),
+    datasets: [
+      { label: '新用户', data: DATA.daily.map(d => d.newDevices), backgroundColor: '#3b82f6' },
+      { label: '回访', data: DATA.daily.map(d => d.devices - d.newDevices), backgroundColor: '#334155' },
+    ]
+  }, { scales: { x: { stacked: true }, y: { stacked: true } } });
+
+  // Version pie
+  makeChart('chartVersion', 'doughnut', {
+    labels: Object.keys(DATA.versionDist),
+    datasets: [{ data: Object.values(DATA.versionDist), backgroundColor: ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4'] }]
+  }, { plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12 } } } });
+
+  // Country pie
+  makeChart('chartCountry', 'doughnut', {
+    labels: Object.keys(DATA.countryDist),
+    datasets: [{ data: Object.values(DATA.countryDist), backgroundColor: ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#ec4899'] }]
+  }, { plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12 } } } });
+
+  // Query list
+  el('queryList').innerHTML = DATA.topQueries.map(q =>
+    `<div class="list-item"><span class="name">${esc(q.q)}</span><span class="count">${q.n}</span></div>`
+  ).join('');
+
+  // Source table
+  el('srcBody').innerHTML = DATA.sourcePerf.map(s => {
+    const cls = s.rate >= 90 ? 'green' : s.rate >= 50 ? 'yellow' : 'red';
+    return `<tr><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.src)}</td><td>${s.ok}</td><td>${s.fail}</td><td><span class="badge ${cls}">${s.rate}%</span></td><td>${s.avgMs}ms</td></tr>`;
+  }).join('');
+
+  // City list
+  el('cityList').innerHTML = DATA.cityDist.map(c =>
+    `<div class="list-item"><span class="name">${esc(c.city)}</span><span class="count">${c.n}</span></div>`
+  ).join('');
+
+  // Device table
+  el('devBody').innerHTML = DATA.devices.slice(0, 50).map(d =>
+    `<tr><td style="font-family:monospace;font-size:11px">${d.did}</td><td>${esc(d.city||'-')}</td><td>${d.appV}</td><td>${d.searches}</td><td>${d.copies}</td><td style="font-size:11px;color:var(--sub)">${d.lastSeen.slice(5,16).replace('T',' ')}</td></tr>`
+  ).join('');
+
+  // Event stream
+  el('eventStream').innerHTML = DATA.recentEvents.map(ev => {
+    const t = new Date(ev.ts).toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const day = new Date(ev.ts).toLocaleDateString('zh-CN', {month:'2-digit',day:'2-digit'});
+    let cls = ev.e === 'search' ? 'search' : ev.e.includes('copy') ? 'copy' : ev.e === 'app_start' ? 'start' : ev.e === 'src_ok' ? 'src_ok' : ev.e === 'src_fail' ? 'src_fail' : '';
+    let detail = '';
+    if (ev.q) detail = `"${esc(ev.q)}"`;
+    if (ev.src) detail = esc(ev.src);
+    return `<div class="ev"><span class="time">${day} ${t}</span><span class="type ${cls}">${ev.e}</span>${detail} <span class="time">${ev.did||''} ${esc(ev.city||'')}</span></div>`;
+  }).join('');
+}
+
+function makeChart(id, type, data, extraOpts) {
+  if (charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  const defaults = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: type !== 'doughnut' ? true : undefined, labels: { color: '#94a3b8', boxWidth: 10, font: { size: 11 } } } },
+    scales: type === 'doughnut' ? undefined : { x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: 'rgba(51,65,85,.3)' } }, y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: 'rgba(51,65,85,.3)' } } },
+  };
+  const opts = { ...defaults, ...extraOpts };
+  if (type === 'doughnut' && extraOpts?.plugins) opts.plugins = { ...defaults.plugins, ...extraOpts.plugins };
+  charts[id] = new Chart(ctx, { type, data, options: opts });
+}
+
+function el(id) { return document.getElementById(id); }
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// Load on start
+loadData();
+
+// Auto refresh every 5 min
+setInterval(loadData, 300000);
+</script>
+</body>
+</html>

@@ -4,3 +4,16 @@ lxml
 selenium
 webdriver-manager
 python-dotenv
+
+# crawler_v2 (Scrapling): TLS-impersonating HTTP + StealthyFetcher browser
+# Optional — v1 modules work without these.
+scrapling[fetchers]>=0.4.8
+
+# AI bootstrap dev tools (NOT used in production extractor / healer):
+# _ai_bootstrap_crawl4ai.py / _ai_bootstrap_scrapegraph.py — generate
+# sources.json selectors for new/broken sites by asking an LLM once,
+# then validating the output. Requires DEEPSEEK_API_KEY (or OPENAI/ARK/Gemini)
+# in magnet/.env.
+crawl4ai>=0.8.6
+scrapegraphai>=1.76.0
+pydantic>=2.0

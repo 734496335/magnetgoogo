@@ -18,8 +18,17 @@ import sys
 import hashlib
 import hmac
 import base64
+import gzip
 import shutil
 from pathlib import Path
+
+# ── Force UTF-8 stdout/stderr on Windows (GBK can't handle ✓/→ etc.) ──
+try:
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+except Exception:
+    pass
 
 # ── Must match crypto.ts key fragments ──
 # Regenerate both together with _gen_key.py
@@ -86,22 +95,53 @@ def aes_cbc_decrypt(ciphertext: bytes, key: bytes, iv: bytes) -> bytes:
         return unpadder.update(padded) + unpadder.finalize()
 
 
-def encrypt_sources(sources_path: Path, config_path: Path = None) -> dict:
+def filter_curated(raw: dict) -> dict:
+    """Keep only rules that real users find useful: status=green OR user_active.
+    Preserves the rulesets envelope and per-ruleset metadata so the client
+    parser stays unchanged. v0.1.10."""
+    if not isinstance(raw, dict) or not raw.get('rulesets'):
+        return raw
+    kept_total = 0
+    dropped_total = 0
+    out = dict(raw)
+    new_rulesets = []
+    for rs in raw['rulesets']:
+        rules = rs.get('rules') or []
+        keep = []
+        for r in rules:
+            h = r.get('health') or {}
+            if h.get('status') == 'green' or h.get('user_active') is True:
+                keep.append(r)
+        kept_total += len(keep)
+        dropped_total += len(rules) - len(keep)
+        new_rs = dict(rs)
+        new_rs['rules'] = keep
+        new_rulesets.append(new_rs)
+    out['rulesets'] = new_rulesets
+    print(f"  Curated filter: kept {kept_total} rules, dropped {dropped_total} "
+          f"(green ∪ user_active)")
+    return out
+
+
+def encrypt_sources(sources_path: Path, config_path: Path = None,
+                    curated: bool = False) -> dict:
     """Encrypt sources.json with expiry metadata, return {iv, ct, sig}."""
     key = bytes.fromhex(KEY_HEX)
     iv = os.urandom(16)
 
     # Load raw sources
     raw = json.loads(sources_path.read_bytes())
+    if curated:
+        raw = filter_curated(raw)
 
     # Read config for expiry settings
     expiry_hours = 72  # default 3 days
-    min_app_version = "1.0.0"
+    min_app_version = "0.1.0"
     schema_version = 1
     if config_path and config_path.exists():
         cfg = json.loads(config_path.read_text("utf-8"))
         expiry_hours = cfg.get("source_expiry_hours", 72)
-        min_app_version = cfg.get("min_version", "1.0.0")
+        min_app_version = cfg.get("min_version", "0.1.0")
         schema_version = cfg.get("source_schema_version", 1)
 
     from datetime import datetime, timezone, timedelta
@@ -117,10 +157,14 @@ def encrypt_sources(sources_path: Path, config_path: Path = None) -> dict:
         "payload": raw,
     }
 
-    plaintext = json.dumps(envelope, ensure_ascii=False).encode("utf-8")
+    plaintext = json.dumps(envelope, ensure_ascii=False, separators=(',', ':')).encode("utf-8")
+
+    # Gzip compress before encryption (93% size reduction on JSON)
+    compressed = gzip.compress(plaintext, compresslevel=9)
+    print(f"  Compression: {len(plaintext):,} → {len(compressed):,} bytes ({100-len(compressed)*100//len(plaintext)}% saved)")
 
     # AES-256-CBC
-    ciphertext = aes_cbc_encrypt(plaintext, key, iv)
+    ciphertext = aes_cbc_encrypt(compressed, key, iv)
     ct_b64 = base64.b64encode(ciphertext).decode("ascii")
 
     # HMAC-SHA256 over base64 ciphertext (matches CryptoJS.HmacSHA256(ct, key))
@@ -133,6 +177,7 @@ def encrypt_sources(sources_path: Path, config_path: Path = None) -> dict:
         "iv": iv.hex(),
         "ct": ct_b64,
         "sig": sig,
+        "gz": True,
     }
 
 
@@ -151,7 +196,13 @@ def verify_roundtrip(enc_payload: dict) -> bool:
         return False
 
     # Decrypt
-    plaintext = aes_cbc_decrypt(ct, key, iv)
+    decrypted = aes_cbc_decrypt(ct, key, iv)
+
+    # Decompress if gzipped
+    if enc_payload.get("gz"):
+        decrypted = gzip.decompress(decrypted)
+
+    plaintext = decrypted
     envelope = json.loads(plaintext)
 
     # Handle envelope format (with metadata) or raw format
@@ -192,8 +243,12 @@ def main():
         sys.exit(1)
 
     config_path = DIST_DIR / "config.json"
-    print(f"Encrypting {SOURCES_JSON} ...")
-    payload = encrypt_sources(SOURCES_JSON, config_path)
+    curated = "--curated" in sys.argv
+    if curated:
+        print(f"Encrypting {SOURCES_JSON} (CURATED: green ∪ user_active only) ...")
+    else:
+        print(f"Encrypting {SOURCES_JSON} ...")
+    payload = encrypt_sources(SOURCES_JSON, config_path, curated=curated)
 
     # Ensure dist directory
     DIST_DIR.mkdir(exist_ok=True)

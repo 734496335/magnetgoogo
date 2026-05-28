@@ -42,13 +42,18 @@ function recordHit(origin: string) {
 const MIRROR_PATTERNS: [RegExp, string][] = [
   [/piratebay|pirateproxy|tpb\.|pirate-proxy/i, 'tpb'],
   [/magnetdl/i, 'magnetdl'],
-  [/0cili/i, '0cili'],
+  [/0cili|wuji\.me|cilisousuo/i, '0magnet'],
   [/clb\d/i, 'clb'],
+  [/sobt\d/i, 'sobt'],
+  [/clm\d|magnetcatcat/i, 'clm'],
+  [/zzb\d|zhongziba|seed8\.org/i, 'zzb'],
+  [/cld\d|529\d{3}/i, 'cld'],
   [/rutor/i, 'rutor'],
   [/1337|1377/i, '1337x'],
   [/tokyotosho/i, 'tokyotosho'],
-  [/dmhy|動漫花園/i, 'dmhy'],
+  [/dmhy|anoneko/i, 'dmhy'],
   [/yts\./i, 'yts'],
+  [/nyaa/i, 'nyaa'],
 ];
 
 function detectMirrorGroup(origin: string): string {
@@ -62,17 +67,33 @@ function detectMirrorGroup(origin: string): string {
 const FUSE_OPTS = {
   keys: ['t'],
   includeScore: true,
-  threshold: 0.8,
+  threshold: 0.5,
   ignoreLocation: true,
   minMatchCharLength: 2,
 };
 
 export function computeRelevance(title: string, query: string, _sourceScore: number): number {
   if (!title || !query) return 0;
+
+  // Signal 1: keyword containment (most reliable for CJK)
+  const titleLower = title.toLowerCase();
+  const queryLower = query.toLowerCase();
+  const keywords = queryLower.split(/[\s_\-+.]+/).filter(w => w.length >= 2);
+  const fullMatch = titleLower.includes(queryLower);
+  const kwHits = keywords.length > 0
+    ? keywords.filter(kw => titleLower.includes(kw)).length / keywords.length
+    : 0;
+
+  // Signal 2: Fuse.js fuzzy match (better for typos / transliterations)
   const fuse = new Fuse([{ t: title }], FUSE_OPTS);
   const hits = fuse.search(query);
-  if (hits.length === 0) return 0;
-  return Math.round((1 - (hits[0].score ?? 1)) * 1000) / 1000;
+  const fuseScore = hits.length > 0 ? (1 - (hits[0].score ?? 1)) : 0;
+
+  // Combine: keyword match dominates, fuse supplements
+  const combined = fullMatch ? 1.0
+    : Math.max(kwHits * 0.9, fuseScore);
+
+  return Math.round(combined * 1000) / 1000;
 }
 
 /* ---- Concurrency runner ---- */
@@ -164,6 +185,8 @@ export class SearchOrchestrator {
                 ...r,
                 relevance: computeRelevance(r.title, query, r.score),
               }));
+              // No hard filter — sortResults will rank by relevance, slice(0,24) trims the tail.
+              // This avoids censoring legitimate adult/niche searches where keywords may not match exactly.
               onResults(scored);
               recordHit(rule.site.origin);
             }
