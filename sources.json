@@ -4008,24 +4008,24 @@
           },
           "capabilities": {
             "supports_search": true,
-            "supports_detail": false
+            "supports_detail": true
           },
           "search": {
-            "request_template": "/?q={query}",
+            "request_template": "/search/{query_hex}_1.html",
             "timeout_ms": 15000,
             "retries": {
               "max_attempts": 3,
               "backoff_ms": 1000
             },
-            "requires_waf_bypass": false,
-            "requires_browser": false,
+            "requires_waf_bypass": true,
+            "requires_browser": true,
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.item",
-                "title": "a[href]",
+                "list_item": "li.list-group-item",
+                "title": "div.title a",
+                "detail_link": "div.title a",
                 "magnet": "a[href^=\"magnet:\"]",
-                "size": "span.size",
-                "date": "span.date"
+                "size": "span.badge"
               }
             }
           },
@@ -4041,11 +4041,11 @@
             "status_detail": "waf",
             "last_checked_at": "2026-05-28T10:04:57.034423+00:00",
             "magnets_found": 0,
-            "sample_title": "磁力星球",
+            "sample_title": "Inception.2010.UHD.Bluray.1080p.DUAL.x264-HDM",
             "diagnosis": "导航站dh0.cn发现候选，待自动验证",
             "note": "legacy status_detail=has_keywords_needs_browser"
           },
-          "notes": "needs_tier2_handler_or_2captcha: CF 403, CloakBrowser cannot solve"
+          "notes": "YELLOW-fixed: correct URL /search/{query_hex}_1.html found, detail-follow works in headed mode, but headless CloakBrowser cannot solve Turnstile"
         },
         {
           "id": "09ef96988531",

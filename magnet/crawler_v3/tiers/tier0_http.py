@@ -84,6 +84,7 @@ class Tier0Http(Tier):
             "{query}": encoded,
             "{query_url}": encoded,
             "{query_b64}": base64.b64encode(query.encode("utf-8")).decode("ascii"),
+            "{query_hex}": query.encode("utf-8").hex(),
             "{query_raw}": query,
         }
         path = template

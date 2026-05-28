@@ -150,6 +150,7 @@ class Tier1Cloak(Tier):
             "{query_url}": encoded,
             "{query_raw}": query,
             "{query_b64}": base64.b64encode(query.encode("utf-8")).decode("ascii"),
+            "{query_hex}": query.encode("utf-8").hex(),
         }.items():
             path = path.replace(k, v)
         return path if path.startswith("http") else origin + (path if path.startswith("/") else "/" + path)
