@@ -988,14 +988,15 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "waf",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-16T02:03:34.026197+00:00",
             "magnets_found": 2,
             "sample_title": "",
             "note": "demoted: 0% success across all users per analytics (browser rendering fails)",
             "fail_streak": 0
-          }
+          },
+          "notes": "domain expired, for sale on porkbun.com"
         },
         {
           "id": "c3d4e5f6a7b8",
