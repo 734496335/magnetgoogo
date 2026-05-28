@@ -8,7 +8,7 @@
 |---|---|---|---|---|---|---|
 | E.01 | seedhub | https://www.seedhub.cc | WAF-HARDER | 0 | CF 403, CloakBrowser 0 results, search_template 无 {query} | |
 | E.02 | 0magnet | https://0magnet.co | DEAD | 0 | domain expired, for sale on porkbun.com | |
-| E.03 | 磁力星球 | https://www.cilixingqiu.net | _pending_ | | | |
+| E.03 | 磁力星球 | https://www.cilixingqiu.net | WAF-HARDER | 0 | CF 403, CloakBrowser 42s 0 results | |
 | E.04 | 天堂磁力 | https://www.tiantangcili.net | _pending_ | | | |
 | E.05 | 磁力夜 | https://www.ciliri.shop | _pending_ | | | |
 | E.06 | bt4gprx | https://bt4gprx.com | _pending_ | | | |

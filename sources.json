@@ -3989,7 +3989,8 @@
             "sample_title": "磁力星球",
             "diagnosis": "导航站dh0.cn发现候选，待自动验证",
             "note": "legacy status_detail=has_keywords_needs_browser"
-          }
+          },
+          "notes": "needs_tier2_handler_or_2captcha: CF 403, CloakBrowser cannot solve"
         },
         {
           "id": "09ef96988531",
@@ -10745,14 +10746,15 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "waf",
+            "status": "gray",
+            "status_detail": "expired",
             "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
             "fail_streak": 0,
             "magnets_found": 0,
             "sample_title": "",
             "note": "demoted: 0% success across all users per analytics (browser rendering fails)"
-          }
+          },
+          "notes": "domain redirects to btsearch.pl via tracking URL, not a real search site"
         },
         {
           "id": "5be0171154ca",
