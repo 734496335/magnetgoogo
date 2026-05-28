@@ -1,4 +1,74 @@
 ---
+日期/时间：2026-05-28 22:30（UTC+8）
+本次版本：crawler-v3-phase2-5-complete + Phase 3 plan
+本次范围：**v3 项目终章 + Phase 3 启航：legado 式人机验证 + cookie 持久化**
+涉及模块：docs/project-nebula/CRAWLER-V3-PHASE-3-PLAN.md（新）, DEV-LOG.md
+
+### v3 项目盘点（pre-crawler-v3 → phase2-5-complete，约 9.5h 总耗时）
+
+| 阶段 | tag | 净增 GREEN 品牌 | 耗时 |
+|---|---|---|---|
+| 起点 | `pre-crawler-v3` | 48 | — |
+| Phase 1 | `crawler-v3-stable` | +4（thatcdn 4 yellow→green）→ 52 | ~5h |
+| Phase 2 | `crawler-v3-phase2-complete` | +3（BTSOW、磁力狐、BT1207）→ 55 | ~3h |
+| Phase 2.5 | `crawler-v3-phase2-5-complete` | +0（修了 tier1 假阳性 + 5 源真实分类）| ~1.5h |
+| **小计** | — | **+7 个独立资源池品牌** | **~9.5h** |
+
+### Phase 2 + 2.5 真相回顾：50 个 yellow-only 品牌实际分布
+
+```
+~16 个 DEAD（域名失效）          32%
+~14 个 SPA shell / 不是磁力站    28%
+~6 个 WordPress / 跳转链         12%
+~5 个 真 Turnstile/reCaptcha     10%   ← Phase 3 目标
+~7 个 真能修 → 已升 GREEN        14%
+~2 个 配置错 + Turnstile 中间态  4%    ← Phase 3 目标
+```
+
+→ **结论**：磁力站圈本身在萎缩，未来增长点不是「找新源」而是「破解 Turnstile/reCaptcha 类活体验证站」。
+
+### Phase 3 关键认知翻新（用户提醒，开源项目 legado 已走通）
+
+之前一直把「人机验证」当成阻碍，要尽量绕过。**错了。**
+
+`d:\lpproduct\magnet\legado-master\app\src\main\java\io\legado\app\ui\browser\WebViewActivity.kt:300` 行示范了正确路径：
+
+```kotlin
+view.evaluateJavascript("!!window._cf_chl_opt") {
+    if (it == "true") { isCloudflareChallenge = true }
+    else if (isCloudflareChallenge && viewModel.sourceVerificationEnable) {
+        viewModel.saveVerificationResult(binding.webView) { finish() }
+    }
+}
+```
+
+机制：
+1. WebView 加载站点 → 用户看到 CF 「请稍候/正在验证」
+2. JS 探针 `!!window._cf_chl_opt` 检测是否在 CF 挑战
+3. 用户点完盾牌后 `_cf_chl_opt` 消失 → onPageFinished 自动存 `cf_clearance` cookie
+4. 后续所有 HTTP 请求带这个 cookie → 30 天内不再触发 CF
+
+**关键洞察**：CloakBrowser headless 试图「无人通过」是高难度路径；让用户点一次盾牌、cookie 用 30 天，是经过 legado 多年验证的低难度路径。我们已经有 `magnetgoogo-app/src/components/VerifyWebView.tsx` 但**没接通 cookie 持久化 + Tier 0 复用**。
+
+### Phase 3 目标（详见 CRAWLER-V3-PHASE-3-PLAN.md）
+
+把 legado 模式接到 v3：
+1. **CookieStore 子系统**：跨 Tier 0/1 共享，按 origin 持久化，TTL 30 天
+2. **VerifyWebView 接 v3**：Tier 1 拿到 challenge → escalate 到 RN VerifyWebView → 用户点一下 → 存 cookie → 后续走 Tier 0 + cookie
+3. **服务端等价物**：`crawler_v3/cli.py verify-interactive --origin X` 命令打开 headed CloakBrowser，操作员手动过 CF，存 cookie 到 `~/.cache/magnet/cookies/<origin>.json`
+
+预期解锁：~5 个真 Turnstile 站（E.07 magnetcatcat / cilixingqiu / 天堂磁力 / 磁力夜 / bt4gprx）+ 修复 status_detail=waf 的另外几个站。理论 +5-8 GREEN 品牌。
+
+### 这次的 commits
+
+- ceb88c5 Phase 2.5 patch plan（已记前次）
+- bc06349 fix(tier1): precise CF challenge detection
+- d192443 / 101380e / 90420aa / ea07ea2 / cacc493 fix(phase2.5): E.03/E.01/E.04/E.05/E.07 单源单 commit
+- ec1a152 Phase 2.5 completion report
+- （本次）docs: v3 finale + Phase 3 plan
+
+---
+
 日期/时间：2026-05-28 22:00（UTC+8）
 本次版本：crawler-v3-phase2-complete
 本次范围：**Phase 2 品牌覆盖率扩展 — Task E/F/G/H 全部完成**
