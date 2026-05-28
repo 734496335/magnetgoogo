@@ -368,6 +368,7 @@ eas build --profile preview --platform ios
 | 2026-05-28 23:20 | Phase 0 | OK | ~15min | node v24.15.0 / npm 11.12.1 / eas 18.8.1 / AMDS 19.4.0.10 / AltServer 运行中 |
 | 2026-05-28 23:30 | Phase 1 | OK | ~10min | installApk iOS 守卫 x2 / app.json ios infoPlist / icon 1024x1024 RGB OK / tsc 5 err (基线) |
 | 2026-05-28 23:50 | Phase 2 | OK | ~5min | eas.json +development/preview/production ios profiles |
+| 2026-05-29 00:05 | Pre-flight Audit | 🟡 黄灯 | ~15min | 详见 IOS-PREFLIGHT-AUDIT.md；建议先装 expo-font + react-native-worklets 再 EAS Build |
 | | Phase 3 | | | |
 | | Phase 4 | | | |
 | | Phase 5 | | | |
