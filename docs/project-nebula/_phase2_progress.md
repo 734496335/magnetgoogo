@@ -13,7 +13,7 @@
 | E.05 | 磁力夜 | https://www.ciliri.shop | _pending_ | | | |
 | E.06 | bt4gprx | https://bt4gprx.com | _pending_ | | | |
 | E.07 | magnetcatcat | https://magnetcatcat.com | _pending_ | | | |
-| E.08 | BTSearch | https://btsearch.org | _pending_ | | | |
+| E.08 | BTSearch | https://btsearch.org | DEAD | 0 | redirects to btsearch.pl via tracking URL | |
 
 **Task E 小结**（完成后填）：
 - N/8 GREEN-promoted
