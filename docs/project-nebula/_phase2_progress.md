@@ -68,7 +68,7 @@
 | F.40 | 91BT(eeenav) | https://911173.xyz | _pending_ | | **eeenav 模板分析锚点** |
 | F.41 | 吴签磁力(mirror) | https://wuqianyx.top | GREEN-promoted | 5 | **thatcdn — tier_override added** |
 | F.42 | BT1207(eeenav) | https://bt1207yx.top | _pending_ | | possibly thatcdn |
-| F.43 | 磁力柠檬(mirror) | https://lemonzc.top | _pending_ | | **thatcdn — tier_override 即可** |
+| F.43 | 磁力柠檬(mirror) | https://lemonzc.top | GREEN-promoted | 5 | **thatcdn — tier_override added** |
 | F.44 | 无极磁链(eeenav) | https://wuji.me | _pending_ | | mirror of F.37 |
 | F.45 | 磁力发(eeenav) | https://www.jzcilifa1.shop | _pending_ | | |
 
