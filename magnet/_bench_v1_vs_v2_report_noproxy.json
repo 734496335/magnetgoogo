@@ -1,0 +1,106 @@
+{
+  "total": 5,
+  "verdicts": {
+    "PARTIAL": 5
+  },
+  "proxy": null,
+  "rows": [
+    {
+      "idx": 1,
+      "origin": "https://xiongmaogb.top",
+      "brand": "磁力熊猫",
+      "id": "bili_xiongmao",
+      "v1": null,
+      "v2": {
+        "status": "parsing_failed",
+        "url": "https://xiongmaogb.top",
+        "error": "page accessible but parsing failed (Fetcher + StealthyFetcher)",
+        "selectors_tried": {
+          "list_item": "",
+          "title": "",
+          "magnet": "",
+          "size": "",
+          "date": ""
+        },
+        "_elapsed": 31.57,
+        "_label": "v2"
+      },
+      "verdict": "PARTIAL"
+    },
+    {
+      "idx": 2,
+      "origin": "https://lemonun.top",
+      "brand": "磁力柠檬",
+      "id": "bili_lemon",
+      "v1": null,
+      "v2": {
+        "status": "parsing_failed",
+        "url": "https://lemonun.top",
+        "error": "page accessible but parsing failed (Fetcher + StealthyFetcher)",
+        "selectors_tried": {
+          "list_item": "",
+          "title": "",
+          "magnet": "",
+          "size": "",
+          "date": ""
+        },
+        "_elapsed": 30.81,
+        "_label": "v2"
+      },
+      "verdict": "PARTIAL"
+    },
+    {
+      "idx": 3,
+      "origin": "https://laowangzo.top",
+      "brand": "老王磁力",
+      "id": "db3422c10fba",
+      "v1": null,
+      "v2": {
+        "status": "parsing_failed",
+        "url": "https://laowangzo.top",
+        "error": "page accessible but parsing failed (Fetcher + StealthyFetcher)",
+        "selectors_tried": {
+          "list_item": "div.search-item",
+          "title": "a.item-title",
+          "magnet": "a[href^=\"magnet:\"]",
+          "size": "span.item-size",
+          "date": "span.item-date"
+        },
+        "_elapsed": 52.03,
+        "_label": "v2"
+      },
+      "verdict": "PARTIAL"
+    },
+    {
+      "idx": 4,
+      "origin": "https://wuqianso.org",
+      "brand": "吴签磁力",
+      "id": "bili_wuqian",
+      "v1": null,
+      "v2": {
+        "status": "waf",
+        "url": "https://wuqianso.org",
+        "error": "WAF blocked (HTTP 403)",
+        "status_code": 403,
+        "_elapsed": 7.32,
+        "_label": "v2"
+      },
+      "verdict": "PARTIAL"
+    },
+    {
+      "idx": 5,
+      "origin": "https://0magnet.co",
+      "brand": "0magnet.co",
+      "id": "869343c8155f",
+      "v1": null,
+      "v2": {
+        "status": "crashed",
+        "error": "Expected a selector at position 0\n  line 1:\n\n^",
+        "_elapsed": 1.52,
+        "_label": "v2"
+      },
+      "verdict": "PARTIAL"
+    }
+  ],
+  "generated_at": "2026-05-21T09:09:53"
+}

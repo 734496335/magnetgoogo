@@ -1,0 +1,354 @@
+{
+  "磁力狗": [
+    {
+      "domain": "0mag.biz",
+      "type": "has_search_form",
+      "title": "ØMagnet - Made Torrent Sharing  Easy"
+    },
+    {
+      "domain": "bs5.org",
+      "type": "homepage_only",
+      "title": "找资源就上巴士资源站 - bs5.org"
+    },
+    {
+      "domain": "ciligou.app",
+      "type": "SEARCH_ENGINE",
+      "title": "磁力狗 - 懂你的搜索",
+      "path": "/search?word=c3BpZGVy",
+      "magnets": 0,
+      "hashes": 0,
+      "selector": "div.Search_title_wrapper",
+      "items": 12
+    }
+  ],
+  "BT蚂蚁": [
+    {
+      "domain": "1230150.xyz",
+      "type": "has_search_form",
+      "title": "BT蚂蚁 - 磁力链接搜索,BT种子搜索,磁力搜索引擎"
+    },
+    {
+      "domain": "1230151.xyz",
+      "type": "has_search_form",
+      "title": "BT蚂蚁 - 磁力链接搜索,BT种子搜索,磁力搜索引擎"
+    }
+  ],
+  "磁力帝": [
+    {
+      "domain": "1122137.xyz",
+      "type": "release_page",
+      "title": "磁力帝 - 磁力链接,BT种子搜索,磁力搜索引擎"
+    },
+    {
+      "domain": "1122138.xyz",
+      "type": "release_page",
+      "title": "磁力帝 - 磁力链接,BT种子搜索,磁力搜索引擎"
+    },
+    {
+      "domain": "cld123.com",
+      "type": "release_page",
+      "title": "磁力帝 - 磁力链接,BT种子搜索,磁力搜索引擎"
+    }
+  ],
+  "磁力帝备用": [
+    {
+      "domain": "cldcld.cc",
+      "type": "homepage_only",
+      "title": "ç£åå¸ææ°ç½åï¼æ¶èæåå®¶ä"
+    }
+  ],
+  "52BT": [
+    {
+      "domain": "52btbt.icu",
+      "type": "homepage_only",
+      "title": "52BTææ°å°ååå¸é¡µ"
+    }
+  ],
+  "磁力爬": [
+    {
+      "domain": "btsao.com",
+      "type": "homepage_only",
+      "title": "N/A"
+    }
+  ],
+  "搜番": [
+    {
+      "domain": "dobt.top",
+      "type": "has_search_form",
+      "title": "ç¾åº¦ä¸ä¸ï¼ä½ å°±ç¥é"
+    },
+    {
+      "domain": "duo6.top",
+      "type": "homepage_only",
+      "title": "ç£åå¤"
+    }
+  ],
+  "BT蚂蚁导航": [
+    {
+      "domain": "10why.net",
+      "type": "has_search_form",
+      "title": "十万个为什么 - 在线青少年百科全书"
+    },
+    {
+      "domain": "2048bt.top",
+      "type": "homepage_only",
+      "title": "Loading..."
+    },
+    {
+      "domain": "51job.com",
+      "type": "homepage_only",
+      "title": "招聘网_人才网_找工作_求职_上前程无忧"
+    },
+    {
+      "domain": "529952.xyz",
+      "type": "homepage_only",
+      "title": "æ­£å¨è¿å¥"
+    },
+    {
+      "domain": "aidh.me",
+      "type": "homepage_only",
+      "title": "AIDH Studio - Minimalist digital-age int"
+    },
+    {
+      "domain": "aizhan.com",
+      "type": "homepage_only",
+      "title": "站长工具-百度权重排名查询-站长seo查询 - 爱站网"
+    },
+    {
+      "domain": "asklib.com",
+      "type": "homepage_only",
+      "title": "问答库_做最有用的题库问答学习平台"
+    },
+    {
+      "domain": "bdstatic.com",
+      "type": "has_search_form",
+      "title": "ç¾åº¦ä¸ä¸ï¼ä½ å°±ç¥é"
+    },
+    {
+      "domain": "bing.com",
+      "type": "homepage_only",
+      "title": "搜尋 - Microsoft Bing"
+    },
+    {
+      "domain": "bitdao.me",
+      "type": "homepage_only",
+      "title": "N/A"
+    },
+    {
+      "domain": "btbtt10.com",
+      "type": "homepage_only",
+      "title": "btbtt10.com"
+    },
+    {
+      "domain": "btcherries.xyz",
+      "type": "homepage_only",
+      "title": "Loading..."
+    },
+    {
+      "domain": "btfox.cyou",
+      "type": "homepage_only",
+      "title": "ç£åç - BTç§å­ç£åé¾æ¥æç´¢ç¥"
+    },
+    {
+      "domain": "bthaha.top",
+      "type": "homepage_only",
+      "title": "BTHaHa"
+    }
+  ],
+  "磁力天堂导航": [
+    {
+      "domain": "1000mag.xyz",
+      "type": "homepage_only",
+      "title": "1000mag.xyz"
+    },
+    {
+      "domain": "1024tools.com",
+      "type": "homepage_only",
+      "title": "1024工具箱 - 1024Tools - 免费在线工具箱"
+    },
+    {
+      "domain": "10why.net",
+      "type": "has_search_form",
+      "title": "十万个为什么 - 在线青少年百科全书"
+    },
+    {
+      "domain": "163.com",
+      "type": "homepage_only",
+      "title": "网易"
+    },
+    {
+      "domain": "17ce.com",
+      "type": "homepage_only",
+      "title": "网站测速|网站速度测试|网速测试|电信|联通|网通|全国|监控|CDN|PING"
+    },
+    {
+      "domain": "2048bt.top",
+      "type": "homepage_only",
+      "title": "Loading..."
+    },
+    {
+      "domain": "360kuai.com",
+      "type": "homepage_only",
+      "title": "【快资讯】你的专属资讯平台"
+    },
+    {
+      "domain": "365psd.com",
+      "type": "has_search_form",
+      "title": "Free Mockups & Editable Templates to Dow"
+    },
+    {
+      "domain": "51job.com",
+      "type": "homepage_only",
+      "title": "招聘网_人才网_找工作_求职_上前程无忧"
+    },
+    {
+      "domain": "51yuansu.com",
+      "type": "homepage_only",
+      "title": "安全验证"
+    },
+    {
+      "domain": "529952.xyz",
+      "type": "homepage_only",
+      "title": "æ­£å¨è¿å¥"
+    },
+    {
+      "domain": "588ku.com",
+      "type": "homepage_only",
+      "title": "千库网_免费png图片背景素材下载,商用版权设计素材图库"
+    },
+    {
+      "domain": "58pic.com",
+      "type": "homepage_only",
+      "title": "千图网-免费在线设计图片素材网站-正版商用素材图库模板大全"
+    },
+    {
+      "domain": "616pic.com",
+      "type": "homepage_only",
+      "title": "【图精灵】_免费PNG图片下载_高清背景图片素材_自由设计"
+    },
+    {
+      "domain": "90sheji.com",
+      "type": "homepage_only",
+      "title": "90设计网，电商设计模板 PNG素材 背景图免费下载网站"
+    }
+  ],
+  "磁力猫导航": [
+    {
+      "domain": "0458ds.com",
+      "type": "has_search_form",
+      "title": "ãä¼æ¥ä¿¡æ¯ç½ãwww.0458ds.com åè"
+    },
+    {
+      "domain": "0ddh.com",
+      "type": "has_search_form",
+      "title": "零点导航-来路来访皆第一-用导航就选头牌！"
+    },
+    {
+      "domain": "100bt.com",
+      "type": "homepage_only",
+      "title": "百田网_好玩的00后综合娱乐平台"
+    },
+    {
+      "domain": "10jqka.com.cn",
+      "type": "homepage_only",
+      "title": "同花顺财经__让投资变得更简单"
+    },
+    {
+      "domain": "135editor.com",
+      "type": "SEARCH_ENGINE",
+      "title": "135编辑器 - 专业公众号排版工具_微信公众号编辑器_智能AI排版",
+      "path": "/search/spider",
+      "magnets": 0,
+      "hashes": 0,
+      "selector": "li.item",
+      "items": 83
+    },
+    {
+      "domain": "15dg.com",
+      "type": "has_search_form",
+      "title": "印度伟哥代购|印度双效片|印度男性药|正品直邮-尽欢印度药官网"
+    },
+    {
+      "domain": "163.com",
+      "type": "homepage_only",
+      "title": "网易"
+    },
+    {
+      "domain": "163yun.com",
+      "type": "homepage_only",
+      "title": "网易数帆-为每一个组织构建独特的数智竞争力"
+    },
+    {
+      "domain": "1688.com",
+      "type": "homepage_only",
+      "title": "N/A"
+    },
+    {
+      "domain": "17173.com",
+      "type": "has_search_form",
+      "title": "17173ç½ç»æ¸¸æé¨æ·ç«"
+    },
+    {
+      "domain": "179p.com",
+      "type": "homepage_only",
+      "title": "179P.com Ultra Premium Domain For Sale -"
+    },
+    {
+      "domain": "18rwan.com",
+      "type": "has_search_form",
+      "title": "单机游戏下载-绅士游戏下载-18rwan游戏网"
+    }
+  ],
+  "16map排行": [
+    {
+      "domain": "2048117.xyz",
+      "type": "homepage_only",
+      "title": "Deepseek.app is for sale,only $1000000.0"
+    },
+    {
+      "domain": "aidh.net",
+      "type": "has_search_form",
+      "title": "AI导航 - 专业AI工具集网站_精选AIGC生成式工具"
+    },
+    {
+      "domain": "ciliduo.org",
+      "type": "homepage_only",
+      "title": "ç£åå¤-ç£åé¾æ¥æç´¢å¼æ"
+    },
+    {
+      "domain": "googlesyndication.com",
+      "type": "has_search_form",
+      "title": "Google"
+    },
+    {
+      "domain": "ilemon00.xyz",
+      "type": "release_page",
+      "title": "网址安全中心 | 加载中"
+    },
+    {
+      "domain": "laowang.icu",
+      "type": "release_page",
+      "title": "网址安全中心 | 加载中"
+    },
+    {
+      "domain": "laowangoa.xyz",
+      "type": "homepage_only",
+      "title": "Redirecting..."
+    },
+    {
+      "domain": "lemonma.xyz",
+      "type": "homepage_only",
+      "title": "bfbcaifdhdfdsgdfu.com"
+    },
+    {
+      "domain": "s-jl.com",
+      "type": "homepage_only",
+      "title": "è®¾è®¡å"
+    },
+    {
+      "domain": "skrbtfo.xyz",
+      "type": "release_page",
+      "title": "网址安全中心 | 加载中"
+    }
+  ]
+}

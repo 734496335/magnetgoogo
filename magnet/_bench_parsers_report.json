@@ -1,0 +1,150 @@
+{
+  "rows": [
+    {
+      "brand": "animetosho.org",
+      "origin": "https://animetosho.org",
+      "url": "https://animetosho.org/search?q=Inception",
+      "html_size": 10071,
+      "sample_title": "Torrent",
+      "had_sample_magnet": false,
+      "v1_heuristic": {
+        "method": "v1_heuristic",
+        "count": 0,
+        "hashes": []
+      },
+      "autoscraper": {
+        "method": "autoscraper",
+        "count": 0,
+        "hashes": [],
+        "magnets_full": 0,
+        "raw_total_results": 0
+      },
+      "trafilatura": {
+        "method": "trafilatura",
+        "count": 0,
+        "hashes": [],
+        "magnets_in_text": 0,
+        "extracted_text_len": 665
+      },
+      "regex_only": {
+        "method": "regex_only",
+        "count": 0,
+        "hashes": [],
+        "magnets_in_html": 0
+      }
+    },
+    {
+      "brand": "fitgirl-repacks.site",
+      "origin": "https://fitgirl-repacks.site",
+      "url": "https://fitgirl-repacks.site/?q=Inception",
+      "html_size": 228363,
+      "sample_title": "The Witcher 3",
+      "had_sample_magnet": false,
+      "v1_heuristic": {
+        "method": "v1_heuristic",
+        "count": 7,
+        "hashes": [
+          "D34F97DE2210453D430F689F6C8D6A71EA53790E",
+          "D17072AF6069E228BBB49E456395BC50CB01704A",
+          "8BB7F65C42622B2066F5104EF3256FE2B5372846",
+          "4D3DD0C7DE2E3CD60663D4EC74952C6B08FA0A4D",
+          "BB0248BC474133CE6E827038390A245433F0D02C"
+        ]
+      },
+      "autoscraper": {
+        "method": "autoscraper",
+        "count": 0,
+        "hashes": [],
+        "magnets_full": 0,
+        "raw_total_results": 0
+      },
+      "trafilatura": {
+        "method": "trafilatura",
+        "count": 0,
+        "hashes": [],
+        "magnets_in_text": 0,
+        "extracted_text_len": 1861
+      },
+      "regex_only": {
+        "method": "regex_only",
+        "count": 15,
+        "hashes": [
+          "4E1CD215DC8966153D31B25B03569FD06EDD7FA2",
+          "1DB7F3EA2861958294BC4C5B02663FB20E4D5A80",
+          "87E83B5251CC8C6A257EC1065C936D13D54111F7",
+          "72B920E9326624CD2C25ECC2CAF75028632CF4B2",
+          "D34F97DE2210453D430F689F6C8D6A71EA53790E"
+        ],
+        "magnets_in_html": 7
+      }
+    },
+    {
+      "brand": "无极磁链",
+      "origin": "https://0cili.nl",
+      "url": "https://0cili.nl/search?q=Inception",
+      "html_size": 4570,
+      "sample_title": "盗梦空间 Inception 2010 Bluray 2160p DTS-HDMA5.1 HDR x265 10bit-DreamHD",
+      "had_sample_magnet": false,
+      "v1_heuristic": {
+        "method": "v1_heuristic",
+        "count": 0,
+        "hashes": []
+      },
+      "autoscraper": {
+        "method": "autoscraper",
+        "count": 0,
+        "hashes": [],
+        "magnets_full": 0,
+        "raw_total_results": 0
+      },
+      "trafilatura": {
+        "method": "trafilatura",
+        "count": 0,
+        "hashes": [],
+        "magnets_in_text": 0,
+        "extracted_text_len": 413
+      },
+      "regex_only": {
+        "method": "regex_only",
+        "count": 0,
+        "hashes": [],
+        "magnets_in_html": 0
+      }
+    },
+    {
+      "brand": "Knaben",
+      "origin": "https://knaben.org/?ref=eeenav.com",
+      "url": "https://knaben.org/?ref=eeenav.com/search/?q=Inception",
+      "html_size": 88963,
+      "sample_title": "Inception (2010) 1080p BRRip x264 -YTS",
+      "had_sample_magnet": false,
+      "v1_heuristic": {
+        "method": "v1_heuristic",
+        "count": 0,
+        "hashes": []
+      },
+      "autoscraper": {
+        "method": "autoscraper",
+        "count": 0,
+        "hashes": [],
+        "magnets_full": 0,
+        "raw_total_results": 0
+      },
+      "trafilatura": {
+        "method": "trafilatura",
+        "count": 0,
+        "hashes": [],
+        "magnets_in_text": 0,
+        "extracted_text_len": 7946
+      },
+      "regex_only": {
+        "method": "regex_only",
+        "count": 0,
+        "hashes": [],
+        "magnets_in_html": 0
+      }
+    }
+  ],
+  "query": "Inception",
+  "generated_at": "2026-05-21T09:19:52"
+}
