@@ -33,6 +33,7 @@ run.log
 .claude/settings.local.json
 .claude/cache/
 .claude/logs/
+.claude/worktrees/
 .windsurf/
 
 # ── Encrypted dist (generated) ──
@@ -59,3 +60,63 @@ __pycache__/
 
 # ── Legado reference (not our code) ──
 legado-master/
+
+# ── Throwaway scripts in magnet/ subdir (mirror the root-level rule) ──
+magnet/_*.py
+magnet/_*.json
+magnet/_*.txt
+magnet/_*.html
+magnet/nav_*.json
+
+# ── Test / screenshot / log artifacts (any depth) ──
+test_*.png
+test_screen*.png
+k30s_*
+**/k30s_*
+*.apk
+*.ipa
+*.aab
+
+# ── Magnetgoogo-app debug dumps ──
+magnetgoogo-app/build-green/
+magnetgoogo-app/build*.log
+magnetgoogo-app/app_log.txt
+magnetgoogo-app/logcat*.txt
+magnetgoogo-app/window.xml
+magnetgoogo-app/com.facebook.*
+magnetgoogo-app/com.magnetgoogo.app.*
+magnetgoogo-app/*-rkstorage.db
+magnetgoogo-app/MagGoogo-*.apk
+
+# ── Root-level debug / temp artifacts ──
+/_build_log.txt
+/_screen_home.png
+/_git_status_*.txt
+/k30s_*
+/*-rkstorage*.db
+/sources.json.bak_*
+/tmp_*.conf
+/tmp_*.sh
+/baidu_verify_codeva-*.html
+/promo-posts.md
+
+# ── Sibling project clones (have their own .git) ──
+/magnetgoogo/
+/magnetgoogo-site/
+/naoshiquan-site/
+/maggoogo-sources/.git/
+/tmp-maggoogo-sources/
+/tmp-magnetgoogo/
+/tmp-mg-data/
+/test-killswitch/
+
+# ── Analytics/admin server runtime ──
+admin-server/cache/
+admin-server/node_modules/
+analytics-server/node_modules/
+analytics-server/data/
+*/.wrangler/
+*/.baidu-push-log/
+
+# ── Releases (built artifacts archive) ──
+/releases/
