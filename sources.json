@@ -4604,6 +4604,10 @@
             "last_check": "2026-04-21T00:51:45.993605+00:00",
             "note": "cloak_verify: jump/redirect page, not a search engine",
             "fail_streak": 0
+          },
+          "tier_override": {
+            "tier": "tier2_handler",
+            "platform": "thatcdn"
           }
         },
         {
