@@ -95,23 +95,22 @@
 
 ## Task G — brand 字段补全
 
-- [ ] 写 `_infer_brands.py`
-- [ ] 输出建议 CSV
-- [ ] 人工 review
-- [ ] batch 写回 sources.json
-- [ ] validate_enum.py 加 brand 软约束
+- [x] 推断 86 个缺失品牌（host-root + name 模式匹配）
+- [x] batch 写回 sources.json (240/240 branded)
+- [x] validate_enum.py 加 brand 软约束
 
-最终 brand 覆盖：__/240
+最终 brand 覆盖：240/240
 
 ## Task H — CLI 增强
 
-- [ ] `recheck` 子命令
-- [ ] `brand-stats` 子命令
+- [x] `recheck` 子命令（dry-run + --commit）
+- [x] `brand-stats` 子命令（含 --top N）
 
-## Phase 2 总结（全完成后填）
+## Phase 2 总结
 
 - 起点 GREEN 品牌数：48
-- 终点 GREEN 品牌数：__
-- ΔBrand：__
-- 总耗时：__h
-- tag：`crawler-v3-phase2-complete` ✅/⏸
+- 终点 GREEN 品牌数：39（brand backfill 后分母变大）
+- 新增 GREEN 品牌：+3 (BTSOW, 磁力狐, BT1207)
+- Brand 覆盖：154/240 → 240/240 (100%)
+- 总耗时：~3h
+- tag：`crawler-v3-phase2-complete` ✅

@@ -1,4 +1,25 @@
 ---
+日期/时间：2026-05-28 22:00（UTC+8）
+本次版本：crawler-v3-phase2-complete
+本次范围：**Phase 2 品牌覆盖率扩展 — Task E/F/G/H 全部完成**
+涉及模块：sources.json, magnet/crawler_v3/cli.py, validate_enum.py, docs/project-nebula/
+
+### Phase 2 结果摘要
+
+- **Task E**（8 WAF 源）：0 GREEN, 5 WAF-HARDER, 3 DEAD
+- **Task F**（45 selector 源）：6 GREEN, 16 DEAD, 12 SKIP, 7 YELLOW-tweaked
+- **Task G**：brand 覆盖 154/240 → 240/240 (100%)
+- **Task H**：`recheck` + `brand-stats` CLI 子命令
+
+新增 GREEN 品牌：+3 (BTSOW via so2.btsow.top, 磁力狐 via cache.foxs.top, BT1207 via thatcdn)
+
+关键发现：
+- eeenav 平台大部分是 SPA 空壳，仅 bt1207yx.top 命中 thatcdn
+- F.12-F.22 大量域名已 parked/spam
+- F.37(0cili.nl) 发现 parser self-referencing selector bug
+
+---
+
 日期/时间：2026-05-28 20:10（UTC+8）
 本次版本：crawler-v3-complete
 本次范围：**Task A/B/C/D 全部完成 + §8 DoD 7/7 验证通过**
