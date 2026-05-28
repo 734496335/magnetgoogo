@@ -14,7 +14,8 @@
             "origin": "https://animetosho.org",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "Animetosho"
           },
           "capabilities": {
             "supports_detail": true
@@ -65,7 +66,8 @@
           "site": {
             "name": "btso.cc",
             "origin": "https://btso.cc",
-            "countries": []
+            "countries": [],
+            "brand": "BTSo"
           },
           "capabilities": {
             "supports_search": true,
@@ -110,7 +112,8 @@
           "site": {
             "name": "btdb.to",
             "origin": "https://btdb.to",
-            "countries": []
+            "countries": [],
+            "brand": "BTDB"
           },
           "capabilities": {
             "supports_search": true,
@@ -154,7 +157,8 @@
           "site": {
             "name": "btsow.com",
             "origin": "https://btsow.com",
-            "countries": []
+            "countries": [],
+            "brand": "BTSOW"
           },
           "capabilities": {
             "supports_search": true,
@@ -197,7 +201,8 @@
           "site": {
             "name": "extratorrent.ag",
             "origin": "https://extratorrent.ag",
-            "countries": []
+            "countries": [],
+            "brand": "ExtraTorrent"
           },
           "capabilities": {
             "supports_search": true,
@@ -241,7 +246,8 @@
           "site": {
             "name": "btfans.com",
             "origin": "https://btfans.com",
-            "countries": []
+            "countries": [],
+            "brand": "BTfans"
           },
           "capabilities": {
             "supports_search": true,
@@ -284,7 +290,8 @@
           "site": {
             "name": "limetorrents.cc",
             "origin": "https://limetorrents.cc",
-            "countries": []
+            "countries": [],
+            "brand": "LimeTorrents"
           },
           "capabilities": {
             "supports_search": true,
@@ -329,7 +336,8 @@
           "site": {
             "name": "kickasstorrents.bz",
             "origin": "https://kickasstorrents.bz",
-            "countries": []
+            "countries": [],
+            "brand": "KickassTorrents"
           },
           "capabilities": {
             "supports_search": true,
@@ -372,7 +380,8 @@
           "site": {
             "name": "btbtt12.com",
             "origin": "https://btbtt12.com",
-            "countries": []
+            "countries": [],
+            "brand": "BT电影天堂"
           },
           "capabilities": {
             "supports_search": true,
@@ -417,7 +426,8 @@
           "site": {
             "name": "btcake.com",
             "origin": "https://btcake.com",
-            "countries": []
+            "countries": [],
+            "brand": "BTCake"
           },
           "capabilities": {
             "supports_search": true,
@@ -461,7 +471,8 @@
           "site": {
             "name": "cilimao.com",
             "origin": "https://cilimao.com",
-            "countries": []
+            "countries": [],
+            "brand": "磁力猫"
           },
           "capabilities": {
             "supports_search": true,
@@ -506,7 +517,8 @@
           "site": {
             "name": "种子搜索.com",
             "origin": "https://种子搜索.com",
-            "countries": []
+            "countries": [],
+            "brand": "种子搜索"
           },
           "capabilities": {
             "supports_search": true,
@@ -549,7 +561,8 @@
           "site": {
             "name": "legacy-site.pw",
             "origin": "https://legacy-site.pw",
-            "countries": []
+            "countries": [],
+            "brand": "Legacy"
           },
           "capabilities": {
             "supports_search": true,
@@ -591,7 +604,8 @@
             "origin": "https://www.torrentdownload.info",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "TorrentDownload"
           },
           "capabilities": {
             "supports_search": true,
@@ -636,7 +650,8 @@
             "origin": "https://www.6v520.com",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "6v电影"
           },
           "capabilities": {
             "supports_search": true,
@@ -690,7 +705,8 @@
             "origin": "https://www.seedhub.cc",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "SeedHub"
           },
           "capabilities": {
             "supports_search": false,
@@ -741,7 +757,8 @@
             "origin": "https://animetime.cc/",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "AnimeTime"
           },
           "capabilities": {
             "supports_search": true,
@@ -800,7 +817,8 @@
             "origin": "https://arab-torrents.com",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "Arab-Torrents"
           },
           "capabilities": {
             "supports_search": true,
@@ -846,7 +864,8 @@
             "origin": "https://fitgirl-repacks.site",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "FitGirl Repacks"
           },
           "capabilities": {
             "supports_search": true,
@@ -894,7 +913,8 @@
             "origin": "https://btsow.pics",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "BTSOW"
           },
           "capabilities": {
             "supports_search": true,
@@ -951,7 +971,8 @@
             ],
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "0magnet"
           },
           "capabilities": {
             "supports_search": true,
@@ -5577,7 +5598,8 @@
             "origin": "http://thepiratebay.xyz",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "The Pirate Bay"
           },
           "capabilities": {
             "supports_search": true,
@@ -5624,7 +5646,8 @@
             "origin": "https://0cili.org",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "无极磁链"
           },
           "capabilities": {
             "supports_search": true,
@@ -5730,7 +5753,8 @@
             "origin": "https://bitsearch.to",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "Bitsearch"
           },
           "capabilities": {
             "supports_search": true,
@@ -5776,7 +5800,8 @@
             "origin": "https://thepiratebay0.org",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "The Pirate Bay"
           },
           "capabilities": {
             "supports_search": true,
@@ -5823,7 +5848,8 @@
             "origin": "https://tpb.party",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "The Pirate Bay"
           },
           "capabilities": {
             "supports_search": true,
@@ -5870,7 +5896,8 @@
             "origin": "https://thepiratebay10.org",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "The Pirate Bay"
           },
           "capabilities": {
             "supports_search": true,
@@ -5974,7 +6001,8 @@
             "origin": "https://thepiratebay.isproxy.online",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "The Pirate Bay"
           },
           "capabilities": {
             "supports_search": true,
@@ -6029,7 +6057,8 @@
             "origin": "https://mirrorbay.org",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "The Pirate Bay"
           },
           "capabilities": {
             "supports_search": true,
@@ -6084,7 +6113,8 @@
             "origin": "https://thepiratebay.isproxy.pics",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "The Pirate Bay"
           },
           "capabilities": {
             "supports_search": true,
@@ -6139,7 +6169,8 @@
             "origin": "https://thepiratebay.isproxy.space",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "The Pirate Bay"
           },
           "capabilities": {
             "supports_search": true,
@@ -6194,7 +6225,8 @@
             "origin": "https://piratebay.party",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "The Pirate Bay"
           },
           "capabilities": {
             "supports_search": true,
@@ -6241,7 +6273,8 @@
             "origin": "https://thepiratebay.zone",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "The Pirate Bay"
           },
           "capabilities": {
             "supports_search": true,
@@ -6288,7 +6321,8 @@
             "origin": "https://piratebay.live",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "The Pirate Bay"
           },
           "capabilities": {
             "supports_search": true,
@@ -6335,7 +6369,8 @@
             "origin": "https://pirateproxy.live",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "The Pirate Bay"
           },
           "capabilities": {
             "supports_search": true,
@@ -6382,7 +6417,8 @@
             "origin": "https://thepiratebay.rocks",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "The Pirate Bay"
           },
           "capabilities": {
             "supports_search": true,
@@ -6429,7 +6465,8 @@
             "origin": "https://yts.rs",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "YTS"
           },
           "capabilities": {
             "supports_detail": true
@@ -6484,7 +6521,8 @@
             "origin": "https://yts.do",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "YTS"
           },
           "capabilities": {
             "supports_detail": true
@@ -6535,7 +6573,8 @@
           "id": "magnet_magnetdl_app",
           "site": {
             "name": "magnetdl.app",
-            "origin": "https://magnetdl.app"
+            "origin": "https://magnetdl.app",
+            "brand": "MagnetDL"
           },
           "search": {
             "request_template": "/search/?q={query}",
@@ -6573,7 +6612,8 @@
           "id": "magnet_magnetdl_pro",
           "site": {
             "name": "magnetdl.pro",
-            "origin": "https://magnetdl.pro"
+            "origin": "https://magnetdl.pro",
+            "brand": "MagnetDL"
           },
           "search": {
             "request_template": "/search/?q={query}",
@@ -6611,7 +6651,8 @@
           "id": "magnet_tokyotosho_org",
           "site": {
             "name": "tokyotosho.org",
-            "origin": "https://tokyotosho.org"
+            "origin": "https://tokyotosho.org",
+            "brand": "Tokyotosho"
           },
           "search": {
             "request_template": "/?q={query}",
@@ -6645,7 +6686,8 @@
           "id": "magnet_u3c3_com",
           "site": {
             "name": "u3c3.com",
-            "origin": "https://u3c3.com"
+            "origin": "https://u3c3.com",
+            "brand": "U3C3"
           },
           "search": {
             "request_template": "/?q={query}",
@@ -6681,7 +6723,8 @@
           "id": "magnet_pirate_proxy_thepiratebay_rocks",
           "site": {
             "name": "pirate-proxy.thepiratebay.rocks",
-            "origin": "https://pirate-proxy.thepiratebay.rocks"
+            "origin": "https://pirate-proxy.thepiratebay.rocks",
+            "brand": "The Pirate Bay"
           },
           "search": {
             "request_template": "/search/{query}/0/7/0",
@@ -6718,7 +6761,8 @@
           "id": "magnet_piratebayproxy_live",
           "site": {
             "name": "piratebayproxy.live",
-            "origin": "https://piratebayproxy.live"
+            "origin": "https://piratebayproxy.live",
+            "brand": "The Pirate Bay"
           },
           "search": {
             "request_template": "/search/{query}/0/7/0",
@@ -6755,7 +6799,8 @@
           "id": "magnet_pirateproxylive_org",
           "site": {
             "name": "pirateproxylive.org",
-            "origin": "https://pirateproxylive.org"
+            "origin": "https://pirateproxylive.org",
+            "brand": "The Pirate Bay"
           },
           "search": {
             "request_template": "/search/{query}/0/7/0",
@@ -6792,7 +6837,8 @@
           "id": "magnet_rutor_info",
           "site": {
             "name": "rutor.info",
-            "origin": "https://rutor.info"
+            "origin": "https://rutor.info",
+            "brand": "Rutor"
           },
           "search": {
             "request_template": "/search/0/0/000/0/{query}",
@@ -6829,7 +6875,8 @@
           "id": "magnet_rutor_is",
           "site": {
             "name": "rutor.is",
-            "origin": "https://rutor.is"
+            "origin": "https://rutor.is",
+            "brand": "Rutor"
           },
           "search": {
             "request_template": "/search/0/0/000/0/{query}",
@@ -6866,7 +6913,8 @@
           "id": "magnet_thepiratebay_bond",
           "site": {
             "name": "thepiratebay.bond",
-            "origin": "https://thepiratebay.bond"
+            "origin": "https://thepiratebay.bond",
+            "brand": "The Pirate Bay"
           },
           "search": {
             "request_template": "/search/{query}/0/7/0",
@@ -6903,7 +6951,8 @@
           "id": "magnet_thepiratebay_party",
           "site": {
             "name": "thepiratebay.party",
-            "origin": "https://thepiratebay.party"
+            "origin": "https://thepiratebay.party",
+            "brand": "The Pirate Bay"
           },
           "search": {
             "request_template": "/search/{query}/0/7/0",
@@ -6940,7 +6989,8 @@
           "id": "magnet_thepiratebay10_xyz",
           "site": {
             "name": "thepiratebay10.xyz",
-            "origin": "https://thepiratebay10.xyz"
+            "origin": "https://thepiratebay10.xyz",
+            "brand": "The Pirate Bay"
           },
           "search": {
             "request_template": "/search/{query}/0/7/0",
@@ -6977,7 +7027,8 @@
           "id": "magnet_thepiratebay10_info",
           "site": {
             "name": "thepiratebay10.info",
-            "origin": "https://thepiratebay10.info"
+            "origin": "https://thepiratebay10.info",
+            "brand": "The Pirate Bay"
           },
           "search": {
             "request_template": "/search/{query}/0/7/0",
@@ -7014,7 +7065,8 @@
           "id": "magnet_thepiratebay11_com",
           "site": {
             "name": "thepiratebay11.com",
-            "origin": "https://thepiratebay11.com"
+            "origin": "https://thepiratebay11.com",
+            "brand": "The Pirate Bay"
           },
           "search": {
             "request_template": "/search/{query}/0/7/0",
@@ -7051,7 +7103,8 @@
           "id": "magnet_thepiratebay7_com",
           "site": {
             "name": "thepiratebay7.com",
-            "origin": "https://thepiratebay7.com"
+            "origin": "https://thepiratebay7.com",
+            "brand": "The Pirate Bay"
           },
           "search": {
             "request_template": "/search/{query}/0/7/0",
@@ -7778,7 +7831,8 @@
           "id": "magnet_529072_xyz",
           "site": {
             "name": "52BT (529072.xyz)",
-            "origin": "https://529072.xyz"
+            "origin": "https://529072.xyz",
+            "brand": "52BT"
           },
           "search": {
             "request_template": "/search?wd={query_b64}",
@@ -7830,7 +7884,8 @@
           "id": "magnet_529073_xyz",
           "site": {
             "name": "52BT (529073.xyz)",
-            "origin": "https://529073.xyz"
+            "origin": "https://529073.xyz",
+            "brand": "52BT"
           },
           "search": {
             "request_template": "/search?wd={query_b64}",
@@ -7885,7 +7940,8 @@
             "origin": "https://www.javbus.com",
             "countries": [
               "japan"
-            ]
+            ],
+            "brand": "JavBus"
           },
           "capabilities": {
             "supports_detail": true
@@ -7940,7 +7996,8 @@
             "origin": "https://knaben.eu",
             "countries": [
               "europe"
-            ]
+            ],
+            "brand": "Knaben"
           },
           "capabilities": {
             "supports_detail": false
@@ -7986,7 +8043,8 @@
             "origin": "https://share.dmhy.org",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "動漫花園"
           },
           "capabilities": {
             "supports_detail": false
@@ -8032,7 +8090,8 @@
             "origin": "https://dmhy.anoneko.com",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "動漫花園"
           },
           "capabilities": {
             "supports_detail": false
@@ -8078,7 +8137,8 @@
             "origin": "https://nyaa.iss.ink",
             "countries": [
               "asia"
-            ]
+            ],
+            "brand": "Nyaa"
           },
           "capabilities": {
             "supports_detail": false
@@ -8123,7 +8183,8 @@
             "origin": "https://mikanani.me",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "Mikanani"
           },
           "capabilities": {
             "supports_search": true,
@@ -8170,7 +8231,8 @@
             "origin": "https://acg.rip",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "ACG.rip"
           },
           "capabilities": {
             "supports_search": true,
@@ -8225,7 +8287,8 @@
             "origin": "https://so2.btsow.top",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "BTSOW"
           },
           "capabilities": {
             "supports_search": true,
@@ -8272,7 +8335,8 @@
             "origin": "https://www.1377x.to",
             "countries": [
               "international"
-            ]
+            ],
+            "brand": "1337x"
           },
           "capabilities": {
             "supports_search": true,
@@ -8329,7 +8393,8 @@
             "origin": "https://www.1337xx.to",
             "countries": [
               "international"
-            ]
+            ],
+            "brand": "1337x"
           },
           "capabilities": {
             "supports_search": true,
@@ -8385,7 +8450,8 @@
             "origin": "https://0cili.com",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "无极磁链"
           },
           "capabilities": {
             "supports_search": true,
@@ -8440,7 +8506,8 @@
             "origin": "https://bt4gprx.com",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "BT4G"
           },
           "capabilities": {
             "supports_search": true,
@@ -8499,7 +8566,8 @@
             "origin": "https://www.6v520.com",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "6v电影"
           },
           "capabilities": {
             "supports_search": true,
@@ -8548,7 +8616,8 @@
             "origin": "https://www.meijumi.net",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "美剧迷"
           },
           "capabilities": {
             "supports_search": true,
@@ -8598,7 +8667,8 @@
             "origin": "https://yhg007.com",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "移花宫"
           },
           "capabilities": {
             "supports_search": true,
@@ -8649,7 +8719,8 @@
             "origin": "https://m.zhongzidi.com",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "种子帝"
           },
           "capabilities": {
             "supports_search": true,
@@ -8698,7 +8769,8 @@
             "origin": "https://btdig.com",
             "countries": [
               "global"
-            ]
+            ],
+            "brand": "BTDigg"
           },
           "capabilities": {
             "supports_search": true,
@@ -8743,7 +8815,8 @@
           "id": "uindex_001",
           "site": {
             "name": "UIndex",
-            "origin": "https://uindex.org"
+            "origin": "https://uindex.org",
+            "brand": "UIndex"
           },
           "search": {
             "request_template": "/search.php?search={query}",
@@ -8791,7 +8864,8 @@
           "id": "rarbggo_001",
           "site": {
             "name": "RARBG",
-            "origin": "https://rarbggo.to"
+            "origin": "https://rarbggo.to",
+            "brand": "RARBG"
           },
           "search": {
             "request_template": "/search/?search={query}",
@@ -8838,7 +8912,8 @@
           "id": "rrjav_001",
           "site": {
             "name": "RRJAV",
-            "origin": "https://rrjav.com"
+            "origin": "https://rrjav.com",
+            "brand": "RRJAV"
           },
           "search": {
             "request_template": "/?s={query}",
@@ -8895,7 +8970,8 @@
             "release_page_alt": "https://cilidi.cyou/",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "磁力帝"
           },
           "capabilities": {
             "supports_detail": true
@@ -8952,7 +9028,8 @@
             "release_page": "https://tellme.pw/btsow",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "BTSOW"
           },
           "capabilities": {
             "supports_detail": true
@@ -9076,7 +9153,8 @@
             "release_page": "https://xn--vur557cbpe6y0c.lol/",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "磁力猫"
           },
           "capabilities": {
             "supports_detail": false
@@ -9192,7 +9270,8 @@
             "release_page": "https://btmirror.neocities.org/",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "磁力爬"
           },
           "capabilities": {
             "supports_detail": false
@@ -9238,7 +9317,8 @@
             "release_page": "https://xn--i8sq8r6zst7c.com/",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "52BT"
           },
           "capabilities": {
             "supports_detail": false
@@ -9283,7 +9363,8 @@
             "origin": "https://clzhizhu.com",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "磁力蜘蛛"
           },
           "capabilities": {
             "supports_detail": false
@@ -9328,7 +9409,8 @@
             "origin": "https://www.lianjierenwu.org",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "链接任务"
           },
           "capabilities": {
             "supports_detail": false
@@ -9374,7 +9456,8 @@
             "release_page": "https://goto.sofan.in/",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "搜番"
           },
           "capabilities": {
             "supports_detail": false
@@ -9420,7 +9503,8 @@
             "release_page": "https://xn--tfrq9jjzak83g.com/",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "磁力天堂"
           },
           "capabilities": {
             "supports_detail": false
@@ -9466,7 +9550,8 @@
             "release_page": "https://btbtmayi.com/",
             "countries": [
               "china"
-            ]
+            ],
+            "brand": "BT蚂蚁"
           },
           "capabilities": {
             "supports_detail": false
@@ -9508,7 +9593,8 @@
           "id": "10498ce1e29e",
           "site": {
             "name": "nyaa.si",
-            "origin": "https://nyaa.si"
+            "origin": "https://nyaa.si",
+            "brand": "Nyaa"
           },
           "capabilities": {
             "supports_search": true,
