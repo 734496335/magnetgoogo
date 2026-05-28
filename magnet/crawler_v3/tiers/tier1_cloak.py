@@ -35,12 +35,17 @@ except ImportError:
     _HAS_CLOAK = False
 
 
-# CF / Turnstile detection markers
-CHALLENGE_MARKERS = (
+# CF challenge detection — split into strong (always in head) and weak (title-only)
+# to avoid false positives from common Chinese loading text on regular sites.
+CF_STRONG_MARKERS = (
     "challenge-platform",
     "cf-browser-verification",
     "Just a moment",
     "Checking your browser",
+    "__cf_chl_",
+    "cf-mitigated",
+)
+CF_WEAK_TITLE_MARKERS = (
     "请稍候",
     "正在进行安全验证",
 )
@@ -110,7 +115,10 @@ class Tier1Cloak(Tier):
 
             elapsed = time.time() - start
             head = last_html[:8000]
-            challenge_present = any(m in head for m in CHALLENGE_MARKERS)
+            challenge_present = (
+                any(m in head for m in CF_STRONG_MARKERS)
+                or self._title_has_weak_marker(page)
+            )
             if not challenge_present and elapsed > 3:
                 # page settled, no challenge, no results — selectors likely wrong, give up
                 return []
@@ -119,6 +127,14 @@ class Tier1Cloak(Tier):
 
         # Final attempt after timeout
         return extract_results_from_html(last_html, source=source, base_url=base_url)
+
+    def _title_has_weak_marker(self, page) -> bool:
+        """Check if <title> contains weak CF markers (avoids body false positives)."""
+        try:
+            title = page.title() or ""
+        except Exception:
+            return False
+        return any(m in title for m in CF_WEAK_TITLE_MARKERS)
 
     def _build_search_url(self, source: dict, query: str) -> str:
         import base64
