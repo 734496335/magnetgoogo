@@ -9196,7 +9196,7 @@
             "sample_title": "",
             "note": "Auto health check: yellow→green. cloudflare_search"
           },
-          "notes": "needs_tier2_handler_or_2captcha: CF 403"
+          "notes": "WAF-HARDER-confirmed: CF Turnstile does not resolve even in headed mode after 15s"
         },
         {
           "id": "zyscj_clgclg",

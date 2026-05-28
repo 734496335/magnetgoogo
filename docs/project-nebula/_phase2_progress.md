@@ -31,7 +31,7 @@
 | E.03 | WAF-HARDER | YELLOW-fixed | /search/{query_hex}_1.html | 1 (headed) |
 | E.04 | WAF-HARDER | YELLOW-fixed | /?key={query} | 0 (headless) | correct param is key, Turnstile blocks headless |
 | E.05 | WAF-HARDER | SKIP | N/A | 0 | site returns 403 Forbidden (not CF) |
-| E.07 | WAF-HARDER | _pending_ | | |
+| E.07 | WAF-HARDER | WAF-HARDER-confirmed | N/A | 0 | Turnstile does not resolve even headed |
 
 ## Task F — Selector 失效品牌批量修复（45 源）
 
