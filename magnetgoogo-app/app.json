@@ -15,7 +15,18 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.magnetgoogo.app"
+      "bundleIdentifier": "com.magnetgoogo.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        },
+        "LSApplicationQueriesSchemes": [
+          "magnet",
+          "https",
+          "http"
+        ]
+      }
     },
     "android": {
       "package": "com.magnetgoogo.app",

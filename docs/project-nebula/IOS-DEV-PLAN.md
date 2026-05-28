@@ -365,8 +365,8 @@ eas build --profile preview --platform ios
 | 时间 | Phase | 结果 | 耗时 | 备注 |
 |---|---|---|---|---|
 | 2026-05-28 22:40 | Plan 起草 | OK | — | 由 Cascade 起草 |
-| | Phase 0 | | | |
-| | Phase 1 | | | |
+| 2026-05-28 23:20 | Phase 0 | OK | ~15min | node v24.15.0 / npm 11.12.1 / eas 18.8.1 / AMDS 19.4.0.10 / AltServer 运行中 |
+| 2026-05-28 23:30 | Phase 1 | OK | ~10min | installApk iOS 守卫 x2 / app.json ios infoPlist / icon 1024x1024 RGB OK / tsc 5 err (基线) |
 | | Phase 2 | | | |
 | | Phase 3 | | | |
 | | Phase 4 | | | |

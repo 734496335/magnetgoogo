@@ -16,6 +16,10 @@ export default function ForceUpdateModal({ result, visible }: Props) {
   const downloadRef = useRef<FileSystem.DownloadResumable | null>(null);
 
   const installApk = useCallback(async (fileUri: string) => {
+    if (Platform.OS !== 'android') {
+      if (result.downloadUrl) Linking.openURL(result.downloadUrl).catch(() => {});
+      return;
+    }
     try {
       const contentUri = await FileSystem.getContentUriAsync(fileUri);
       await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {

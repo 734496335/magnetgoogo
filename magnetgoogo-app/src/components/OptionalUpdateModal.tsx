@@ -16,6 +16,10 @@ export default function OptionalUpdateModal({ result, visible, onDismiss }: Prop
   const [statusText, setStatusText] = useState('');
 
   const installApk = useCallback(async (fileUri: string) => {
+    if (Platform.OS !== 'android') {
+      if (result.downloadUrl) Linking.openURL(result.downloadUrl).catch(() => {});
+      return;
+    }
     try {
       const contentUri = await FileSystem.getContentUriAsync(fileUri);
       await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
