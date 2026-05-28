@@ -4219,14 +4219,14 @@
             "supports_detail": false
           },
           "search": {
-            "request_template": "/?q={query}",
+            "request_template": "/?key={query}",
             "timeout_ms": 15000,
             "retries": {
               "max_attempts": 3,
               "backoff_ms": 1000
             },
-            "requires_waf_bypass": false,
-            "requires_browser": false,
+            "requires_waf_bypass": true,
+            "requires_browser": true,
             "parse_metadata": {
               "selectors": {
                 "list_item": "div.item",
@@ -4253,7 +4253,7 @@
             "diagnosis": "导航站dh0.cn发现候选，待自动验证",
             "note": "legacy status_detail=has_keywords_needs_browser"
           },
-          "notes": "needs_tier2_handler_or_2captcha: CF 403, CloakBrowser 43s 0 results"
+          "notes": "YELLOW-fixed: correct param is key (not q), but headless CloakBrowser cannot solve Turnstile"
         },
         {
           "id": "ca292a9992dd",
