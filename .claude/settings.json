@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(**)",
+      "Edit(**)",
+      "Write(**)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git log:*)",
+      "Bash(git stash:*)",
+      "Bash(python:*)",
+      "Bash(pytest:*)",
+      "Bash(eas:*)",
+      "Bash(node:*)",
+      "Bash(echo:*)",
+      "Bash(dir)",
+      "Bash(type:*)",
+      "Bash(curl:*)"
+    ],
+    "deny": [
+      "Bash(rm:*)",
+      "Bash(Remove-Item:*)",
+      "Bash(rmdir:*)",
+      "Bash(git push:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git checkout:*)",
+      "Bash(git clean:*)"
+    ]
+  }
+}
