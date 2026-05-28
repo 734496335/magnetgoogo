@@ -60,7 +60,7 @@
 | F.32 | 博世 | http://berrl.com | _pending_ | | |
 | F.33 | 磁力宅 | https://www.cilizhai.com | _pending_ | | |
 | F.34 | 磁力狐 | https://bt43.foxs.vip | _pending_ | | |
-| F.35 | 磁力熊猫(mirror) | https://soxiongmao.top | _pending_ | | **thatcdn — tier_override 即可** |
+| F.35 | 磁力熊猫(mirror) | https://soxiongmao.top | GREEN-promoted | 5 | **thatcdn — tier_override added** |
 | F.36 | 磁力链 | https://cililian.one | _pending_ | | |
 | F.37 | 无极磁链 | https://0cili.nl | _pending_ | | |
 | F.38 | 磁力多(eeenav) | https://ru.cilido.top | _pending_ | | mirror of F.07 |
