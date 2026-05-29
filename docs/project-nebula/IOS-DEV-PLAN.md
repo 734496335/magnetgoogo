@@ -369,6 +369,7 @@ eas build --profile preview --platform ios
 | 2026-05-28 23:30 | Phase 1 | OK | ~10min | installApk iOS 守卫 x2 / app.json ios infoPlist / icon 1024x1024 RGB OK / tsc 5 err (基线) |
 | 2026-05-28 23:50 | Phase 2 | OK | ~5min | eas.json +development/preview/production ios profiles |
 | 2026-05-29 00:05 | Pre-flight Audit | 🟡 黄灯 | ~15min | 详见 IOS-PREFLIGHT-AUDIT.md；建议先装 expo-font + react-native-worklets 再 EAS Build |
+| 2026-05-29 20:25 | Peer Deps Fix | OK | ~5min | 已安装 SDK-54 兼容的 expo-font 与 react-native-worklets，peer dep 警报清除 |
 | | Phase 3 | | | |
 | | Phase 4 | | | |
 | | Phase 5 | | | |
