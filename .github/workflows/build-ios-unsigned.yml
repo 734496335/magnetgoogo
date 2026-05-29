@@ -1,0 +1,60 @@
+name: Build iOS Unsigned IPA
+
+on:
+  workflow_dispatch: # 支持在 GitHub 网页手动点击触发构建
+
+jobs:
+  build:
+    name: Build Unsigned IPA
+    runs-on: macos-14 # 使用 GitHub 免费的苹果 M1 芯片虚拟机
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: magnetgoogo-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: magnetgoogo-app
+        run: npm ci
+
+      - name: Generate iOS Project (Expo Prebuild)
+        working-directory: magnetgoogo-app
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Install CocoaPods
+        working-directory: magnetgoogo-app/ios
+        run: pod install
+
+      - name: Compile iOS App (Unsigned)
+        working-directory: magnetgoogo-app
+        run: |
+          xcodebuild -workspace ios/MagGoogo.xcworkspace \
+                     -scheme MagGoogo \
+                     -configuration Release \
+                     -sdk iphoneos \
+                     clean archive \
+                     -archivePath build/MagGoogo.xcarchive \
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGN_IDENTITY="" \
+                     PROVISIONING_PROFILE_SPECIFIER=""
+
+      - name: Package .app into .ipa
+        working-directory: magnetgoogo-app
+        run: |
+          mkdir -p Payload
+          cp -r build/MagGoogo.xcarchive/Products/Applications/MagGoogo.app Payload/
+          zip -r MagGoogo-unsigned.ipa Payload
+
+      - name: Upload Unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: MagGoogo-unsigned-ipa
+          path: magnetgoogo-app/MagGoogo-unsigned.ipa
+          if-no-files-found: error
