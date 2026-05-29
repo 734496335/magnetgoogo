@@ -19,8 +19,11 @@ from typing import Any
 
 from .base import SearchResult, Tier, TierError, TierKind
 from ..parser import extract_results_from_html
+from ..cookie_store import CookieStore
 
 log = logging.getLogger(__name__)
+
+_COOKIE_STORE = CookieStore()
 
 try:
     from curl_cffi import requests as cc_requests  # type: ignore
@@ -50,6 +53,13 @@ class Tier0Http(Tier):
     def search(self, source: dict, query: str, *, limit: int = 24) -> list[SearchResult]:
         url = self._build_search_url(source, query)
         headers = self._build_headers(source)
+
+        # Inject persisted cookies (from prior Tier 1 / verify-interactive passes)
+        origin = (source.get("site") or {}).get("origin", "")
+        if origin:
+            cookie_header = _COOKIE_STORE.to_header(origin.rstrip("/"))
+            if cookie_header:
+                headers["Cookie"] = cookie_header
 
         html = self._fetch(url, headers=headers)
         if not html:

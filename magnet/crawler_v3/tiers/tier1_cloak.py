@@ -24,8 +24,11 @@ from typing import Any
 
 from .base import SearchResult, Tier, TierError, TierKind
 from ..parser import extract_results_from_html
+from ..cookie_store import CookieStore
 
 log = logging.getLogger(__name__)
+
+_COOKIE_STORE = CookieStore()
 
 try:
     from cloakbrowser import launch as cloak_launch  # type: ignore
@@ -78,6 +81,19 @@ class Tier1Cloak(Tier):
             # Smart wait: poll for either (a) extractable results, or (b) clean page
             # without challenge markers. Whichever comes first ends the wait.
             results = self._poll_for_results(page, source=source, base_url=url)
+
+            # Harvest cookies on success (for future Tier 0 reuse)
+            if results:
+                origin = (source.get("site") or {}).get("origin", "")
+                if origin:
+                    try:
+                        cookies = page.context.cookies()
+                        if cookies:
+                            _COOKIE_STORE.put(origin.rstrip("/"), [dict(c) for c in cookies])
+                            log.info("Harvested %d cookies for %s", len(cookies), origin)
+                    except Exception as e:
+                        log.debug("Cookie harvest failed (non-fatal): %s", e)
+
             if not results:
                 raise TierError(
                     "zero results after render (challenge may not have resolved)",
