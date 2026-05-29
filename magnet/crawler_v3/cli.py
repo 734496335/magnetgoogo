@@ -154,6 +154,66 @@ def cmd_recheck(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_verify_interactive(args: argparse.Namespace) -> int:
+    """Launch headed CloakBrowser for manual CF verification, harvest cookies."""
+    from .cookie_store import CookieStore
+
+    origin = args.origin.rstrip("/")
+    if not origin.startswith("http"):
+        origin = "https://" + origin
+
+    # Find matching source from sources.json for Tier 0 verification later
+    sources = _load_sources()
+    matching = [s for s in sources if (s.get("site") or {}).get("origin", "").rstrip("/") == origin]
+    source = matching[0] if matching else None
+
+    # Launch headed browser
+    try:
+        from cloakbrowser import launch as cloak_launch
+    except ImportError:
+        print("ERROR: cloakbrowser package not installed. Run: pip install cloakbrowser", file=sys.stderr)
+        return 1
+
+    print(f"=== 启动浏览器: {origin} ===")
+    b = cloak_launch(headless=False, humanize=True)
+    try:
+        p = b.new_page()
+        p.goto(origin, wait_until="domcontentloaded", timeout=30000)
+        print(f"\n=== 请在浏览器窗口手动通过验证 ===")
+        print(f"通过后，回到此终端按 Enter 继续...")
+        input()
+
+        cookies = p.context.cookies()
+        store = CookieStore()
+        store.put(origin, [dict(c) for c in cookies])
+        print(f"已存 {len(cookies)} 个 cookie 到 {store.path_for(origin)}")
+    finally:
+        try:
+            b.close()
+        except Exception:
+            pass
+
+    # Immediately run Tier 0 verification if we have a matching source
+    if source:
+        print(f"\n=== 立即跑 Tier 0 复测 ===")
+        from .tiers.tier0_http import Tier0Http
+        tier0 = Tier0Http()
+        try:
+            results = tier0.search(source, "Inception", limit=5)
+            magnets = sum(1 for r in results if r.magnet)
+            print(f"搜索结果: {len(results)} 条, 含 magnet: {magnets} 条")
+            if magnets > 0:
+                print("✅ Tier 0 使用 cookie 复测成功!")
+            else:
+                print("⚠️ 有结果但无 magnet，可能需要检查 selectors")
+        except Exception as e:
+            print(f"Tier 0 复测失败: {e}")
+    else:
+        print(f"\n未在 sources.json 找到 {origin} 的 source，跳过 Tier 0 复测")
+
+    return 0
+
+
 def cmd_brand_stats(args: argparse.Namespace) -> int:
     """Print brand-level coverage statistics."""
     sources = _load_sources()
@@ -224,6 +284,10 @@ def main(argv: list[str] | None = None) -> int:
     p_brand = sub.add_parser("brand-stats", help="print brand-level coverage statistics")
     p_brand.add_argument("--top", type=int, default=0, help="show top N brands by source count")
     p_brand.set_defaults(fn=cmd_brand_stats)
+
+    p_vi = sub.add_parser("verify-interactive", help="headed browser for manual CF verification")
+    p_vi.add_argument("--origin", required=True, help="site origin URL")
+    p_vi.set_defaults(fn=cmd_verify_interactive)
 
     args = p.parse_args(argv)
     logging.basicConfig(
