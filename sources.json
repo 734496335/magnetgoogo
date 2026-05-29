@@ -4280,9 +4280,9 @@
             "requires_browser": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "a[href^=\"/!\"]",
-                "title": "",
-                "detail_link": "a[href^=\"/!\"]",
+                "list_item": "table.file-list tbody tr",
+                "title": "td a",
+                "detail_link": "td a[href^=\"/!\"]",
                 "magnet": "a[href^=\"magnet:\"]",
                 "size": "td.td-size"
               }
@@ -4291,9 +4291,9 @@
             "detail_template": "/!{id}",
             "detail": {
               "selectors": {
-                "magnet": "a[href^=\"magnet:\"]",
-                "title": "h2, h1",
-                "size": "td:contains(\"文件大小\"), span.size"
+                "magnet": "a[href^=\"magnet:\"], input#input-magnet",
+                "title": "h2.magnet-title, h2, h1",
+                "size": "dd"
               }
             }
           },
@@ -4305,15 +4305,15 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
-            "last_checked_at": "2026-05-28T10:05:48.457544+00:00",
-            "magnets_found": 0,
+            "status": "green",
+            "status_detail": "ok",
+            "last_checked_at": "2026-05-29T01:30:00+00:00",
+            "magnets_found": 5,
             "sample_title": "盗梦空间 Inception 2010 Bluray 2160p DTS-HDMA5.1 HDR x265 10bit-DreamHD",
             "diagnosis": "导航站dh0.cn发现候选，待自动验证",
             "fail_streak": 0
           },
-          "notes": "YELLOW: alive, parser bug - list_item/detail_link same selector, needs fix"
+          "notes": "GREEN: fixed selectors + detail-follow for magnet extraction"
         },
         {
           "id": "1aa0c4d20031",

@@ -76,6 +76,12 @@ class Tier0Http(Tier):
         if not results:
             raise TierError("zero results parsed", retryable=False, hint="check_selectors_or_escalate")
 
+        # Detail-following: if results have detail_url but no magnet, fetch detail pages
+        search_cfg = source.get("search") or {}
+        detail_cfg = search_cfg.get("detail") or source.get("detail")
+        if detail_cfg and detail_cfg.get("selectors", {}).get("magnet"):
+            results = self._follow_details(results, source, headers, detail_cfg, limit)
+
         return results[:limit]
 
     # ── helpers ──
@@ -120,6 +126,46 @@ class Tier0Http(Tier):
         if referer:
             headers["Referer"] = referer
         return headers
+
+    def _follow_details(
+        self, results: list[SearchResult], source: dict, headers: dict, detail_cfg: dict, limit: int
+    ) -> list[SearchResult]:
+        """Follow detail pages to fill in magnets for results that only have detail_url."""
+        from bs4 import BeautifulSoup as _BS
+
+        out: list[SearchResult] = []
+        followed = 0
+        for r in results:
+            if r.magnet or not r.detail_url:
+                out.append(r)
+                continue
+            if followed >= limit:
+                out.append(r)
+                continue
+            followed += 1
+            try:
+                detail_html = self._fetch(r.detail_url, headers=headers)
+                if not detail_html:
+                    out.append(r)
+                    continue
+                sel = detail_cfg.get("selectors", {})
+                magnet_sel = sel.get("magnet")
+                if magnet_sel and _BS is not None:
+                    soup = _BS(detail_html, "html.parser")
+                    for el in soup.select(magnet_sel):
+                        href = el.get("href", "")
+                        if href.startswith("magnet:"):
+                            r.magnet = href
+                            break
+                        val = el.get("value", "")
+                        if val.startswith("magnet:"):
+                            r.magnet = val
+                            break
+                out.append(r)
+            except Exception as e:
+                log.debug("Detail follow failed for %s: %s", r.detail_url, e)
+                out.append(r)
+        return out
 
     def _fetch(self, url: str, *, headers: dict[str, str]) -> str | None:
         if _HAS_CURL_CFFI:
