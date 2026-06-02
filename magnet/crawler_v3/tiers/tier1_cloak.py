@@ -100,6 +100,13 @@ class Tier1Cloak(Tier):
                     retryable=False,
                     hint="check_selectors_or_escalate",
                 )
+
+            # Detail-following: if results have detail_url but no magnet, fetch detail pages
+            search_cfg = source.get("search") or {}
+            detail_cfg = search_cfg.get("detail") or source.get("detail")
+            if detail_cfg and detail_cfg.get("selectors", {}).get("magnet"):
+                results = self._follow_details(results, source, detail_cfg, limit)
+
             return results[:limit]
 
         finally:
@@ -159,6 +166,8 @@ class Tier1Cloak(Tier):
         if not template:
             raise TierError("source has no search.request_template", retryable=False)
         origin = source.get("site", {}).get("origin", "").rstrip("/")
+        # Strip query string from origin (e.g. ?ref=eeenav.com) to avoid URL corruption
+        origin = origin.split("?")[0].rstrip("/")
         encoded = urllib.parse.quote_plus(query)
         path = template
         for k, v in {
@@ -166,8 +175,91 @@ class Tier1Cloak(Tier):
             "{query_url}": encoded,
             "{query_raw}": query,
             "{query_b64}": base64.b64encode(query.encode("utf-8")).decode("ascii"),
+            "{query_b64url}": base64.urlsafe_b64encode(query.encode("utf-8")).decode("ascii"),
             "{query_hex}": query.encode("utf-8").hex(),
         }.items():
             path = path.replace(k, v)
         return path if path.startswith("http") else origin + (path if path.startswith("/") else "/" + path)
+
+    def _follow_details(
+        self, results: list[SearchResult], source: dict, detail_cfg: dict, limit: int
+    ) -> list[SearchResult]:
+        """Follow detail pages to fill in magnets for results that only have detail_url."""
+        from bs4 import BeautifulSoup as _BS
+        try:
+            from curl_cffi import requests as cc_requests
+            has_cc = True
+        except ImportError:
+            cc_requests = None
+            has_cc = False
+
+        try:
+            import httpx
+        except ImportError:
+            httpx = None
+
+        origin = (source.get("site") or {}).get("origin", "").rstrip("/")
+        cookie_header = _COOKIE_STORE.to_header(origin)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        }
+        if cookie_header:
+            headers["Cookie"] = cookie_header
+
+        out: list[SearchResult] = []
+        followed = 0
+        for r in results:
+            if r.magnet or not r.detail_url:
+                out.append(r)
+                continue
+            if followed >= limit:
+                out.append(r)
+                continue
+            followed += 1
+            try:
+                html = None
+                if has_cc and cc_requests is not None:
+                    try:
+                        res = cc_requests.get(r.detail_url, headers=headers, impersonate="chrome124", timeout=10)
+                        if res.status_code < 400:
+                            html = res.text
+                    except Exception:
+                        pass
+                if not html and httpx is not None:
+                    try:
+                        with httpx.Client(timeout=10, follow_redirects=True) as client:
+                            res = client.get(r.detail_url, headers=headers)
+                            if res.status_code < 400:
+                                html = res.text
+                    except Exception:
+                        pass
+
+                if not html:
+                    out.append(r)
+                    continue
+
+                sel = detail_cfg.get("selectors", {})
+                magnet_sel = sel.get("magnet")
+                if magnet_sel and _BS is not None:
+                    soup = _BS(html, "html.parser")
+                    for el in soup.select(magnet_sel):
+                        href = el.get("href", "")
+                        if href.startswith("magnet:"):
+                            r.magnet = href
+                            break
+                        val = el.get("value", "")
+                        if val.startswith("magnet:"):
+                            r.magnet = val
+                            break
+                        data_mag = el.get("data-magnet", "")
+                        if data_mag.startswith("magnet:"):
+                            r.magnet = data_mag
+                            break
+                out.append(r)
+            except Exception as e:
+                log.debug("Cloak detail follow failed for %s: %s", r.detail_url, e)
+                out.append(r)
+        return out
 

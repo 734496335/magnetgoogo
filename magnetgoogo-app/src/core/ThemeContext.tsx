@@ -2,7 +2,7 @@
  * ThemeContext — Light/Dark mode with AsyncStorage persistence.
  * Auto-detects system theme on first launch.
  */
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -103,9 +103,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const dark = mode === 'dark' || (mode === 'system' && systemScheme === 'dark');
   const colors = dark ? DARK : LIGHT;
+  const value = useMemo(() => ({ mode, dark, colors, setMode }), [mode, dark, colors, setMode]);
 
   return (
-    <ThemeCtx.Provider value={{ mode, dark, colors, setMode }}>
+    <ThemeCtx.Provider value={value}>
       {children}
     </ThemeCtx.Provider>
   );

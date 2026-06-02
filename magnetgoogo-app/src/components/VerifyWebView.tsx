@@ -26,116 +26,23 @@ import {
   type VerifyRequest,
   type VerifyResult,
 } from '../core/VerifyManager';
+import { getStoredCookies } from '../core/httpClient';
 
 const SILENT_TIMEOUT = 10_000; // 10s before escalating to interactive
 const HTTP_403_MAX = 2; // auto-cancel after N consecutive 403s
 
-// ── JS injected BEFORE page loads (stealth + viewport + CSS fix) ─────
 const INJECTED_BEFORE = `
 (function() {
-  // ── CloakBrowser stealth patches ──
-  // 1. Remove WebView/automation markers
-  Object.defineProperty(navigator, 'webdriver', { get: function() { return undefined; } });
-  // Delete __webview_is_active if set by system WebView
-  try { delete window.__webview_is_active; } catch(e) {}
-
-  // 2. Fake chrome API (Turnstile checks window.chrome)
-  if (!window.chrome) {
-    window.chrome = {
-      runtime: { connect: function(){}, sendMessage: function(){} },
-      app: { isInstalled: false, getIsInstalled: function(){ return false; } },
-    };
-  }
-
-  // 3. Fake plugins (empty in WebView = bot signal)
-  if (navigator.plugins.length === 0) {
-    Object.defineProperty(navigator, 'plugins', {
-      get: function() {
-        return [
-          { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format', length: 1 },
-          { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '', length: 1 },
-          { name: 'Native Client', filename: 'internal-nacl-plugin', description: '', length: 2 },
-        ];
-      }
-    });
-  }
-
-  // 4. Fake languages (some WebViews expose empty)
-  if (!navigator.languages || navigator.languages.length === 0) {
-    Object.defineProperty(navigator, 'languages', { get: function() { return ['zh-CN', 'zh', 'en-US', 'en']; } });
-  }
-
-  // 5. Canvas fingerprint noise (add imperceptible pixel noise)
-  var origToDataURL = HTMLCanvasElement.prototype.toDataURL;
-  HTMLCanvasElement.prototype.toDataURL = function(type) {
-    var ctx = this.getContext('2d');
-    if (ctx && this.width > 0 && this.height > 0) {
-      try {
-        var imgData = ctx.getImageData(0, 0, 1, 1);
-        imgData.data[0] = imgData.data[0] ^ 1;
-        ctx.putImageData(imgData, 0, 0);
-      } catch(e) {}
-    }
-    return origToDataURL.apply(this, arguments);
-  };
-
-  // 6. Permissions API (Turnstile probes this)
-  if (navigator.permissions) {
-    var origQuery = navigator.permissions.query;
-    navigator.permissions.query = function(params) {
-      if (params && params.name === 'notifications') {
-        return Promise.resolve({ state: 'prompt', onchange: null });
-      }
-      return origQuery.apply(this, arguments);
-    };
-  }
-
-  // ── Viewport fix ──
-  // Remove any existing viewport meta to prevent conflicts
+  // Ensure DOM has standard viewport metadata
   var existing = document.querySelectorAll('meta[name="viewport"]');
   for (var i = 0; i < existing.length; i++) existing[i].remove();
 
-  // Inject mobile-friendly viewport
   var meta = document.createElement('meta');
   meta.name = 'viewport';
   meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes';
   document.head.appendChild(meta);
 
-  // Inject aggressive CSS to fix oversized desktop pages:
-  var style = document.createElement('style');
-  style.textContent =
-    /* Force everything to mobile viewport width */
-    '*, *::before, *::after { max-width: 100vw !important; box-sizing: border-box !important; }\n' +
-    'html, body { width: 100% !important; max-width: 100vw !important; overflow-x: hidden !important; ' +
-    '  min-width: 0 !important; margin: 0 !important; padding: 8px !important; }\n' +
-    /* Kill fixed-width inline styles */
-    '[style*="width"] { max-width: 100% !important; min-width: 0 !important; }\n' +
-    /* Hide common desktop clutter: navbars, sidebars, footers, headers */
-    'nav, header, footer, aside, .sidebar, .nav, .navbar, .header, .footer, ' +
-    '.menu, .advertisement, .ad, [class*="sidebar"], [class*="footer"], ' +
-    '[class*="header"]:not([class*="challenge"]):not([class*="captcha"]) ' +
-    '{ display: none !important; }\n' +
-    /* Center and size challenge containers */
-    '#cf-wrapper, .cf-browser-verification, .challenge-running, .main-wrapper, ' +
-    '.challenge-form, #turnstile-wrapper, [class*="challenge"], ' +
-    '.h-captcha, .g-recaptcha, [class*="captcha"], [class*="recaptcha"], ' +
-    '#cf-hcaptcha-container, .cf-turnstile, #challenge-stage, ' +
-    '#challenge-body-text, .spacer, .core-msg { ' +
-    '  display: flex !important; flex-direction: column !important; ' +
-    '  align-items: center !important; justify-content: center !important; ' +
-    '  width: 100% !important; max-width: 100vw !important; ' +
-    '  margin: 0 auto !important; padding: 12px !important; ' +
-    '  position: relative !important; left: 0 !important; transform: none !important; }\n' +
-    /* Ensure iframes fit */
-    'iframe { max-width: 100% !important; width: 100% !important; min-width: 0 !important; }\n' +
-    /* Tables and oversized containers */
-    'table, div, section, main, article { max-width: 100% !important; min-width: 0 !important; }\n' +
-    /* Prevent horizontal scroll from padding/margin */
-    '.container, .wrapper, .content, .page, #content, #main, #wrapper ' +
-    '{ width: 100% !important; max-width: 100% !important; padding: 0 8px !important; margin: 0 !important; }\n';
-  document.head.appendChild(style);
-
-  // After DOM ready, scroll the challenge widget into view
+  // After DOM ready, scroll the challenge widget into view for easy interaction
   function scrollChallengeIntoView() {
     var selectors = [
       'iframe[src*="challenges.cloudflare"]',
@@ -311,6 +218,7 @@ export default function VerifyWebView({ request, onDismiss }: Props) {
   const [silent, setSilent] = useState(true);
   const escalateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const httpErrorCount = useRef(0);
+  const isCloudflareChallenge = useRef(false);
   const requestRef = useRef(request);
   requestRef.current = request;
 
@@ -359,6 +267,28 @@ export default function VerifyWebView({ request, onDismiss }: Props) {
       if (!req) return;
       try {
         const data = JSON.parse(event.nativeEvent.data);
+        if (data.type === 'cf_probe') {
+          console.log(`[VerifyWebView] cf_probe: isCF=${data.isCF} previousIsCF=${isCloudflareChallenge.current}`);
+          if (data.isCF) {
+            isCloudflareChallenge.current = true;
+          } else if (isCloudflareChallenge.current) {
+            console.log(`[VerifyWebView] CF challenge resolved automatically via state transition!`);
+            isCloudflareChallenge.current = false;
+            if (escalateTimer.current) {
+              clearTimeout(escalateTimer.current);
+              escalateTimer.current = null;
+            }
+            const wasSilent = silent;
+            const result: VerifyResult = {
+              success: true,
+              cookies: data.cookies || '',
+              html: data.html || '',
+            };
+            VerifyManager.submitResult(req.id, result, req.origin, wasSilent);
+            onDismiss();
+          }
+          return;
+        }
         if (data.type === 'verify_result') {
           // Clear escalation timer
           if (escalateTimer.current) {
@@ -468,13 +398,18 @@ export default function VerifyWebView({ request, onDismiss }: Props) {
       {/* WebView — always mounted */}
       <WebView
         ref={webViewRef}
-        source={{ uri: request.url }}
+        source={{
+          uri: request.url,
+          headers: {
+            Cookie: getStoredCookies(request.origin),
+          }
+        }}
         style={styles.webview}
         javaScriptEnabled={true}
         domStorageEnabled={true}
         thirdPartyCookiesEnabled={true}
         sharedCookiesEnabled={true}
-        scalesPageToFit={false}
+        scalesPageToFit={true}
         setBuiltInZoomControls={true}
         setDisplayZoomControls={false}
         forceDarkOn={false}
@@ -486,21 +421,33 @@ export default function VerifyWebView({ request, onDismiss }: Props) {
         onLoadStart={() => setLoading(true)}
         onLoadEnd={() => {
           setLoading(false);
-          // Re-inject viewport fix after page fully loaded (some sites rebuild DOM)
+          // Evaluate Cloudflare challenge state like legado
           webViewRef.current?.injectJavaScript(`
             (function() {
+              // 1. Re-inject viewport fix
               var existing = document.querySelectorAll('meta[name="viewport"]');
               for (var i = 0; i < existing.length; i++) existing[i].remove();
               var meta = document.createElement('meta');
               meta.name = 'viewport';
               meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes';
               document.head.appendChild(meta);
-              // Scroll challenge widget into view
+
+              // 2. Scroll challenge widget into view
               var sels = ['iframe[src*="challenges.cloudflare"]','.cf-turnstile','.h-captcha','.g-recaptcha','[class*="captcha"]','#challenge-form'];
               for (var i = 0; i < sels.length; i++) {
                 var el = document.querySelector(sels[i]);
                 if (el) { el.scrollIntoView({ behavior:'smooth', block:'center' }); break; }
               }
+
+              // 3. CF challenge transition probe
+              var isCF = !!window._cf_chl_opt;
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'cf_probe',
+                isCF: isCF,
+                url: window.location.href,
+                cookies: document.cookie || '',
+                html: document.documentElement.outerHTML || ''
+              }));
             })(); true;
           `);
         }}
@@ -544,10 +491,11 @@ export default function VerifyWebView({ request, onDismiss }: Props) {
 const styles = StyleSheet.create({
   silentContainer: {
     position: 'absolute',
-    width: 1,
-    height: 1,
+    left: -10000,
+    top: -10000,
+    width: 375,
+    height: 812,
     opacity: 0,
-    overflow: 'hidden',
   },
   interactiveContainer: {
     ...StyleSheet.absoluteFillObject,

@@ -29,6 +29,21 @@ except ImportError:
 
 
 MAGNET_RE = re.compile(r"magnet:\?xt=urn:btih:[A-Za-z0-9]{32,}", re.I)
+INFO_HASH_HEX_RE = re.compile(r"\b([A-Fa-f0-9]{40})\b")
+INFO_HASH_B32_RE = re.compile(r"\b([A-Za-z2-7]{32})\b")
+
+
+def derive_magnet_from_url(url: str | None) -> str | None:
+    """Trivially derive magnet link from detail URL containing info_hash."""
+    if not url:
+        return None
+    m = INFO_HASH_HEX_RE.search(url)
+    if m:
+        return f"magnet:?xt=urn:btih:{m.group(1).upper()}"
+    m = INFO_HASH_B32_RE.search(url)
+    if m:
+        return f"magnet:?xt=urn:btih:{m.group(1).upper()}"
+    return None
 
 
 def extract_results_from_html(
@@ -94,8 +109,16 @@ def _extract_via_selectors(html: str, selectors: dict, *, base_url: str | None) 
         magnet = ""
         if magnet_sel:
             m_el = node.select_one(magnet_sel)
-            if m_el and m_el.get("href", "").startswith("magnet:"):
-                magnet = m_el["href"]
+            if m_el:
+                href = m_el.get("href", "")
+                val = m_el.get("value", "")
+                data_mag = m_el.get("data-magnet", "")
+                if href.startswith("magnet:"):
+                    magnet = href
+                elif val.startswith("magnet:"):
+                    magnet = val
+                elif data_mag.startswith("magnet:"):
+                    magnet = data_mag
         if not magnet:
             # in-row regex fallback
             m = MAGNET_RE.search(str(node))
@@ -107,6 +130,11 @@ def _extract_via_selectors(html: str, selectors: dict, *, base_url: str | None) 
             d_el = node.select_one(detail_sel)
             if d_el and d_el.get("href"):
                 detail_url = urllib.parse.urljoin(base_url or "", d_el["href"])
+
+        if not magnet and detail_url:
+            derived = derive_magnet_from_url(detail_url)
+            if derived:
+                magnet = derived
 
         if not (magnet or detail_url):
             continue

@@ -11,6 +11,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { File, Directory, Paths } from 'expo-file-system/next';
 
 const DEV_ONLY = __DEV__;
 const STORAGE_KEY = 'mg_search_debug_reports';
@@ -286,6 +287,15 @@ export function printReport(r: SearchReport) {
   }
   lines.push(`══════════════════\n`);
   console.log(lines.join('\n'));
+  // Write full report JSON to file for adb pull
+  try {
+    const dir = new Directory(Paths.document);
+    const file = new File(dir, 'last-search-report.json');
+    file.write(JSON.stringify(r, null, 2));
+    console.log(`[SearchDebug] Report saved to: ${file.uri}`);
+  } catch (e) {
+    console.log(`[SearchDebug] Failed to save report: ${e}`);
+  }
 }
 
 function pct(n: number, total: number): string {

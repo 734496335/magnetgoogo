@@ -98,9 +98,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-28T03:17:08.569042+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T10:45:28.830433+00:00",
             "magnets_found": 0,
             "note": "DNS pollution (ww17.btso.cc) + GFW connection reset, not a WAF issue",
             "diagnosis": "可达但无磁力内容 — title: btso.cc (已非磁力站)"
@@ -146,7 +146,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:00:18.801170+00:00",
+            "last_checked_at": "2026-05-31T11:08:30.908435+00:00",
             "magnets_found": 0,
             "note": "DNS pollution (ww38.btdb.to) + GFW ERR_CONNECTION_RESET",
             "diagnosis": "可达但无磁力内容 — title: btdb.to (已非磁力站)"
@@ -235,7 +235,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:00:14.465489+00:00",
+            "last_checked_at": "2026-05-31T11:08:26.147614+00:00",
             "magnets_found": 0,
             "note": "DNS pollution + GFW blocked, unreachable from China mainland; legacy status_detail=navigation_site_not_search_engine; legacy status=red",
             "diagnosis": "可达+含磁力关键词但Selenium搜索无法提取 — JS动态加载搜索结果"
@@ -280,7 +280,7 @@
           "health": {
             "status": "gray",
             "status_detail": "expired",
-            "last_checked_at": "2026-05-28T10:00:29.990666+00:00",
+            "last_checked_at": "2026-05-31T11:08:45.197678+00:00",
             "magnets_found": 0,
             "diagnosis": "重定向到 hugedomains.com（域名已出售）"
           }
@@ -324,7 +324,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:00:14.348987+00:00",
+            "last_checked_at": "2026-05-31T11:08:25.731771+00:00",
             "magnets_found": 0,
             "diagnosis": "搜索验证通过: 37 magnets (path=/search/{query}/1.html q=Inception)",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
@@ -370,7 +370,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:00:16.588723+00:00",
+            "last_checked_at": "2026-05-31T11:08:28.005138+00:00",
             "magnets_found": 0,
             "diagnosis": "连接失败 — GFW阻断"
           }
@@ -412,9 +412,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-28T03:18:52.121236+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T10:45:30.857003+00:00",
             "magnets_found": 0,
             "note": "GFW blocked, JS anti-bot redirect, sometimes redirects to google",
             "diagnosis": "可达但无磁力内容 — title: Redirecting... (已失效/重定向)"
@@ -460,7 +460,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:00:43.201801+00:00",
+            "last_checked_at": "2026-05-31T11:08:47.280845+00:00",
             "magnets_found": 0,
             "note": "GFW blocked, JS anti-bot redirect (same infrastructure as btbtt12.com)",
             "diagnosis": "连接超时 — GFW阻断"
@@ -505,7 +505,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:00:47.619222+00:00",
+            "last_checked_at": "2026-05-31T11:09:00.656851+00:00",
             "magnets_found": 0,
             "note": "JS redirect to /lander page, likely parked/expired domain; legacy status_detail=dead; legacy status=red",
             "diagnosis": "页面过小: 114 bytes",
@@ -551,7 +551,7 @@
           "health": {
             "status": "gray",
             "status_detail": "404",
-            "last_checked_at": "2026-05-28T10:01:20.458413+00:00",
+            "last_checked_at": "2026-05-31T11:09:34.541587+00:00",
             "magnets_found": 0,
             "diagnosis": "重定向到非磁力站(国际化域名xn--i8sq8r6zst7c.com) — 域名已转让"
           }
@@ -590,7 +590,7 @@
           },
           "health": {
             "status": "gray",
-            "last_checked_at": "2026-05-28T10:00:59.186836+00:00",
+            "last_checked_at": "2026-05-31T11:09:06.964035+00:00",
             "fail_count_30d": 0,
             "status_detail": "unreachable",
             "magnets_found": 0,
@@ -638,7 +638,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:00:45.829819+00:00",
+            "last_checked_at": "2026-05-31T11:08:49.221725+00:00",
             "magnets_found": 0,
             "sample_title": "Ubuntu10 04 LTS x64"
           }
@@ -799,9 +799,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-28T03:27:10.875363+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T10:46:48.230157+00:00",
             "magnets_found": 0,
             "sample_title": "[shincaps] Baka to Test to Shoukanjuu - 13 (BS-NTV 1440x1080 MPEG2 AAC).ts",
             "fail_streak": 0,
@@ -852,7 +852,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:00:47.781986+00:00",
+            "last_checked_at": "2026-05-31T11:08:51.245143+00:00",
             "magnets_found": 0,
             "sample_title": "Mehmed Fetihler Sultani"
           }
@@ -1014,8 +1014,8 @@
           "health": {
             "status": "gray",
             "status_detail": "expired",
-            "last_checked_at": "2026-05-16T02:03:34.026197+00:00",
-            "magnets_found": 2,
+            "last_checked_at": "2026-05-31T11:09:18.639311+00:00",
+            "magnets_found": 0,
             "sample_title": "",
             "note": "demoted: 0% success across all users per analytics (browser rendering fails)",
             "fail_streak": 0
@@ -1071,7 +1071,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:00:54.809244+00:00",
+            "last_checked_at": "2026-05-31T11:09:09.178390+00:00",
             "magnets_found": 0,
             "sample_title": "Big Buck Bunny"
           }
@@ -1324,7 +1324,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:00:49.951100+00:00",
+            "last_checked_at": "2026-05-31T11:09:09.000939+00:00",
             "magnets_found": 0,
             "sample_title": "复制链接",
             "diagnosis": "首页探测超时/连接失败，标记不可达",
@@ -1374,7 +1374,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:00:51.937443+00:00",
+            "last_checked_at": "2026-05-31T11:09:11.109089+00:00",
             "magnets_found": 0,
             "sample_title": "种子资源",
             "diagnosis": "classified as navigation site; use auxiliary discovery pipeline",
@@ -1424,7 +1424,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:01:19.947952+00:00",
+            "last_checked_at": "2026-05-31T11:09:31.191731+00:00",
             "magnets_found": 0,
             "sample_title": "磁力片 高效的磁力搜索工具，支持BT种子和磁力下载。",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
@@ -1675,7 +1675,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:00:56.816797+00:00",
+            "last_checked_at": "2026-05-31T11:09:13.201680+00:00",
             "magnets_found": 0,
             "sample_title": "MomSwapped - Annie King,BunnyMadison - Are Their Dicks Really ThatBig| 欧美新片",
             "diagnosis": "browser_green_push verified: 13 magnets (method=interactive_search, path=interactive)",
@@ -1775,7 +1775,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:01:14.871804+00:00",
+            "last_checked_at": "2026-05-31T11:09:38.927996+00:00",
             "magnets_found": 0,
             "sample_title": "BTDB BTDB是一个非常流行的在线BT种子torrent搜索引擎，通过在不同用户之间创建点对点连接来在线共享文件。",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
@@ -1975,9 +1975,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-28T03:29:46.465821+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T10:47:08.539937+00:00",
             "magnets_found": 0,
             "sample_title": "找磁力 0Mag 0mag①搜索引擎，致力于让网民更便捷地获取新建链接任务下载链接，找到所求。超过千亿的磁力链接数据库,可以瞬间找到相关搜索结果。",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
@@ -2025,9 +2025,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-28T09:32:57.304317+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T10:47:16.225244+00:00",
             "magnets_found": 0,
             "sample_title": "U3C3 U3C3 论坛一样的磁力搜索引擎，支持种子下载和磁力链接。",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
@@ -2077,7 +2077,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:01:16.783301+00:00",
+            "last_checked_at": "2026-05-31T11:09:40.579505+00:00",
             "magnets_found": 0,
             "sample_title": "老牛BT 老牛BT | 磁力搜索引擎索引全网海量BT种子的磁力链接供网友搜索，又被誉为在线版BT种子搜索神器。是目前查找资料最佳的途径。",
             "diagnosis": "导航站发现候选，待自动验证",
@@ -2088,7 +2088,7 @@
           "id": "b4c0a41219ed",
           "site": {
             "name": "movih.com",
-            "origin": "http://movih.com",
+            "origin": "https://movih.com",
             "countries": [
               "korea"
             ],
@@ -2099,7 +2099,7 @@
             "supports_detail": false
           },
           "search": {
-            "request_template": "/?q={query}",
+            "request_template": "/api/ssbc",
             "timeout_ms": 15000,
             "retries": {
               "max_attempts": 3,
@@ -2125,14 +2125,19 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
+            "status": "green",
+            "status_detail": "ok",
             "last_checked_at": "2026-05-28T09:35:20.090798+00:00",
-            "magnets_found": 0,
+            "magnets_found": 12,
             "sample_title": "磁力王 磁力王是最智能的磁力搜索，采用智能AI算法海量大数据索引的磁力链接搜索引擎，这里有超过亿万的免费电影游戏资源提供下载，24小时不间断更新。",
-            "diagnosis": "首页探测超时/连接失败，标记不可达"
+            "diagnosis": "首页探测超时/连接失败，标记不可达",
+            "note": "verified: 12 results via ssbc"
           },
-          "notes": "DEAD: connection refused/reset"
+          "notes": "DEAD: connection refused/reset",
+          "tier_override": {
+            "tier": "tier2_handler",
+            "platform": "ssbc"
+          }
         },
         {
           "id": "8bc070bfaa58",
@@ -2177,7 +2182,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:03:45.122106+00:00",
+            "last_checked_at": "2026-05-31T11:12:01.404721+00:00",
             "magnets_found": 0,
             "sample_title": "Magnet.so 一个功能强大的磁力链接搜索引擎，拥有互联网最新最热的BT资源、高效精准的搜索服务、极速稳定的浏览体验，为您提供最好的磁力搜索服务。",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
@@ -2277,7 +2282,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:01:20.709173+00:00",
+            "last_checked_at": "2026-05-31T11:09:39.675657+00:00",
             "magnets_found": 0,
             "sample_title": "磁力盒子 磁力盒子搜索引擎是功能强大的磁力搜索引擎，牛逼的番号搜索、磁力搜索功能，更好用的BT种子搜索引擎！",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
@@ -2324,9 +2329,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-28T03:34:01.407000+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T10:47:41.991434+00:00",
             "magnets_found": 0,
             "sample_title": "磁力树 磁力树搜索引擎是功能强大的磁力搜索引擎，牛逼的番号搜索、磁力搜索功能，更好用的BT种子搜索引擎！男人都爱上的磁力搜索引擎",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
@@ -2425,9 +2430,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-28T09:35:51.921948+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T10:47:42.273249+00:00",
             "magnets_found": 0,
             "sample_title": "BT之家 BT之家单版社区平台，最快提供 最新 最全 高清 电影、动漫、韩剧、日剧、美剧、无损音乐、体育、小说等BT迅雷下载以及资讯！影视爱好者的聚集地的~BT",
             "diagnosis": "导航站发现候选，待自动验证",
@@ -2476,9 +2481,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-28T03:35:35.465698+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T10:47:38.524072+00:00",
             "magnets_found": 0,
             "sample_title": "雨花阁 雨花阁 - 简单好用的BT搜索引擎",
             "diagnosis": "无法访问: HTTPConnectionPool(host='ww1.btcherries.xyz', port=80): Max retries exceeded wit",
@@ -2680,9 +2685,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-28T03:36:05.467473+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T10:48:10.202203+00:00",
             "magnets_found": 0,
             "sample_title": "磁力窝 磁力窝提供海量热门磁力链接资源搜索服务,24小时不间断从DHT网络中自动获取最新最热门的磁力链接资源.",
             "diagnosis": "导航站发现候选，待自动验证",
@@ -2731,9 +2736,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-28T03:36:43.403585+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T10:49:18.096082+00:00",
             "magnets_found": 0,
             "sample_title": "BT吃力 吃力网分享提供最全的搜索引擎 - 最快最全的吃力搜索网站",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
@@ -2781,9 +2786,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-28T03:37:11.382004+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T10:48:22.689259+00:00",
             "magnets_found": 0,
             "sample_title": "磁力海 磁力海搜索引擎是功能强大的磁力搜索引擎，牛逼的番号搜索、磁力搜索功能，更好用的BT种子搜索引擎！男人都爱上的磁力搜索引擎",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
@@ -2832,8 +2837,8 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-28T10:02:25.559024+00:00",
+            "status_detail": "unreachable",
+            "last_checked_at": "2026-05-31T11:10:26.881014+00:00",
             "magnets_found": 0,
             "sample_title": "快马搜索 快马搜索和千里马一样快的磁力搜索引擎，小编测试，确实搜索比较快。",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
@@ -2881,9 +2886,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-28T10:01:40.294176+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T10:48:47.635967+00:00",
             "magnets_found": 0,
             "sample_title": "磁力星 磁力星一个低调的磁力搜索引擎，提供chrome或firefox扩展“磁力星助手”，推荐优先用扩展。",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
@@ -2979,9 +2984,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:01:57.223922+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T10:50:35.165018+00:00",
             "magnets_found": 0,
             "sample_title": "无限磁力 无限磁力-致力打造全网最全磁力资源，种子分享平台，磁力链搜索引擎",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
@@ -3180,7 +3185,7 @@
           "health": {
             "status": "gray",
             "status_detail": "expired",
-            "last_checked_at": "2026-05-28T10:02:35.571444+00:00",
+            "last_checked_at": "2026-05-31T11:09:59.406187+00:00",
             "magnets_found": 0,
             "sample_title": "LetBT LetBT - 是一款专业的种子、磁力搜索引擎，拥有海量数据索引，为广大文件分享爱好者提供优质免费服务。LetBT不直接提供资源下载服务，不接受文件",
             "diagnosis": "导航站发现候选，待自动验证",
@@ -3228,9 +3233,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-28T10:02:55.609605+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T10:49:55.489457+00:00",
             "magnets_found": 0,
             "sample_title": "磁力口袋 磁力口袋-一个特别好用的磁力搜索引擎",
             "diagnosis": "跳转到: https://www.cloaked.com/?utm_source=clkd&utm_medium=web&utm_campaign=user",
@@ -3282,7 +3287,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:02:27.728679+00:00",
+            "last_checked_at": "2026-05-31T11:09:42.673131+00:00",
             "magnets_found": 0,
             "sample_title": "7Torrents 7Torrents 可以使用常用的BT下载客户端（utorrent、qbittorrent）。从网站搜索BT种子或磁力链接可以下载：电影、电",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
@@ -3433,7 +3438,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:03:06.710638+00:00",
+            "last_checked_at": "2026-05-31T11:10:06.078130+00:00",
             "magnets_found": 0,
             "sample_title": "磁力爬 磁力爬 - 磁力搜索引擎，每天提供最新的影片番号磁力链信息收集整合。",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
@@ -3480,11 +3485,11 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:03:43.300298+00:00",
-            "magnets_found": 0,
-            "sample_title": "樱花动漫",
+            "status": "green",
+            "status_detail": "ok",
+            "last_checked_at": "2026-05-31T10:50:06.910232+00:00",
+            "magnets_found": 5,
+            "sample_title": "命运/奇异赝品 Fate/strange Fake",
             "diagnosis": "首页探测超时/连接失败，标记不可达"
           }
         },
@@ -3631,7 +3636,7 @@
           "health": {
             "status": "gray",
             "status_detail": "expired",
-            "last_checked_at": "2026-05-28T10:05:04.853147+00:00",
+            "last_checked_at": "2026-05-31T11:10:33.516792+00:00",
             "magnets_found": 0,
             "sample_title": "比特大雄(BT天堂吧) 比特大雄(BT天堂吧)为您提供最新的720P、1080P高清电影BT种子下载、热门美剧BT种子下载，本站所有电影BT种子无需注册即可免费",
             "diagnosis": "域名停放/出售: domain is for sale",
@@ -3680,9 +3685,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-28T10:04:35.170363+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T10:50:51.758950+00:00",
             "magnets_found": 0,
             "sample_title": "bthaha磁力链接搜索 BtHaha(BT哈哈)，专业提供磁力链接搜索的网站，千万级磁力链接，全网实时更新，包括电影、剧集、音乐、图书、软件、动漫、软件、教程",
             "diagnosis": "导航站发现候选，待自动验证",
@@ -3694,7 +3699,7 @@
           "id": "90ceb196eca1",
           "site": {
             "name": "berrl.com",
-            "origin": "http://berrl.com",
+            "origin": "https://berrl.com",
             "countries": [
               "korea"
             ],
@@ -3705,7 +3710,7 @@
             "supports_detail": false
           },
           "search": {
-            "request_template": "/?q={query}",
+            "request_template": "/api/ssbc",
             "timeout_ms": 15000,
             "retries": {
               "max_attempts": 3,
@@ -3731,14 +3736,19 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "green",
+            "status_detail": "ok",
             "last_checked_at": "2026-05-28T10:04:37.805951+00:00",
-            "magnets_found": 0,
+            "magnets_found": 12,
             "sample_title": "博世BT磁力吧 博世BT磁力吧是专业强大的磁力搜索引擎，这里有超过千万的磁力链接提供搜索，24小时不间断更新。",
-            "diagnosis": "首页探测超时/连接失败，标记不可达"
+            "diagnosis": "首页探测超时/连接失败，标记不可达",
+            "note": "verified: 12 results via ssbc"
           },
-          "notes": "YELLOW: alive but 0 results, selectors need fixing"
+          "notes": "YELLOW: alive but 0 results, selectors need fixing",
+          "tier_override": {
+            "tier": "tier2_handler",
+            "platform": "ssbc"
+          }
         },
         {
           "id": "94563719f59c",
@@ -3781,9 +3791,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:04:41.255914+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T10:51:00.086672+00:00",
             "magnets_found": 0,
             "sample_title": "老王磁力链接搜索引擎 磁力链接搜索引擎老王磁力(laowang.icu)索引了全球最新最热门的BT种子信息和磁力链接，提供磁力链接搜索、BT搜索、种子搜索等强大",
             "diagnosis": "跳转到: https://nav.dayunav.top/feo/LphK0R0N5L?_=001&p=1",
@@ -3938,7 +3948,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:04:43.285999+00:00",
+            "last_checked_at": "2026-05-31T11:10:08.150985+00:00",
             "magnets_found": 0,
             "sample_title": "老王磁力",
             "diagnosis": "classified as jump site by navigation analyzer; use auxiliary discovery pipeline",
@@ -4138,14 +4148,14 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "green",
+            "status_detail": "ok",
             "last_checked_at": "2026-05-28T10:06:09.841290+00:00",
             "magnets_found": 0,
             "sample_title": "磁力熊猫",
             "diagnosis": "classified as jump site by navigation analyzer; use auxiliary discovery pipeline",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
-            "note": "cloak_verify: jump/redirect page, not a search engine",
+            "note": "thatcdn handler, verified with health_check",
             "fail_streak": 0
           },
           "tier_override": {
@@ -4194,9 +4204,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-28T10:05:52.455432+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T10:51:26.168809+00:00",
             "magnets_found": 0,
             "sample_title": "磁力链",
             "diagnosis": "导航站dh0.cn发现候选，待自动验证",
@@ -4512,7 +4522,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:06:12.767204+00:00",
+            "last_checked_at": "2026-05-31T11:10:23.621218+00:00",
             "magnets_found": 0,
             "sample_title": "磁力星球 磁力星球",
             "diagnosis": "导航站发现候选，待自动验证",
@@ -4661,13 +4671,13 @@
           },
           "health": {
             "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status_detail": "waf",
             "last_checked_at": "2026-05-28T10:07:00.136716+00:00",
             "magnets_found": 0,
             "sample_title": "吴签磁力 干净实用的磁力链接搜索引擎，专注整合全网磁力与网盘资源。首页热门关键词一键搜索电影、剧集等，界面无广告、操作简单。数据来源于公开网络，服务器不存文件，",
             "diagnosis": "classified as jump site by navigation analyzer; use auxiliary discovery pipeline",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
-            "note": "cloak_verify: jump/redirect page, not a search engine",
+            "note": "CF Turnstile blocks headless+headed CloakBrowser, needs solver service",
             "fail_streak": 0
           },
           "tier_override": {
@@ -4716,14 +4726,14 @@
             ]
           },
           "health": {
-            "status": "green",
-            "status_detail": "ok",
+            "status": "yellow",
+            "status_detail": "waf",
             "last_checked_at": "2026-05-28T10:06:55.092480+00:00",
             "magnets_found": 0,
             "sample_title": "BT1207 好用的磁力链接搜索引擎",
             "diagnosis": "classified as jump site by navigation analyzer; use auxiliary discovery pipeline",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
-            "note": "cloak_verify: jump/redirect page, not a search engine",
+            "note": "CF Turnstile blocks headless+headed CloakBrowser, needs solver service",
             "fail_streak": 0
           },
           "tier_override": {
@@ -4831,14 +4841,14 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "green",
+            "status_detail": "ok",
             "last_checked_at": "2026-05-28T10:07:03.084234+00:00",
             "magnets_found": 0,
             "sample_title": "磁力柠檬 最懂你的磁力链接搜索引擎",
             "diagnosis": "classified as jump site by navigation analyzer; use auxiliary discovery pipeline",
             "last_check": "2026-04-21T00:51:45.993605+00:00",
-            "note": "cloak_verify: jump/redirect page, not a search engine",
+            "note": "thatcdn handler, verified with health_check",
             "fail_streak": 0
           },
           "tier_override": {
@@ -4889,7 +4899,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-28T10:06:24.853767+00:00",
+            "last_checked_at": "2026-05-31T11:10:24.580398+00:00",
             "magnets_found": 0,
             "sample_title": "BT搜索联盟 提供丰富BT种子资源的搜索平台，支持多种搜索方式，资源种类繁多，界面简洁，操作方便，是获取电影、电视剧、软件、游戏等资源的优质选择。",
             "diagnosis": "无法访问: HTTPSConnectionPool(host='www.btfan.com', port=443): Max retries exceeded with u",
@@ -4901,7 +4911,7 @@
           "id": "b246f6cff2a5",
           "site": {
             "name": "wuji.me",
-            "origin": "https://wuji.me/?ref=eeenav.com",
+            "origin": "https://wuji.me",
             "countries": [
               "korea"
             ],
@@ -4922,19 +4932,20 @@
             "requires_browser": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "a[href^=\"/!\"]",
-                "title": "",
-                "detail_link": "a[href^=\"/!\"]",
-                "magnet": "a[href^=\"magnet:\"]"
+                "list_item": "table.file-list tbody tr",
+                "title": "td a",
+                "detail_link": "td a[href^=\"/\"]",
+                "magnet": "a[href^=\"magnet:\"]",
+                "size": "td.td-size"
               }
             },
             "supports_detail": true,
             "detail_template": "/!{id}",
             "detail": {
               "selectors": {
-                "magnet": "a[href^=\"magnet:\"]",
-                "title": "h2, h1",
-                "size": "td:contains(\"文件大小\"), span.size"
+                "magnet": "a[href^=\"magnet:\"], input#input-magnet",
+                "title": "h2.magnet-title, h2, h1",
+                "size": "dd"
               }
             }
           },
@@ -4946,12 +4957,13 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "green",
+            "status_detail": "ok",
             "last_checked_at": "2026-05-28T10:07:06.709393+00:00",
-            "magnets_found": 0,
+            "magnets_found": 5,
             "sample_title": "盗梦空间 Inception 2010 Bluray 2160p DTS-HDMA5.1 HDR x265 10bit-DreamHD",
-            "diagnosis": "导航站发现候选，待自动验证"
+            "diagnosis": "导航站发现候选，待自动验证",
+            "note": "verified: 5 results via tier0"
           },
           "notes": "SKIP: SPA shell, mirror of F.37 (0cili.nl)"
         },
@@ -4959,7 +4971,7 @@
           "id": "23d3ea89589d",
           "site": {
             "name": "jzcilifa1.shop",
-            "origin": "https://www.jzcilifa1.shop/?ref=eeenav.com",
+            "origin": "https://jzcilifa1.shop",
             "countries": [
               "korea"
             ],
@@ -4970,7 +4982,7 @@
             "supports_detail": false
           },
           "search": {
-            "request_template": "/?q={query}",
+            "request_template": "/api/ssbc",
             "timeout_ms": 15000,
             "retries": {
               "max_attempts": 3,
@@ -4996,15 +5008,19 @@
             ]
           },
           "health": {
-            "status": "yellow",
-            "status_detail": "parsing_failed",
+            "status": "green",
+            "status_detail": "ok",
             "last_checked_at": "2026-05-28T10:07:11.916807+00:00",
-            "magnets_found": 0,
+            "magnets_found": 12,
             "sample_title": "磁力发 四千万磁力资源搜索|免费BT下载|高清影视种子搜索",
             "diagnosis": "导航站发现候选，待自动验证",
-            "note": "legacy status_detail=parked; legacy status=red"
+            "note": "verified: 12 results via ssbc"
           },
-          "notes": "SKIP: SPA shell with CryptoJS, 0 results via proxy"
+          "notes": "SKIP: SPA shell with CryptoJS, 0 results via proxy",
+          "tier_override": {
+            "tier": "tier2_handler",
+            "platform": "ssbc"
+          }
         },
         {
           "id": "7344db5de4f5",
@@ -5050,10 +5066,10 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-04-23T13:18:41.480146+00:00",
-            "magnets_found": 12,
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T10:51:10.612721+00:00",
+            "magnets_found": 0,
             "sample_title": "Inception (2010) [1080p]",
             "diagnosis": "导航站发现候选，待自动验证"
           }
@@ -5100,8 +5116,8 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-04-23T06:34:20.605352+00:00",
-            "magnets_found": 1,
+            "last_checked_at": "2026-05-31T11:10:26.794371+00:00",
+            "magnets_found": 0,
             "sample_title": "复制链接",
             "note": "evidence_found_via_http_detail_follow",
             "diagnosis": "browser_green_push verified: 1 magnets (method=interactive+detail, path=interactive)"
@@ -5148,8 +5164,8 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-04-21T06:08:01.678577+00:00",
+            "status_detail": "404",
+            "last_checked_at": "2026-05-31T11:11:36.804502+00:00",
             "magnets_found": 0,
             "sample_title": "",
             "note": "legacy status_detail=empty_tiny_page; legacy status=red"
@@ -5197,7 +5213,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-04-21T06:08:09.817378+00:00",
+            "last_checked_at": "2026-05-31T11:10:54.329970+00:00",
             "magnets_found": 0,
             "sample_title": "",
             "note": "legacy status=red"
@@ -5243,9 +5259,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-16T02:03:55.621680+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T11:11:01.034800+00:00",
             "magnets_found": 0,
             "sample_title": "",
             "note": "cloak_verify: jump/redirect page, not a search engine",
@@ -5292,9 +5308,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-04-22T15:00:46.077217+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T11:11:19.423068+00:00",
             "magnets_found": 0,
             "sample_title": "",
             "note": "legacy status_detail=no_magnet_content_playwright_verified; legacy status=red"
@@ -5340,9 +5356,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-16T02:03:55.621680+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T11:11:55.246433+00:00",
             "magnets_found": 0,
             "sample_title": "",
             "note": "cloak_verify: jump/redirect page, not a search engine",
@@ -5390,9 +5406,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-04-21T03:15:03.805158+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T11:11:32.218988+00:00",
             "magnets_found": 0,
             "sample_title": "",
             "note": "legacy status=red"
@@ -5440,7 +5456,7 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-04-21T03:15:04.465132+00:00",
+            "last_checked_at": "2026-05-31T11:12:01.836275+00:00",
             "magnets_found": 0,
             "sample_title": "",
             "note": "legacy status=red"
@@ -5487,8 +5503,8 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-04-21T03:15:05.122746+00:00",
+            "status_detail": "404",
+            "last_checked_at": "2026-05-31T11:12:46.827381+00:00",
             "magnets_found": 0,
             "sample_title": "",
             "note": "legacy status=red"
@@ -5535,8 +5551,8 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-04-22T16:12:42.317004+00:00",
+            "status_detail": "404",
+            "last_checked_at": "2026-05-31T11:13:14.506502+00:00",
             "magnets_found": 0,
             "sample_title": "",
             "note": "aux_site:navigation:nav_directory_detail_pages",
@@ -5583,9 +5599,9 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-04-21T03:15:06.427317+00:00",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T11:12:24.508503+00:00",
             "magnets_found": 0,
             "sample_title": "",
             "note": "legacy status=red"
@@ -5685,10 +5701,10 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
-            "magnets_found": 1,
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T11:13:04.906510+00:00",
+            "magnets_found": 0,
             "sample_title": "",
             "note": "evidence_found_via_interactive_detail_follow",
             "fail_streak": 0
@@ -5985,11 +6001,11 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "parsing_failed",
-            "last_checked_at": "2026-05-05T07:50:00.000Z",
-            "magnets_found": 0,
-            "sample_title": "",
+            "status": "green",
+            "status_detail": "ok",
+            "last_checked_at": "2026-05-31T11:12:25.708666+00:00",
+            "magnets_found": 5,
+            "sample_title": "Martin R. UML for Java programmers 2003",
             "note": "CTPB custom clone SPA: renders trending content regardless of URL. Search requires client-side form interaction, unfixable with current spa_render flow.",
             "fail_streak": 3
           }
@@ -7875,9 +7891,10 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
-            "fail_streak": 0
+            "status_detail": "404",
+            "last_checked_at": "2026-05-31T11:13:42.239425+00:00",
+            "fail_streak": 0,
+            "magnets_found": 0
           }
         },
         {
@@ -7929,8 +7946,9 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
-            "fail_streak": 0
+            "last_checked_at": "2026-05-31T11:15:30.093290+00:00",
+            "fail_streak": 0,
+            "magnets_found": 0
           }
         },
         {
@@ -8436,11 +8454,11 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-04-27T09:30:00.000000+00:00",
-            "magnets_found": 0,
-            "sample_title": ""
+            "status": "green",
+            "status_detail": "ok",
+            "last_checked_at": "2026-05-31T11:13:26.846114+00:00",
+            "magnets_found": 5,
+            "sample_title": "Java Heat (2013) 720p BluRay x264 Eng Subs [Dual Audio] [Hindi DDP 2.0 - English"
           }
         },
         {
@@ -8491,12 +8509,14 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
-            "magnets_found": 96,
-            "sample_title": "FutileStruggles.Gianna.Loves.Test-Part.2.XXX.720p.WMV-hUSHhUSH",
-            "fail_streak": 0
+            "status": "green",
+            "status_detail": "ok",
+            "last_checked_at": "2026-05-31T11:14:06.015352+00:00",
+            "magnets_found": 5,
+            "sample_title": "The Dark Knight Ingrid 磁力下载 - ØMagnet 无极磁链",
+            "fail_streak": 0,
+            "user_active": true,
+            "user_ok_30d": 344
           }
         },
         {
@@ -8550,9 +8570,9 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
-            "magnets_found": 15,
+            "status_detail": "unreachable",
+            "last_checked_at": "2026-05-31T11:14:01.272154+00:00",
+            "magnets_found": 0,
             "sample_title": "test-drive-unlimited-2.7z",
             "fail_streak": 0,
             "note": "demoted: 0% success across all users per analytics (browser rendering fails)"
@@ -9013,9 +9033,9 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
-            "magnets_found": 20,
+            "status_detail": "404",
+            "last_checked_at": "2026-05-31T11:15:30.403230+00:00",
+            "magnets_found": 0,
             "sample_title": "spider",
             "fail_streak": 0
           }
@@ -9073,13 +9093,15 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-05-16T04:00:00.000000+00:00",
-            "magnets_found": 2,
-            "sample_title": "spider",
+            "status": "green",
+            "status_detail": "ok",
+            "last_checked_at": "2026-05-31T11:16:16.930799+00:00",
+            "magnets_found": 5,
+            "sample_title": "The.Dark.Knight.2008.UHD.BluRay.2160p.TrueHD.5.1.DV.HEVC.HYBRID.REMUX-FraMeSToR ",
             "note": "Demoted: so2.btsow.top works without browser (15 results/507ms). This browser entry wastes 91s for 0 results.",
-            "fail_streak": 0
+            "fail_streak": 0,
+            "user_active": true,
+            "user_ok_30d": 3106
           }
         },
         {
@@ -9305,8 +9327,9 @@
           "health": {
             "status": "gray",
             "status_detail": "unreachable",
-            "last_checked_at": "2026-04-26T01:00:00+08:00",
-            "note": "domain parked/redirects to game ad; mirrors cl.btm103.xyz, mk.btm104.xyz, lk.btm102.xyz all dead"
+            "last_checked_at": "2026-05-31T11:14:35.333378+00:00",
+            "note": "domain parked/redirects to game ad; mirrors cl.btm103.xyz, mk.btm104.xyz, lk.btm102.xyz all dead",
+            "magnets_found": 0
           }
         },
         {
@@ -9351,9 +9374,10 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-04-26T01:00:00+08:00",
-            "note": "52btbt.icu and 种子搜索.xyz both return 404 nginx; 529072.xyz/529073.xyz are relay domains"
+            "status_detail": "404",
+            "last_checked_at": "2026-05-31T11:16:01.264542+00:00",
+            "note": "52btbt.icu and 种子搜索.xyz both return 404 nginx; 529072.xyz/529073.xyz are relay domains",
+            "magnets_found": 0
           }
         },
         {
@@ -9397,9 +9421,10 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-04-26T01:00:00+08:00",
-            "note": "404 nginx; search form exists but returns nothing"
+            "status_detail": "404",
+            "last_checked_at": "2026-05-31T11:16:47.954793+00:00",
+            "note": "404 nginx; search form exists but returns nothing",
+            "magnets_found": 0
           }
         },
         {
@@ -9443,9 +9468,10 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-04-26T01:00:00+08:00",
-            "note": "Site alive but search returns 404 page; title='链接任务搜索引擎'"
+            "status_detail": "404",
+            "last_checked_at": "2026-05-31T11:16:51.119376+00:00",
+            "note": "Site alive but search returns 404 page; title='链接任务搜索引擎'",
+            "magnets_found": 0
           }
         },
         {
@@ -9489,10 +9515,11 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-04-26T01:00:00+08:00",
-            "note": "dobt.top redirects to baidu.com; sofan.in→ke.dobt.top→baidu"
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-05-31T11:16:34.372246+00:00",
+            "note": "dobt.top redirects to baidu.com; sofan.in→ke.dobt.top→baidu",
+            "magnets_found": 0
           }
         },
         {
@@ -9537,9 +9564,10 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-04-26T01:00:00+08:00",
-            "note": "Release page only; relay domains 770679.xyz, 7706775.xyz; no working search domain found"
+            "status_detail": "404",
+            "last_checked_at": "2026-05-31T11:17:53.017478+00:00",
+            "note": "Release page only; relay domains 770679.xyz, 7706775.xyz; no working search domain found",
+            "magnets_found": 0
           }
         },
         {
@@ -9584,9 +9612,10 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "unreachable",
-            "last_checked_at": "2026-04-26T01:00:00+08:00",
-            "note": "Release page only; relay domains 1230151.xyz, 1230150.xyz; no working search domain found"
+            "status_detail": "404",
+            "last_checked_at": "2026-05-31T11:17:51.322898+00:00",
+            "note": "Release page only; relay domains 1230151.xyz, 1230150.xyz; no working search domain found",
+            "magnets_found": 0
           }
         },
         {
@@ -10000,9 +10029,10 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "expired",
+            "status_detail": "404",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+            "last_checked_at": "2026-05-31T11:19:02.337745+00:00",
+            "magnets_found": 0
           }
         },
         {
@@ -10053,9 +10083,10 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "expired",
+            "status_detail": "404",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+            "last_checked_at": "2026-05-31T11:18:55.480768+00:00",
+            "magnets_found": 0
           }
         },
         {
@@ -10106,9 +10137,10 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "expired",
+            "status_detail": "404",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+            "last_checked_at": "2026-05-31T11:19:53.351238+00:00",
+            "magnets_found": 0
           }
         },
         {
@@ -10159,9 +10191,10 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "expired",
+            "status_detail": "404",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+            "last_checked_at": "2026-05-31T11:19:53.347530+00:00",
+            "magnets_found": 0
           }
         },
         {
@@ -10178,7 +10211,7 @@
             "supports_detail": true
           },
           "search": {
-            "request_template": "/search?wd={query_b64}",
+            "request_template": "/search?word={query_b64url}&sort=time",
             "timeout_ms": 10000,
             "retries": {
               "max_attempts": 2,
@@ -10187,21 +10220,21 @@
             "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.ssbox",
-                "title": "h5 a",
+                "list_item": "ul#Search_list_wrapper li",
+                "title": "a.SearchListTitle_result_title",
+                "detail_link": "a.SearchListTitle_result_title[href^=\"/information/\"]",
                 "magnet": "",
-                "size": "span:nth-child(2)",
-                "date": "span:nth-child(3)",
-                "detail_link": "h5 a"
+                "size": "div.Search_list_info"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^='magnet:']",
-                "title": "h3",
+                "magnet": "a[href^=\"magnet:\"]",
+                "title": "h1, h2, .title",
                 "size": ""
               }
-            }
+            },
+            "requires_browser": false
           },
           "quality": {
             "score": 50,
@@ -10211,10 +10244,12 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
+            "status": "green",
+            "status_detail": "ok",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "note": "verified: 5 results via tier0",
+            "magnets_found": 5
           }
         },
         {
@@ -10231,7 +10266,7 @@
             "supports_detail": true
           },
           "search": {
-            "request_template": "/search?wd={query_b64}",
+            "request_template": "/search?word={query_b64url}&sort=time",
             "timeout_ms": 10000,
             "retries": {
               "max_attempts": 2,
@@ -10240,21 +10275,21 @@
             "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.ssbox",
-                "title": "h5 a",
+                "list_item": "ul#Search_list_wrapper li",
+                "title": "a.SearchListTitle_result_title",
+                "detail_link": "a.SearchListTitle_result_title[href^=\"/information/\"]",
                 "magnet": "",
-                "size": "span:nth-child(2)",
-                "date": "span:nth-child(3)",
-                "detail_link": "h5 a"
+                "size": "div.Search_list_info"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^='magnet:']",
-                "title": "h3",
+                "magnet": "a[href^=\"magnet:\"]",
+                "title": "h1, h2, .title",
                 "size": ""
               }
-            }
+            },
+            "requires_browser": false
           },
           "quality": {
             "score": 50,
@@ -10264,10 +10299,12 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
+            "status": "green",
+            "status_detail": "ok",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "note": "verified: 5 results via tier0",
+            "magnets_found": 5
           }
         },
         {
@@ -10284,7 +10321,7 @@
             "supports_detail": true
           },
           "search": {
-            "request_template": "/search?wd={query_b64}",
+            "request_template": "/search?word={query_b64url}&sort=time",
             "timeout_ms": 10000,
             "retries": {
               "max_attempts": 2,
@@ -10293,21 +10330,21 @@
             "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.ssbox",
-                "title": "h5 a",
+                "list_item": "ul#Search_list_wrapper li",
+                "title": "a.SearchListTitle_result_title",
+                "detail_link": "a.SearchListTitle_result_title[href^=\"/information/\"]",
                 "magnet": "",
-                "size": "span:nth-child(2)",
-                "date": "span:nth-child(3)",
-                "detail_link": "h5 a"
+                "size": "div.Search_list_info"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^='magnet:']",
-                "title": "h3",
+                "magnet": "a[href^=\"magnet:\"]",
+                "title": "h1, h2, .title",
                 "size": ""
               }
-            }
+            },
+            "requires_browser": false
           },
           "quality": {
             "score": 50,
@@ -10320,7 +10357,9 @@
             "status": "green",
             "status_detail": "ok",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "note": "verified: 5 results via tier0",
+            "magnets_found": 5
           }
         },
         {
@@ -10337,7 +10376,7 @@
             "supports_detail": true
           },
           "search": {
-            "request_template": "/search?wd={query_b64}",
+            "request_template": "/search?word={query_b64url}&sort=time",
             "timeout_ms": 10000,
             "retries": {
               "max_attempts": 2,
@@ -10346,21 +10385,21 @@
             "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.ssbox",
-                "title": "h5 a",
+                "list_item": "ul#Search_list_wrapper li",
+                "title": "a.SearchListTitle_result_title",
+                "detail_link": "a.SearchListTitle_result_title[href^=\"/information/\"]",
                 "magnet": "",
-                "size": "span:nth-child(2)",
-                "date": "span:nth-child(3)",
-                "detail_link": "h5 a"
+                "size": "div.Search_list_info"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^='magnet:']",
-                "title": "h3",
+                "magnet": "a[href^=\"magnet:\"]",
+                "title": "h1, h2, .title",
                 "size": ""
               }
-            }
+            },
+            "requires_browser": false
           },
           "quality": {
             "score": 50,
@@ -10373,7 +10412,9 @@
             "status": "green",
             "status_detail": "ok",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00"
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "note": "verified: 5 results via tier0",
+            "magnets_found": 5
           }
         },
         {
@@ -10839,7 +10880,8 @@
             "status": "gray",
             "status_detail": "unreachable",
             "fail_streak": 1,
-            "last_checked_at": "2026-05-04T19:04:38.344186+08:00"
+            "last_checked_at": "2026-05-31T11:19:37.003376+00:00",
+            "magnets_found": 0
           }
         },
         {
@@ -10883,8 +10925,8 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "expired",
-            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "status_detail": "unreachable",
+            "last_checked_at": "2026-05-31T11:21:32.606710+00:00",
             "fail_streak": 0,
             "magnets_found": 0,
             "sample_title": "",
@@ -10936,7 +10978,8 @@
             "status": "gray",
             "status_detail": "unreachable",
             "fail_streak": 1,
-            "last_checked_at": "2026-05-04T19:04:38.344186+08:00"
+            "last_checked_at": "2026-05-31T11:20:16.964186+00:00",
+            "magnets_found": 0
           }
         },
         {
@@ -11056,13 +11099,15 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-02T16:56:56.657337+00:00",
-            "magnets_found": 56,
+            "last_checked_at": "2026-05-31T11:23:13.993038+00:00",
+            "magnets_found": 0,
             "sample_title": "The.Amazing.Spider-Man.2.2014.1080p.BluRay",
-            "note": "ØMagnet alternate frontend. li.item layout. Detail-follow /magnet/{shortcode}."
+            "note": "ØMagnet alternate frontend. li.item layout. Detail-follow /magnet/{shortcode}.",
+            "user_active": true,
+            "user_ok_30d": 1345
           }
         },
         {
@@ -11115,13 +11160,15 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "expired",
+            "status": "yellow",
+            "status_detail": "parsing_failed",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-02T16:56:56.657337+00:00",
-            "magnets_found": 56,
+            "last_checked_at": "2026-05-31T11:23:13.235302+00:00",
+            "magnets_found": 0,
             "sample_title": "The.Amazing.Spider-Man.2.2014.1080p.BluRay",
-            "note": "ØMagnet alternate frontend mirror of cilisousuo.co."
+            "note": "ØMagnet alternate frontend mirror of cilisousuo.co.",
+            "user_active": true,
+            "user_ok_30d": 1289
           }
         },
         {
@@ -11293,12 +11340,14 @@
             ]
           },
           "health": {
-            "status": "gray",
-            "status_detail": "unreachable",
+            "status": "green",
+            "status_detail": "ok",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-03T00:30:00.000000+00:00",
-            "magnets_found": 1,
-            "sample_title": "spider"
+            "last_checked_at": "2026-05-31T11:21:25.872618+00:00",
+            "magnets_found": 5,
+            "sample_title": "Resource Detail",
+            "user_active": true,
+            "user_ok_30d": 242
           }
         },
         {
@@ -11475,12 +11524,12 @@
           },
           "health": {
             "status": "yellow",
-            "status_detail": "ok",
+            "status_detail": "waf",
             "fail_streak": 0,
             "last_checked_at": "2026-05-03T17:30:00.000000+00:00",
             "magnets_found": 0,
             "sample_title": "",
-            "note": "SPA+Captcha: /recaptcha/v4/challenge. wuqianso.org(最新)+wuqiandb.cc(备用). 发布页 wuqiandizhi.net 确认"
+            "note": "CF Turnstile blocks headless+headed CloakBrowser, needs solver service"
           },
           "tier_override": {
             "tier": "tier2_handler",
@@ -11582,9 +11631,9 @@
           },
           "health": {
             "status": "gray",
-            "status_detail": "unreachable",
+            "status_detail": "404",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-03T09:30:00.000000+00:00",
+            "last_checked_at": "2026-05-31T11:22:35.758400+00:00",
             "magnets_found": 0,
             "sample_title": "",
             "note": "91btbt.com and 91bt.cyou are release pages only. Real working search domain not yet discovered."
@@ -11632,7 +11681,7 @@
             "status": "gray",
             "status_detail": "expired",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-03T17:30:00.000000+00:00",
+            "last_checked_at": "2026-05-31T11:21:52.270652+00:00",
             "magnets_found": 0,
             "sample_title": "",
             "note": "Domain parked: 'Buy this domain'. Was SPA site."
@@ -11683,7 +11732,7 @@
             ]
           },
           "health": {
-            "status": "yellow",
+            "status": "green",
             "status_detail": "ok",
             "fail_streak": 0,
             "last_checked_at": "2026-05-03T17:30:00.000000+00:00",
@@ -11740,7 +11789,7 @@
             ]
           },
           "health": {
-            "status": "yellow",
+            "status": "green",
             "status_detail": "ok",
             "fail_streak": 0,
             "last_checked_at": "2026-05-03T17:30:00.000000+00:00",
@@ -11820,7 +11869,7 @@
             "supports_detail": true
           },
           "search": {
-            "request_template": "/search?wd={query_b64}",
+            "request_template": "/search?word={query_b64url}&sort=time",
             "timeout_ms": 10000,
             "retries": {
               "max_attempts": 2,
@@ -11829,21 +11878,21 @@
             "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.ssbox",
-                "title": "h5 a",
+                "list_item": "ul#Search_list_wrapper li",
+                "title": "a.SearchListTitle_result_title",
+                "detail_link": "a.SearchListTitle_result_title[href^=\"/information/\"]",
                 "magnet": "",
-                "size": "span:nth-child(2)",
-                "date": "span:nth-child(3)",
-                "detail_link": "h5 a"
+                "size": "div.Search_list_info"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^='magnet:']",
-                "title": "h3",
+                "magnet": "a[href^=\"magnet:\"]",
+                "title": "h1, h2, .title",
                 "size": ""
               }
-            }
+            },
+            "requires_browser": false
           },
           "quality": {
             "score": 50,
@@ -11856,7 +11905,9 @@
             "status": "green",
             "status_detail": "ok",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-04T17:36:33.527345+08:00"
+            "last_checked_at": "2026-05-04T17:36:33.527345+08:00",
+            "note": "verified: 5 results via tier0",
+            "magnets_found": 5
           }
         },
         {
@@ -11873,7 +11924,7 @@
             "supports_detail": true
           },
           "search": {
-            "request_template": "/search?wd={query_b64}",
+            "request_template": "/search?word={query_b64url}&sort=time",
             "timeout_ms": 10000,
             "retries": {
               "max_attempts": 2,
@@ -11882,21 +11933,21 @@
             "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.ssbox",
-                "title": "h5 a",
+                "list_item": "ul#Search_list_wrapper li",
+                "title": "a.SearchListTitle_result_title",
+                "detail_link": "a.SearchListTitle_result_title[href^=\"/information/\"]",
                 "magnet": "",
-                "size": "span:nth-child(2)",
-                "date": "span:nth-child(3)",
-                "detail_link": "h5 a"
+                "size": "div.Search_list_info"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^='magnet:']",
-                "title": "h3",
+                "magnet": "a[href^=\"magnet:\"]",
+                "title": "h1, h2, .title",
                 "size": ""
               }
-            }
+            },
+            "requires_browser": false
           },
           "quality": {
             "score": 50,
@@ -11906,10 +11957,12 @@
             ]
           },
           "health": {
-            "status": "green",
-            "status_detail": "ok",
+            "status": "gray",
+            "status_detail": "unreachable",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-04T17:36:33.527345+08:00"
+            "last_checked_at": "2026-05-31T11:22:03.795965+00:00",
+            "note": "SSL error, unreachable",
+            "magnets_found": 0
           }
         },
         {
@@ -11926,7 +11979,7 @@
             "supports_detail": true
           },
           "search": {
-            "request_template": "/search?wd={query_b64}",
+            "request_template": "/search?word={query_b64url}&sort=time",
             "timeout_ms": 10000,
             "retries": {
               "max_attempts": 2,
@@ -11935,21 +11988,21 @@
             "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.ssbox",
-                "title": "h5 a",
+                "list_item": "ul#Search_list_wrapper li",
+                "title": "a.SearchListTitle_result_title",
+                "detail_link": "a.SearchListTitle_result_title[href^=\"/information/\"]",
                 "magnet": "",
-                "size": "span:nth-child(2)",
-                "date": "span:nth-child(3)",
-                "detail_link": "h5 a"
+                "size": "div.Search_list_info"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^='magnet:']",
-                "title": "h3",
+                "magnet": "a[href^=\"magnet:\"]",
+                "title": "h1, h2, .title",
                 "size": ""
               }
-            }
+            },
+            "requires_browser": false
           },
           "quality": {
             "score": 50,
@@ -11962,7 +12015,9 @@
             "status": "green",
             "status_detail": "ok",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-04T17:36:33.527345+08:00"
+            "last_checked_at": "2026-05-04T17:36:33.527345+08:00",
+            "note": "verified: 5 results via tier0",
+            "magnets_found": 5
           }
         },
         {
@@ -11979,7 +12034,7 @@
             "supports_detail": true
           },
           "search": {
-            "request_template": "/search?wd={query_b64}",
+            "request_template": "/search?word={query_b64url}&sort=time",
             "timeout_ms": 10000,
             "retries": {
               "max_attempts": 2,
@@ -11988,21 +12043,21 @@
             "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.ssbox",
-                "title": "h5 a",
+                "list_item": "ul#Search_list_wrapper li",
+                "title": "a.SearchListTitle_result_title",
+                "detail_link": "a.SearchListTitle_result_title[href^=\"/information/\"]",
                 "magnet": "",
-                "size": "span:nth-child(2)",
-                "date": "span:nth-child(3)",
-                "detail_link": "h5 a"
+                "size": "div.Search_list_info"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^='magnet:']",
-                "title": "h3",
+                "magnet": "a[href^=\"magnet:\"]",
+                "title": "h1, h2, .title",
                 "size": ""
               }
-            }
+            },
+            "requires_browser": false
           },
           "quality": {
             "score": 50,
@@ -12015,7 +12070,9 @@
             "status": "green",
             "status_detail": "ok",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-04T17:36:33.527345+08:00"
+            "last_checked_at": "2026-05-04T17:36:33.527345+08:00",
+            "note": "verified: 5 results via tier0",
+            "magnets_found": 5
           }
         },
         {
@@ -12032,7 +12089,7 @@
             "supports_detail": true
           },
           "search": {
-            "request_template": "/search?wd={query_b64}",
+            "request_template": "/search?word={query_b64url}&sort=time",
             "timeout_ms": 10000,
             "retries": {
               "max_attempts": 2,
@@ -12041,21 +12098,21 @@
             "requires_waf_bypass": false,
             "parse_metadata": {
               "selectors": {
-                "list_item": "div.ssbox",
-                "title": "h5 a",
+                "list_item": "ul#Search_list_wrapper li",
+                "title": "a.SearchListTitle_result_title",
+                "detail_link": "a.SearchListTitle_result_title[href^=\"/information/\"]",
                 "magnet": "",
-                "size": "span:nth-child(2)",
-                "date": "span:nth-child(3)",
-                "detail_link": "h5 a"
+                "size": "div.Search_list_info"
               }
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^='magnet:']",
-                "title": "h3",
+                "magnet": "a[href^=\"magnet:\"]",
+                "title": "h1, h2, .title",
                 "size": ""
               }
-            }
+            },
+            "requires_browser": false
           },
           "quality": {
             "score": 50,
@@ -12068,7 +12125,64 @@
             "status": "green",
             "status_detail": "ok",
             "fail_streak": 0,
-            "last_checked_at": "2026-05-04T17:36:33.527345+08:00"
+            "last_checked_at": "2026-05-04T17:36:33.527345+08:00",
+            "note": "verified: 5 results via tier0",
+            "magnets_found": 5
+          }
+        },
+        {
+          "id": "clm41_xyz_001",
+          "site": {
+            "name": "磁力猫(clm41)",
+            "origin": "https://clm41.xyz",
+            "brand": "磁力猫",
+            "countries": [
+              "china"
+            ]
+          },
+          "capabilities": {
+            "supports_detail": true
+          },
+          "search": {
+            "request_template": "/search?word={query_b64url}&sort=time",
+            "timeout_ms": 10000,
+            "retries": {
+              "max_attempts": 2,
+              "backoff_ms": 1000
+            },
+            "requires_waf_bypass": false,
+            "parse_metadata": {
+              "selectors": {
+                "list_item": "ul#Search_list_wrapper li",
+                "title": "a.SearchListTitle_result_title",
+                "detail_link": "a.SearchListTitle_result_title[href^=\"/information/\"]",
+                "magnet": "",
+                "size": "div.Search_list_info"
+              }
+            },
+            "detail": {
+              "selectors": {
+                "magnet": "a[href^=\"magnet:\"]",
+                "title": "h1, h2, .title",
+                "size": ""
+              }
+            },
+            "requires_browser": false
+          },
+          "quality": {
+            "score": 50,
+            "tags": [
+              "chinese",
+              "general"
+            ]
+          },
+          "health": {
+            "status": "green",
+            "status_detail": "ok",
+            "fail_streak": 0,
+            "last_checked_at": "2026-05-02T16:36:28.061551+00:00",
+            "note": "brand rediscovery, same pattern as clm50-59",
+            "magnets_found": 5
           }
         }
       ]

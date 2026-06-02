@@ -29,10 +29,10 @@ const zh = {
   emptyQueryToast: '请输入搜索内容',
 
   // ── Search results ──
-  searchingStatus: (_sources: number, results: number) =>
-    `正在搜索精选磁力源，找到 ${results} 条结果`,
-  searchDoneStatus: (_sources: number, results: number) =>
-    `已搜索精选磁力源，找到 ${results} 条结果`,
+  searchingStatus: (done: number, total: number, results: number) =>
+    `搜索 ${done}/${total} 个源，找到 ${results} 条结果`,
+  searchDoneStatus: (done: number, total: number, results: number) =>
+    `已搜索 ${done}/${total} 个源，找到 ${results} 条结果`,
   sortRelevance: '相关性',
   sortSize: '大小',
   sortDate: '时间',
@@ -123,10 +123,10 @@ const en: typeof zh = {
   emptyQueryToast: 'Please enter a search term',
 
   // ── Search results ──
-  searchingStatus: (_sources, results) =>
-    `Searching curated sources, found ${results} results`,
-  searchDoneStatus: (_sources, results) =>
-    `Searched curated sources, found ${results} results`,
+  searchingStatus: (done, total, results) =>
+    `Searching ${done}/${total} sources, found ${results} results`,
+  searchDoneStatus: (done, total, results) =>
+    `Searched ${done}/${total} sources, found ${results} results`,
   sortRelevance: 'Relevance',
   sortSize: 'Size',
   sortDate: 'Date',
@@ -215,10 +215,10 @@ const es: typeof zh = {
   searchButton: 'Buscar magnets',
   emptyQueryToast: 'Escribe algo para buscar',
 
-  searchingStatus: (_sources, results) =>
-    `Buscando en fuentes seleccionadas, ${results} resultados`,
-  searchDoneStatus: (_sources, results) =>
-    `Fuentes seleccionadas consultadas, ${results} resultados`,
+  searchingStatus: (done, total, results) =>
+    `Buscando ${done}/${total} fuentes, ${results} resultados`,
+  searchDoneStatus: (done, total, results) =>
+    `Consultadas ${done}/${total} fuentes, ${results} resultados`,
   sortRelevance: 'Relevancia',
   sortSize: 'Tamaño',
   sortDate: 'Fecha',
@@ -297,10 +297,10 @@ const ru: typeof zh = {
   searchButton: 'Искать магнеты',
   emptyQueryToast: 'Введите поисковый запрос',
 
-  searchingStatus: (_sources, results) =>
-    `Поиск по подобранным источникам, найдено ${results}`,
-  searchDoneStatus: (_sources, results) =>
-    `Найдено ${results} в подобранных источниках`,
+  searchingStatus: (done, total, results) =>
+    `Поиск ${done}/${total} источников, найдено ${results}`,
+  searchDoneStatus: (done, total, results) =>
+    `Проверено ${done}/${total} источников, найдено ${results}`,
   sortRelevance: 'Релевантность',
   sortSize: 'Размер',
   sortDate: 'Дата',
@@ -379,10 +379,10 @@ const pt: typeof zh = {
   searchButton: 'Buscar magnets',
   emptyQueryToast: 'Digite algo para buscar',
 
-  searchingStatus: (_sources, results) =>
-    `Buscando em fontes selecionadas, ${results} resultados`,
-  searchDoneStatus: (_sources, results) =>
-    `Fontes selecionadas pesquisadas, ${results} resultados`,
+  searchingStatus: (done, total, results) =>
+    `Buscando ${done}/${total} fontes, ${results} resultados`,
+  searchDoneStatus: (done, total, results) =>
+    `Pesquisadas ${done}/${total} fontes, ${results} resultados`,
   sortRelevance: 'Relevância',
   sortSize: 'Tamanho',
   sortDate: 'Data',
@@ -461,10 +461,10 @@ const ja: typeof zh = {
   searchButton: 'マグネット検索',
   emptyQueryToast: '検索キーワードを入力してください',
 
-  searchingStatus: (_sources, results) =>
-    `厳選ソースを検索中、${results}件の結果`,
-  searchDoneStatus: (_sources, results) =>
-    `厳選ソースから${results}件の結果`,
+  searchingStatus: (done, total, results) =>
+    `検索中 ${done}/${total} ソース、${results}件の結果`,
+  searchDoneStatus: (done, total, results) =>
+    `検索完了 ${done}/${total} ソース、${results}件の結果`,
   sortRelevance: '関連性',
   sortSize: 'サイズ',
   sortDate: '日付',
@@ -543,10 +543,10 @@ const ko: typeof zh = {
   searchButton: '마그넷 검색',
   emptyQueryToast: '검색어를 입력하세요',
 
-  searchingStatus: (_sources, results) =>
-    `엄선된 소스 검색 중, ${results}개 결과`,
-  searchDoneStatus: (_sources, results) =>
-    `엄선된 소스에서 ${results}개 결과`,
+  searchingStatus: (done, total, results) =>
+    `검색 중 ${done}/${total} 소스, ${results}개 결과`,
+  searchDoneStatus: (done, total, results) =>
+    `검색 완료 ${done}/${total} 소스, ${results}개 결과`,
   sortRelevance: '관련성',
   sortSize: '크기',
   sortDate: '날짜',
@@ -625,10 +625,10 @@ const fr: typeof zh = {
   searchButton: 'Rechercher',
   emptyQueryToast: 'Saisissez un terme de recherche',
 
-  searchingStatus: (_sources, results) =>
-    `Recherche dans les sources sélectionnées, ${results} résultats`,
-  searchDoneStatus: (_sources, results) =>
-    `Sources sélectionnées consultées, ${results} résultats`,
+  searchingStatus: (done, total, results) =>
+    `Recherche ${done}/${total} sources, ${results} résultats`,
+  searchDoneStatus: (done, total, results) =>
+    `Consultées ${done}/${total} sources, ${results} résultats`,
   sortRelevance: 'Pertinence',
   sortSize: 'Taille',
   sortDate: 'Date',
@@ -707,10 +707,10 @@ const de: typeof zh = {
   searchButton: 'Magnets suchen',
   emptyQueryToast: 'Bitte Suchbegriff eingeben',
 
-  searchingStatus: (_sources, results) =>
-    `Suche in ausgewählten Quellen, ${results} Ergebnisse`,
-  searchDoneStatus: (_sources, results) =>
-    `Ausgewählte Quellen durchsucht, ${results} Ergebnisse`,
+  searchingStatus: (done, total, results) =>
+    `Suche ${done}/${total} Quellen, ${results} Ergebnisse`,
+  searchDoneStatus: (done, total, results) =>
+    `Durchsucht ${done}/${total} Quellen, ${results} Ergebnisse`,
   sortRelevance: 'Relevanz',
   sortSize: 'Größe',
   sortDate: 'Datum',
@@ -789,10 +789,10 @@ const ar: typeof zh = {
   searchButton: 'بحث مغناطيس',
   emptyQueryToast: 'يرجى إدخال كلمة بحث',
 
-  searchingStatus: (_sources, results) =>
-    `جارٍ البحث في مصادر مختارة، وُجد ${results} نتيجة`,
-  searchDoneStatus: (_sources, results) =>
-    `تم البحث في مصادر مختارة، ${results} نتيجة`,
+  searchingStatus: (done, total, results) =>
+    `جارٍ البحث ${done}/${total} مصادر، ${results} نتيجة`,
+  searchDoneStatus: (done, total, results) =>
+    `تم البحث ${done}/${total} مصادر، ${results} نتيجة`,
   sortRelevance: 'الصلة',
   sortSize: 'الحجم',
   sortDate: 'التاريخ',

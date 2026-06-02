@@ -67,7 +67,7 @@ export function invalidateCookies(origin: string) {
   schedulePersist();
 }
 
-function getStoredCookies(origin: string): string {
+export function getStoredCookies(origin: string): string {
   const entry = cookieJar.get(origin);
   if (!entry) return '';
   return entry.cookies;
@@ -191,15 +191,25 @@ export async function fetchPage(
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const host = new URL(url).hostname;
 
-    const resp = await fetch(url, {
-      headers,
-      redirect: 'follow',
-      signal: controller.signal,
-    });
+    let resp: Response;
+    try {
+      resp = await fetch(url, {
+        headers,
+        redirect: 'follow',
+        signal: controller.signal,
+      });
+    } catch (e: any) {
+      clearTimeout(timer);
+      const reason = e?.name === 'AbortError' ? 'timeout' : (e?.message || 'unknown');
+      console.log(`[httpClient] ${host} FETCH FAILED: ${reason} (${timeoutMs}ms)`);
+      return { html: null };
+    }
     clearTimeout(timer);
 
     const html = await decodeResponse(resp);
+    console.log(`[httpClient] ${host} status=${resp.status} htmlLen=${html.length}`);
 
     // Challenge detection
     const challenge = detectChallenge(resp.status, html, url);

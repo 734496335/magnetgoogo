@@ -91,6 +91,22 @@ def quick_probe(url, timeout=15, proxy=None):
 
 
 def verify_rule(rule, proxy=None):
+    tier_override = rule.get('tier_override')
+    if tier_override and tier_override.get('tier'):
+        url = rule['site']['origin']
+        category = classify_site(url)
+        baits = BRAINT_BAITS.get(category, BRAINT_BAITS['GENERAL'])
+        for bait in baits:
+            try:
+                from magnet.crawler_v3.orchestrator import search as v3_search
+                results = v3_search(rule, bait, limit=5)
+                if results:
+                    sample = {"title": results[0].title, "magnet": results[0].magnet}
+                    return 'ok', len(results), sample, bait
+            except Exception as e:
+                pass
+        return 'no_magnets', 0, None, None
+
     url = rule['site']['origin']
     extractor = MagnetExtractorV2(rule, proxy=proxy)
     category = classify_site(url)

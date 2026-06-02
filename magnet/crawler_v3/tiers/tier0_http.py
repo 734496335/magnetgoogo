@@ -93,6 +93,8 @@ class Tier0Http(Tier):
             raise TierError("source has no search.request_template", retryable=False)
 
         origin = source.get("site", {}).get("origin", "").rstrip("/")
+        # Strip query string from origin (e.g. ?ref=eeenav.com) to avoid URL corruption
+        origin = origin.split("?")[0].rstrip("/")
         encoded = urllib.parse.quote_plus(query)
         # Support {query}, {query_b64}, {query_url}
         import base64
@@ -100,6 +102,7 @@ class Tier0Http(Tier):
             "{query}": encoded,
             "{query_url}": encoded,
             "{query_b64}": base64.b64encode(query.encode("utf-8")).decode("ascii"),
+            "{query_b64url}": base64.urlsafe_b64encode(query.encode("utf-8")).decode("ascii"),
             "{query_hex}": query.encode("utf-8").hex(),
             "{query_raw}": query,
         }

@@ -180,10 +180,14 @@ export function trackSourceResult(
   ms: number,
   reason?: string,
 ) {
-  track(ok ? 'src_ok' : 'src_fail', {
-    src: srcName,
-    ...(ok ? { n: count, ms } : { reason, ms }),
-  });
+  if (ok && count > 0) {
+    track('src_ok', { src: srcName, n: count, ms });
+  } else if (ok) {
+    // Reachable but no results — still valuable for health tracking
+    track('src_empty', { src: srcName, ms });
+  } else {
+    track('src_fail', { src: srcName, reason: reason || 'unknown', ms });
+  }
 }
 
 export function trackVerify(

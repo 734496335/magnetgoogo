@@ -42,7 +42,7 @@ def main():
                     default=os.environ.get("HTTPS_PROXY") or "http://127.0.0.1:33210",
                     help="HTTP proxy (default: 127.0.0.1:33210)")
     ap.add_argument("--family", default=None,
-                    help="Only run this family id (clb/clm/sobt/52bt). Default: all.")
+                    help="Only run this family id or comma-separated list of ids (clb/clm/sobt/52bt). Default: all.")
     ap.add_argument("--out", default=None)
     ap.add_argument("--tag-sources", choices=["preview", "write"], default=None,
                     help="Tag sources.json rules with capabilities.brand_family "
@@ -71,7 +71,8 @@ def main():
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     print(f"[proxy] {args.proxy}")
-    families = [f for f in DEFAULT_FAMILIES if (args.family is None or f.id == args.family)]
+    wanted_families = set(x.strip().lower() for x in args.family.split(",") if x.strip()) if args.family else None
+    families = [f for f in DEFAULT_FAMILIES if (wanted_families is None or f.id.lower() in wanted_families)]
     if not families:
         print(f"ERROR: --family {args.family!r} not in {[f.id for f in DEFAULT_FAMILIES]}")
         sys.exit(2)

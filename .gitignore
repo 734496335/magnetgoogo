@@ -119,4 +119,7 @@ analytics-server/data/
 */.baidu-push-log/
 
 # ── Releases (built artifacts archive) ──
-/releases/
+/releases/*.apk
+/releases/*.ipa
+# NEVER ignore keystore — it's the app signing identity
+!/releases/*.keystore

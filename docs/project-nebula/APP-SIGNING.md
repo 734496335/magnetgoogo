@@ -1,40 +1,45 @@
 # App 签名信息
 
 > ⚠️ 此文件包含敏感信息，请勿公开提交到公开仓库。
+>
+> ⛔ **绝对不要删除 keystore 文件！** 丢失 keystore = 永远无法更新 App。
+> 文件路径：`magnetgoogo-app/android/app/magnetgoogo-release.keystore`
+> 备份路径：`releases/magnetgoogo-release-new.keystore`
 
-## Release Keystore
+## Release Keystore（v0.1.11 起使用）
 
 | 项目 | 值 |
 |------|------|
 | **文件路径** | `magnetgoogo-app/android/app/magnetgoogo-release.keystore` |
+| **备份路径** | `releases/magnetgoogo-release-new.keystore` |
 | **Alias** | `magnetgoogo` |
 | **Store Password** | `MagGoogo2026!` |
 | **Key Password** | `MagGoogo2026!` |
-| **有效期** | 2026-05-04 ~ 2053-09-19（10000天） |
+| **有效期** | 2026-06-01 ~ 2053-10-17（10000 天） |
 | **算法** | SHA256withRSA, 2048-bit RSA |
 
-## App 备案所需信息
+> ⚠️ **此 keystore 与 v0.1.10 及之前版本的签名不同！**
+> 之前版本（v0.1.8~v0.1.10）的 keystore 已丢失，v0.1.11 起使用此新签名。
+> 旧版本用户需**卸载重装**才能升级到 v0.1.11+。
+
+## 证书指纹（阿里云备案用）
 
 | 项目 | 值 |
 |------|------|
 | **包名** | `com.magnetgoogo.app` |
-| **证书 MD5 指纹** | `f96634881fe04c1d38ba3a9ba30b873d` |
-| **证书 SHA1 指纹** | `74:2F:96:43:22:85:58:C1:4C:19:1F:77:D6:7E:E3:FD:A2:15:9D:C8` |
-| **证书 SHA256 指纹** | `D0:81:20:EC:14:D7:89:C9:25:E9:46:DD:59:F3:A8:52:B6:4A:55:9B:69:89:73:2A:A5:7A:9E:8E:46:61:71:79` |
-| **公钥（十六进制）** | 见下方 |
+| **证书 MD5 指纹** | `df1e684bf483ceffe49062d285b17c06` |
+| **证书 SHA1 指纹** | `4b7b0b68ecab6c4c04d2939e861ec373596fb874` |
+| **证书 SHA256 指纹** | `475fc1647359524cef27e180421ef17401171f476e4ab41f8b423746ef0ef49d` |
 
 ## 公钥（App 备案填写用）
 
 ```
-3082010a0282010100c649b171007d6ff49a2c2aea54a9f00cc0e4ee4da9e3c7dc018e22228f90037b40b41942645d5da832885329cc18310f2b50965d67d8e9d9c27d24c21ab476f442430f873739570a0be8fb7c9e0bc919f2fed0958fc2bb386fe9096c5092e30f3abc3a9e96c49720fc1c255903901ff40087f9bb58c2afbfd1e6399d15629372676bac5a7c6ab18465cee2cbc87a5c10bc2980af820811e3bef5c2f0ef71d9a76c6532d87a0896928f0a59e0a24b35922d27fbcd96a916a7b4731c3f7733cb5c52518be558078858e2436eff97022e58d9cdf0b39dfc5a44c50f50f99213994c95466c400e51e0844839033b58a20c57fae448016453fe379e0e6a307f9b37cf0203010001
+30820122300d06092a864886f70d01010105000382010f003082010a0282010100a4db146503b86162e0d7c53694b5fadb1a4bdd948f945e49cf5d28b9f598e39ad33a110112aa08ee7797342532dd15c78320b0bb56b61d88ffb699953d7aa44a10b89dae14e9adea796283acc40496f9e1e9412fb52dfba040b858c10769cfc85b6d1b7967843d26682fbab32c01d6e5347bce93d165bec1e24788d5faa537e481cf30a9328591fb21d2005898ac6110503b4f4e9713f8e9bc1deda9e3c9794fdc3715245a4378c1f80bf5863cab4e1330e56bb57ee6798b94527d6bd4b39c34f0a71f510ad281c291af50d49d8d0696646ef038d0664772e9cb467b511428641a13aabf8f8f563c7ef23f6026ce6df335155a33f4ab9d06b6d32d73666df5b70203010001
 ```
 
 ## 发版流程
 
 > ⚠️ **完整发版流程已迁移至 `RELEASE-CHECKLIST.md`**，该文档为唯一权威发版指南。
->
-> 包含：版本号位置索引、构建命令、分发渠道、下载链接架构（稳定链接 vs 易变链接）、
-> 官网更新脚本、App 内更新机制、事故记录等。
 
 ### 仅换签名（版本号不变）
 
@@ -49,5 +54,14 @@
 1. **签名不可更改**：一旦用此 keystore 发布 APK，后续所有更新必须使用同一签名，否则用户无法覆盖安装。
 2. **备份 keystore**：丢失 keystore = 永远无法更新 App，请多处备份。
 3. **不要提交到公开 Git**：确保 `.gitignore` 包含 `*.keystore`。
-4. **之前版本（v0.1.8 及更早）** 使用的是 debug.keystore，切换到新签名后旧版本用户需要卸载重装。
-5. **versionCode 只能递增**：应用商店要求每次上传的 versionCode 严格大于上一次。
+4. **versionCode 只能递增**：应用商店要求每次上传的 versionCode 严格大于上一次。
+
+## 旧版签名信息（v0.1.8 ~ v0.1.10，已废弃）
+
+> 以下签名已不可用，keystore 文件已丢失。仅保留记录用于备案参考。
+
+| 项目 | 值 |
+|------|------|
+| 证书 MD5 指纹 | `f96634881fe04c1d38ba3a9ba30b873d` |
+| 证书 SHA1 指纹 | `742f9643228558c14c191f77d67ee3fda2159dc8` |
+| 证书 SHA256 指纹 | `d08120ec14d789c925e946dd59f3a852b64a559b6989732aa57a9e8e46617179` |

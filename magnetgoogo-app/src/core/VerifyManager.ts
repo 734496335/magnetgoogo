@@ -80,7 +80,7 @@ class _VerifyManager {
   isBlacklisted(origin: string): boolean {
     const ts = this._sessionBlacklist.get(origin);
     if (ts === undefined) return false;
-    if (Date.now() - ts > VerifyManager.BLACKLIST_TTL_MS) {
+    if (Date.now() - ts > _VerifyManager.BLACKLIST_TTL_MS) {
       this._sessionBlacklist.delete(origin);
       this._originCache.delete(origin);
       return false;

@@ -302,11 +302,17 @@ async function handleFeedbackList(request, env) {
     return jsonResponse({ error: 'kv_not_configured' }, 500);
   }
   const list = await env.FEEDBACK.list({ prefix: 'fb_', limit: 100 });
-  const items = [];
-  for (const key of list.keys) {
-    const val = await env.FEEDBACK.get(key.name);
-    if (val) items.push(JSON.parse(val));
-  }
+  const results = await Promise.all(
+    list.keys.map(async (key) => {
+      try {
+        const val = await env.FEEDBACK.get(key.name);
+        return val ? JSON.parse(val) : null;
+      } catch {
+        return null;
+      }
+    })
+  );
+  const items = results.filter(item => item !== null);
   items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return jsonResponse({ count: items.length, items });
 }
@@ -447,12 +453,25 @@ async function handleEventsGet(request, env) {
       do {
         const listResult = await env.ANALYTICS.list({ prefix, cursor, limit: 500 });
         subreqs++;
-        for (const obj of listResult.objects) {
-          if (subreqs >= SUBREQ_LIMIT) break;
-          const val = await env.ANALYTICS.get(obj.key);
-          subreqs++;
-          if (!val) continue;
-          addBatch(await val.json());
+        const remainingLimit = SUBREQ_LIMIT - subreqs;
+        const objsToFetch = listResult.objects.slice(0, remainingLimit);
+
+        const results = await Promise.all(
+          objsToFetch.map(async (obj) => {
+            try {
+              const val = await env.ANALYTICS.get(obj.key);
+              return val ? await val.json() : null;
+            } catch {
+              return null;
+            }
+          })
+        );
+        subreqs += objsToFetch.length;
+
+        for (const data of results) {
+          if (data) {
+            addBatch(data);
+          }
         }
         cursor = listResult.truncated ? listResult.cursor : undefined;
         safety++;
@@ -468,15 +487,32 @@ async function handleEventsGet(request, env) {
     do {
       const list = await env.EVENTS.list({ prefix: 'ev_', limit: 1000, cursor: kvCursor });
       subreqs++;
+      const keysToFetch = [];
       for (const key of list.keys) {
-        if (subreqs >= SUBREQ_LIMIT) break;
-        // Key format: ev_{did}_{timestamp} — extract timestamp (last segment)
         const ts = parseInt(key.name.split('_').pop());
-        if (ts && ts < cutoffMs) continue; // skip without subrequest
-        const val = await env.EVENTS.get(key.name);
-        subreqs++;
-        if (!val) continue;
-        addBatch(JSON.parse(val));
+        if (ts && ts < cutoffMs) continue;
+        keysToFetch.push(key);
+      }
+
+      const remainingLimit = SUBREQ_LIMIT - subreqs;
+      const limitedKeys = keysToFetch.slice(0, remainingLimit);
+
+      const results = await Promise.all(
+        limitedKeys.map(async (key) => {
+          try {
+            const val = await env.EVENTS.get(key.name);
+            return val ? JSON.parse(val) : null;
+          } catch {
+            return null;
+          }
+        })
+      );
+      subreqs += limitedKeys.length;
+
+      for (const data of results) {
+        if (data) {
+          addBatch(data);
+        }
       }
       kvCursor = list.list_complete ? undefined : list.cursor;
       safety++;

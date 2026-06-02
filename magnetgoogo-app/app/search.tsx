@@ -28,7 +28,7 @@ import {
   toResultCardModel,
 } from '../src/core/types';
 import { searchSource } from '../src/core/searchEngine';
-import { deduplicateResults } from '../src/core/dedup';
+import { deduplicateResults, extractInfoHash, type DedupedResult } from '../src/core/dedup';
 import { addHistory } from '../src/core/searchHistory';
 import { addFavorite, removeFavorite, getFavorites, type FavoriteItem } from '../src/core/favorites';
 import { VerifyManager, type VerifyRequest } from '../src/core/VerifyManager';
@@ -57,6 +57,11 @@ interface _Session {
   abortRef: { current: boolean };
   // Mounted component's setState callbacks — null when unmounted
   _notify: (() => void) | null;
+  // Incremental dedup: avoid recomputing from scratch every sync
+  _dedupMap: Map<string, DedupedResult>;
+  _noHashResults: DedupedResult[];
+  _processedCount: number;
+  _cardModels: ResultCardModel[];
 }
 let _session: _Session | null = null;
 
@@ -194,13 +199,51 @@ export default function SearchScreen() {
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const syncFromSession = useCallback(() => {
     if (!_session) return;
-    const models = deduplicateResults(_session.rawResults)
-      .map((r, i) => toResultCardModel(r, i, _session!.query, t));
-    setResults(models);
-    setSearching(_session.searching);
-    setSourceCount(_session.sourceCount);
-    setDoneCount(_session.doneCount);
-    setQuery(_session.query);
+
+    // Incremental dedup: only process new results since last sync
+    const s = _session;
+    const newResults = s.rawResults.slice(s._processedCount);
+    if (newResults.length > 0) {
+      for (const r of newResults) {
+        const hash = extractInfoHash(r.magnet);
+        const srcName = (r as any).site_name || r.source || '';
+        if (!hash) {
+          s._noHashResults.push({
+            ...r, sourceCount: 1, sourceNames: [srcName], bestSeeders: r.seeders || 0,
+          });
+        } else {
+          const existing = s._dedupMap.get(hash);
+          if (!existing) {
+            s._dedupMap.set(hash, {
+              ...r, sourceCount: 1, sourceNames: [srcName], bestSeeders: r.seeders || 0,
+            });
+          } else {
+            existing.sourceCount++;
+            if (srcName && !existing.sourceNames.includes(srcName)) existing.sourceNames.push(srcName);
+            if (r.title.length > existing.title.length) existing.title = r.title;
+            if (!existing.size && r.size) existing.size = r.size;
+            if ((r.seeders || 0) > existing.bestSeeders) { existing.bestSeeders = r.seeders || 0; existing.seeders = r.seeders; }
+            if (!existing.date && r.date) existing.date = r.date;
+          }
+        }
+      }
+      s._processedCount = s.rawResults.length;
+
+      // Rebuild sorted deduped list
+      const sorted = [...s._dedupMap.values()];
+      sorted.sort((a, b) => b.sourceCount !== a.sourceCount
+        ? b.sourceCount - a.sourceCount : b.bestSeeders - a.bestSeeders);
+      const deduped = [...sorted, ...s._noHashResults];
+
+      // Only recompute card models for changed items
+      s._cardModels = deduped.map((r, i) => toResultCardModel(r, i, s.query, t));
+    }
+
+    setResults(s._cardModels);
+    setSearching(s.searching);
+    setSourceCount(s.sourceCount);
+    setDoneCount(s.doneCount);
+    setQuery(s.query);
   }, [t]);
 
   // Debounced version: batch rapid _notify calls (every source completion)
@@ -209,7 +252,7 @@ export default function SearchScreen() {
     syncTimerRef.current = setTimeout(() => {
       syncTimerRef.current = null;
       syncFromSession();
-    }, 300);
+    }, 500);
   }, [syncFromSession]);
 
   useEffect(() => {
@@ -261,6 +304,10 @@ export default function SearchScreen() {
         doneCount: 0,
         abortRef: { current: false },
         _notify: debouncedSync,
+        _dedupMap: new Map(),
+        _noHashResults: [],
+        _processedCount: 0,
+        _cardModels: [],
       };
       _session = session;
 
@@ -299,11 +346,15 @@ export default function SearchScreen() {
       const debugReport = startReport(term, allSources.length);
 
       const CONCURRENCY = 15;
+      const BROWSER_CONCURRENCY = 4;
+      const BROWSER_TIMEOUT_MS = 25_000;
+
+      // ── Worker pool: shared cursor across all workers ──
       let cursor = 0;
-      const runNext = async (): Promise<void> => {
-        while (cursor < allSources.length && !session.abortRef.current) {
+      const runNext = async (sources: any[], timeoutMs?: number): Promise<void> => {
+        while (cursor < sources.length && !session.abortRef.current) {
           const idx = cursor++;
-          const rule = allSources[idx];
+          const rule = sources[idx];
           const srcName = (rule as any).site?.name || 'unknown';
           const srcOrigin = (rule as any).site?.origin || '';
           const srcQuality = (rule as any).quality?.score ?? 0;
@@ -321,9 +372,16 @@ export default function SearchScreen() {
           const srcHost = srcOrigin ? (() => { try { return new URL(srcOrigin).hostname; } catch { return srcName; } })() : srcName;
           const t0 = Date.now();
           try {
-            const items = await searchSource(rule as any, term);
+            // Wrap searchSource with optional timeout
+            const searchPromise = searchSource(rule as any, term);
+            const items = timeoutMs
+              ? await Promise.race([
+                  searchPromise,
+                  new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs)),
+                ])
+              : await searchPromise;
             const elapsed = Date.now() - t0;
-            trackSourceResult(srcHost, items.length > 0, items.length, elapsed);
+            trackSourceResult(srcHost, true, items.length, elapsed);
             // Record to debug report — full per-item breakdown
             const itemLogs: ResultItemLog[] = items.map(r => ({
               title: r.title,
@@ -382,9 +440,38 @@ export default function SearchScreen() {
           }
         }
       };
+
+      // ── Phase 1: HTTP sources (Tier 0 + Tier 1) ──
+      const httpSources = allSources.filter(s => {
+        const tier = getSpeedTier(s);
+        return tier === 0 || tier === 1;
+      });
+      // ── Phase 2: Browser/WebView sources (Tier 2) ──
+      const browserSources = allSources.filter(s => getSpeedTier(s) === 2);
+
+      // Phase 1: fast HTTP search with full concurrency
+      cursor = 0;
       await Promise.allSettled(
-        Array.from({ length: Math.min(CONCURRENCY, allSources.length) }, () => runNext()),
+        Array.from({ length: Math.min(CONCURRENCY, httpSources.length) }, () => runNext(httpSources)),
       );
+
+      // Phase 2: browser/WebView search with limited concurrency + timeout
+      if (browserSources.length > 0 && !session.abortRef.current) {
+        cursor = 0;
+        // Phase 2 global timeout: 30s
+        const phase2Deadline = Date.now() + 30_000;
+        const phase2Workers = Array.from(
+          { length: Math.min(BROWSER_CONCURRENCY, browserSources.length) },
+          () => runNext(browserSources, BROWSER_TIMEOUT_MS),
+        );
+        await Promise.race([
+          Promise.allSettled(phase2Workers),
+          new Promise<void>(resolve => {
+            const remaining = phase2Deadline - Date.now();
+            setTimeout(() => { session.abortRef.current = true; resolve(); }, Math.max(remaining, 0));
+          }),
+        ]);
+      }
 
       session.searching = false;
       trackSearch(term, session.rawResults.length);
@@ -636,7 +723,7 @@ export default function SearchScreen() {
         {searching ? (
           <View style={styles.statusInner}>
             <Text style={styles.statusText}>
-              {t.searchingStatus(sourceCount, results.length)}
+              {t.searchingStatus(doneCount, sourceCount, results.length)}
             </Text>
             <BouncingDots />
             <TouchableOpacity
@@ -648,7 +735,7 @@ export default function SearchScreen() {
           </View>
         ) : results.length > 0 ? (
           <Text style={styles.statusText}>
-            {t.searchDoneStatus(sourceCount, results.length)}
+            {t.searchDoneStatus(doneCount, sourceCount, results.length)}
           </Text>
         ) : sources.length === 0 ? (
           <View style={styles.emptyState}>

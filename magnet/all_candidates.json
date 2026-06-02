@@ -5539,7 +5539,9 @@
     "domain": "cilishenqi.me",
     "sources": [
       "curated:"
-    ]
+    ],
+    "type": "navigation",
+    "note": "磁力神器 - 磁力资源导航站 (WordPress WebStackPro)"
   },
   "wuqianaa.xyz": {
     "url": "https://wuqianaa.xyz",
@@ -5736,5 +5738,32 @@
     "sources": [
       "curated:"
     ]
+  },
+  "btmayi.top": {
+    "url": "https://btmayi.top",
+    "domain": "btmayi.top",
+    "sources": [
+      "health-check:2026-05-31"
+    ],
+    "type": "navigation",
+    "note": "BT蚂蚁磁力 - 磁力资源导航站 (WordPress WebStackPro)"
+  },
+  "cilihezi.cn": {
+    "url": "https://www.cilihezi.cn",
+    "domain": "cilihezi.cn",
+    "sources": [
+      "health-check:2026-05-31"
+    ],
+    "type": "navigation",
+    "note": "磁力盒子 - bt搜索引擎导航站"
+  },
+  "cilitiantang.club": {
+    "url": "https://cilitiantang.club",
+    "domain": "cilitiantang.club",
+    "sources": [
+      "health-check:2026-05-31"
+    ],
+    "type": "navigation",
+    "note": "磁力天堂 - 磁力资源导航站 (WordPress WebStackPro)"
   }
 }

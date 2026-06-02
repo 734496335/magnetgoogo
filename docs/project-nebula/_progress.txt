@@ -1,10 +1,12 @@
 # MagGoogo 项目进度（mimo 维护，每次会话开头读、结束前更新）
 
 ## 当前 Phase
-Phase 2 完成，Pre-flight Audit 黄灯修复完成，准备启动 Phase 3 (EAS 首次云构建)
+Phase 3 进行中。Tasks K/L/M 已全部完成。Task N（React Native 客户端 VerifyWebView 优化与 30 天 Cookie 预注入、CF 状态机自动关闭、屏外静默容器）已完成。
 
 ## 阻塞点
 （无）
 
 ## 最近 3 次会话摘要
-- 2026-05-28: iOS 开发计划起草（IOS-DEV-PLAN.md）
+- 2026-05-31: 源爬取与验证工具链全线优化 + K30S 本地原生编译打包与 ADB 部署实测（完成 sources.json 数据加密打包，成功执行 .\gradlew.bat assembleDebug，一键 ADB 静默热部署至 Redmi K30S，启动与搜索均自愈且完美流畅）。
+- 2026-05-30: Phase 3 Task N 完成。重构移动端 VerifyWebView.tsx：启用 scalesPageToFit、修复 off-screen 静默尺寸、打通 Cookie 预注入与 _cf_chl_opt 状态转换关闭，彻底修复移动端排版与人机验证环境。
+- 2026-05-29 09:45: Phase 3 Tasks K/L/M 实现 + 0cili.nl 恢复（cookie_store.py 新增、tier0/1 集成、cli verify-interactive、detail-follow 机制）

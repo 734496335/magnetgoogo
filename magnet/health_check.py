@@ -274,6 +274,8 @@ def probe_source(rule):
     if handler:
         return (None, None, 0, '', 0, f'skip: custom handler "{handler}"')
 
+    baits = pick_baits(rule)
+
     # v3 orchestrator path: sources with tier_override (e.g. thatcdn) need
     # captcha-bypass handlers that plain requests can't handle.
     tier_override = rule.get('tier_override')
@@ -283,7 +285,6 @@ def probe_source(rule):
             return result
         # v3 failed — fall through to plain requests probe below
 
-    baits = pick_baits(rule)
     last = None
     all_attempts = []
     for i, q in enumerate(baits):
