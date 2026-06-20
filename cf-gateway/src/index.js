@@ -291,10 +291,10 @@ async function handleFeedbackPost(request, env) {
 }
 
 async function handleFeedbackList(request, env) {
-  // Simple admin guard: require ?secret= or X-Admin-Secret header
-  const url = new URL(request.url);
-  const secret = url.searchParams.get('secret') || request.headers.get('X-Admin-Secret') || '';
-  const adminSecret = env.ADMIN_SECRET || 'maggoogo-admin-2026';
+  // FR-07: Only accept X-Admin-Secret header — never query param (URL leaks into logs/Referer)
+  const secret = request.headers.get('X-Admin-Secret') || '';
+  const adminSecret = env.ADMIN_SECRET;
+  if (!adminSecret) return jsonResponse({ error: 'ADMIN_SECRET not configured' }, 503);
   if (secret !== adminSecret) {
     return jsonResponse({ error: 'unauthorized' }, 401);
   }
@@ -319,7 +319,8 @@ async function handleFeedbackList(request, env) {
 
 async function handleFeedbackDelete(request, env, path) {
   const secret = request.headers.get('X-Admin-Secret') || '';
-  const adminSecret = env.ADMIN_SECRET || 'maggoogo-admin-2026';
+  const adminSecret = env.ADMIN_SECRET;
+  if (!adminSecret) return jsonResponse({ error: 'ADMIN_SECRET not configured' }, 503);
   if (secret !== adminSecret) {
     return jsonResponse({ error: 'unauthorized' }, 401);
   }
@@ -404,8 +405,10 @@ async function handleEventsPost(request, env) {
 
 async function handleEventsGet(request, env) {
   const url = new URL(request.url);
-  const secret = url.searchParams.get('secret') || request.headers.get('X-Admin-Secret') || '';
-  const adminSecret = env.ADMIN_SECRET || 'maggoogo-admin-2026';
+  // FR-07: Only accept X-Admin-Secret header — never query param
+  const secret = request.headers.get('X-Admin-Secret') || '';
+  const adminSecret = env.ADMIN_SECRET;
+  if (!adminSecret) return jsonResponse({ error: 'ADMIN_SECRET not configured' }, 503);
   if (secret !== adminSecret) {
     return jsonResponse({ error: 'unauthorized' }, 401);
   }

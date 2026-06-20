@@ -4,11 +4,39 @@ const fs = require('fs');
 const path = require('path');
 const { execSync, exec } = require('child_process');
 
+// FR-08: Lightweight .env loader (no dotenv dependency)
+// Look in admin-server/.env first, then project root .env
+(function loadEnv() {
+  const candidates = [
+    path.join(__dirname, '.env'),
+    path.resolve(__dirname, '..', '.env'),
+  ];
+  for (const envPath of candidates) {
+    try {
+      if (!fs.existsSync(envPath)) continue;
+      const lines = fs.readFileSync(envPath, 'utf-8').split(/\r?\n/);
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx < 1) continue;
+        const key = trimmed.slice(0, eqIdx).trim();
+        const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
+        if (!(key in process.env)) {
+          process.env[key] = val;
+        }
+      }
+      console.log(`[server] Loaded .env from: ${envPath}`);
+      break; // first match wins
+    } catch { /* skip unreadable file */ }
+  }
+})();
+
 const app = express();
 const PORT = 3800;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 // ── Paths ──
 const ROOT = path.resolve(__dirname, '..');
@@ -26,7 +54,13 @@ const AI_BATCH_DIR = path.join(ROOT, 'magnet');
 
 // CF Gateway for feedback proxy
 const CF_GATEWAY = 'https://api.naoshiquan.com';
-const ADMIN_SECRET = 'maggoogo-admin-2026';
+// P1-6: Read admin secret from env — never hardcode credentials
+const ADMIN_SECRET = process.env.ADMIN_SECRET;
+if (!ADMIN_SECRET) {
+  console.warn('[server] WARNING: ADMIN_SECRET not set in environment. Broadcast API routes will be disabled.');
+} else {
+  console.log('[server] ADMIN_SECRET loaded (length=' + ADMIN_SECRET.length + '). Broadcast API enabled.');
+}
 
 // ── Analytics cache (incremental) ──
 const CACHE_DIR = path.join(__dirname, 'cache');
@@ -102,6 +136,19 @@ function localizeCN(city, region, country) {
 app.get('/', (req, res) => {
   res.sendFile(DASHBOARD_HTML);
 });
+
+// ── Broadcast engine (social posting subsystem) ──
+// Auth middleware: require admin secret for all broadcast endpoints
+app.use('/api/broadcast', (req, res, next) => {
+  if (!ADMIN_SECRET) {
+    return res.status(503).json({ error: 'Broadcast disabled: ADMIN_SECRET not configured' });
+  }
+  const token = req.headers['x-admin-secret'];
+  if (token !== ADMIN_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+}, require('./broadcast'));
 
 // ── API: Overview ──
 app.get('/api/overview', (req, res) => {
@@ -197,6 +244,19 @@ app.get('/api/sources/details', (req, res) => {
         onboarded_version: r._onboarded?.version || '',
         onboarded_at: r._onboarded?.at || '',
       };
+    });
+
+    // ── Merge analytics (sourcePerf) into rules ──
+    const perfMap = {};
+    (analyticsCache?.sourcePerf || []).forEach(p => { perfMap[p.src] = p; });
+    rules.forEach(r => {
+      const p = perfMap[r.site_name] || {};
+      r.analytics_ok = p.ok || 0;
+      r.analytics_fail = p.fail || 0;
+      r.analytics_total = p.total || 0;
+      r.analytics_rate = p.rate || 0;
+      r.analytics_avg_ms = p.avgMs || 0;
+      r.effective_score = (r.quality_score || 50) + (p.rate || 0) * 0.3;
     });
 
     // ── Aggregate stats ──
@@ -539,10 +599,24 @@ app.get('/api/health/diagnostics', (req, res) => {
   }
 });
 
+// ── API: Quality test results (dual-query validation) ──
+app.get('/api/health/quality_test', (req, res) => {
+  const TEST_FILE = path.join(__dirname, '..', '_fulltest_consolidated.json');
+  try {
+    if (!fs.existsSync(TEST_FILE)) {
+      return res.json({ ok: false, message: 'No quality test results yet' });
+    }
+    const data = JSON.parse(fs.readFileSync(TEST_FILE, 'utf-8'));
+    res.json({ ok: true, ...data });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+});
+
 // ── API: Proxy feedback to CF Gateway ──
 app.get('/api/feedback', async (req, res) => {
   try {
-    const resp = await fetch(`${CF_GATEWAY}/api/feedback?secret=${ADMIN_SECRET}`);
+    const resp = await fetch(`${CF_GATEWAY}/api/feedback`, { headers: { 'X-Admin-Secret': ADMIN_SECRET } });
     const data = await resp.json();
     res.json(data);
   } catch (e) {
@@ -566,8 +640,8 @@ app.delete('/api/feedback/:id', async (req, res) => {
 // ── API: Events/Analytics (proxy from CF Gateway) ──
 app.get('/api/events', async (req, res) => {
   try {
-    const raw = req.query.raw === '1' ? '&raw=1' : '';
-    const resp = await fetch(`${CF_GATEWAY}/api/events?secret=${ADMIN_SECRET}${raw}`);
+    const raw = req.query.raw === '1' ? '?raw=1' : '';
+    const resp = await fetch(`${CF_GATEWAY}/api/events${raw}`, { headers: { 'X-Admin-Secret': ADMIN_SECRET } });
     const data = await resp.json();
     res.json(data);
   } catch (e) {
@@ -882,7 +956,7 @@ async function refreshAnalyticsCache() {
     const existingIds = new Set(localBatches.map(b => b.id || `${b.did}_${b.receivedAt}`));
 
     console.log(`[cache] Fetching ${fetchDays} day(s) from CF Gateway (local: ${localBatches.length} batches)...`);
-    const resp = await fetch(`${CF_GATEWAY}/api/events?secret=${ADMIN_SECRET}&raw=1&days=${fetchDays}`);
+    const resp = await fetch(`${CF_GATEWAY}/api/events?raw=1&days=${fetchDays}`, { headers: { 'X-Admin-Secret': ADMIN_SECRET } });
     const result = await resp.json();
 
     // Merge new batches

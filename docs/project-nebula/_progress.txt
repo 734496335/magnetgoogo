@@ -1,12 +1,28 @@
-# MagGoogo 项目进度（mimo 维护，每次会话开头读、结束前更新）
+# MagGoogo 项目进度（每次会话开头读、结束前更新）
 
 ## 当前 Phase
-Phase 3 进行中。Tasks K/L/M 已全部完成。Task N（React Native 客户端 VerifyWebView 优化与 30 天 Cookie 预注入、CF 状态机自动关闭、屏外静默容器）已完成。
+任务管理系统完成 + 广播引擎 PFC-01 复核完成。97/109 源确认可用。
 
-## 阻塞点
-（无）
+### 本会话完成
+- **PFC-01 follow-up review**: 新增 `BROADCAST-ENGINE-PFC01-FOLLOWUP-2026-06-20.md`
+- **已确认闭环**: `job approve -> task queued`、mixed 优先级、cancelled 保留、terminal completed_at、rejected 计入 failed_items
+- **仍需闭环**: PFC-02 reject 语义丢失，task 会被自动从 `rejected` 改写为 `failed`
 
-## 最近 3 次会话摘要
-- 2026-05-31: 源爬取与验证工具链全线优化 + K30S 本地原生编译打包与 ADB 部署实测（完成 sources.json 数据加密打包，成功执行 .\gradlew.bat assembleDebug，一键 ADB 静默热部署至 Redmi K30S，启动与搜索均自愈且完美流畅）。
-- 2026-05-30: Phase 3 Task N 完成。重构移动端 VerifyWebView.tsx：启用 scalesPageToFit、修复 off-screen 静默尺寸、打通 Cookie 预注入与 _cf_chl_opt 状态转换关闭，彻底修复移动端排版与人机验证环境。
-- 2026-05-29 09:45: Phase 3 Tasks K/L/M 实现 + 0cili.nl 恢复（cookie_store.py 新增、tier0/1 集成、cli verify-interactive、detail-follow 机制）
+### 待解决
+- [ ] 按 `BROADCAST-ENGINE-PFC01-FOLLOWUP-2026-06-20.md` 修复 PFC-02
+- [ ] rate limiter min_gap 问题（旧任务状态阻塞新任务）
+- [ ] X 中文发帖 Chrome 扩展超时
+- [ ] 7 个死源降级（TPB×3/bt43/yhdm33/sukebei/cltt03）
+- [ ] 5 个 App 受限源（movih/berrl/meijumi/cld141/uindex）
+- [ ] sources.enc.json 重新发布（含 quality.score 刷新）
+
+## 最近会话摘要
+- 2026-06-20: PFC-01 主体已修复，但发现 PFC-02：reject 路径的 task `rejected` 语义会被 `refreshTaskCounts()` 覆盖成 `failed`
+- 2026-06-20: PF-01~PF-04 确认闭环；PF-05 局部闭环但发现 PFC-01 task 状态/计数推导残留
+- 2026-06-20: 广播引擎 4-loop 修复后复核，确认大部分闭环，新增 PF-01~PF-05 修复 workflow
+- 2026-06-20: 传播引擎修复后复核，新增 FR-01~FR-10 闭环 workflow
+- 2026-06-20: 传播引擎 review 文档完成，列出 12 个问题与修改建议
+- 2026-06-20: 任务管理系统 + broadcast v2 打磨 + Discovery E2E + Dashboard 修复 + 源验证 97/109
+- 2026-06-16: 广播引擎 v2 全面增强(10模块) + discovery pipeline + release.py + 多角色审查修复
+- 2026-06-15: 源质量分 R2 刷新 + sources.enc.json 重加密发布 + APP-CHANGELOG 更新
+- 2026-06-14: K30S 108 源全面验证 + try/catch/finally bug + Base32 hash + 新 handler + v0.1.13 发布

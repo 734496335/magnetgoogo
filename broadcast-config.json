@@ -1,0 +1,112 @@
+{
+  "global": {
+    "enabled": true,
+    "approval_required": false,
+    "kill_switch": false,
+    "max_concurrent": 3,
+    "max_retries": 3,
+    "retry_base_delay_ms": 30000,
+    "discovery": {
+      "enabled": true,
+      "dry_run": false,
+      "cron_interval_min": 180,
+      "queries": {
+        "x": [
+          "磁力搜索推荐"
+        ]
+      },
+      "max_results_per_query": 15,
+      "max_replies_per_run": 1,
+      "relevance_threshold": 0.2,
+      "product_name": "MagnetGoogo"
+    }
+  },
+  "platforms": {
+    "zhihu": {
+      "enabled": true,
+      "engine": "opencli",
+      "daily_cap": 5,
+      "min_gap_min": 30,
+      "account_profile": "k2dn57uc",
+      "max_retries": null,
+      "tiers": null,
+      "hourly_cap": 5,
+      "hourly_window_min": 60,
+      "anti_bot_cooldown_min": 60
+    },
+    "x": {
+      "enabled": true,
+      "engine": "opencli",
+      "daily_cap": 10,
+      "min_gap_min": 20,
+      "account_profile": "k2dn57uc",
+      "max_retries": null,
+      "tiers": null,
+      "hourly_cap": 5,
+      "hourly_window_min": 60,
+      "anti_bot_cooldown_min": 60
+    },
+    "xiaohongshu": {
+      "enabled": true,
+      "engine": "opencli",
+      "daily_cap": 3,
+      "min_gap_min": 60,
+      "account_profile": "default",
+      "max_retries": null,
+      "tiers": null,
+      "hourly_cap": 5,
+      "hourly_window_min": 60,
+      "anti_bot_cooldown_min": 60
+    },
+    "bilibili": {
+      "enabled": true,
+      "engine": "opencli",
+      "daily_cap": 4,
+      "min_gap_min": 45,
+      "account_profile": "default",
+      "max_retries": null,
+      "tiers": null,
+      "hourly_cap": 5,
+      "hourly_window_min": 60,
+      "anti_bot_cooldown_min": 60
+    },
+    "reddit": {
+      "enabled": true,
+      "engine": "opencli",
+      "daily_cap": 8,
+      "min_gap_min": 25,
+      "account_profile": "k2dn57uc",
+      "max_retries": null,
+      "tiers": null,
+      "hourly_cap": 5,
+      "hourly_window_min": 60,
+      "anti_bot_cooldown_min": 60
+    },
+    "testplatform": {
+      "enabled": true,
+      "engine": "opencli",
+      "daily_cap": 5,
+      "min_gap_min": 10,
+      "account_profile": "test_user",
+      "max_retries": null,
+      "tiers": null,
+      "hourly_cap": 5,
+      "hourly_window_min": 60,
+      "anti_bot_cooldown_min": 60
+    }
+  },
+  "campaigns": [
+    {
+      "id": "camp_1781938387903_ru8dktb",
+      "platform": "testplatform",
+      "template_id": 110,
+      "count": 2,
+      "keywords": [
+        "kw1",
+        "kw2"
+      ],
+      "start_at": "2026-06-20T06:53:07.903Z",
+      "created_at": "2026-06-20T06:53:08.425Z"
+    }
+  ]
+}

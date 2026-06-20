@@ -934,6 +934,8 @@
                   <th @click="sortBy('fail_streak')" class="text-center py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">连败 <span x-show="sortField==='fail_streak'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
                   <th @click="sortBy('last_checked')" class="text-left py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">最后检测 <span x-show="sortField==='last_checked'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
                   <th @click="sortBy('quality_score')" class="text-center py-2 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-700 select-none whitespace-nowrap text-xs">质量 <span x-show="sortField==='quality_score'" x-text="sortAsc?'↑':'↓'" class="text-[10px]"></span></th>
+                  <th class="py-2 px-2 text-center text-[11px] font-semibold text-slate-500 cursor-pointer hover:text-slate-700" @click="sortBy('analytics_ok')">14天成功</th>
+                  <th class="py-2 px-2 text-center text-[11px] font-semibold text-slate-500 cursor-pointer hover:text-slate-700" @click="sortBy('analytics_rate')">成功率</th>
                   <th class="text-center py-2 px-2 text-slate-400 font-medium whitespace-nowrap text-xs">能力</th>
                 </tr>
               </thead>
@@ -953,6 +955,8 @@
                       <span x-show="rule.quality_score" class="text-[11px] font-medium" :class="rule.quality_score>=80?'text-green-600':rule.quality_score>=50?'text-yellow-600':'text-slate-400'" x-text="rule.quality_score"></span>
                       <span x-show="!rule.quality_score" class="text-slate-300 text-[11px]">-</span>
                     </td>
+                    <td class="py-1.5 px-2 text-center text-xs font-medium" :class="(rule.analytics_ok||0)>10?'text-green-600':(rule.analytics_ok||0)>0?'text-yellow-600':'text-slate-300'" x-text="rule.analytics_ok||'-'"></td>
+                    <td class="py-1.5 px-2 text-center text-[11px]" :class="(rule.analytics_rate||0)>=50?'text-green-600':(rule.analytics_rate||0)>=10?'text-yellow-600':'text-slate-300'" x-text="rule.analytics_rate ? rule.analytics_rate+'%' : '-'"></td>
                     <td class="py-1.5 px-2 text-center">
                       <span class="inline-flex gap-0.5">
                         <span x-show="rule.requires_waf" class="text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-600" title="WAF">W</span>
@@ -1183,8 +1187,443 @@
               </div>
             </div>
 
+            </div>
+
+            <!-- Analytics sourcePerf diagnostics -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+              <h3 class="font-semibold text-slate-700 mb-3 text-sm flex items-center gap-2">
+                <span class="w-6 h-6 rounded bg-green-50 flex items-center justify-center text-green-600 text-xs">&#128202;</span>
+                埋点数据 — 源成功率排名
+              </h3>
+              <div class="overflow-x-auto">
+                <table class="w-full text-xs">
+                  <thead>
+                    <tr class="border-b border-slate-100">
+                      <th class="py-2 px-2 text-left font-semibold text-slate-500">#</th>
+                      <th class="py-2 px-2 text-left font-semibold text-slate-500">源</th>
+                      <th class="py-2 px-2 text-center font-semibold text-slate-500">成功</th>
+                      <th class="py-2 px-2 text-center font-semibold text-slate-500">失败</th>
+                      <th class="py-2 px-2 text-center font-semibold text-slate-500">成功率</th>
+                      <th class="py-2 px-2 text-center font-semibold text-slate-500">平均耗时</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="(p, i) in (analyticsData?.sourcePerf || []).sort((a,b) => b.rate - a.rate)" :key="p.src">
+                      <tr class="border-b border-slate-50 hover:bg-slate-50">
+                        <td class="py-1.5 px-2 text-slate-400" x-text="i+1"></td>
+                        <td class="py-1.5 px-2 font-medium text-slate-700" x-text="p.src"></td>
+                        <td class="py-1.5 px-2 text-center text-green-600 font-medium" x-text="p.ok"></td>
+                        <td class="py-1.5 px-2 text-center text-red-500" x-text="p.fail"></td>
+                        <td class="py-1.5 px-2 text-center font-medium" :class="p.rate>=50?'text-green-600':p.rate>=10?'text-yellow-600':'text-red-500'" x-text="p.rate+'%'"></td>
+                        <td class="py-1.5 px-2 text-center text-slate-500" x-text="p.avgMs ? Math.round(p.avgMs)+'ms' : '-'"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
           </div>
         </template>
+
+        <!-- Quality Test Results (dual-query validation) -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm" x-init="$watch('srcSubTab', v => { if (v === 'diagnostics' && !qualityTest) loadQualityTest(); })">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold text-slate-700 text-sm flex items-center gap-2">
+              <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+              源质量验证（双查询测试）
+            </h3>
+            <button @click="loadQualityTest()" class="px-2.5 py-1 text-xs text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-all">刷新</button>
+          </div>
+          <template x-if="qualityTest?.ok">
+            <div>
+              <div class="grid grid-cols-5 gap-2 mb-4">
+                <div class="bg-green-50 rounded-lg p-2 text-center">
+                  <p class="text-lg font-bold text-green-600" x-text="qualityTest.summary?.VERIFIED || 0"></p>
+                  <p class="text-[10px] text-green-500">已验证</p>
+                </div>
+                <div class="bg-slate-50 rounded-lg p-2 text-center">
+                  <p class="text-lg font-bold text-slate-600" x-text="qualityTest.summary?.EMPTY || 0"></p>
+                  <p class="text-[10px] text-slate-500">无结果</p>
+                </div>
+                <div class="bg-red-50 rounded-lg p-2 text-center">
+                  <p class="text-lg font-bold text-red-600" x-text="qualityTest.summary?.HALLUCINATING || 0"></p>
+                  <p class="text-[10px] text-red-500">幻觉</p>
+                </div>
+                <div class="bg-blue-50 rounded-lg p-2 text-center">
+                  <p class="text-lg font-bold text-blue-600" x-text="qualityTest.summary?.SKIPPED || 0"></p>
+                  <p class="text-[10px] text-blue-500">已跳过</p>
+                </div>
+                <div class="bg-orange-50 rounded-lg p-2 text-center">
+                  <p class="text-lg font-bold text-orange-600" x-text="qualityTest.summary?.ERROR || 0"></p>
+                  <p class="text-[10px] text-orange-500">错误</p>
+                </div>
+              </div>
+              <p class="text-[11px] text-slate-400 mb-2">测试时间: <span x-text="qualityTest.tested_at || '-'"></span> · 共 <span x-text="qualityTest.total || 0"></span> 个源</p>
+              <div class="max-h-96 overflow-y-auto">
+                <table class="w-full text-xs">
+                  <thead class="sticky top-0 bg-white"><tr class="border-b border-slate-100">
+                    <th class="py-1.5 px-2 text-left text-slate-500">源</th>
+                    <th class="py-1.5 px-2 text-center text-slate-500">状态</th>
+                    <th class="py-1.5 px-2 text-center text-slate-500">q1</th>
+                    <th class="py-1.5 px-2 text-center text-slate-500">q2</th>
+                    <th class="py-1.5 px-2 text-left text-slate-500">详情</th>
+                  </tr></thead>
+                  <template x-for="r in (qualityTest.results || []).slice(0, 200)" :key="r.name+r.origin">
+                    <tr class="border-b border-slate-50 hover:bg-slate-50">
+                      <td class="py-1 px-2 font-medium" x-text="r.name"></td>
+                      <td class="py-1 px-2 text-center">
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                          :class="{
+                            'bg-green-100 text-green-700': r.status==='VERIFIED',
+                            'bg-red-100 text-red-700': r.status==='HALLUCINATING',
+                            'bg-slate-100 text-slate-500': r.status==='EMPTY',
+                            'bg-blue-100 text-blue-600': r.status==='SKIPPED',
+                            'bg-orange-100 text-orange-600': r.status==='ERROR'
+                          }"
+                          x-text="r.status"></span>
+                      </td>
+                      <td class="py-1 px-2 text-center text-slate-600" x-text="r.q1 || '-'"></td>
+                      <td class="py-1 px-2 text-center text-slate-600" x-text="r.q2 || '-'"></td>
+                      <td class="py-1 px-2 text-slate-400 truncate max-w-xs" x-text="r.detail" :title="r.detail"></td>
+                    </tr>
+                  </template>
+                </table>
+              </div>
+            </div>
+          </template>
+          <template x-if="!qualityTest?.ok">
+            <p class="text-xs text-slate-400" x-text="qualityTest?.message || '未加载'"></p>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Broadcast -->
+    <div x-show="activeTab === 'broadcast'" x-cloak x-init="if(!bcConfig){loadBroadcast();loadTemplates();loadTasks()}" class="fade-in space-y-6">
+
+      <!-- Global Control -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-semibold text-slate-700 text-lg">全局控制</h2>
+          <div class="flex items-center gap-2">
+            <button @click="loadBroadcast()" class="px-3 py-1.5 bg-brand-50 text-brand-600 rounded-lg text-xs font-medium hover:bg-brand-100 transition-all">刷新</button>
+            <button @click="killToggle()" :class="bcStatus.global.kill_switch ? 'px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-all' : 'px-4 py-2 border-2 border-red-500 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition-all'">
+              <span x-text="bcStatus.global.kill_switch ? '已急停 — 点击恢复' : '一键急停'"></span>
+            </button>
+          </div>
+        </div>
+        <div class="flex items-center gap-6 text-sm text-slate-600 mb-3">
+          <span>全局开关：<strong x-text="bcStatus.global.enabled ? '开启' : '关闭'"></strong></span>
+          <span>审批模式：<strong x-text="bcStatus.global.approval_required ? '是' : '否'"></strong></span>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <span class="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">待投放 <span x-text="bcStatus.queue.queued || 0"></span></span>
+          <span class="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-medium">待审批 <span x-text="bcStatus.queue.awaiting_approval || 0"></span></span>
+          <span class="px-3 py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium">已完成 <span x-text="bcStatus.queue.done || 0"></span></span>
+          <span class="px-3 py-1 bg-red-50 text-red-700 rounded-full text-xs font-medium">失败 <span x-text="bcStatus.queue.failed || 0"></span></span>
+        </div>
+      </div>
+
+      <!-- Platforms -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-semibold text-slate-700 text-lg">平台配置</h2>
+          <button @click="saveBroadcastConfig()" class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50 transition-all">保存平台配置</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-slate-100 text-left text-slate-500">
+                <th class="py-2 pr-4 font-medium">平台</th>
+                <th class="py-2 pr-4 font-medium">启用</th>
+                <th class="py-2 pr-4 font-medium">日上限</th>
+                <th class="py-2 pr-4 font-medium">最小间隔(min)</th>
+                <th class="py-2 pr-4 font-medium">今日已发</th>
+                <th class="py-2 pr-4 font-medium">最后发布</th>
+                <th class="py-2 font-medium">限频检查</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="(p, name) in (bcConfig?.platforms || {})" :key="name">
+                <tr class="border-b border-slate-50">
+                  <td class="py-2 pr-4 font-medium text-slate-700" x-text="name"></td>
+                  <td class="py-2 pr-4">
+                    <input type="checkbox" x-model="p.enabled" class="rounded border-slate-300 text-brand-600">
+                  </td>
+                  <td class="py-2 pr-4">
+                    <input type="number" min="0" x-model.number="p.daily_cap" class="w-20 border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:border-brand-400">
+                  </td>
+                  <td class="py-2 pr-4">
+                    <input type="number" min="0" x-model.number="p.min_gap_min" class="w-20 border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:border-brand-400">
+                  </td>
+                  <td class="py-2 pr-4 text-slate-600" x-text="bcStatus.platforms[name]?.today_count ?? '-'"></td>
+                  <td class="py-2 pr-4 text-slate-500 text-xs" x-text="bcStatus.platforms[name]?.last_action_ts ? fmtDate(bcStatus.platforms[name].last_action_ts) : '-'"></td>
+                  <td class="py-2">
+                    <button @click="checkPlatform(name)" class="px-3 py-1.5 bg-brand-50 text-brand-600 rounded-lg text-xs font-medium hover:bg-brand-100 transition-all">检查</button>
+                    <span x-show="checkResults[name] !== undefined" class="ml-2 text-xs font-medium" :class="checkResults[name] === 'ok' ? 'text-green-600' : 'text-red-600'" x-text="checkResults[name]"></span>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+          <p x-show="!bcConfig?.platforms || Object.keys(bcConfig.platforms).length === 0" class="text-sm text-slate-400 py-4 text-center">暂无平台配置</p>
+        </div>
+      </div>
+
+      <!-- Templates -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+        <h2 class="font-semibold text-slate-700 text-lg mb-4">内容模板</h2>
+        <div class="flex flex-wrap gap-3 mb-4 items-end">
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">平台</label>
+            <select x-model="tplForm.platform" class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm">
+              <option value="通用">通用（AI 自动适配平台）</option>
+              <template x-for="name in Object.keys(bcConfig?.platforms || {})" :key="name">
+                <option :value="name" x-text="name"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">类型</label>
+            <select x-model="tplForm.kind" class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm">
+              <option value="answer">answer</option>
+              <option value="comment">comment</option>
+              <option value="post">post</option>
+              <option value="dynamic">dynamic</option>
+              <option value="reply">reply</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">标题</label>
+            <input x-model="tplForm.title" class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm w-40" placeholder="模板标题">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">正文</label>
+            <textarea x-model="tplForm.body" class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm w-60" rows="1" placeholder="模板正文"></textarea>
+          </div>
+          <button @click="createTemplate()" class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition-all">新增模板</button>
+          <button @click="approveAllTemplates()" class="px-3 py-2 bg-green-50 text-green-600 rounded-lg text-xs font-medium hover:bg-green-100 transition-all">全部上架</button>
+          <button @click="retireAllTemplates()" class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg text-xs font-medium hover:bg-slate-200 transition-all">全部下架</button>
+        </div>
+        <div class="flex gap-3 mb-3">
+          <select x-model="tplFilter.platform" @change="loadTemplates()" class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm">
+            <option value="">全部平台</option>
+            <template x-for="name in Object.keys(bcConfig?.platforms || {})" :key="name">
+              <option :value="name" x-text="name"></option>
+            </template>
+          </select>
+          <select x-model="tplFilter.status" @change="loadTemplates()" class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm">
+            <option value="">全部状态</option>
+            <option value="draft">草稿</option>
+            <option value="approved">已通过</option>
+            <option value="retired">已下架</option>
+          </select>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-slate-100 text-left text-slate-500">
+                <th class="py-2 pr-3 font-medium">ID</th>
+                <th class="py-2 pr-3 font-medium">类型</th>
+                <th class="py-2 pr-3 font-medium">标题</th>
+                <th class="py-2 pr-3 font-medium">正文</th>
+                <th class="py-2 pr-3 font-medium">状态</th>
+                <th class="py-2 pr-3 font-medium">创建时间</th>
+                <th class="py-2 font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="t in tplList" :key="t.id">
+                <tr class="border-b border-slate-50">
+                  <td class="py-2 pr-3 text-slate-500" x-text="t.id"></td>
+                  <td class="py-2 pr-3" x-text="t.kind"></td>
+                  <td class="py-2 pr-3" x-text="t.title"></td>
+                  <td class="py-2 pr-3 max-w-xs truncate text-xs text-slate-600" x-text="t.body" :title="t.body"></td>
+                  <td class="py-2 pr-3">
+                    <span class="px-2 py-0.5 rounded-full text-xs font-medium"
+                      :class="t.status === 'approved' ? 'bg-green-100 text-green-700' : t.status === 'retired' ? 'bg-slate-100 text-slate-400' : 'bg-slate-100 text-slate-600'"
+                      x-text="t.status === 'draft' ? '草稿' : t.status === 'approved' ? '已通过' : '已下架'"></span>
+                  </td>
+                  <td class="py-2 pr-3 text-xs text-slate-500" x-text="fmtDate(t.created_at)"></td>
+                  <td class="py-2">
+                    <button x-show="t.status === 'draft'" @click="approveTemplate(t.id)" class="px-3 py-1.5 bg-green-50 text-green-600 rounded-lg text-xs font-medium hover:bg-green-100 transition-all">审批通过</button>
+                    <button x-show="t.status === 'approved'" @click="retireTemplate(t.id)" class="px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-xs font-medium hover:bg-slate-200 transition-all">下架</button>
+                    <button x-show="t.status === 'retired'" @click="approveTemplate(t.id)" class="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-100 transition-all">上架</button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+          <p x-show="tplList.length === 0" class="text-sm text-slate-400 py-4 text-center">暂无模板</p>
+        </div>
+      </div>
+
+      <!-- Tasks -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-semibold text-slate-700 text-lg">投放任务</h2>
+          <div class="flex gap-2">
+            <button @click="loadTasks()" class="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-200">刷新</button>
+            <button @click="showNewTask=true" class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700">新建任务</button>
+          </div>
+        </div>
+
+        <!-- Task list -->
+        <div>
+          <div class="flex gap-3 mb-3">
+            <select x-model="taskFilter.status" @change="loadTasks()" class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm">
+              <option value="">全部状态</option>
+              <option value="draft">草稿</option>
+              <option value="queued">排队中</option>
+              <option value="running">执行中</option>
+              <option value="paused">已暂停</option>
+              <option value="done">已完成</option>
+              <option value="failed">失败</option>
+              <option value="awaiting_approval">待审批</option>
+            </select>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-slate-100 text-left text-slate-500">
+                  <th class="py-2 pr-3 font-medium">ID</th>
+                  <th class="py-2 pr-3 font-medium">名称</th>
+                  <th class="py-2 pr-3 font-medium">平台</th>
+                  <th class="py-2 pr-3 font-medium">进度</th>
+                  <th class="py-2 pr-3 font-medium">状态</th>
+                  <th class="py-2 font-medium">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="t in taskList" :key="t.id">
+                  <tr class="border-b border-slate-50">
+                    <td class="py-2 pr-3 text-slate-500" x-text="t.id"></td>
+                    <td class="py-2 pr-3" x-text="t.name"></td>
+                    <td class="py-2 pr-3"><span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-xs" x-text="t.platform"></span></td>
+                    <td class="py-2 pr-3 text-xs">
+                      <span x-text="(t.done_items||0)+'/'+(t.total_items||0)"></span>
+                      <div class="w-20 h-1.5 bg-slate-100 rounded-full mt-1 inline-block align-middle ml-2">
+                        <div class="h-full bg-green-500 rounded-full" :style="'width:'+((t.total_items>0?(t.done_items/t.total_items*100):0))+'%'"></div>
+                      </div>
+                    </td>
+                    <td class="py-2 pr-3">
+                      <span class="px-2 py-0.5 rounded-full text-xs font-medium"
+                        :class="t.status==='done'?'bg-green-100 text-green-700':t.status==='running'?'bg-blue-100 text-blue-600':t.status==='paused'?'bg-yellow-100 text-yellow-700':t.status==='failed'?'bg-red-100 text-red-600':t.status==='queued'?'bg-amber-100 text-amber-700':t.status==='awaiting_approval'?'bg-orange-100 text-orange-700':'bg-slate-100 text-slate-600'"
+                        x-text="t.status==='draft'?'草稿':t.status==='queued'?'排队中':t.status==='running'?'执行中':t.status==='paused'?'已暂停':t.status==='done'?'已完成':t.status==='awaiting_approval'?'待审批':'失败'"></span>
+                    </td>
+                    <td class="py-2">
+                      <div class="flex gap-1">
+                        <button x-show="t.status==='draft'||t.status==='paused'" @click="startTask(t.id)" class="px-2 py-1 bg-green-50 text-green-600 rounded text-xs hover:bg-green-100">开始</button>
+                        <button x-show="t.status==='awaiting_approval'" @click="approveTask(t.id)" class="px-2 py-1 bg-green-50 text-green-600 rounded text-xs hover:bg-green-100">批准</button>
+                        <button x-show="t.status==='awaiting_approval'" @click="rejectTask(t.id)" class="px-2 py-1 bg-red-50 text-red-600 rounded text-xs hover:bg-red-100">拒绝</button>
+                        <button x-show="t.status==='queued'||t.status==='running'" @click="pauseTask(t.id)" class="px-2 py-1 bg-yellow-50 text-yellow-600 rounded text-xs hover:bg-yellow-100">暂停</button>
+                        <button @click="viewTask(t.id)" class="px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs hover:bg-blue-100">详情</button>
+                        <button x-show="t.status!=='running'" @click="deleteTask(t.id)" class="px-2 py-1 bg-red-50 text-red-600 rounded text-xs hover:bg-red-100">删除</button>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+            <p x-show="taskList.length===0" class="text-sm text-slate-400 py-4 text-center">暂无任务</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Task Detail Modal -->
+      <div x-show="selectedTask" x-cloak class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center" @click.self="selectedTask=null">
+        <div class="bg-white rounded-xl p-6 w-[90vw] max-w-[900px] max-h-[85vh] overflow-y-auto shadow-xl">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-700 text-lg">任务详情: <span x-text="selectedTask?.name"></span></h3>
+            <button @click="selectedTask=null" class="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-sm hover:bg-slate-200">关闭</button>
+          </div>
+          <div class="grid grid-cols-4 gap-3 mb-4">
+            <div class="bg-slate-50 rounded-lg p-3"><div class="text-xs text-slate-500">平台</div><div class="font-medium" x-text="selectedTask?.platform"></div></div>
+            <div class="bg-slate-50 rounded-lg p-3"><div class="text-xs text-slate-500">状态</div><div class="font-medium" x-text="selectedTask?.status"></div></div>
+            <div class="bg-slate-50 rounded-lg p-3"><div class="text-xs text-slate-500">进度</div><div class="font-medium" x-text="(selectedTask?.done_items||0)+'/'+(selectedTask?.total_items||0)"></div></div>
+            <div class="bg-slate-50 rounded-lg p-3"><div class="text-xs text-slate-500">来源</div><div class="font-medium" x-text="selectedTask?.source_type||'manual'"></div></div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-slate-100 text-left text-slate-500">
+                  <th class="py-2 pr-3 font-medium">#</th>
+                  <th class="py-2 pr-3 font-medium">目标链接</th>
+                  <th class="py-2 pr-3 font-medium">回复内容</th>
+                  <th class="py-2 pr-3 font-medium">状态</th>
+                  <th class="py-2 font-medium">发布时间</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="(j,idx) in (selectedTask?.jobs||[])" :key="j.id">
+                  <tr class="border-b border-slate-50">
+                    <td class="py-2 pr-3 text-slate-500" x-text="idx+1"></td>
+                    <td class="py-2 pr-3 text-xs">
+                      <a :href="JSON.parse(j.payload_json||'{}').target||'#'" target="_blank" class="text-blue-600 hover:underline truncate max-w-[250px] inline-block" x-text="(JSON.parse(j.payload_json||'{}').target||'-').slice(0,60)"></a>
+                    </td>
+                    <td class="py-2 pr-3 text-xs text-slate-600 truncate max-w-[200px]" x-text="(JSON.parse(j.payload_json||'{}').body||'').slice(0,60)" :title="JSON.parse(j.payload_json||'{}').body"></td>
+                    <td class="py-2 pr-3">
+                      <span class="px-2 py-0.5 rounded-full text-xs font-medium"
+                        :class="j.status==='done'?'bg-green-100 text-green-700':j.status==='failed'?'bg-red-100 text-red-600':j.status==='running'?'bg-blue-100 text-blue-600':j.status==='awaiting_approval'?'bg-orange-100 text-orange-700':'bg-slate-100 text-slate-600'"
+                        x-text="j.status==='awaiting_approval'?'待审批':j.status"></span>
+                    </td>
+                    <td class="py-2 text-xs text-slate-500" x-text="j.status==='done'?fmtDate(j.updated_at):'-'"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- New task modal -->
+      <div x-show="showNewTask" x-cloak class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center" @click.self="showNewTask=false">
+        <div class="bg-white rounded-xl p-6 w-[600px] max-h-[80vh] overflow-y-auto shadow-xl">
+          <h3 class="font-semibold text-lg mb-4">新建投放任务</h3>
+          <div class="space-y-4">
+            <div>
+              <label class="text-xs text-slate-500 mb-1 block">任务名称</label>
+              <input x-model="newTask.name" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="例：X 磁力搜索回复">
+            </div>
+            <div>
+              <label class="text-xs text-slate-500 mb-1 block">投放平台</label>
+              <select x-model="newTask.platform" class="w-full border rounded-lg px-3 py-2 text-sm"
+                      @change="newTask.daily_cap = bcConfig?.platforms?.[newTask.platform]?.daily_cap || 20; newTask.min_gap_min = bcConfig?.platforms?.[newTask.platform]?.min_gap_min || 30">
+                <template x-for="name in Object.keys(bcConfig?.platforms||{})" :key="name"><option :value="name" x-text="name"></option></template>
+              </select>
+            </div>
+            <div class="flex items-center gap-3">
+              <label class="text-xs text-slate-500">启用</label>
+              <input type="checkbox" x-model="newTask.enabled" class="rounded border-slate-300 text-brand-600">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="text-xs text-slate-500 mb-1 block">日上限</label>
+                <input type="number" min="0" x-model.number="newTask.daily_cap" class="w-full border rounded-lg px-3 py-2 text-sm" :placeholder="(bcConfig?.platforms?.[newTask.platform]?.daily_cap || 20)">
+              </div>
+              <div>
+                <label class="text-xs text-slate-500 mb-1 block">最小间隔(min)</label>
+                <input type="number" min="0" x-model.number="newTask.min_gap_min" class="w-full border rounded-lg px-3 py-2 text-sm" :placeholder="(bcConfig?.platforms?.[newTask.platform]?.min_gap_min || 30)">
+              </div>
+            </div>
+            <div>
+              <label class="text-xs text-slate-500 mb-1 block">目标链接 <span class="text-slate-400 font-normal">（每行一个 URL）</span></label>
+              <textarea x-model="newTask.target_urls" class="w-full border rounded-lg px-3 py-2 text-sm font-mono" rows="6" placeholder="https://x.com/user/status/123&#10;https://x.com/user/status/456&#10;https://zhihu.com/question/789/answer/101"></textarea>
+            </div>
+            <div>
+              <label class="text-xs text-slate-500 mb-1 block">回复风格</label>
+              <select x-model="newTask.reply_style" class="w-full border rounded-lg px-3 py-2 text-sm">
+                <option value="random_template">随机模板 — 从平台已审批模板池随机选取</option>
+                <option value="ai_smart">AI智能回复 — 根据目标帖子内容生成上下文回复</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex gap-2 mt-5 justify-end">
+            <button @click="showNewTask=false" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm">取消</button>
+            <button @click="createTask()" class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium">创建任务</button>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -1204,7 +1643,105 @@
     <span x-text="toast.message"></span>
   </div>
 
+  <!-- Admin Secret Modal -->
+  <div id="bc-secret-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100; align-items:center; justify-content:center;">
+    <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:24px; width:360px; max-width:90vw; box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+      <h3 style="color:#f1f5f9; font-size:16px; font-weight:600; margin:0 0 12px;">Enter Admin Secret</h3>
+      <input id="bc-secret-input" type="password" placeholder="Admin Secret"
+             style="width:100%; padding:10px 12px; background:#0f172a; border:1px solid #475569; border-radius:8px; color:#e2e8f0; font-size:14px; outline:none; box-sizing:border-box;"
+             onkeydown="if(event.key==='Enter')_bcConfirmSecret(); if(event.key==='Escape')_bcCancelSecret();" />
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+        <button onclick="_bcCancelSecret()"
+                style="padding:8px 16px; border-radius:8px; border:1px solid #475569; background:transparent; color:#94a3b8; font-size:13px; cursor:pointer;">Cancel</button>
+        <button onclick="_bcConfirmSecret()"
+                style="padding:8px 16px; border-radius:8px; border:none; background:#3b82f6; color:white; font-size:13px; cursor:pointer; font-weight:500;">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth Error Banner -->
+  <div id="bc-auth-error-banner" style="display:none; position:fixed; top:0; left:0; right:0; background:#dc2626; color:white; padding:10px 20px; z-index:90; font-size:13px; align-items:center; justify-content:center; gap:12px;">
+    <span>Admin secret is required to access Broadcast features.</span>
+    <button onclick="_bcResetAuth()"
+            style="padding:4px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.3); background:rgba(255,255,255,0.15); color:white; font-size:12px; cursor:pointer;">Enter Secret</button>
+    <button onclick="document.getElementById('bc-auth-error-banner').style.display='none'"
+            style="padding:4px 8px; border:none; background:transparent; color:rgba(255,255,255,0.7); font-size:16px; cursor:pointer;">&times;</button>
+  </div>
+
   <script>
+    // P1-6: Admin secret stored in module-scoped variable (not sessionStorage — XSS safety).
+    let _bcSecretValue = '';
+    let _bcPromptCancelled = false;
+    function _getBcSecret() {
+      if (_bcPromptCancelled) return '';
+      if (_bcSecretValue) return _bcSecretValue;
+      // Use custom modal instead of deprecated synchronous prompt()
+      const modal = document.getElementById('bc-secret-modal');
+      if (modal) {
+        modal.style.display = 'flex';
+        document.getElementById('bc-secret-input').value = '';
+        document.getElementById('bc-secret-input').focus();
+        return ''; // will be set asynchronously via the modal confirm button
+      }
+      // Fallback for SSR or missing modal element
+      const s = prompt('Enter Admin Secret:');
+      if (s === null) {
+        _bcPromptCancelled = true;
+        _showBcAuthError();
+        return '';
+      }
+      if (s) _bcSecretValue = s;
+      return s || '';
+    }
+    function _bcConfirmSecret() {
+      const input = document.getElementById('bc-secret-input');
+      const val = input ? input.value.trim() : '';
+      const modal = document.getElementById('bc-secret-modal');
+      if (modal) modal.style.display = 'none';
+      if (val) {
+        _bcSecretValue = val;
+        _bcPromptCancelled = false;
+        // Dispatch custom event so Alpine components can retry the last operation
+        document.dispatchEvent(new CustomEvent('bc-secret-set'));
+      } else {
+        _bcPromptCancelled = true;
+        _showBcAuthError();
+      }
+    }
+    function _bcCancelSecret() {
+      const modal = document.getElementById('bc-secret-modal');
+      if (modal) modal.style.display = 'none';
+      _bcPromptCancelled = true;
+      _showBcAuthError();
+    }
+    function _showBcAuthError() {
+      // Show a persistent banner so the user knows auth is needed
+      const banner = document.getElementById('bc-auth-error-banner');
+      if (banner) banner.style.display = 'flex';
+      // Also try the toast system via Alpine
+      const appEl = document.querySelector('[x-data*="adminApp"]');
+      if (appEl && appEl.__x) {
+        appEl.__x.$data.showToast(false, '需要管理员密钥才能访问传播投放功能');
+      } else if (appEl && appEl._x_dataStack) {
+        appEl._x_dataStack[0].showToast(false, '需要管理员密钥才能访问传播投放功能');
+      }
+    }
+    function _bcResetAuth() {
+      _bcSecretValue = '';
+      _bcPromptCancelled = false;
+      const banner = document.getElementById('bc-auth-error-banner');
+      if (banner) banner.style.display = 'none';
+      _getBcSecret();
+    }
+    function _bcHeaders() {
+      return { 'Content-Type': 'application/json', 'x-admin-secret': _getBcSecret() };
+    }
+    // Proxy so `headers: _BC_AUTH` still works in fetch() — each access reads module variable
+    const _BC_AUTH = new Proxy({}, {
+      get(_, prop) { return _bcHeaders()[prop]; },
+      ownKeys() { return Object.keys(_bcHeaders()); },
+      getOwnPropertyDescriptor(_, prop) { const h = _bcHeaders(); return prop in h ? { value: h[prop], enumerable: true, configurable: true } : undefined; },
+    });
     function adminApp() {
       return {
         activeTab: 'overview',
@@ -1214,6 +1751,7 @@
           { id: 'version', label: '版本控制' },
           { id: 'feedback', label: '用户反馈' },
           { id: 'sources', label: '数据源' },
+          { id: 'broadcast', label: '传播投放' },
         ],
         loading: true,
         publishing: false,
@@ -1245,6 +1783,8 @@
         ],
         diagnostics: null,
         diagnosticsLoading: false,
+        qualityTest: null,
+        qualityTestLoading: false,
         brandFilter: '',
         brandSearch: '',
         feedbackList: [],
@@ -1301,20 +1841,17 @@
               (r.tags || '').toLowerCase().includes(q)
             );
           }
-          if (this.sortField) {
-            const f = this.sortField, asc = this.sortAsc;
-            const numericFields = ['fail_streak', 'quality_score', 'magnets_found'];
-            const isNum = numericFields.includes(f);
-            list = [...list].sort((a, b) => {
-              if (isNum) {
-                const va = Number(a[f]) || 0, vb = Number(b[f]) || 0;
-                return asc ? va - vb : vb - va;
-              }
-              const va = (a[f] || '').toString().toLowerCase();
-              const vb = (b[f] || '').toString().toLowerCase();
-              return asc ? va.localeCompare(vb) : vb.localeCompare(va);
-            });
-          }
+          // Default sort: green > yellow > gray, then by analytics success count desc
+          const statusOrder = { green: 0, yellow: 1, gray: 2 };
+          list = [...list].sort((a, b) => {
+            const sa = statusOrder[a.status] ?? 3, sb = statusOrder[b.status] ?? 3;
+            if (sa !== sb) return sa - sb;
+            // Within same status, sort by analytics success count (high first)
+            const oa = a.analytics_ok || 0, ob = b.analytics_ok || 0;
+            if (ob !== oa) return ob - oa;
+            // Then by quality score
+            return (b.quality_score || 0) - (a.quality_score || 0);
+          });
           return list;
         },
 
@@ -1736,6 +2273,18 @@
           this.diagnosticsLoading = false;
         },
 
+        async loadQualityTest() {
+          this.qualityTestLoading = true;
+          try {
+            const res = await fetch('/api/health/quality_test');
+            this.qualityTest = await res.json();
+          } catch (e) {
+            console.warn('Quality test load failed:', e);
+            this.qualityTest = { ok: false, message: e.message };
+          }
+          this.qualityTestLoading = false;
+        },
+
         async deleteFeedback(id) {
           if (!confirm('确定删除此条反馈？')) return;
           try {
@@ -1830,6 +2379,284 @@
           const time = now.toLocaleTimeString('zh-CN', { hour12: false });
           this.logs.unshift({ ok, message, time });
           if (this.logs.length > 50) this.logs.pop();
+        },
+
+        // --- broadcast state ---
+        bcStatus: { global: {}, platforms: {}, queue: {} },
+        bcConfig: null,
+        checkResults: {},
+        tplList: [],
+        tplFilter: { platform: '', status: '' },
+        tplForm: { platform: 'zhihu', kind: 'answer', title: '', body: '' },
+        // Task management
+        taskList: [],
+        taskFilter: { status: '' },
+        selectedTask: null,
+        showNewTask: false,
+        newTask: { name: '', platform: 'x', enabled: true, daily_cap: 20, min_gap_min: 30, target_urls: '', reply_style: 'random_template' },
+        bcLoading: false,
+
+        async loadBroadcast() {
+          try {
+            const [statusRes, configRes] = await Promise.all([
+              fetch('/api/broadcast/status', {headers: _BC_AUTH}),
+              fetch('/api/broadcast/config', {headers: _BC_AUTH})
+            ]);
+            if (statusRes.status === 401 || configRes.status === 401) {
+              _showBcAuthError();
+              this.showToast(false, 'Admin secret 验证失败，请重新加载页面并输入正确的密钥');
+              return;
+            }
+            if (!statusRes.ok) throw new Error('状态加载失败');
+            if (!configRes.ok) throw new Error('配置加载失败');
+            this.bcStatus = await statusRes.json();
+            this.bcConfig = await configRes.json();
+          } catch (e) {
+            this.showToast(false, e.message);
+          }
+        },
+
+        async killToggle() {
+          try {
+            const res = await fetch('/api/broadcast/kill', {
+              method: 'POST',
+              headers: _BC_AUTH,
+              body: JSON.stringify({ on: !this.bcStatus.global.kill_switch })
+            });
+            if (!res.ok) throw new Error('操作失败');
+            const data = await res.json();
+            this.showToast(true, data.global.kill_switch ? '已启动急停' : '已恢复');
+            await this.loadBroadcast();
+          } catch (e) {
+            this.showToast(false, e.message);
+          }
+        },
+
+        async saveBroadcastConfig() {
+          try {
+            const res = await fetch('/api/broadcast/config', {
+              method: 'POST',
+              headers: _BC_AUTH,
+              body: JSON.stringify(this.bcConfig)
+            });
+            if (!res.ok) throw new Error('保存失败');
+            this.showToast(true, '平台配置已保存');
+            await this.loadBroadcast();
+          } catch (e) {
+            this.showToast(false, e.message);
+          }
+        },
+
+        async checkPlatform(name) {
+          try {
+            const res = await fetch('/api/broadcast/check', {
+              method: 'POST',
+              headers: _BC_AUTH,
+              body: JSON.stringify({ platform: name })
+            });
+            if (!res.ok) throw new Error('检查失败');
+            const data = await res.json();
+            this.checkResults[name] = data.reason;
+          } catch (e) {
+            this.showToast(false, e.message);
+          }
+        },
+
+        async loadTemplates() {
+          try {
+            const params = new URLSearchParams();
+            if (this.tplFilter.platform) params.set('platform', this.tplFilter.platform);
+            if (this.tplFilter.status) params.set('status', this.tplFilter.status);
+            const res = await fetch('/api/broadcast/templates?' + params.toString(), {headers: _BC_AUTH});
+            if (!res.ok) throw new Error('加载模板失败');
+            this.tplList = await res.json();
+          } catch (e) {
+            this.showToast(false, e.message);
+          }
+        },
+
+        async createTemplate() {
+          try {
+            if (!this.tplForm.kind) throw new Error('请选择类型');
+            if (!this.tplForm.title && !this.tplForm.body) throw new Error('请填写标题或正文');
+            const res = await fetch('/api/broadcast/templates', {
+              method: 'POST',
+              headers: _BC_AUTH,
+              body: JSON.stringify(this.tplForm)
+            });
+            if (!res.ok) throw new Error('创建失败');
+            this.showToast(true, '模板已创建');
+            this.tplForm.title = '';
+            this.tplForm.body = '';
+            await this.loadTemplates();
+          } catch (e) {
+            this.showToast(false, e.message);
+          }
+        },
+
+        async approveTemplate(id) {
+          try {
+            const res = await fetch('/api/broadcast/templates/' + id + '/approve', { method: 'POST', headers: _BC_AUTH });
+            if (!res.ok) throw new Error('审批失败');
+            this.showToast(true, '已审批通过');
+            await this.loadTemplates();
+          } catch (e) {
+            this.showToast(false, e.message);
+          }
+        },
+
+        async retireTemplate(id) {
+          try {
+            const res = await fetch('/api/broadcast/templates/' + id + '/retire', { method: 'POST', headers: _BC_AUTH });
+            if (!res.ok) throw new Error('下架失败');
+            this.showToast(true, '已下架');
+            await this.loadTemplates();
+          } catch (e) {
+            this.showToast(false, e.message);
+          }
+        },
+
+        async approveAllTemplates() {
+          try {
+            const targets = this.tplList.filter(t => t.status !== 'approved');
+            if (targets.length === 0) { this.showToast(true, '全部已是已通过状态'); return; }
+            for (const t of targets) {
+              await fetch('/api/broadcast/templates/' + t.id + '/approve', { method: 'POST', headers: _BC_AUTH });
+            }
+            this.showToast(true, `已上架 ${targets.length} 条模板`);
+            await this.loadTemplates();
+          } catch (e) {
+            this.showToast(false, e.message);
+          }
+        },
+
+        async retireAllTemplates() {
+          try {
+            const targets = this.tplList.filter(t => t.status === 'approved');
+            if (targets.length === 0) { this.showToast(true, '没有已通过的模板'); return; }
+            for (const t of targets) {
+              await fetch('/api/broadcast/templates/' + t.id + '/retire', { method: 'POST', headers: _BC_AUTH });
+            }
+            this.showToast(true, `已下架 ${targets.length} 条模板`);
+            await this.loadTemplates();
+          } catch (e) {
+            this.showToast(false, e.message);
+          }
+        },
+
+        async loadTasks() {
+          try {
+            const params = new URLSearchParams();
+            if (this.taskFilter.status) params.set('status', this.taskFilter.status);
+            const res = await fetch('/api/broadcast/tasks?' + params.toString(), { headers: _BC_AUTH });
+            if (!res.ok) throw new Error('加载任务失败');
+            this.taskList = await res.json();
+          } catch (e) { this.showToast(false, e.message); }
+        },
+
+        async viewTask(id) {
+          try {
+            const res = await fetch('/api/broadcast/tasks/' + id, { headers: _BC_AUTH });
+            if (!res.ok) throw new Error('加载任务详情失败');
+            this.selectedTask = await res.json();
+          } catch (e) { this.showToast(false, e.message); }
+        },
+
+        async startTask(id) {
+          try {
+            const res = await fetch('/api/broadcast/tasks/' + id + '/start', { method: 'POST', headers: _BC_AUTH });
+            if (!res.ok) throw new Error('启动失败');
+            this.showToast(true, '任务已启动');
+            await this.loadTasks();
+          } catch (e) { this.showToast(false, e.message); }
+        },
+
+        async pauseTask(id) {
+          try {
+            const res = await fetch('/api/broadcast/tasks/' + id + '/pause', { method: 'POST', headers: _BC_AUTH });
+            if (!res.ok) throw new Error('暂停失败');
+            this.showToast(true, '任务已暂停');
+            await this.loadTasks();
+          } catch (e) { this.showToast(false, e.message); }
+        },
+
+        async deleteTask(id) {
+          if (!confirm('确定删除此任务？所有子任务也会被删除。')) return;
+          try {
+            const res = await fetch('/api/broadcast/tasks/' + id, { method: 'DELETE', headers: _BC_AUTH });
+            if (!res.ok) throw new Error('删除失败');
+            this.showToast(true, '已删除');
+            await this.loadTasks();
+          } catch (e) { this.showToast(false, e.message); }
+        },
+
+        async approveTask(id) {
+          try {
+            const res = await fetch('/api/broadcast/tasks/' + id + '/approve', { method: 'POST', headers: _BC_AUTH });
+            if (!res.ok) throw new Error('批准失败');
+            this.showToast(true, '已批准');
+            await this.loadTasks();
+          } catch (e) { this.showToast(false, e.message); }
+        },
+
+        async rejectTask(id) {
+          if (!confirm('确定拒绝此任务？')) return;
+          try {
+            const res = await fetch('/api/broadcast/tasks/' + id + '/reject', { method: 'POST', headers: _BC_AUTH });
+            if (!res.ok) throw new Error('拒绝失败');
+            this.showToast(true, '已拒绝');
+            await this.loadTasks();
+          } catch (e) { this.showToast(false, e.message); }
+        },
+
+        async createTask() {
+          try {
+            if (!this.newTask.name) throw new Error('请填写任务名称');
+            const urls = (this.newTask.target_urls || '').split('\n').map(l => l.trim()).filter(Boolean);
+            if (urls.length === 0) throw new Error('请填写至少一个目标链接');
+
+            // Determine platform config
+            const platformCfg = this.bcConfig?.platforms?.[this.newTask.platform] || {};
+            const dailyCap = Number(this.newTask.daily_cap) || platformCfg.daily_cap || 20;
+            const minGap = Number(this.newTask.min_gap_min) || platformCfg.min_gap_min || 30;
+
+            // Build items array: each URL is a target (body filled at execution time)
+            const items = urls.map(url => ({ target_url: url }));
+
+            // payload_json stores platform-level settings for the executor
+            const payload = {
+              daily_cap: dailyCap,
+              min_gap_min: minGap,
+              reply_style: this.newTask.reply_style,
+              enabled: this.newTask.enabled,
+            };
+
+            const res = await fetch('/api/broadcast/tasks', {
+              method: 'POST', headers: _BC_AUTH,
+              body: JSON.stringify({
+                name: this.newTask.name,
+                platform: this.newTask.platform,
+                reply_style: this.newTask.reply_style,
+                items,
+                interval_min: minGap,
+                payload_json: JSON.stringify(payload),
+              }),
+            });
+            if (!res.ok) throw new Error('创建失败');
+            const data = await res.json();
+            this.showToast(true, `任务已创建 (${urls.length} 个目标, ${this.newTask.reply_style === 'ai_smart' ? 'AI智能回复' : '随机模板'}, 间隔 ${minGap} 分钟)`);
+            this.showNewTask = false;
+            this.newTask = { name: '', platform: 'x', enabled: true, daily_cap: 20, min_gap_min: 30, target_urls: '', reply_style: 'random_template' };
+            await this.loadTasks();
+            // FR-03: Only auto-start if the task is NOT awaiting approval
+            // The POST /tasks response returns taskId; check task status from loaded list
+            if (data.taskId) {
+              const created = this.taskList.find(t => t.id === data.taskId);
+              if (created && created.status !== 'awaiting_approval') {
+                await this.startTask(data.taskId);
+              }
+            }
+          } catch (e) { this.showToast(false, e.message); }
         },
 
         showToast(ok, message) {

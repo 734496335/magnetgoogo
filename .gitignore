@@ -16,6 +16,7 @@ web/node_modules/
 !package.json
 !package-lock.json
 !tsconfig.json
+!broadcast-config.json
 run.log
 
 # ── One-off scripts (root level, prefixed with _) ──
@@ -113,6 +114,14 @@ magnetgoogo-app/MagGoogo-*.apk
 # ── Analytics/admin server runtime ──
 admin-server/cache/
 admin-server/node_modules/
+admin-server/broadcast.db*
+admin-server/sessions/
+
+# ── Broadcast engine orchestration scratch (mimo prompts/outputs) ──
+/tmp_mimo/
+
+# ── Content engine generated articles (large, regenerable) ──
+content-engine/output/
 analytics-server/node_modules/
 analytics-server/data/
 */.wrangler/
