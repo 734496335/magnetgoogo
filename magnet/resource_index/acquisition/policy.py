@@ -1,0 +1,106 @@
+"""Live acquisition policy gates (default deny)."""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+
+from magnet.resource_index.errors import (
+    LIVE_FETCH_DISABLED,
+    LIVE_POLICY_NOT_ACKNOWLEDGED,
+    LIVE_RATE_LIMITED,
+    LivePolicyError,
+)
+
+MIN_DELAY_SECONDS = 10.0
+DEFAULT_MAX_DETAIL_PAGES = 3
+MAX_CONCURRENCY = 1
+
+
+@dataclass(frozen=True)
+class LiveFetchPolicy:
+    enabled: bool
+    acknowledged: bool
+    max_pages: int
+    request_delay_seconds: float
+    concurrency: int = MAX_CONCURRENCY
+
+    @classmethod
+    def from_flags(
+        cls,
+        *,
+        env_enabled: bool | None = None,
+        acknowledged: bool = False,
+        max_pages: int | None = None,
+        request_delay_seconds: float | None = None,
+    ) -> "LiveFetchPolicy":
+        if env_enabled is None:
+            env_enabled = os.environ.get("MAGNET_RESOURCE_LIVE_FETCH_ENABLED", "0").strip() in {
+                "1",
+                "true",
+                "TRUE",
+                "yes",
+            }
+        delay = (
+            MIN_DELAY_SECONDS
+            if request_delay_seconds is None
+            else float(request_delay_seconds)
+        )
+        pages = DEFAULT_MAX_DETAIL_PAGES if max_pages is None else int(max_pages)
+        return cls(
+            enabled=bool(env_enabled),
+            acknowledged=bool(acknowledged),
+            max_pages=pages,
+            request_delay_seconds=delay,
+            concurrency=MAX_CONCURRENCY,
+        )
+
+    def assert_allowed(self) -> None:
+        if not self.enabled:
+            raise LivePolicyError(
+                LIVE_FETCH_DISABLED,
+                "live fetch disabled (set MAGNET_RESOURCE_LIVE_FETCH_ENABLED=1)",
+                {},
+            )
+        if not self.acknowledged:
+            raise LivePolicyError(
+                LIVE_POLICY_NOT_ACKNOWLEDGED,
+                "missing --acknowledge-source-policy",
+                {},
+            )
+        if self.max_pages <= 0:
+            raise LivePolicyError(
+                LIVE_RATE_LIMITED,
+                "max_pages must be positive",
+                {"max_pages": self.max_pages},
+            )
+        if self.max_pages > DEFAULT_MAX_DETAIL_PAGES:
+            raise LivePolicyError(
+                LIVE_RATE_LIMITED,
+                f"max_pages exceeds hard cap {DEFAULT_MAX_DETAIL_PAGES}",
+                {"max_pages": self.max_pages},
+            )
+        if self.request_delay_seconds < MIN_DELAY_SECONDS:
+            raise LivePolicyError(
+                LIVE_RATE_LIMITED,
+                f"request_delay_seconds must be >= {MIN_DELAY_SECONDS}",
+                {"request_delay_seconds": self.request_delay_seconds},
+            )
+        if self.concurrency != MAX_CONCURRENCY:
+            raise LivePolicyError(
+                LIVE_RATE_LIMITED,
+                "concurrency must be 1",
+                {"concurrency": self.concurrency},
+            )
+
+
+def should_stop_on_status(status_code: int | None, body_snippet: str = "") -> str | None:
+    """Return stop reason code if acquisition must halt immediately."""
+    if status_code in {403, 429}:
+        return f"http_{status_code}"
+    lower = (body_snippet or "").lower()
+    if "cf-challenge" in lower or "just a moment" in lower or "turnstile" in lower:
+        return "access_challenge"
+    if "driver-verify" in lower or "age verify" in lower or "成年" in body_snippet:
+        return "age_gate"
+    return None

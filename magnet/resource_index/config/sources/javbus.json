@@ -1,0 +1,14 @@
+{
+  "source_id": "javbus",
+  "source_rule_id": "javbus_com_001",
+  "origin": "https://www.javbus.com",
+  "adult": true,
+  "adapter": "javbus",
+  "parser_version": "javbus-parser/1.0.0",
+  "live_fetch": {
+    "enabled": false,
+    "concurrency": 1,
+    "request_delay_seconds": 10,
+    "max_detail_pages": 3
+  }
+}

@@ -1,4 +1,1197 @@
 ---
+Date/Time: 2026-07-25 (UTC+8)
+Version: app-background-search-reliability-fix
+Scope: Repair background handoff/result hydration races and make native bridge reproducible
+Modules: magnetgoogo-app/app/search.tsx, magnetgoogo-app/src/core/{backgroundSearch.ts,backgroundSearchProtocol.ts,searchKeepAlive.ts}, magnetgoogo-app/plugins/**, magnetgoogo-app/app.json, magnetgoogo-app/scripts/{app-adversarial-tests.mjs,app-adversarial-report.json}, docs/project-nebula/{APP-BACKGROUND-SEARCH-RELIABILITY-2026-07-25.md,_progress.txt,DEV-LOG.md}
+
+### Root cause
+- K30S old release proved native handoff and Headless JS ran for ~70s, while the UI stopped polling after 20s.
+- Search→immediate-Home could enter background before a session existed, so no later AppState event triggered handoff.
+- Background storage had no owner fencing or partial result payload and ignored Android sources were not reproducible after clean prebuild.
+
+### Completed
+- Persist and stream partial background results; observe for the 30m Headless task window.
+- Add explicit immediate-background handoff check and token/query owner fencing.
+- Prevent stale task writes/stops, inherit foreground results, and propagate searchId.
+- Make service cleanup token-aware, non-sticky, and resilient when Headless stop fails.
+- Add tracked Expo config plugin/Kotlin templates for native regeneration; defer destructive clean-prebuild execution to an isolated tree.
+
+### Verification
+- App adversarial tests: 29/29 PASS; fluency tests: 17/17 PASS; TypeScript PASS.
+- Expo prebuild config PASS; current native sources match templates; clean-prebuild itself was not run in the dirty checkout.
+- Android export: 1401 modules, HBC 4.73 MB.
+- Gradle testDebugUnitTest + assembleDebug: BUILD SUCCESSFUL, 495 tasks.
+- Current debug APK K30S install remains blocked by MIUI USB-install confirmation; current-code native acceptance is pending.
+---
+
+---
+Date/Time: 2026-07-25 (UTC+8)
+Version: app-adversarial-audit-and-race-hardening
+Scope: Find and close additional App defects through adversarial automation, K30S stress, and native/build verification
+Modules: magnetgoogo-app/app/{_layout.tsx,index.tsx,search.tsx}, magnetgoogo-app/src/core/{SourceContext.tsx,configChecker.ts,configValidation.ts,favorites.ts,searchHistory.ts,searchKeepAlive.ts,searchResultAccumulator.ts,searchTerm.ts,storageSanitizers.ts,types.ts}, magnetgoogo-app/android/app/src/main/java/com/magnetgoogo/app/{SearchKeepAliveModule.kt,SearchKeepAliveService.kt}, magnetgoogo-app/scripts/{app-adversarial-tests.mjs,app-adversarial-report.json,fluency-extreme-tests.mjs}, docs/project-nebula/{APP-ADVERSARIAL-TESTPLAN-2026-07-25.md,_progress.txt,DEV-LOG.md}
+
+### Defects closed
+- Eliminated duplicate startup source synchronization and made manual/automatic sync single-flight.
+- Added generation-gated search startup/callbacks so stale queries cannot overwrite newer sessions.
+- Made Android keepalive start/stop token-aware so a completed old search cannot stop a newer service.
+- Sanitized malformed history/favorite storage, validated remote config payloads, and isolated analytics/storage failures from the search path.
+- Fixed software-as-movie classification, DTS tags, binary size ranking, Chinese sync-error styling, search-term normalization, and home animation cleanup.
+
+### Verification
+- New adversarial suite -> 21/21 PASS; existing fluency suite -> 17/17 PASS; `npx tsc --noEmit` -> PASS.
+- K30S cold start produced one cache load and one remote save; previous duplicate sync no longer reproduced.
+- K30S query replacement stopped old Inception work after the 12-source fast stage; no stale result overwrite or crash.
+- K30S stop/sort/fling: 681 frames, modern jank 0.59%, P95 14ms, P99 27ms; no FATAL/ANR/React error.
+- Expo Android export -> 1400 modules / 4.72 MB HBC; Gradle unit/build gate -> BUILD SUCCESSFUL (495 tasks, 24s).
+
+### Remaining
+- `expo-doctor` remains 17/18 because top-level babel-preset-expo 55 conflicts with SDK 54 and several Expo patch versions lag.
+- Expo Go cannot runtime-test custom SearchKeepAlive; development APK verification is still required for background handoff/token stop.
+---
+
+---
+Date/Time: 2026-07-24 (UTC+8)
+Version: k30s-expo-go-current-source-verification
+Scope: Reproduce Grok-style current-source device testing without replacing the installed APK
+Modules: docs/project-nebula/{FLUENCY-CARD-LOAD-TESTPLAN.md,_progress.txt,DEV-LOG.md}
+
+### Findings
+- K30S already has Expo Go 54.0.8; project uses Expo SDK 54 and Metro on port 8081.
+- `adb reverse tcp:8081 tcp:8081` plus `exp://127.0.0.1:8081/--/search?q=ubuntu` loads the current workspace bundle directly.
+- `com.content.magnetsearch` is a Play-installed unrelated package, not a hidden MagnetGoGo development build.
+- Expo Go reports `SearchKeepAlive` unavailable, so native background handoff cannot be accepted through this path.
+
+### Verification
+- Current bundle launched in `host.exp.exponent/.experience.ExperienceActivity`; 125 sources loaded and real HTTP search executed.
+- Active-search fling: 2053 frames, 0.83% jank, P95 15ms, P99 34ms; no FATAL/ANR.
+- After request-log quiescence, final-list fling: 355 frames, 0.56% jank, P95 18ms, P99 34ms; no FATAL/ANR.
+- MIUI APK replacement remains blocked, but foreground search/list acceptance is no longer blocked.
+
+### Remaining
+- Validate native `SearchKeepAlive` / Headless background handoff with an installable development APK.
+---
+
+---
+Date/Time: 2026-07-24 (UTC+8)
+Version: app-search-result-accumulator-hardening
+Scope: Fix search-card stale rendering, duplicate source inflation, final-sort scroll jumps, and test/production drift
+Modules: magnetgoogo-app/app/search.tsx, magnetgoogo-app/src/core/{types.ts,searchRunner.ts,searchResultAccumulator.ts}, magnetgoogo-app/scripts/{fluency-extreme-tests.mjs,fluency-extreme-report.json}, docs/project-nebula/{FLUENCY-CARD-LOAD-TESTPLAN.md,_progress.txt,DEV-LOG.md}
+
+### Completed
+- Replaced dirty card in-place mutation with immutable model refresh while preserving stable FlatList id/key.
+- Extracted shared search-result accumulator used by both production search page and automated tests.
+- Recomputed classification, theme, tags, relevance, size, date, file count, and other derived fields after merged metadata changes.
+- Kept first-seen order during active search and removed the render-layer comprehensive re-sort.
+- Made final/stop comprehensive sorting respect scroll deferral.
+- Counted unique sources only; identical same-source duplicate rows no longer dirty models or trigger list refresh.
+- Added stable fallback identity and deduplication for non-btih and missing-magnet rows.
+- Preserved score, seeders, and leechers through SearchRunner result mapping.
+
+### Verification
+- `node scripts/fluency-extreme-tests.mjs` -> 17/17 passed; D3 top20 churn=0; D2b/D4b/D5/PROD PASS.
+- `npx tsc --noEmit` -> PASS.
+- `npx expo export --platform android --output-dir .test-tmp/fluency-fix-export --clear` -> 1397 modules bundled; Android HBC generated.
+- `./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a` -> BUILD SUCCESSFUL.
+- K30S is online, but latest debug install is blocked by MIUI: `INSTALL_FAILED_USER_RESTRICTED: Install canceled by user`.
+- Any measurements from the previously installed non-debug package were excluded from latest-code acceptance.
+
+### Next
+- Enable K30S USB installation/security confirmation and rerun S1/C2/L2: active-search fling, skeleton-to-first-card transition, and background/foreground hydration.
+- Do not start FlashList or additional list optimization until that current-code device verification is complete.
+---
+
+---
+Date/Time: 2026-07-25 (UTC+8)
+Version: resource-index-phase1-commit-phase2-plan
+Scope: Isolated Phase-1 commit set + Phase-2 planning document (no Phase-2 code)
+Modules: magnet/resource_index/**, magnet/tests/resource_index/**, magnet/tests/fixtures/resource_index/**, .gitignore, docs/project-nebula/RESOURCE-INDEX-PHASE{1-REVIEW,2-PLAN}-2026-07-25.md, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Completed
+- Prepared minimal commit paths only (resource_index module, tests, fixtures, gitignore private dir, review + phase-2 plan docs).
+- Wrote RESOURCE-INDEX-PHASE2-PLAN-2026-07-25.md: entry gates, tracks P2-A..D + P2-L/P2-M, sequencing, schema foreshadow, risks, product decision checklist.
+- Explicitly did not implement Phase-2 code; did not enable live fetch or App UI.
+
+### Verification
+- Phase-1 suite previously 45 passed; commit contents limited to RI paths.
+- Did not stage pre-existing dirty App/sources.json files.
+
+### Next
+- Product selects Phase-2 primary track (recommended P2-A) and fills plan §8 checklist before any implementation.
+---
+
+---
+Date/Time: 2026-07-25 (UTC+8)
+Version: javbus-resource-index-phase1-review-pass
+Scope: Independent §20/§21 review of resource_index phase-1; fix domain purity and exception handling
+Modules: magnet/resource_index/domain/identity.py, adapters/javbus/{detail_parser,resource_parser}.py, docs/project-nebula/RESOURCE-INDEX-PHASE1-REVIEW-2026-07-25.md, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Completed
+- Automated architecture probes: no domain CSS pollution, no SearchResult/crawler coupling, no parser network/DB, no bare except, live default off.
+- Fixed domain `person_id_for`/`tag_id_for` to require adapter-supplied `source_prefix` (no hard-coded javbus default).
+- Parsers catch `ResourceIndexError` only (structured error_code preserved).
+- Wrote RESOURCE-INDEX-PHASE1-REVIEW-2026-07-25.md with full §20/§21 checklist and recommended commit set.
+- Verdict: PHASE-1 PASS for implementation gates; still blocked for live/App/prod feed.
+
+### Verification
+- `python -m pytest magnet/tests/resource_index -q` -> 45 passed
+- Prior T11 gates still green (crawler_v3, validate_enum)
+
+### Next
+- User chooses: isolated commit, product Phase-2 go/no-go, or other work.
+---
+
+---
+Date/Time: 2026-07-24 (UTC+8)
+Version: javbus-resource-index-phase1-implementation
+Scope: Execute T0-T11 of frozen JavBus resource_index phase-1 blueprint — fixture→parser→domain→SQLite→CLI/adult feed
+Modules: magnet/resource_index/**, magnet/tests/resource_index/**, magnet/tests/fixtures/resource_index/javbus/**, .gitignore, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Completed
+- Added independent `magnet/resource_index/` package (domain, normalize, acquisition, javbus adapter, pipeline, store, CLI, observability).
+- SQLite schema 0001 with transactional content upserts, info-hash uniqueness, cross-content conflict hard-fail, non-null field protection.
+- Sanitized offline fixtures (6 details, resource tables, listings, age-gate, DOM drift, empty resources); private fixture dir gitignored.
+- CLI demo loop: init-db / ingest-fixture / stats / show-content / export-feed (scope=adult only).
+- Live fetch policy default-deny; LiveFetcher does not perform network I/O in phase-1.
+- Did not modify App/Web JavBus handlers, sources.json health.status, crawler_v3 public API, or publish endpoints.
+
+### Verification
+- `python -m pytest magnet/tests/resource_index -q` -> 45 passed
+- `python -m pytest magnet/tests/crawler_v3 -m "not integration" -q` -> 68 passed, 2 deselected
+- `python validate_enum.py` -> ALL VALID
+- `python -m compileall magnet/resource_index magnet/tests/resource_index` -> PASS
+- CLI double-ingest: contents=6 resources=7 contents_without_resources=1; second run row-stable (0 created / 6+7 updated)
+- Domain package free of JavBus CSS selectors
+
+### Next
+- Stop for independent review (§21 checklist in phase-1 plan).
+- No live acquisition, App UI, or production adult feed until review PASS.
+---
+
+---
+Date/Time: 2026-07-24 (UTC+8)
+Version: javbus-resource-index-phase1-architecture
+Scope: Produce a frozen phase-1 technical architecture and AI execution guide for validating a resource-content index with JavBus
+Modules: docs/project-nebula/计划-20260724-JavBus资源站内容索引第一阶段技术架构与开发执行指导.md, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Completed
+- Audited the existing JavBus chain in `sources.json`, App `searchEngine.ts`, Web `route.ts`, and the current `crawler_v3` contracts.
+- Confirmed that the current site presents an adult-age verification flow and publishes a disallow-all robots policy; phase-1 therefore defaults to sanitized offline fixtures and keeps live acquisition disabled.
+- Defined a new `magnet/resource_index/` bounded context instead of extending `SearchResult.extra` or copying a third real-time JavBus handler.
+- Froze the domain contracts for content, people, tags, media references, resource releases, observations, raw documents, deterministic IDs, info-hash deduplication, and conflict handling.
+- Froze a standard-library SQLite schema, transaction boundaries, CLI contract, isolated adult test feed, structured error taxonomy, logging fields, fixture sanitization, and adult-content isolation.
+- Defined T0-T11 implementation nodes with RED/GREEN tests, minimal commit boundaries, regression commands, acceptance gates, review checklist, rollback, and mandatory stop before App UI or production publication.
+- Did not modify production crawler behavior, App/Web JavBus handlers, source health/status, endpoint data, or release artifacts.
+
+### Verification
+- Markdown validation -> 45,590 UTF-8 bytes, 1,934 lines, 208 balanced code fences, all required sections present, T0-T11 all present.
+- `git diff --check -- <three changed docs>` -> PASS; only existing LF-to-CRLF working-copy warnings.
+
+### Next
+- Create a clean implementation worktree and execute T0-T11 strictly from the frozen blueprint.
+- Stop after total verification and wait for independent review before enabling any live source acquisition or product UI.
+---
+
+---
+Date/Time: 2026-07-22 (UTC+8)
+Version: crawl4ai-0.9.2-sync-oss-inventory
+Scope: Audit all GitHub-origin crawler tooling and safely synchronize Crawl4AI 0.9.2 into the offline selector-synthesis path
+Modules: magnet/requirements.txt, magnet/crawler_v2/ai/selector_synth.py, magnet/tests/crawler_v2/test_selector_synth.py, docs/project-nebula/CRAWLER-OPEN-SOURCE-INVENTORY-2026-07-22.md, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Completed
+- Audited crawler-related dependencies and code across Python crawler v1/v2/v3, discovery/verification scripts, and the Next.js server-side crawler.
+- Classified tools as production/core, migrated/integrated, borrowed/adapted, experimental/legacy, or retired.
+- Recorded the migration chain from temporary AI bootstrap scripts into `crawler_v2/ai/` and clarified that Crawl4AI remains offline-only.
+- Pinned `crawl4ai==0.9.2` and upgraded the local Python environment from 0.8.6 to 0.9.2.
+- Updated Crawl4AI integration to explicit `CacheMode.BYPASS`, checked `result.success/error_message`, and added `crawl4ai_version` provenance to `_ai_proposal`.
+- Added network-free/LLM-free compatibility tests for the Crawl4AI adapter.
+- Did not alter source health/status values, production source packs, or the real-time App search path.
+
+### Verification
+- `python -m pytest magnet/tests/crawler_v2/test_selector_synth.py -q` -> 3 passed.
+- `python -m pytest magnet/tests/crawler_v3 -m "not integration" -q` -> 68 passed, 2 deselected.
+- `python validate_enum.py` -> ALL VALID; 4 existing missing-brand warnings remain.
+- `python -m py_compile ...` -> PASS.
+- `importlib.metadata.version("Crawl4AI")` -> 0.9.2.
+
+### Known environment issue
+- Global `pip check` reports pre-existing mitmproxy 11.0.2 conflicts with system `cryptography`, `h11`, `pyOpenSSL`, and `typing-extensions`; Crawl4AI installation reused those already-installed versions.
+- Recommended follow-up: isolate crawler dependencies in a project virtualenv and split requirements into core/v2/v3/AI/legacy groups.
+---
+
+---
+Date/Time: 2026-07-16 (UTC+8)
+Version: sources-publish-125green-2026-07-16
+Scope: Full multi-endpoint publish of sources.enc.json after K30S-verified expand (+5) with selectors fix
+Modules: sources.json, mg-data/sources.enc.json, magnetgoogo-site/sources.enc.json, _publish_sources_checklist.md
+
+### Completed
+- validate_enum ALL VALID; encrypt_sources → 47587 bytes, 260 rules / **125 green**, min_app 0.1.10, expiry 72h
+- Removed mg-data/sources-debug.enc.json before commit (avoid accidental debug pack publish)
+- mg-data git push `b8353ae` (only sources.enc.json)
+- CF Pages deploy magnetgoogo-site --branch=main (production)
+- scp Aliyun `/var/www/magnetgoogo-site/sources.enc.json` sha256 ac806a66... match
+- jsDelivr purge finished; post-purge MATCH
+
+### Endpoint verification (local sha ac806a66… / 47587)
+- MATCH: magnetgoogo.com, jsDelivr, api.naoshiquan.com, workers.dev
+- MATCH: Aliyun server file (scp + sha256sum)
+- LAG: raw.githubusercontent.com/main briefly served old 44983 (commit URL b8353ae already new; API size 47587) — CDN eventual consistency
+- CN public HTTPS from this network SSL flake; server file confirmed
+
+### Client cache note
+- App disk `source-cache/sources.cache.json` up to ~72h; clear app data / reinstall to force pull, or wait expiry
+- App request sends Cache-Control: no-cache (Worker skips edge read when present)
+
+### Not done
+- No config.json / APK version bump (sources-only publish)
+- No auto demote of non-K30S greens
+---
+
+--
+Date/Time: 2026-07-16 (UTC+8)
+Version: green-expansion-strategy-multiagent-2026-07-16
+Scope: After K30S usable=96, document historical green-expansion attempts, systemize strategy, multi-agent discover+dual-bait expand
+Modules: docs/project-nebula/GREEN-EXPANSION-STRATEGY-2026-07-16.md, _expand_*.py, sources.json, _expand_pending_green.json
+
+### Completed
+- Wrote GREEN-EXPANSION-STRATEGY-2026-07-16.md (history + 4-track strategy + execution log §6)
+- Agents: research (98 candidates), brand rotation (81 alive), revive (11 dual-bait PC)
+- Unified probe _expand_dual_bait_probe.py (dual channel + dual bait)
+- NEW green ADDed (no demote): cilibao.app/top, glodls.site, nyaa.ink, nyaa.digital
+- sources.json green 120→125 total 260; validate_enum ALL VALID
+- PC reconfirmed already-green non-usable96 anime/TPB set (bait/channel gap vs K30S)
+
+### Findings
+- Sequential clb/sobt dead; cilibao.* is the clb brand migration
+- clm60-65 HTML alive but no list magnets without WAF
+- K30S empty on dmhy/mikan largely bait-class (Hollywood vs anime)
+
+### Next
+- K30S retest 96+5 with anime-weighted baits
+- detail-follow probe for solidtorrents/snowfl-class
+---
+
+---
+Date/Time: 2026-07-16 (UTC+8)
+Version: k30s-debug-120green-dual-bait-pass-2026-07-16
+Scope: Install debug APK with 120-green sources pack on Redmi K30S; dual-bait real-device search verification
+Modules: releases/magnetgoogo-v0.1.14-debug-sources120-hbc.apk, magnetgoogo-app/src/core/{secureSourceStore.ts,searchDebugLogger.ts}, _k30s_dual_bait_v2_20260716_134123.json
+
+### Completed
+- Device a1ea223a online; installed Hermes HBC debug APK with patched JS:
+  - debug-sources.enc.json loads even when __DEV__ is false
+  - always writes last-search-report.json for adb dual-bait
+- Pushed mg-data/sources.enc.json (120 green) to files/debug-sources.enc.json
+- Dual-bait on device (Inception / Avengers / ubuntu):
+  - totalSources=120 completed=true each run
+  - magnets: 670 / 751 / 734
+  - ok sources: 57 / 67 / 63
+  - hash fingerprint overlap Inception vs Avengers = 0.027 (< 0.8) => GREEN PASS
+
+### Verification
+- adb install -r releases/magnetgoogo-v0.1.14-debug-sources120-hbc.apk -> Success
+- python -u _k30s_dual_bait_v2.py -> VERDICT green
+- Report: _k30s_dual_bait_v2_20260716_134123.json
+---
+
+---
+Date/Time: 2026-07-16 (UTC+8)
+Version: k30s-debug-sources120-prep-2026-07-16
+Scope: Encrypt 120-green sources, bake into debug bootstrap, build debug APK, PC dual-bait reconfirm new greens; K30S install blocked by ADB/WinUSB
+Modules: sources.enc.json, magnetgoogo-app/assets/bootstrap-sources.enc.json, releases/magnetgoogo-v0.1.14-debug-sources120.apk, _k30s_debug_install_and_test.py, _pc_dual_bait_new_greens.json
+
+### Completed
+- `python validate_enum.py` -> ALL VALID
+- `python encrypt_sources.py --verify` -> 255 sources (120 green), enc 46,903 bytes
+- Copied enc to:
+  - `mg-data/sources.enc.json`
+  - `sources.enc.json`
+  - `magnetgoogo-app/assets/bootstrap-sources.enc.json` (bundled fallback for debug)
+- Built debug APK: `magnetgoogo-app/android/app/build/outputs/apk/debug/app-debug.apk` (~63.3MB)
+- Archived: `releases/magnetgoogo-v0.1.14-debug-sources120.apk`
+- PC dual-bait reconfirm of session-new/promoted greens: **28/28 PASS** (two baits, overlap 0.0)
+  - report: `_pc_dual_bait_new_greens.json`
+- One-shot K30S script ready: `python -u _k30s_debug_install_and_test.py`
+  - installs debug APK, pushes `files/debug-sources.enc.json` via run-as, dual-bait deep-link searches, pulls `last-search-report.json`
+
+### Findings / Blocker
+- K30S USB currently bound as WinUSB (`VID_18D1&PID_4EE7`) / Xiaomi composite Unknown; `adb devices` empty after earlier unauthorized session.
+- Cannot complete on-device install until user re-plugs USB, selects File Transfer, and accepts RSA authorization dialog.
+
+### Next when device online
+```powershell
+$env:Path = "C:\Users\luhuo\AppData\Local\Android\Sdk\platform-tools;" + $env:Path
+adb devices   # expect a1ea223a device
+python -u _k30s_debug_install_and_test.py
+```
+
+### Verification
+- encrypt roundtrip: 120 green OK
+- tsc: PASS earlier
+- assembleDebug: BUILD SUCCESSFUL
+- PC dual-bait new greens: 28/28 green
+---
+
+---
+Date/Time: 2026-07-16 (UTC+8)
+Version: mass-source-surge-dual-channel-2026-07-16
+Scope: Massively expand working magnet sources via dual-channel discovery (direct + 127.0.0.1:7897), dual-bait GREEN evidence, promote/add only (never demote); full health_check inventory without write-back
+Modules: sources.json, _mass_green_surge_v2.py, _mass_surge_wave2.py, _mass_surge_wave3_deep.py, _wave4_apply_hits.py, docs/project-nebula/{_health_check_full_2026-07-16.json,_health_check_judgment_2026-07-16.json,DEV-LOG.md,_progress.txt}
+
+### Completed
+- Dual-channel discovery/verification pipeline (direct + proxy 7897), CN prefer direct / intl prefer proxy.
+- GREEN definition enforced: two different baits with info-hash overlap < 0.8.
+- sources.json baseline 249 rules green=99 yellow=66 gray=84 (session start had already 102 after early revives; final below).
+- Final sources.json after promote/add only:
+  - total 255 rules
+  - green 120 / yellow 62 / gray 73
+  - GREEN delta: 99 -> 120 (+21, ~+21%)
+- Notable NEW / PROMOTIONS with dual-bait evidence:
+  - NEW: thehiddenbay.com, apibay.org (TPB API), dmhy.org, nyaa.iss.one, mikanime.tv, btmulu.net
+  - PROMOTE gray/yellow->green: rutor.is, rutor.info, clb3.me, clb6.me, clb12.top, clb15.top, sobt19/22/23/24.top, thepiratebay.baby, thepiratebay.isproxy.{online,pics,space}, sukebei.nyaa.si (+ reconfirm knaben/bitsearch/nyaa/btdig/animetosho/clb13)
+- Full inventory test: `python magnet/health_check.py --proxy http://127.0.0.1:7897 --workers 10 --include-gray --report docs/project-nebula/_health_check_full_2026-07-16.json`
+  - **No --write**: zero demotions applied to sources.json
+  - Compact judgment: docs/project-nebula/_health_check_judgment_2026-07-16.json
+- validate_enum.py: ALL VALID after each apply wave.
+
+### Findings
+- health_check (proxy-only simple HTTP) confirmed 39 greens still green under proxy; 20 green custom-handler sources skipped; would-demote 60 labeled greens if written — many are CN sites that need direct path or App custom handlers, so auto-demote is unsafe.
+- Remaining yellows are mostly reachable but parsing_failed / WAF / single-bait homepage magnets (e.g. u3c3 overlap=1.0).
+- Brand rotation found clb/sobt mirrors still rotating; clm/seed8 families largely dead under HTTP dual-bait (need handlers/WAF tier).
+- encrypt_sources / multi-endpoint publish NOT run — waiting for human review of judgment report.
+
+### Verification
+- Dual-bait campaigns wrote reports: _mass_surge_v2_report_*.json, _wave2_report_*.json, _wave3_report_*.json
+- `python validate_enum.py` -> ALL VALID
+- health_check exit 0, report on disk, sources.json green count unchanged by health_check (no write)
+---
+---
+Date/Time: 2026-07-12 (UTC+8)
+Version: admin-server-startup-minimal-repair-2026-07-12
+Scope: Apply the smallest safe fix so `start-admin.bat` no longer flash-exits because `admin-server/server.js` crashes at startup
+Modules: admin-server/server.js, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Restored the missing top-of-file Express bootstrap section in `admin-server/server.js`:
+  - lightweight `.env` loading
+  - `const app = express()`
+  - `PORT`
+  - shared paths/constants
+  - analytics cache globals
+  - China geo localization helpers
+- Restored the base Admin routes that had been removed while the lower half of the file still referenced them:
+  - `/`
+  - `/api/overview`
+  - `/api/sources/details`
+  - `/api/config`
+  - `/api/encrypt`
+  - `/api/push-config`
+  - `/api/publish`
+  - `/api/health/diagnostics`
+  - `/api/health/quality_test`
+  - `/api/feedback`
+  - `/api/feedback/:id`
+  - `/api/events`
+- Deliberately preserved the current analytics optimization path instead of reverting it:
+  - `processAnalyticsBatches()`
+  - incremental local batch cache
+  - chunked remote refresh
+  - `/api/events/analytics`
+  - `/api/events/refresh`
+
+### Findings
+- The flash-exit was caused by a structurally truncated `server.js`, not by `start-admin.bat`.
+- The newer analytics optimization itself was not the direct startup bug; the direct bug was that the merge/edit which introduced the newer analytics block left the file without the earlier Express bootstrap and support routes.
+- After the repair, `start-admin.bat` can successfully bring up the Admin listener on port `3800`.
+- A separate second-start failure is still possible if port `3800` is already occupied, but that is normal `EADDRINUSE` behavior and different from the original immediate crash.
+
+### Verification
+- `node -c admin-server/server.js`
+- Started local server and requested:
+  - `http://localhost:3800/api/overview` -> `200`
+  - `http://localhost:3800/api/events/analytics` -> `200`
+- Started `start-admin.bat` after freeing port `3800` -> listener came up on `3800`, confirming the launcher no longer dies on `ReferenceError: app is not defined`
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: admin-server-startup-flash-exit-diagnosis-2026-07-11
+Scope: Diagnose why `start-admin.bat` flashes and exits immediately on startup
+Modules: start-admin.bat, admin-server/server.js, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Findings
+- `start-admin.bat` is only a thin launcher: it changes into `admin-server`, opens the browser, then runs `node server.js`.
+- The real failure is inside `admin-server/server.js`, not the batch file itself.
+- Direct reproduction with `node server.js` fails immediately with:
+  - `ReferenceError: app is not defined`
+  - location: `admin-server/server.js:561`
+- The current working copy of `admin-server/server.js` is structurally inconsistent:
+  - it begins with analytics aggregation code
+  - it still contains later `app.get(...)` and `app.listen(...)`
+  - but it no longer contains the earlier `const app = express()` / bootstrap block present in `HEAD`
+- `git diff -- admin-server/server.js` confirms the working copy dropped the large initialization section while keeping later route registrations, which fully explains the flash-exit behavior.
+
+### Verification
+- `node admin-server/server.js`
+- `rg -n "const app = express\\(|app.listen|app.get\\('/api/events/analytics'" admin-server/server.js`
+- `git diff -- admin-server/server.js`
+- `git show HEAD:admin-server/server.js`
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: site-homepage-top-backup-download-link-sync-2026-07-11
+Scope: Add the same backup-download hint to the homepage hero download area and make the hero/footer backup links share one source of truth
+Modules: magnetgoogo-site/index.html, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Added the backup-download hint under the homepage hero primary download button so the top section now matches the bottom CTA area more closely.
+- Converted both homepage backup-download anchors to a shared selector:
+  - `data-backup-download`
+- Added a single shared client-side constant block:
+  - `SITE_DOWNLOADS.backupUrl`
+  - `SITE_DOWNLOADS.backupPassword`
+- Added `applySharedDownloadLinks()` so both top and bottom backup links are populated from the same source in the homepage file.
+- Published the homepage change to both live web surfaces:
+  - Cloudflare Pages / `magnetgoogo.com`
+  - Aliyun / `cn.magnetgoogo.com`
+
+### Findings
+- The Chinese root homepage is currently maintained as a standalone file, not emitted by `generate-i18n-pages.js`, so this fix was made directly in `magnetgoogo-site/index.html`.
+- This change gives the homepage a one-place future edit path for the backup mirror inside the file itself, instead of keeping separate hardcoded values in the hero and bottom CTA.
+
+### Verification
+- `rg -n "data-backup-download|SITE_DOWNLOADS|备用下载（蓝奏云，密码: 8888）" magnetgoogo-site/index.html` -> hero link, bottom link, and shared constant are all present
+- Node content check -> hero section now contains the backup-download line below `Android · 无需注册`
+- Live fetch checks -> `magnetgoogo.com/`, `cn.magnetgoogo.com/`, and the Pages deployment HTML all contain `data-backup-download`, `SITE_DOWNLOADS`, and the current Lanzou ID `i0Qgm3vv8izc`
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: github-release-v0.1.14-chinese-body-mojibake-fix-2026-07-11
+Scope: Repair the garbled Chinese section in GitHub Release `v0.1.14` and restore the local release-note source file to clean bilingual text
+Modules: releases/RELEASE-v0.1.14.md, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Confirmed the problem was real on the GitHub Release body, not just a browser rendering quirk:
+  - `v0.1.14` release Chinese section was showing as literal `??` / broken punctuation
+- Rewrote the local release-note source file `releases/RELEASE-v0.1.14.md` with a clean bilingual template:
+  - Chinese summary
+  - English summary
+  - correct website / Lanzou mirror / password
+- Patched GitHub Release `v0.1.14` body through the GitHub API using the repaired bilingual text.
+
+### Findings
+- The online GitHub Release body had a real encoding/content corruption in the Chinese block, while the English block remained normal.
+- PowerShell `Get-Content` in the current shell still displays some UTF-8 Chinese files as mojibake, but content-aware checks (`rg`) and the GitHub API round-trip confirmed the repaired text is actually stored correctly.
+
+### Verification
+- `GET https://api.github.com/repos/734496335/magnetgoogo/releases/tags/v0.1.14` -> Chinese block now reads `搜索更顺滑，切换和返回更流畅。/ 支持后台继续搜索，完成后自动通知。/ 启动与稳定性进一步优化。`
+- `rg -n "搜索更顺滑|Background search keeps running" releases/RELEASE-v0.1.14.md` -> both Chinese and English lines present in the local source file
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-0.1.14-full-release-publish-lanzou-refresh-2026-07-11
+Scope: Publish the refreshed `0.1.14` release end to end with the final Lanzou mirror, verify all primary release surfaces, and fix the broken Chinese update announcement before rollout
+Modules: magnetgoogo-site/config.json, mg-data/config.json, magnetgoogo-site/{index.html,en/index.html,ja/index.html,ko/index.html,es/index.html,fr/index.html,de/index.html,ru/index.html,pt/index.html,ar/index.html,site-config.json}, releases/RELEASE-v0.1.14.md, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Refreshed the `0.1.14` release mirror to the new Lanzou link:
+  - `https://wwbdy.lanzn.com/i0Qgm3vv8izc`
+  - password `8888`
+- Updated release-facing local sources:
+  - `magnetgoogo-site/config.json`
+  - `mg-data/config.json`
+  - `magnetgoogo-site/index.html`
+  - localized homepages generated from `generate-i18n-pages.js`
+  - `releases/RELEASE-v0.1.14.md`
+- Fixed a release-blocking config regression before publish:
+  - the Chinese `announcement` text in both config files had been written as literal question marks (`????`)
+  - restored the intended bilingual update notice so old-app upgrade prompts remain readable
+- Published the new config / package surfaces:
+  - pushed `mg-data` with commit `93406f9`
+  - deployed `magnetgoogo-site` to Cloudflare Pages
+  - uploaded the final APK to Aliyun stable path `/var/www/apk/magnetgoogo.apk`
+  - synced updated site files to Aliyun web root
+  - updated GitHub Release `v0.1.14` body and replaced the APK asset
+
+### Findings
+- `workers.dev` was initially observed serving an older cached config, but the same endpoint returned the fresh `0.1.14` config immediately when requested with `Cache-Control: no-cache`; this matched a short cache lag rather than a release mismatch.
+- `jsDelivr` remained stale during verification, which is acceptable and already documented in the release checklist as a non-authoritative cached endpoint.
+- The release-critical issue in this round was not the APK itself but the corrupted Chinese update announcement in `config.json`; fixing that was necessary so upgrade prompts would not ship as mojibake/question marks.
+
+### Verification
+- `node -e "JSON.parse(fs.readFileSync('magnetgoogo-site/config.json','utf8')); JSON.parse(fs.readFileSync('mg-data/config.json','utf8'))"` -> PASS
+- `curl https://magnetgoogo.com/config.json` -> `latest_version=0.1.14`, mirror `i0Qgm3vv8izc`, corrected bilingual announcement
+- `curl https://raw.githubusercontent.com/734496335/mg-data/main/config.json` -> `latest_version=0.1.14`, mirror `i0Qgm3vv8izc`
+- `curl https://api.naoshiquan.com/config.json` -> `latest_version=0.1.14`, mirror `i0Qgm3vv8izc`
+- `curl -H "Cache-Control: no-cache" https://maggoogo-gateway.734496335lp.workers.dev/config.json` -> `latest_version=0.1.14`, mirror `i0Qgm3vv8izc`
+- `ssh admin@47.103.155.154 "ls -lh /var/www/apk/magnetgoogo.apk"` -> final APK present at stable download path
+- GitHub Release `v0.1.14` -> bilingual body updated and APK asset replaced with current signed package
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-0.1.14-release-rebuild-search-copy-k30s-install-2026-07-11
+Scope: Rebuild a complete signed `0.1.14` release APK after the English search-copy tweak, verify final artifact identity/signing, and install it onto Redmi K30S
+Modules: magnetgoogo-app/{dist,android/app/src/main/assets/index.android.bundle,android/app/build/outputs/apk/release/app-release.apk,src/core/i18n.ts}, releases/magnetgoogo-v0.1.14-20260711-search-copy.apk, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Ran a full Android release packaging flow from the current `0.1.14` workspace state:
+  1. `npm exec tsc -- --noEmit`
+  2. `npx expo export --platform android`
+  3. Injected the generated `.hbc` bundle into `android/app/src/main/assets/index.android.bundle`
+  4. `./gradlew.bat assembleRelease -x lintVitalRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease`
+- Archived the resulting signed release APK to:
+  - `releases/magnetgoogo-v0.1.14-20260711-search-copy.apk`
+- Verified final artifact identity and signing:
+  - package `com.magnetgoogo.app`
+  - `versionCode=4`
+  - `versionName=0.1.14`
+  - signing MD5 `df1e684bf483ceffe49062d285b17c06`
+- Installed the rebuilt release APK onto Redmi K30S with `adb install -r`.
+- Performed a post-install cold-launch smoke test; app startup completed normally.
+
+### Findings
+- Release output size is in the expected band for the arm64-only production APK: about `31.0 MB`.
+- The shell environment did not expose `aapt` / `apksigner` on `PATH`, but the Android SDK tools under `C:\Users\luhuo\AppData\Local\Android\Sdk\build-tools\36.0.0\` were available and used successfully for final verification.
+
+### Verification
+- `cd magnetgoogo-app && npm exec tsc -- --noEmit` -> PASS
+- `cd magnetgoogo-app && npx expo export --platform android` -> PASS
+- `Get-Item android/app/src/main/assets/index.android.bundle` -> HBC injected (`4702120` bytes)
+- `cd magnetgoogo-app/android && ./gradlew.bat assembleRelease -x lintVitalRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease` -> PASS
+- `aapt dump badging releases/magnetgoogo-v0.1.14-20260711-search-copy.apk` -> `package: name='com.magnetgoogo.app' versionCode='4' versionName='0.1.14'`
+- `apksigner verify --print-certs releases/magnetgoogo-v0.1.14-20260711-search-copy.apk` -> MD5 `df1e684bf483ceffe49062d285b17c06`
+- `adb -s a1ea223a install -r releases/magnetgoogo-v0.1.14-20260711-search-copy.apk` -> `Success`
+- `adb -s a1ea223a shell am start -W -n com.magnetgoogo.app/com.magnetgoogo.app.MainActivity` -> cold launch `Status: ok`, `TotalTime: 273`
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-search-english-results-copy-shorten-2026-07-11
+Scope: Shorten the English in-search result status copy so narrow phones are less likely to wrap the line
+Modules: magnetgoogo-app/src/core/i18n.ts, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Shortened the English live-search status copy in `src/core/i18n.ts`.
+- Changed:
+  - `Searching x/y indexers... (zz results found)` -> `Searching x/y indexers... zz found`
+  - `Searched x/y indexers. zz results found` -> `Searched x/y indexers. zz found`
+- Kept the scope intentionally narrow: English only, no layout logic or other language text touched.
+
+### Verification
+- `rg -n "Searching .*found|Searched .*found|results found" magnetgoogo-app/src/core/i18n.ts` -> English status lines now use the shortened `xx found` form
+- `cd magnetgoogo-app && npm exec tsc -- --noEmit` -> PASS
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: seo-download-homepage-funnel-hardening-2026-07-11
+Scope: Funnel all SEO/article download links on `magnetgoogo.com` / `naoshiquan.com` back to the app homepage, so future package and mirror changes only need homepage updates instead of touching every article
+Modules: scripts/{generate-seo-pages.js,generate-guide-pages.js,generate-i18n-guide-pages.js,generate-i18n-pages.js}, magnetgoogo-site/{alt,guide,blog,*/alt,*/guide,*/blog,site-config.json}, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Changed the SEO page generators so article-like pages no longer point directly to the APK or backup mirror:
+  - `scripts/generate-seo-pages.js` now routes `alt/*` article CTAs back to `../`
+  - `scripts/generate-guide-pages.js` now routes `guide/*` article CTAs back to `../`
+  - `scripts/generate-i18n-guide-pages.js` now routes localized `*/guide/*` article CTAs back to `../../`
+- Bulk-rewrote already generated SEO HTML so the current deployed page set is consistent immediately, not only after future regeneration.
+- The homepage funnel rewrite touched `684` HTML files across:
+  - `magnetgoogo-site/alt`
+  - `magnetgoogo-site/guide`
+  - `magnetgoogo-site/blog`
+  - localized `*/alt`, `*/guide`, `*/blog`
+- Hardened generator robustness around BOM-encoded config input:
+  - `generate-guide-pages.js` now strips BOM before JSON parse
+  - `generate-i18n-pages.js` now strips BOM before JSON parse
+  - `magnetgoogo-site/site-config.json` was re-saved as UTF-8 without BOM
+
+### Findings
+- The old problem was systemic, not one bad page: both generators and already-generated pages still embedded direct APK / Lanzou / GitHub Release links.
+- Relative homepage links are the right long-term shape here because the same page set can be served from either `magnetgoogo.com` or `naoshiquan.com` and still return users to that current domain's homepage.
+- This keeps the true mutable download surface concentrated on the homepage while preserving article SEO value.
+
+### Verification
+- `node` regeneration pass for `generate-seo-pages.js`, `generate-guide-pages.js`, `generate-i18n-guide-pages.js` -> PASS
+- SEO rewrite script -> `SEO homepage funnel rewrite touched 684 HTML files.`
+- `rg -n "cn\\.magnetgoogo\\.com/download/magnetgoogo\\.apk|wwbdy\\.lanzn\\.com|github\\.com/734496335/magnetgoogo/releases/(download|latest)" magnetgoogo-site -g "alt/**" -g "guide/**" -g "blog/**" -g "??/alt/**" -g "??/guide/**" -g "??/blog/**"` -> `NO_DIRECT_DOWNLOAD_LINKS_IN_SEO`
+- Sample spot-checks:
+  - `magnetgoogo-site/blog/best-magnet-search-2026.html` -> article CTAs now `href="../"`
+  - `magnetgoogo-site/alt/1337x-alternative.html` -> article CTAs now `href="../"`
+  - `magnetgoogo-site/ja/guide/magnet-kensaku.html` -> localized guide CTAs now `href="../../"`
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-0.1.14-ui-textfix-rerebuild-k30s-verify-2026-07-11
+Scope: Rebuild a fresh 0.1.14 release candidate after the search-screen mojibake fix, verify whether this pass is limited to UI text/character corrections, and re-check the result on Redmi K30S before any republish
+Modules: magnetgoogo-app/app/search.tsx, releases/magnetgoogo-v0.1.14-20260711-ui-textfix.apk, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Rebuilt the Android release APK from the current workspace after fixing search-screen UI text/character issues in `app/search.tsx`.
+- Verified the final rebuilt artifact again:
+  - package name `com.magnetgoogo.app`
+  - `versionCode=4`
+  - `versionName=0.1.14`
+  - signing MD5 `df1e684bf483ceffe49062d285b17c06`
+- Installed the rebuilt APK over the existing app on Redmi K30S with `adb install -r`; upgrade succeeded.
+- Performed a real-device search-screen visual smoke check on K30S using deep-link launch for `GTA`.
+- During the smoke check, found and fixed two more visible search-screen character regressions before the final rebuild:
+  - card meta separators had been rendered as `路` instead of `·`
+  - empty-state search icon had become mojibake instead of `🔍`
+- Archived the rebuilt candidate to:
+  - `releases/magnetgoogo-v0.1.14-20260711-ui-textfix.apk`
+
+### Findings
+- The app did **not** have only the original `停止` text bug. The first K30S screenshot proved there were at least two more real visible character regressions on the same screen:
+  - `路` separators in result metadata
+  - a broken empty-state magnifier glyph in source
+- After fixing those, the second K30S screenshot shows the search screen back in a coherent state:
+  - `停止` displays correctly
+  - result meta separators are `·`
+  - sort labels render normally
+- From this repair pass itself, the App code changes are limited to `magnetgoogo-app/app/search.tsx` UI strings / display characters / comment cleanup. No new behavioral logic was introduced in this turn.
+- Important scope note: the repository working tree still contains many older app changes unrelated to this turn, so the rebuilt APK is a fresh candidate for the current 0.1.14 workspace state, not a cryptographic proof that the entire app differs from the previously published binary only by these text fixes.
+
+### Release Judgment
+- **Judgment: this rebuilt APK is suitable as a corrected 0.1.14 re-release candidate if the intent is to fix visible search-screen text/character defects without changing version number.**
+- Why this now clears the bar:
+  - release artifact identity is still correct (`com.magnetgoogo.app`, `versionCode=4`, release signing MD5 unchanged)
+  - upgrade install on K30S succeeds
+  - the visible search-screen regressions found in this pass have been corrected and re-verified on device
+- What I would say carefully:
+  - this pass is best described as a **UI textfix rerebuild** of the current 0.1.14 workspace state
+  - it is not accurate to say the first issue was only one wrong button label; the K30S check caught additional visible display characters that also needed correction
+
+### Verification
+- `npm exec tsc -- --noEmit` -> PASS
+- `npx expo export --platform android` -> PASS
+- `./gradlew.bat assembleRelease -x lintVitalRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease` -> BUILD SUCCESSFUL
+- `aapt dump badging releases\\magnetgoogo-v0.1.14-20260711-ui-textfix.apk` -> `package: name='com.magnetgoogo.app' versionCode='4' versionName='0.1.14'`
+- `apksigner verify --print-certs releases\\magnetgoogo-v0.1.14-20260711-ui-textfix.apk` -> MD5 `df1e684bf483ceffe49062d285b17c06`
+- `adb -s a1ea223a install -r releases\\magnetgoogo-v0.1.14-20260711-ui-textfix.apk` -> `Success`
+- `adb -s a1ea223a shell am start -W -a android.intent.action.VIEW -d "magnetgoogo://search?q=GTA" com.magnetgoogo.app` -> cold launch PASS (`TotalTime: 253ms`)
+- K30S screenshot review of `tmp_k30s_release_search_fixed.png` -> `停止` correct, `·` separators correct, no search-screen mojibake observed in this smoke check
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-0.1.14-search-ui-encoding-fix-2026-07-11
+Scope: Fix the real search-screen mojibake strings shown in the app UI, then re-audit the multi-language resource path to separate true in-app encoding bugs from PowerShell UTF-8 display artifacts
+Modules: magnetgoogo-app/app/search.tsx, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Fixed the real user-facing mojibake strings in `magnetgoogo-app/app/search.tsx`:
+  - Chinese stop button text now uses `停止`
+  - Chinese search-cooldown alert now uses `搜索太频繁，请 ${wait} 秒后再试`
+- Cleaned the remaining mojibake-style comment noise in the same file so future audits do not confuse code artifacts with live UI copy.
+- Re-audited the shared multi-language dictionary path in `src/core/i18n.ts` using content search instead of raw PowerShell rendering.
+
+### Findings
+- The visible in-app bug was real, but it was localized to `search.tsx`, not a whole-app encoding collapse.
+- `src/core/i18n.ts` currently contains valid multilingual strings for Chinese, Spanish, Russian, Portuguese, Japanese, Korean, French, German, and Arabic; the earlier "all broken" impression came from terminal-side UTF-8 display distortion while reading the file with PowerShell.
+- This means the highest-risk path was the handful of direct hardcoded UI strings in `search.tsx`, not the central translation table.
+
+### Verification
+- `rg -n "鍋滄|鎼滅储澶绻侊紝|搜索太频繁，请|停止" magnetgoogo-app/app/search.tsx magnetgoogo-app/app/bench.tsx magnetgoogo-app/src/core/i18n.ts` -> only the corrected Chinese strings remain in live UI code
+- `rg -n "中文|Español|Русский|Português|日本語|한국어|Français|العربية" magnetgoogo-app/src/core/i18n.ts` -> all language labels present as valid UTF-8 content
+- `rg -n "电影、动漫、游戏、找片|Películas, anime, torrents|Фильмы, аниме, торренты|映画、アニメ、トレント|새 결과 — 탭하여 보기|نتائج جديدة" magnetgoogo-app/src/core/i18n.ts` -> representative multi-language strings present and readable in source
+- `npm exec tsc -- --noEmit` -> PASS
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-release-checklist-hardening-and-reflow-2026-07-11
+Scope: Re-audit the app release process after the 0.1.14 publication issues, fold the missed failure modes back into the authoritative release guide, and reorganize the checklist into a stricter end-to-end publication workflow
+Modules: docs/project-nebula/{RELEASE-CHECKLIST.md,DEV-LOG.md,_progress.txt}
+
+### Completed
+- Rewrote `RELEASE-CHECKLIST.md` into a clearer release pipeline:
+  - release objective
+  - hard rules
+  - endpoint architecture
+  - local preparation
+  - release-surface consistency
+  - deployment
+  - config-chain verification
+  - user-path acceptance
+  - source-update extras
+  - final ship gates
+- Added explicit guards for the newly exposed publication risks:
+  - final APK must be inspected with `aapt dump badging`
+  - real-device upgrade install with `adb install -r`
+  - `config.json` must be UTF-8 without BOM
+  - `announcement` must pass human visual inspection, not just terminal output
+  - jsDelivr is treated as an eventually consistent CDN, not a release-truth source
+  - generator scripts must be searched for stale release links before sign-off
+- Added a dedicated failure-triage section so future release issues can be diagnosed from symptom to likely root cause without re-learning the whole chain.
+- Recorded the recent 0.1.14 publication incidents directly in the release guide so the process now reflects the real mistakes that happened, not an idealized checklist.
+
+### Findings
+- The previous checklist already covered many deployment steps, but its flow was still too flat: it did not force a clean distinction between "content is locally correct", "deployment succeeded", and "users will actually observe the new state".
+- The biggest process gap was not one single missing command; it was the lack of a consistency phase that simultaneously checks:
+  - final artifact truth
+  - release-facing text quality
+  - generator-source consistency
+  - endpoint freshness semantics
+- jsDelivr remains a special-case risk because the app uses `Promise.any(...)` against all endpoints; even after a technically correct deploy, a stale fast CDN can still temporarily surface an old config to some users.
+
+### Verification
+- Reviewed `docs/project-nebula/RELEASE-CHECKLIST.md` end to end after rewrite -> all recently discovered release issues are now represented as either mandatory checks, acceptance gates, or troubleshooting items
+- Confirmed the guide now explicitly covers: `aapt dump badging`, `adb install -r`, BOM detection, announcement visual check, stale generator search, and jsDelivr cache interpretation
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-0.1.14-rerelease-new-lanzou-mirror-2026-07-11
+Scope: Re-publish the verified v0.1.14 release with the new Lanzou mirror, re-sync all public config endpoints, and eliminate stale release-link generators that could reintroduce old download URLs
+Modules: magnetgoogo-site/{config.json,site-config.json,index.html,en/index.html,ja/index.html,ko/index.html,es/index.html,fr/index.html,de/index.html,ru/index.html,pt/index.html,ar/index.html}, mg-data/config.json, scripts/{generate-i18n-pages.js,generate-guide-pages.js,generate-i18n-guide-pages.js,generate-seo-pages.js}, releases/RELEASE-v0.1.14.md, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Re-published the reliable `0.1.14` APK to the Aliyun stable download slot:
+  - `/var/www/apk/magnetgoogo.apk`
+- Updated all release-facing config and page entrypoints to the new Lanzou mirror:
+  - `https://wwbdy.lanzn.com/iNSgI3vtzeoh`
+  - password `8888`
+- Synced the new mirror link into:
+  - `magnetgoogo-site/config.json`
+  - `mg-data/config.json`
+  - `magnetgoogo-site/site-config.json`
+  - root homepage and all 9 localized landing pages
+  - release note markdown
+- Updated the GitHub Release `v0.1.14` body so the public release page no longer points to the old Lanzou link.
+- Pushed `mg-data` config refresh commit:
+  - `a9fdfde` (`chore: refresh v0.1.14 lanzou mirror`)
+- Re-deployed `magnetgoogo-site` to Cloudflare Pages after all local release-facing files were updated.
+- Fixed stale generator sources that still hardcoded old release links or ancient `v0.1.8` download URLs:
+  - `scripts/generate-i18n-pages.js`
+  - `scripts/generate-guide-pages.js`
+  - `scripts/generate-i18n-guide-pages.js`
+  - `scripts/generate-seo-pages.js`
+
+### Findings
+- The current live release state is now aligned across Aliyun, GitHub Raw, Cloudflare Pages, `api.naoshiquan.com`, and `workers.dev`.
+- The most important hidden risk was not the visible homepage, but stale generator scripts that could later regenerate old links back into the site. Those sources are now corrected.
+- GitHub Release asset remained the correct verified APK; only the public release text needed mirror-link refresh in this pass.
+
+### Verification
+- `aapt dump badging releases\\magnetgoogo-v0.1.14.apk` -> `package: name='com.magnetgoogo.app' versionCode='4' versionName='0.1.14'`
+- `scp releases\\magnetgoogo-v0.1.14.apk admin@47.103.155.154:/var/www/apk/magnetgoogo.apk` -> upload success
+- `ssh admin@47.103.155.154 "sha256sum /var/www/apk/magnetgoogo.apk"` -> `172b072827ce76024e140956b3f7ea8aff305a56ec152f4b18c313ee5f42995e`
+- `curl https://raw.githubusercontent.com/734496335/mg-data/main/config.json` -> mirror is `https://wwbdy.lanzn.com/iNSgI3vtzeoh`
+- `curl https://magnetgoogo.com/config.json` -> mirror is `https://wwbdy.lanzn.com/iNSgI3vtzeoh`
+- `curl https://api.naoshiquan.com/config.json` -> mirror is `https://wwbdy.lanzn.com/iNSgI3vtzeoh`
+- `curl https://maggoogo-gateway.734496335lp.workers.dev/config.json` -> mirror is `https://wwbdy.lanzn.com/iNSgI3vtzeoh`
+- GitHub Release `v0.1.14` body -> LanzouCloud line updated to `https://wwbdy.lanzn.com/iNSgI3vtzeoh`
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-0.1.14-release-rebuild-and-upgrade-guard-2026-07-11
+Scope: Rebuild a reliable v0.1.14 release APK after the versionCode install-blocking incident, then harden the release checklist with final-artifact and real-device upgrade gates
+Modules: magnetgoogo-app/android/app/build.gradle, docs/project-nebula/{RELEASE-CHECKLIST.md,DEV-LOG.md,_progress.txt}, releases/{magnetgoogo-v0.1.14.apk,magnetgoogo-v0.1.14-release-20260711-rebuilt.apk}
+
+### Completed
+- Rebuilt the Android release APK from a cleaned release output directory to avoid stale artifact confusion.
+- Re-verified the final artifact itself instead of trusting source settings:
+  - package name `com.magnetgoogo.app`
+  - `versionCode=4`
+  - `versionName=0.1.14`
+  - signing MD5 `df1e684bf483ceffe49062d285b17c06`
+- Re-ran a real upgrade install on Redmi K30S with `adb install -r`; install completed with `Success`.
+- Re-archived the verified APK to:
+  - `releases/magnetgoogo-v0.1.14.apk`
+  - `releases/magnetgoogo-v0.1.14-release-20260711-rebuilt.apk`
+- Added two explicit release gates to `RELEASE-CHECKLIST.md`:
+  - must inspect the final APK with `aapt dump badging`
+  - must perform a real-device upgrade install check with `adb install -r`
+
+### Findings
+- The severe install failure was not a signing mismatch. Package name,备案 MD5, and public key all match the formal release signing identity.
+- The real root cause was a previously published bad artifact carrying `versionCode=1`, which could not upgrade over the already-published `0.1.13` (`versionCode=3`).
+- The new rebuilt APK is internally consistent and upgradeable on device.
+
+### Verification
+- `npm exec tsc -- --noEmit` -> PASS
+- `./gradlew.bat assembleRelease -x lintVitalRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease` -> BUILD SUCCESSFUL
+- `aapt dump badging ...\\app-release.apk` -> `package: name='com.magnetgoogo.app' versionCode='4' versionName='0.1.14'`
+- `apksigner verify --print-certs ...\\app-release.apk` -> MD5 `df1e684bf483ceffe49062d285b17c06`
+- `adb install -r ...\\app-release.apk` -> `Success`
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-0.1.14-startup-loading-lightweight-simplify-2026-07-11
+Scope: Simplify the new startup loading treatment after product feedback; keep only a light sweep band plus loading text and remove the heavier brand visuals
+Modules: magnetgoogo-app/{src/components/StartupLoadingScreen.tsx}, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Reworked `StartupLoadingScreen.tsx` into a minimal loading layer:
+  - removed logo
+  - removed glass card
+  - removed halo / floating-brand treatment
+  - kept only a small animated light band and loading copy
+- Shortened the visual fade/sweep rhythm so the overlay feels more immediate once JS is live.
+- Kept the existing boot-state wiring in `_layout.tsx`; only the visual weight changed in this pass.
+
+### Findings
+- This version is much lighter visually and better matches the requirement of "just a light band and loading text".
+- It still cannot cover the pre-JS cold-start blank window by itself because it is a JS-rendered layer, but it no longer adds extra heaviness after the app becomes interactive.
+
+### Verification
+- `npm exec tsc -- --noEmit` -> PASS
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-0.1.14-startup-loading-polish-2026-07-11
+Scope: Add a higher-end startup loading experience for cold launch so users see a branded readiness state instead of raw waiting
+Modules: magnetgoogo-app/{app/_layout.tsx,src/components/StartupLoadingScreen.tsx}, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Added a dedicated `StartupLoadingScreen` component with a restrained premium look: floating glass card, soft halo, animated sweep band, and real startup status text.
+- Wired the loading layer into `app/_layout.tsx` so it follows actual boot conditions instead of being a fake timed splash:
+  - show while sources are still loading
+  - also cover the short config/notification check window
+  - keep a short minimum display time to avoid a cheap flash-in/flash-out feel
+- Kept the implementation lightweight and fully JS-side; no native splash rework was introduced in this pass.
+
+### Findings
+- This change improves perceived startup quality without masking the real boot pipeline: the overlay is attached to actual source/config readiness states rather than a blind timer.
+- The loading copy now communicates what the app is doing (`正在载入可用源` / `正在检查版本与通知`) instead of leaving the user with a white wait state.
+- Cold-launch smoke validation on Redmi K30S did not reveal a crash or boot-loop regression after the new startup layer was added.
+
+### Verification
+- `npm exec tsc -- --noEmit` -> PASS
+- `adb -s a1ea223a shell am force-stop com.magnetgoogo.app.debug; adb -s a1ea223a shell am start -W -n com.magnetgoogo.app.debug/com.magnetgoogo.app.MainActivity` -> cold launch PASS (`TotalTime: 407ms`)
+- Same K30S logcat smoke pass -> no `FATAL EXCEPTION` observed; normal source/config startup logs continued after launch
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-0.1.14-release-readiness-review-2026-07-11
+Scope: Reassess whether app v0.1.14 is genuinely release-ready after the latest background-search fixes, including foreground and background regression validation on Redmi K30S
+Modules: docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Re-ran static health checks on the current app workspace.
+- Re-ran a foreground real-search regression on Redmi K30S using deep-link launch and pulled the latest `last-search-report.json`.
+- Re-ran a background-search handoff regression on Redmi K30S and rechecked notification state after completion.
+- Re-checked source-loading logs during a fresh cold launch to confirm the active source-sync path on the device.
+
+### Findings
+- The current `0.1.14` codebase is at least statically healthy: `npm exec tsc -- --noEmit` passes.
+- Foreground search is functionally closed in this validation pass:
+  - cold deep-link launch for `GTA` succeeded
+  - the latest search report shows `completed: true`
+  - total foreground search duration was about `77.4s`
+  - the report produced `32` deduped results / `441` magnets in this run
+- Background search is no longer the blocker it was earlier:
+  - a fresh `Titanic` handoff again completed `97/97`
+  - completion log was emitted
+  - keepalive stopped normally
+  - only the final `Search complete` notification remained afterward
+- Fresh cold-launch source-sync logs currently look healthy on K30S: the app loaded `99` sources from disk cache and then refreshed successfully from `magnetgoogo.com`, jsDelivr, and `api.naoshiquan.com`.
+- One residual review concern remains: an earlier foreground report in this pass showed `totalSources: 118`, while the fresh source-load logs on the same device show the normal `99`-source path. Search still completed successfully, so this is not an immediate ship blocker, but it is worth monitoring because it suggests there may still be edge-case source-set path variance between fallback/cached states.
+
+### Release Judgment
+- **Judgment: conditionally releasable / suitable for staged rollout, not yet "nothing-left-to-watch" perfect.**
+- Why it now meets the bar for a controlled release:
+  - the originally promised background-search completion path is now proven end to end on the target K30S device
+  - foreground real search still completes successfully after the background fixes
+  - source sync, notification cleanup, and static type health are all in a good state
+- Why I still would not oversell it as flawless:
+  - foreground full-search latency is still in the ~`70s+` class on K30S for broad queries
+  - there is still an unexplained `118` vs `99` source-count observation in this review pass, even though the active fresh-launch logs show the expected `99` path
+
+### Verification
+- `npm exec tsc -- --noEmit` -> PASS
+- `adb -s a1ea223a shell am start -W -a android.intent.action.VIEW -d "magnetgoogo://search?q=GTA" ...; adb ... run-as com.magnetgoogo.app.debug cat files/last-search-report.json` -> foreground regression PASS (`completed: true`, `totalDurationMs: 77434`)
+- `adb -s a1ea223a shell am start -W -a android.intent.action.VIEW -d "magnetgoogo://search?q=Titanic" ...; adb ... input keyevent 3; adb ... logcat -d ReactNativeJS:I *:S | Select-String "BackgroundSearch|completed query|background_eligible"` -> background regression PASS (`loaded 99`, `background_eligible=97`, `completed query=Titanic results=567 done=97/97`)
+- `adb -s a1ea223a shell dumpsys notification --noredact | Select-String "Search complete|Search in progress|20041|20042"` -> final completion notification present, duplicate running notification not observed after completion
+- `adb -s a1ea223a shell am start -W -a android.intent.action.VIEW -d "magnetgoogo://search?q=Matrix" ...; adb ... logcat -d ReactNativeJS:I *:S | Select-String "Loaded 99 sources|Saved 99 sources|responded first"` -> fresh source-sync path PASS
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-0.1.14-k30s-background-search-budgeted-handler-fix-2026-07-11
+Scope: Audit whether long background-search stalls come from legitimate multi-hop handlers or broken timeout semantics, then apply evidence-based handler budgeting and revalidate on Redmi K30S
+Modules: magnetgoogo-app/{src/core/searchEngine.ts}, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Added a shared `getRemainingSourceBudget(...)` helper in `searchEngine.ts` and applied cumulative source budgets to the confirmed multi-hop/custom handlers `javbus`, `meijumi`, `ssbc`, and `thatcdn`.
+- Fixed a real wasted network hop in `fetchSsbc(...)`: removed the extra `fetchPage(origin + "/")` request that did not contribute any redirect data but could still consume a full request timeout.
+- Kept the optimization principle narrow: this pass does **not** globally slash all timeouts, and it does **not** reduce source coverage; it only stops multi-step handlers from stacking multiple per-hop timeouts into pathological 30s+ wall-clock stalls.
+- Re-exported the Android JS bundle, rebuilt the debug APK, reinstalled it to Redmi K30S, and reran a real background-search handoff test.
+
+### Findings
+- The previous long-tail stalls were not all the same class of problem:
+  - `JavBus` is a legitimate multi-hop handler (homepage -> search -> detail pages -> AJAX magnets), so calling every 30s stall a "bug" would have been too shallow.
+  - `jzcilifa1.shop` / `ssbc` is comparatively short-chain (redirect resolve -> POST API), so its earlier ~35s behavior was the stronger signal of real timeout stacking / wasted requests.
+- After the cumulative-budget fix, the suspicious heavy-tail sources returned to sane ranges on K30S for query `Titanic`:
+  - `jzcilifa1.shop` -> `status=empty` in about `6041ms` (down from the earlier ~`35063ms`)
+  - `JavBus` -> `status=empty` in about `6040ms` (down from the earlier ~`30032ms`)
+  - `movih.com` -> `status=ok` in about `3026ms`
+  - `berrl.com` -> `status=ok` in about `3538ms`
+  - `美剧迷` -> `status=empty` in about `3020ms`
+  - `soxiongmao.top` -> `status=ok` in about `6875ms`
+- End-to-end background completion is now proven on device in the same validation run: K30S reached `97/97`, logged `completed query=Titanic results=563`, stopped keepalive normally, and showed only the final `Search complete` notification.
+- The remaining ~`10s` empty sources observed in this run (`BTDigg`, `bitsearch`, `tokyotosho`, some `clm*` mirrors, etc.) now look like single-request/default-timeout behavior rather than the earlier multi-hop timeout stacking bug. They are a separate tuning question, not evidence that the custom-handler fix is incomplete.
+
+### Verification
+- `npm exec tsc -- --noEmit` -> PASS
+- `npx expo export --platform android` -> PASS
+- `./gradlew.bat :app:assembleDebug` -> PASS
+- `adb -s a1ea223a install -r ...app-debug.apk` -> PASS
+- `adb -s a1ea223a shell am start -W -a android.intent.action.VIEW -d "magnetgoogo://search?q=Titanic" ...; adb ... input keyevent 3; adb ... logcat -d ReactNativeJS:I *:S | Select-String "BackgroundSearch|jzcilifa1|JavBus|soxiongmao|meijumi|6v520|SearchKeepAlive"` -> K30S background handoff PASS, `97/97` completed, `jzcilifa1.shop` and `JavBus` no longer exhibit 30s+ stalls
+- `adb -s a1ea223a shell dumpsys notification --noredact | Select-String "20041|20042|Search complete|Search in progress"` -> only final `Search complete` observed after completion, no duplicate running notification resurfaced
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-0.1.14-k30s-background-search-notification-and-headless-reliability-2026-07-11
+Scope: Fix duplicate running notifications, reduce cold-start white-screen pressure, hard-skip verification in background search, and continue Redmi K30S headless validation until the next real blocker surfaced
+Modules: magnetgoogo-app/{android/app/src/main/java/com/magnetgoogo/app/SearchHeadlessService.kt,app/_layout.tsx,src/core/searchEngine.ts,src/core/searchRunner.ts}, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Removed the extra foreground notification from `SearchHeadlessService.kt`; background search now relies only on `SearchKeepAliveService` for the persistent running notification.
+- Deferred non-critical startup work in `app/_layout.tsx` (`loadReports`, `initSearchNotifications`, `checkConfig`) so the first frame is not blocked by cold-start side work.
+- Closed the 1337xx background-verification bug in `searchEngine.ts`: background mode now short-circuits both shared verification entry points (`requires_browser` and runtime `result.challenge`) and the 1337x family handler returns empty immediately on challenge instead of invoking silent verification.
+- Re-enabled source-level timeout racing inside `searchRunner.ts` for background mode as well, so headless search no longer trusts custom handlers to self-terminate.
+- Fixed the first newly surfaced post-1337xx blocker in `fetch6v520(...)`: background mode now uses the shared XHR/manual-fetch path instead of raw `fetch(... redirect:'follow')`, which was unreliable in headless execution on K30S.
+- Rebuilt, reinstalled, and re-ran Redmi K30S device validation after each step.
+
+### Findings
+- Duplicate-notification issue is closed: K30S `dumpsys notification` now shows only foreground notification `id=20041` (`search-running`), and the old second persistent entry (`20042`) is gone.
+- Cold launch timing is materially improved at the Android activity level after deferring startup work: repeated `adb shell am start -W ...` checks for the debug build were around `750-770ms` total launch time in this validation pass.
+- The original background blocker is closed: K30S logs now show `1337xx` hitting Cloudflare challenge and returning `status=empty` in ~`0.8s`, with no `VerifyWebView Starting silent verification` log afterward.
+- The second blocker is also closed: after the 6v520 fix, K30S headless logs show `6v520.com` finishing in ~`1.9s` and the queue proceeding to later sources (`6v电影`, `soxiongmao.top`) instead of freezing at source 80.
+- A new deeper-tail blocker still exists: during the latest K30S run, the queue advanced beyond `79/97` and past `6v520`, but the final `completed` log and user-visible completion notification were still not observed within the validation window. That means background completion reliability is improved but not yet proven end to end.
+
+### Verification
+- `npm exec tsc -- --noEmit` -> PASS
+- `./gradlew.bat :app:assembleDebug` -> PASS
+- `adb -s a1ea223a install -r ...app-debug.apk` -> PASS
+- `adb -s a1ea223a shell am start -W -a android.intent.action.VIEW -d "magnetgoogo://search?q=Titanic" ...` -> cold launch `TotalTime: 750/770/758ms` across validation runs
+- `adb -s a1ea223a shell dumpsys notification --noredact | Select-String "20041|20042|Search in progress"` -> only `20041` present, duplicate persistent notification removed
+- K30S headless log (`adb ... logcat -d | Select-String "1337xx|VerifyWebView|BackgroundSearch|6v520"`) -> `1337xx` returns empty without silent verification; `6v520.com` now logs `source done ... ms=1884` and the queue advances to later sources
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-0.1.14-k30s-background-search-semantics-alignment-2026-07-11
+Scope: Align background-search source semantics with foreground search so only manual-verification sources are skipped, then verify the widened headless queue on Redmi K30S
+Modules: magnetgoogo-app/{src/core/backgroundSearch.ts,src/core/searchRunner.ts,src/core/searchEngine.ts}, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Removed the old background `std`-only source filter from `backgroundSearch.ts`.
+- Kept the background-only scheduling tweak that pushes heavier detail/custom sources later, but does not drop them.
+- Preserved the runtime guard in `searchEngine.ts` so that if a background request hits a verification challenge, it returns immediately instead of hanging on UI verification.
+- Re-ran Redmi K30S real-device background-search validation after reinstalling the latest debug build.
+
+### Findings
+- Background-search source semantics are now materially closer to foreground semantics: the only intended extra exclusion is manual-verification handling (`requires_browser`, `VerifyManager` verification origins, and runtime challenge escalation).
+- K30S real-device validation for query `Titanic` showed `background_eligible=97`, up from the earlier `78`, which confirms that non-std/custom/detail-heavy sources are no longer filtered out just for being non-std.
+- The K30S headless log explicitly showed non-std/custom sources entering the queue, including `BTSOW`, `1377x.to`, `btsow.pics`, `6v520.com`, `6v电影`, and `磁力魔(CiliMo)`.
+- The background ordering tweak is behaving as intended: lighter TPB-family and simple list sources start first, while heavier/custom/detail-oriented sources enter later, improving early progress without reducing coverage.
+- The background-completion blocker is not fully closed yet. In the observed validation window, the task progressed deep into the queue (`79/97` seen in logs) but did not yet emit a final `completed` log or user-visible completion notification before observation stopped.
+
+### Verification
+- `adb -s a1ea223a install -r ...app-debug.apk` -> latest debug build installed on Redmi K30S
+- `adb -s a1ea223a shell am start -W -a android.intent.action.VIEW -d "magnetgoogo://search?q=Titanic" ...; adb ... input keyevent 3; adb ... logcat -d | Select-String "\[BackgroundSearch\] ..."` -> background handoff PASS, `background_eligible=97`
+- Same K30S headless log -> confirmed non-std/custom source starts for `BTSOW`, `1377x.to`, `btsow.pics`, `6v520.com`, `6v电影`, `磁力魔(CiliMo)`
+- `npm exec tsc -- --noEmit` -> PASS
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-0.1.14-k30s-final-validation-and-background-vault-fix-2026-07-11
+Scope: Run the final Redmi K30S pre-release validation for bootstrap fallback, real search, UI state, and background-search behavior; fix the in-memory source-vault Unicode corruption that was breaking headless background search
+Modules: magnetgoogo-app/{src/core/secureSourceStore.ts,src/core/backgroundSearch.ts}, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Re-ran real-device validation on Redmi K30S for offline first launch, online remote-source refresh, real search execution, UI hierarchy capture, and background-search handoff.
+- Confirmed offline clean launch now falls back to bundled bootstrap sources and stays usable without network.
+- Confirmed normal online cold launch refreshes back to the remote 99-source cache and no longer stays stuck on the bundled bootstrap snapshot.
+- Fixed `secureSourceStore.ts` vault encoding: in-memory obfuscation now uses UTF-8 bytes instead of truncating UTF-16 code units into `Uint8Array`, which had been corrupting non-ASCII source JSON and breaking background `loadSources()`.
+- Added temporary headless-task observability in `backgroundSearch.ts` so background failures are visible in real-device logs and can persist a failure payload instead of silently dying.
+
+### Findings
+- K30S offline clean start passed: logcat showed `Loaded 118 bootstrap sources from bundled asset` while all remote endpoints failed, which is the intended fallback behavior.
+- K30S online cold launch passed: logcat showed `Loaded 99 sources from disk cache`, followed by remote wins from `magnetgoogo.com`, `api.naoshiquan.com`, and jsDelivr, and the cache was refreshed back to the remote 99-source set.
+- Foreground real search is usable but not yet delight-level fast. For query `GTA`, K30S completed `99/99` sources in about `72.3s`, returned `43` deduped results / `579` magnets, and the captured UI hierarchy showed the restored `综合 / 相关性 / 大小 / 时间` sort bar plus a normal result list.
+- The earlier title-merge regression appears closed in the validated foreground run: the visible top GTA result titles were coherent (`GTA Zimnicea Vice.rar`, `GTA Killer City`, `GTA San Andreas`, `GTA 4`, `GTA Grand Theft Auto V (PC)`) instead of obviously cross-source wrong-name drift.
+- A real release blocker remains in background search:
+  - before the vault fix, headless search failed immediately with `JSON Parse error: U+0000 thru U+001F is not allowed in string`
+  - after the vault fix, headless handoff can start and load all `99` sources, but on K30S it still does not reliably finish and emit a completion notification within the observed window; after >3 minutes the device still held the running notifications (`20041` / `20042`) and no completion notification was present
+  - if the user backgrounds too quickly after issuing the query, the handoff may not trigger at all; this is timing-sensitive and not acceptable for a "background search works" release claim
+- Release judgment for this pass: **do not ship 0.1.14 yet if background search is part of the promised feature set**. Foreground search + bootstrap fallback are materially better, but the background-completion path is still not stable enough to present as done.
+
+### Verification
+- `adb -s a1ea223a shell pm clear com.magnetgoogo.app.debug; adb ... svc wifi disable; adb ... svc data disable; adb ... monkey ...; adb ... logcat -d ReactNativeJS:I *:S | Select-String 'bootstrap sources|All endpoints failed'` -> offline bootstrap fallback PASS
+- `adb -s a1ea223a shell monkey -p com.magnetgoogo.app.debug -c android.intent.category.LAUNCHER 1; adb ... logcat -d ReactNativeJS:I *:S | Select-String 'Loaded 99 sources from disk cache|responded first|Saved 99 sources'` -> online remote source refresh PASS
+- `adb -s a1ea223a shell am start -W -a android.intent.action.VIEW -d "magnetgoogo://search?q=GTA" ...; adb ... run-as ... cat ./files/last-search-report.json` -> foreground search PASS (`99/99`, `43` results, `579` magnets, `72276ms`)
+- `adb -s a1ea223a shell uiautomator dump --compressed /sdcard/Download/window_dump.xml; adb ... pull ...` -> UI dump PASS, showing search status text and the restored sort chips
+- `adb -s a1ea223a shell am start -W -a android.intent.action.VIEW -d "magnetgoogo://search?q=Inception" ...; adb ... input keyevent 3; adb ... logcat -d ReactNativeJS:I *:S | Select-String 'BackgroundSearch|JSON Parse error'` -> reproduced and fixed the headless vault corruption bug
+- `adb -s a1ea223a shell am start -W -a android.intent.action.VIEW -d "magnetgoogo://search?q=Matrix" ...; adb ... input keyevent 3; adb ... logcat -d ReactNativeJS:I *:S | Select-String 'BackgroundSearch|loaded 99 sources'; adb ... dumpsys notification --noredact` -> background handoff starts, but completion/notification still not closed
+---
+
+---
+Date/Time: 2026-07-10 (UTC+8)
+Version: app-0.1.14-bootstrap-sources-and-title-merge-fix-2026-07-10
+Scope: Bundle the current encrypted green-source snapshot into the app as a 7-day bootstrap fallback, fix merged-result title selection so early search results do not show the wrong names, and re-audit analytics / remote-source-refresh tradeoffs
+Modules: magnetgoogo-app/{assets/bootstrap-sources.enc.json,src/core/secureSourceStore.ts,app/search.tsx}, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Added bundled bootstrap source loading in `secureSourceStore.ts` using the app asset `assets/bootstrap-sources.enc.json`.
+- Implemented a separate 7-day bootstrap validity window keyed by first use (`mg_bootstrap_first_used_at`), without changing the existing 72-hour remote-cache expiry path.
+- Kept the remote-refresh strategy structurally simple: bootstrap covers first-launch / no-network availability, while remote sync still remains the only path that renews the normal rolling source cache.
+- Fixed incremental search-result merge logic in `app/search.tsx`: duplicate hits no longer blindly replace titles with the longest string; they now prefer the title with higher query relevance first, then use length as a tiebreaker.
+- Updated the bundled bootstrap payload from the current repository `sources.enc.json` snapshot.
+
+### Findings
+- The current encrypted source snapshot copied into the app is byte-identical to the repository `sources.enc.json`.
+- Decrypting that snapshot in verification showed `118` green rules in the current file, which is higher than the earlier K30S cached `99`-green observation; this means the bundled bootstrap payload now reflects the newer repository snapshot, not the older device cache state.
+- The “前几个资源名称错误” bug was consistent with the old merge rule that always preferred longer duplicate titles, even when they were less relevant to the active query.
+- I did not add more retry layers or fallback branches to remote refresh itself in this pass; bootstrap fallback is the materially useful improvement, whereas piling more network heuristics on top of the current endpoint race would mostly increase complexity without guaranteeing first-launch success.
+- Analytics code review still supports the earlier audit conclusion: the client queue / flush path and Worker dedupe path are logically valid after the previous fixes, but this turn did not perform a fresh remote end-to-end event ingestion run.
+
+### Verification
+- `Get-FileHash sources.enc.json, magnetgoogo-app/assets/bootstrap-sources.enc.json` -> hashes identical
+- Local decrypt script against `assets/bootstrap-sources.enc.json` -> `green = 118`, `schema = 1`
+- `npm exec tsc -- --noEmit` -> PASS
+---
+
+---
+Date/Time: 2026-07-10 (UTC+8)
+Version: app-0.1.14-search-sort-regression-fix-2026-07-10
+Scope: Restore the missing comprehensive sort in search results and make sort switching take effect during active search instead of appearing unresponsive
+Modules: magnetgoogo-app/app/search.tsx, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Restored `sortComprehensive` as a visible sort option in the search sort bar.
+- Changed the default search-result sort mode back to `comprehensive` for fresh searches.
+- Removed the old `if (searching) return results` short-circuit so sort changes now apply during an active search session as incremental results arrive.
+- Added a dedicated `compareComprehensive()` comparator so the default order remains stable and consistent with the app's multi-factor ranking intent.
+
+### Findings
+- The regression came from `search.tsx` dropping `comprehensive` from `SortKey` and the rendered chips, even though localized copy still existed in `i18n.ts`.
+- The “searching期间改排序没反应” behavior was not user error: the UI explicitly bypassed sorting whenever `searching === true`.
+- Given the current `500ms` debounced session sync and typical result counts, allowing in-search sort switching is a better product tradeoff than disabling the controls.
+
+### Verification
+- `npm exec tsc -- --noEmit` -> PASS
+- `rg -n "sortComprehensive|compareComprehensive|toggleSort|SortChip" magnetgoogo-app/app/search.tsx` -> comprehensive sort restored and active-search sorting path present
+---
+
+---
+Date/Time: 2026-07-10 (UTC+8)
+Version: app-0.1.14-home-search-cta-revert-2026-07-10
+Scope: Revert the homepage search CTA to the pre-redesign 0.1.13 visual after real product review rejected the aurora/rainbow glass direction
+Modules: magnetgoogo-app/{app/index.tsx,src/components/AuroraSearchButton.tsx}, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Removed the experimental `AuroraSearchButton.tsx` component entirely.
+- Restored `app/index.tsx` to the original inline `FlowingGradientButton` implementation used before the CTA redesign attempts.
+- Kept the rollback narrowly scoped to the homepage CTA only; no search logic, analytics, or background-search behavior changed in this revert.
+
+### Findings
+- The redesigned aurora / glassmorphism CTA direction did not meet product expectations on the actual app surface.
+- The original `0.1.13`-style CTA remains visually more balanced for this screen and is now the canonical baseline again.
+
+### Verification
+- `git diff -- magnetgoogo-app/app/index.tsx magnetgoogo-app/src/components/AuroraSearchButton.tsx` -> only rollback-related changes remain
+- `npm exec tsc -- --noEmit` -> PASS
+---
+
+---
+Date/Time: 2026-07-10 (UTC+8)
+Version: app-0.1.14-home-search-cta-k30s-validation-2026-07-10
+Scope: Validate the redesigned homepage search CTA on Redmi K30S, resolve stale dev-bundle confusion, and confirm the final dark-core aurora direction on real device
+Modules: magnetgoogo-app/{src/components/AuroraSearchButton.tsx,app/index.tsx}, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Reworked `AuroraSearchButton.tsx` again after the first real-device pass, pushing the CTA further toward a dark-core structure with a thinner spectral rim and a separate bottom aurora band.
+- Rebuilt the Android debug app with `:app:assembleDebug --rerun-tasks` to avoid Gradle reusing an older APK artifact.
+- Installed the fresh debug APK to Redmi K30S and verified that the debug client was actually loading the newest local JS bundle from Metro instead of showing a stale previously cached UI.
+- Captured a new real-device screenshot after Metro confirmed `loadJSBundleFromMetro()` and the app rendered the updated homepage.
+
+### Findings
+- The earlier "still looks like a rainbow fill button" result was misleading because the device was not rendering the newest local JS; after Metro was started and the app reloaded from `localhost:8081`, the redesigned CTA appeared correctly.
+- The current real-device direction is much closer to the intended premium look:
+  - dark core is now visually dominant
+  - color has been pushed to the rim and bottom aurora band
+  - the CTA reads more like a high-end product action instead of a novelty gradient button
+- On K30S, the final validated screenshot is `tmp_k30s_home_aurora_v7.png`, which now reflects the intended redesign rather than the stale fallback UI.
+
+### Verification
+- `npm exec tsc -- --noEmit` -> PASS
+- `.\gradlew.bat :app:assembleDebug --rerun-tasks` -> `BUILD SUCCESSFUL`
+- `adb -s a1ea223a install -r ...\app-debug.apk` -> `Success`
+- Metro verification via logcat:
+  - `ReactHost{0}.isMetroRunning(): Async result = true`
+  - `ReactHost{0}.loadJSBundleFromMetro()`
+  - `Running "main"...`
+- Real-device screenshot captured: `magnetgoogo-app/tmp_k30s_home_aurora_v7.png`
+---
+
+---
+Date/Time: 2026-07-10 (UTC+8)
+Version: app-0.1.14-home-search-cta-aurora-redesign-2026-07-10
+Scope: Rebuild the home search CTA into a premium aurora-style button inspired by Magic UI's flowing rainbow treatment, while keeping React Native performance and interaction stability
+Modules: magnetgoogo-app/{app/index.tsx,src/components/AuroraSearchButton.tsx}, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Replaced the old homepage flowing-gradient search CTA with a new dedicated component: `src/components/AuroraSearchButton.tsx`.
+- Shifted the visual direction away from a full rainbow fill and toward a more premium CTA structure: dark core, animated spectral rim, bottom aurora glow, top gloss, inner light wash, and press feedback.
+- Kept the animation implementation inside core React Native `Animated` + `expo-linear-gradient` so no extra dependency was needed for this redesign.
+- Simplified `app/index.tsx` by removing the old inline button implementation and wiring the homepage search action to the new component.
+- Verified the app still type-checks and Android debug build remains healthy after the UI rewrite.
+
+### Findings
+- The previous CTA already approximated a "moving gradient button", but its motion read more like a sliding color strip than a premium luminous surface.
+- The stronger look comes from separating the effect into layers: ambient glow outside the button, spectral motion at the rim, restrained dark core inside, and a small press-depth response.
+- This direction is a better fit than directly cloning the Magic UI web button because React Native does not natively offer the same CSS pseudo-element and blur stack; the new implementation adapts the idea to mobile constraints instead of fighting them.
+
+### Verification
+- `npm exec tsc -- --noEmit` -> PASS
+- `.\gradlew.bat :app:assembleDebug` -> exit code `0`
+---
+
+---
+Date/Time: 2026-07-10 (UTC+8)
+Version: app-0.1.14-k30s-source-sync-regression-fix-2026-07-10
+Scope: Audit the K30S source-sync failure, distinguish real code regression from device/network instability, restore resilient source loading, and re-verify on-device behavior
+Modules: magnetgoogo-app/src/core/secureSourceStore.ts, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Read the current source-loading path and compared it with the immediately previous implementation to isolate behavior drift in `secureSourceStore.ts`.
+- Reproduced the K30S failure path through real-device logcat and confirmed the current debug app was skipping disk cache, trying `localhost:9999`, then falling into full remote sync failure.
+- Reworked the source-store flow so app startup always attempts encrypted disk cache first, while the debug local-source override only activates when an explicit `document/debug-sources.enc.json` file exists.
+- Removed the automatic `http://localhost:9999/sources.enc.json` debug fetch path and kept remote sync as a background refresh instead of a hard dependency for startup availability.
+- Reordered remote endpoint priority toward the currently healthier production path and slightly widened race / sequential fallback time budgets to reduce false-negative sync failures under slow links.
+- Rebuilt and reinstalled the Android debug app on Redmi K30S, then re-checked runtime logs after a cold relaunch.
+
+### Findings
+- This was not just "K30S network bad". There was a real `0.1.14` debug regression: `loadSources()` no longer used the encrypted disk cache in `__DEV__`, which turned a temporary remote outage into a hard "no sources" startup state.
+- The newly added localhost debug probe (`http://localhost:9999/sources.enc.json`) also made the startup path noisier and less representative of real production behavior on device.
+- After the fix, K30S now restores source availability from cache again: logcat shows `Loaded 99 sources from disk cache`, which matches the expected full ruleset inventory on device.
+- A secondary issue still remains on K30S: remote config/source refresh is flaky in the current environment. `ConfigChecker` and remote source fetch can still fail across all endpoints (`All promises were rejected`), so the phone currently depends on cached sources for reliable startup.
+- Practical outcome: the app is back to the `0.1.13`-style resilient posture where previously synced sources remain usable even when the live endpoint race is unhealthy.
+
+### Verification
+- `npm exec tsc -- --noEmit` -> PASS
+- `.\gradlew.bat :app:assembleDebug` -> `BUILD SUCCESSFUL`
+- `adb -s a1ea223a install -r android/app/build/outputs/apk/debug/app-debug.apk` -> `Success`
+- `adb -s a1ea223a logcat -d ReactNativeJS:I *:S` contained:
+  - `[SourceStore] Loaded 99 sources from disk cache`
+  - `[SourceStore] __DEV__ no explicit debug source file, using normal cache + remote sync`
+  - `[ConfigChecker] All endpoints failed: All promises were rejected`
+---
+
+---
 日期/时间：2026-06-20（UTC+8）
 本次版本：broadcast-pfc01-followup-review
 本次范围：**PFC-01 修复后复核 + reject 语义残留问题记录**
@@ -1682,4 +2875,128 @@ gray 源已穷尽。下一步是利用已录入的磁力导航站（btmayi.top, 
 7. **WordPress+AJAX 通用 handler**：逆向 `cdnres.xyz/cms_zhaocili/search/index*.js`，提取 API 模式
 8. **CryptoJS 框架自动识别**：检测页面是否加载 CryptoJS，自动尝试常见加密模式（DES/AES + 固定 key）
 
+---
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-0.1.14-release-build-2026-07-11
+Scope: Build the final Android release APK for app v0.1.14, stage it under `releases/`, and attempt installation on Redmi K30S
+Modules: magnetgoogo-app/{android/app/build.gradle,android/app/build/outputs/apk/release/app-release.apk}, releases/{magnetgoogo-v0.1.14-release-20260711.apk}, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Confirmed the app version remains `0.1.14` across `package.json`, `app.json`, and `android/app/build.gradle`.
+- Built a fresh signed release APK with the existing Gradle release pipeline.
+- Staged the final package for distribution at:
+  - `D:\lpproduct\magnet\releases\magnetgoogo-v0.1.14-release-20260711.apk`
+- Generated a SHA-256 fingerprint for the staged artifact:
+  - `E0ADE4FF8F8E969E0D9867D116D85CAB8400CDCC7EC5DCAA34872E508CA65E69`
+
+### Findings
+- Release packaging is healthy: Gradle completed `assembleRelease`, and the staged APK is readable as a normal APK archive.
+- Automatic installation to K30S was blocked by device-side policy rather than packaging failure:
+  - `adb install -r ...` returned `INSTALL_FAILED_USER_RESTRICTED: Install canceled by user`
+- This means the release APK is ready for upload/distribution, but that specific device currently requires manual confirmation or a relaxed MIUI ADB install policy before remote install will succeed.
+
+### Verification
+- `npm exec tsc -- --noEmit` -> PASS
+- `.\gradlew.bat assembleRelease -x lintVitalRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease` -> PASS (`BUILD SUCCESSFUL`)
+- `Get-Item D:\lpproduct\magnet\releases\magnetgoogo-v0.1.14-release-20260711.apk` -> PASS (`Length: 31007063`)
+- `Get-FileHash ... -Algorithm SHA256` -> PASS
+- `adb -s a1ea223a install -r ...` -> BLOCKED by device policy (`INSTALL_FAILED_USER_RESTRICTED`)
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-0.1.14-native-startup-overlay-crash-fix-2026-07-11
+Scope: Fix the native startup overlay regression that caused deterministic crash-to-home after boot, and simplify the visual so only the animated rainbow band remains above `Loading`
+Modules: magnetgoogo-app/{android/app/src/main/java/com/magnetgoogo/app/MainActivity.kt}, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Fixed the startup crash by moving `hideStartupOverlay()` view teardown back onto the Android UI thread with `runOnUiThread { ... }`.
+- Kept the fade-out path but removed the unsafe cross-thread `removeView(...)` call that was triggered from the React Native native-module queue.
+- Simplified the native startup overlay visual:
+  - removed the gray background track
+  - kept only the animated rainbow band
+  - tightened the sweep travel so the band reads as a single clean loading accent
+
+### Findings
+- The crash was a real native threading bug, not a random device quirk: `CalledFromWrongThreadException` occurred consistently when the overlay tried to remove itself from a non-UI thread after React boot.
+- After the fix, cold launch remains stable on K30S and the activity stays resumed instead of being force-finished back to the launcher.
+
+### Verification
+- `npm exec tsc -- --noEmit` -> PASS
+- `.\gradlew.bat :app:assembleDebug` -> PASS
+- `adb -s a1ea223a install -r ...app-debug.apk` -> PASS
+- `adb -s a1ea223a shell am force-stop ...; adb -s a1ea223a shell am start -W -n ...MainActivity` -> PASS (`LaunchState: COLD`, `TotalTime: 743`)
+- Post-launch `logcat` smoke check -> PASS (no `FATAL EXCEPTION`, no `CalledFromWrongThreadException`, app remained resumed)
+---
+
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-0.1.14-native-startup-splash-handoff-2026-07-11
+Scope: Move startup waiting from the JS layer to native Android startup handoff so cold launch is covered by a native loading state with minimal motion and `Loading` copy
+Modules: magnetgoogo-app/{android/app/src/main/java/com/magnetgoogo/app/MainActivity.kt,android/app/src/main/java/com/magnetgoogo/app/MainApplication.kt,android/app/src/main/java/com/magnetgoogo/app/StartupOverlayModule.kt,android/app/src/main/java/com/magnetgoogo/app/StartupOverlayPackage.kt,android/app/src/main/res/drawable/ic_launcher_background.xml,app/_layout.tsx,src/core/startupOverlay.ts}, docs/project-nebula/{DEV-LOG.md,_progress.txt}
+
+### Completed
+- Removed the JS startup visual layer and switched startup waiting to a native Android overlay that appears from `MainActivity.onCreate(...)`.
+- Simplified the native launch background to a plain splash color so the old centered logo no longer appears before React is ready.
+- Added a native startup overlay with:
+  - full-screen light background
+  - slim animated sweep band
+  - centered `Loading` label
+- Added a small native bridge (`StartupOverlay`) so JS only tells Android when boot conditions are satisfied and the overlay can fade out.
+- Updated `app/_layout.tsx` to stop rendering the former JS startup screen and instead hide the native overlay after source/config readiness.
+
+### Findings
+- This path is materially better than the earlier JS-only loading treatment because it covers the post-launch native window immediately after `MainActivity` is created, instead of waiting for React tree mount before users see a loading state.
+- The implementation stays intentionally minimal: no logo, no glass card, no extra branding, only motion + `Loading`.
+- The very earliest phase is still the theme splash background, but the handoff into the animated native overlay now happens before app content becomes interactive.
+
+### Verification
+- `npm exec tsc -- --noEmit` -> PASS
+- `.\gradlew.bat :app:assembleDebug` -> PASS
+---
+---
+Date/Time: 2026-07-11 (UTC+8)
+Version: app-0.1.14-full-release-2026-07-11
+Scope: Complete the strict app v0.1.14 release flow end to end, including config rollout, website/version mirror updates, Aliyun APK upload, mg-data push, Cloudflare Pages deploy, and GitHub Release creation
+Modules: magnetgoogo-site/{config.json,index.html,site-config.json,en/index.html,ja/index.html,ko/index.html,es/index.html,fr/index.html,de/index.html,ru/index.html,pt/index.html,ar/index.html}, mg-data/config.json, releases/{magnetgoogo-v0.1.14.apk,magnetgoogo-v0.1.14-release-20260711.apk,RELEASE-v0.1.14.md}, scripts/{generate-seo-pages.js,generate-i18n-pages.js,generate-guide-pages.js}, docs/project-nebula/{APP-CHANGELOG.md,DEV-LOG.md,_progress.txt}
+
+### Completed
+- Updated remote config to `latest_version: 0.1.14` while keeping `min_version: 0.1.10`, so this remains an optional update.
+- Replaced the Lanzou mirror with the new link:
+  - `https://wwbdy.lanzn.com/iuttF3vtjv5e`
+  - password `8888`
+- Published concise bilingual release notes based on the chosen Version B wording:
+  - Chinese: `搜索更顺滑 / 切到后台也能继续搜 / 搜完会直接通知你`
+  - English: `Search feels smoother / Background search keeps running / Finished searches notify you`
+- Synced the new version + Lanzou link across the website release surfaces:
+  - `magnetgoogo-site/config.json`
+  - root `index.html`
+  - 9 localized homepages (`en/ja/ko/es/fr/de/ru/pt/ar`)
+  - `site-config.json`
+- Refreshed the script-side fallback Lanzou link constants in:
+  - `scripts/generate-seo-pages.js`
+  - `scripts/generate-i18n-pages.js`
+  - `scripts/generate-guide-pages.js`
+- Uploaded the final APK to Aliyun stable download:
+  - `/var/www/apk/magnetgoogo.apk`
+- Pushed `mg-data/config.json` to GitHub (`46c0c50`, `chore: v0.1.14 config`)
+- Deployed `magnetgoogo-site` to Cloudflare Pages successfully.
+- Created GitHub Release `v0.1.14` and uploaded asset `magnetgoogo-v0.1.14.apk`.
+
+### Findings
+- The optional-update policy is preserved correctly: `latest_version` advanced to `0.1.14`, but `min_version` stays at `0.1.10`.
+- Website, GitHub Raw, CF Pages, CF Gateway, and workers.dev all served the updated `0.1.14` config during verification.
+- GitHub Release creation was completed successfully by reusing the local GitHub credential store, even though `GITHUB_PAT` was not present as a visible environment variable in the shell.
+- `cn.magnetgoogo.com/download/magnetgoogo.apk` was updated on the server side; local TLS HEAD probing from this Windows environment still showed a schannel handshake issue, so server-file verification was done through SSH instead.
+
+### Verification
+- `git -C mg-data push origin main` -> PASS (`46c0c50.. main -> main`)
+- `npx wrangler pages deploy . --project-name=magnetgoogo-site --branch=main --commit-dirty=true` -> PASS
+- `ssh admin@47.103.155.154 "ls -lh /var/www/apk/magnetgoogo.apk"` -> PASS (`30M`, fresh timestamp)
+- `curl.exe -s https://raw.githubusercontent.com/734496335/mg-data/main/config.json` -> PASS (`latest_version: 0.1.14`, new Lanzou mirror)
+- `curl.exe -s https://magnetgoogo.com/config.json` -> PASS (`latest_version: 0.1.14`, `min_version: 0.1.10`)
+- `curl.exe -s https://api.naoshiquan.com/config.json` -> PASS
+- `curl.exe -s https://maggoogo-gateway.734496335lp.workers.dev/config.json` -> PASS
+- `curl.exe -s https://api.github.com/repos/734496335/magnetgoogo/releases/tags/v0.1.14` -> PASS (release exists, APK asset uploaded)
 ---

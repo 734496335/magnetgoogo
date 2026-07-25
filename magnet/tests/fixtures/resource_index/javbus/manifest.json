@@ -1,0 +1,170 @@
+{
+  "fixture_schema": "1.0",
+  "source_id": "javbus",
+  "captured_at": "2026-07-24T00:00:00Z",
+  "sanitized": true,
+  "documents": [
+    {
+      "name": "listing_page_1",
+      "type": "listing",
+      "path": "listing/listing_page_1.html",
+      "sha256": "84cb33d48c95e05c8d514df41813c7e8dc3ee12ee846d8c53ebecd22a8195c94",
+      "source_url": "https://www.javbus.com/page/1",
+      "expected": "expected/listing_page_1.json"
+    },
+    {
+      "name": "listing_page_2",
+      "type": "listing",
+      "path": "listing/listing_page_2.html",
+      "sha256": "10c19cae1b47af48283ed2393f1835f7e7a83b94cc9899bf98162007f2462b40",
+      "source_url": "https://www.javbus.com/page/2"
+    },
+    {
+      "name": "listing_empty",
+      "type": "listing",
+      "path": "listing/listing_empty.html",
+      "sha256": "9da272c9939356caa761608206bc15c7d7ea862a6748d356b453a8b46a90fcc0",
+      "source_url": "https://www.javbus.com/search/none"
+    },
+    {
+      "name": "age_gate",
+      "type": "age_gate",
+      "path": "listing/age_gate.html",
+      "sha256": "80ea21fa83bf5893b6127e49abc402b42c2688f0c285449fb3eaa432dfa1166b",
+      "source_url": "https://www.javbus.com/doc/driver-verify"
+    },
+    {
+      "name": "listing_dom_drift",
+      "type": "listing",
+      "path": "listing/listing_dom_drift.html",
+      "sha256": "794e249f3f9026286fbecdf495286039c37bc48a6da8ce9be4e62d28b8a3fa27",
+      "source_url": "https://www.javbus.com/drift"
+    },
+    {
+      "name": "detail_tst_001",
+      "type": "detail",
+      "path": "detail/tst_001.html",
+      "sha256": "18128b547c66d141ced43873bb0c9ba4b0e09e47bf144802c3875a97c771baec",
+      "source_url": "https://www.javbus.com/TST-001",
+      "content_code": "TST-001",
+      "links_to": [
+        "resource_tst_001"
+      ]
+    },
+    {
+      "name": "detail_tst_002",
+      "type": "detail",
+      "path": "detail/tst_002.html",
+      "sha256": "b4efec07c2a32bfbf4e83a2c7bff6874fb625da8c5dfb422d004eb0ff5cebfc1",
+      "source_url": "https://www.javbus.com/TST-002",
+      "content_code": "TST-002",
+      "links_to": [
+        "resource_tst_002"
+      ]
+    },
+    {
+      "name": "detail_tst_003",
+      "type": "detail",
+      "path": "detail/tst_003.html",
+      "sha256": "f70dcb0fc8950ce7a3d7717fee3ac8a3ab384813fb3ee4d30685e77bbdd08d18",
+      "source_url": "https://www.javbus.com/TST-003",
+      "content_code": "TST-003",
+      "links_to": [
+        "resource_tst_003"
+      ]
+    },
+    {
+      "name": "detail_tst_004",
+      "type": "detail",
+      "path": "detail/tst_004.html",
+      "sha256": "67ddde0c21e9782c09e32fde02ba66e6d615e6e66ee836ed5d431864013360d9",
+      "source_url": "https://www.javbus.com/TST-004",
+      "content_code": "TST-004",
+      "links_to": [
+        "resource_tst_004"
+      ]
+    },
+    {
+      "name": "detail_tst_005",
+      "type": "detail",
+      "path": "detail/tst_005.html",
+      "sha256": "5549db7aee2b22dced93e8c925e27a80fa478dd67ba5f5fef9681a946e2ea158",
+      "source_url": "https://www.javbus.com/TST-005",
+      "content_code": "TST-005",
+      "links_to": [
+        "resource_tst_005"
+      ]
+    },
+    {
+      "name": "detail_tst_006",
+      "type": "detail",
+      "path": "detail/tst_006.html",
+      "sha256": "142b9aebf8a9144eaf96a15459cded689e1a71e80737e9a70aba6433aa57ee40",
+      "source_url": "https://www.javbus.com/TST-006",
+      "content_code": "TST-006",
+      "links_to": []
+    },
+    {
+      "name": "detail_missing_title",
+      "type": "other",
+      "path": "detail/detail_missing_title.html",
+      "sha256": "b86e6a05af3af4bcec0f986ee9a3c3f95d82106582d70df9ae9ad8a3de04fc29",
+      "source_url": "https://www.javbus.com/TST-BAD"
+    },
+    {
+      "name": "resource_tst_001",
+      "type": "resource_table",
+      "path": "resource_table/resource_tst_001.html",
+      "sha256": "73438a5d997f142adb37596ed8ad92d55edefbe6dd41b5b524e7fbf8a7cdd246",
+      "source_url": "https://www.javbus.com/ajax/uncledatoolsbyajax.php?gid=x&uc=0",
+      "content_code": "TST-001"
+    },
+    {
+      "name": "resource_tst_002",
+      "type": "resource_table",
+      "path": "resource_table/resource_tst_002.html",
+      "sha256": "e90f60dee16ea5600664a4b0c64b412bda50ca70c288789f214fd926a2217848",
+      "source_url": "https://www.javbus.com/ajax/uncledatoolsbyajax.php?gid=x&uc=0",
+      "content_code": "TST-002"
+    },
+    {
+      "name": "resource_tst_003",
+      "type": "resource_table",
+      "path": "resource_table/resource_tst_003.html",
+      "sha256": "83383cbd8c7a27bce8fff77cd3a3509b5625194c09cf4b1f8523578ed82518d2",
+      "source_url": "https://www.javbus.com/ajax/uncledatoolsbyajax.php?gid=x&uc=0",
+      "content_code": "TST-003"
+    },
+    {
+      "name": "resource_tst_004",
+      "type": "resource_table",
+      "path": "resource_table/resource_tst_004.html",
+      "sha256": "3581a19e917b0382fd36e441fe1b0e878fd9ee8364f2fbf94d100523060eafb4",
+      "source_url": "https://www.javbus.com/ajax/uncledatoolsbyajax.php?gid=x&uc=0",
+      "content_code": "TST-004"
+    },
+    {
+      "name": "resource_tst_005",
+      "type": "resource_table",
+      "path": "resource_table/resource_tst_005.html",
+      "sha256": "e970bcb7251e7b9ea6915b8740a202090c64888c4f3232324a38139fb2a3b923",
+      "source_url": "https://www.javbus.com/ajax/uncledatoolsbyajax.php?gid=x&uc=0",
+      "content_code": "TST-005"
+    },
+    {
+      "name": "resource_empty",
+      "type": "resource_table",
+      "path": "resource_table/resource_empty.html",
+      "sha256": "23396fb30057bd9d0d1a1997b9137a6735df0bb85dbf0e815cd409c736db9cc8",
+      "source_url": "https://www.javbus.com/ajax/empty",
+      "content_code": "TST-006"
+    },
+    {
+      "name": "resource_invalid_magnet",
+      "type": "other",
+      "path": "resource_table/resource_invalid_magnet.html",
+      "sha256": "00b1d61de7a4eb3623159a0346c83bfc5a86888d26d21368e951e4e730fdc2de",
+      "source_url": "https://www.javbus.com/ajax/bad"
+    }
+  ]
+}

@@ -132,3 +132,10 @@ analytics-server/data/
 /releases/*.ipa
 # NEVER ignore keystore — it's the app signing identity
 !/releases/*.keystore
+
+# ── resource_index (phase-1) ──
+/magnet/tests/fixtures_private/
+*.resource.db
+*.resource.db-*
+resource_index_*.db
+resource_index_run.log
