@@ -21,7 +21,7 @@ def test_cli_demo_loop(tmp_path: Path):
         check=False,
     )
     assert r.returncode == 0
-    assert "schema_version=0001" in r.stdout
+    assert "schema_version=0004" in r.stdout
     assert "status=ready" in r.stdout
 
     r = subprocess.run(
@@ -120,3 +120,57 @@ def test_cli_demo_loop(tmp_path: Path):
     data = json.loads(feed.read_text(encoding="utf-8"))
     assert data["scope"] == "adult"
     assert all(i["adult"] is True for i in data["items"])
+
+
+def test_cli_doctor_and_latest_policy_gate(tmp_path: Path):
+    py = sys.executable
+    root = str(Path(__file__).resolve().parents[3])
+    output = tmp_path / "portable"
+
+    doctor = subprocess.run(
+        [
+            py,
+            "-B",
+            "-m",
+            "magnet.resource_index.cli",
+            "doctor",
+            "--source",
+            "javbus",
+            "--count",
+            "100",
+            "--output-dir",
+            str(output),
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert doctor.returncode == 0, doctor.stderr + doctor.stdout
+    report = json.loads(doctor.stdout)
+    assert report["status"] == "pass"
+    assert report["checks"]["sqlite"]["schema_version"] == "0004"
+
+    gated = subprocess.run(
+        [
+            py,
+            "-B",
+            "-m",
+            "magnet.resource_index.cli",
+            "crawl-latest",
+            "--source",
+            "javbus",
+            "--count",
+            "3",
+            "--output-dir",
+            str(output),
+            "--max-batches",
+            "0",
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert gated.returncode == 1
+    assert "LIVE_POLICY_NOT_ACKNOWLEDGED" in gated.stderr

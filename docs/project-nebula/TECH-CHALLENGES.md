@@ -34,6 +34,8 @@
 | [CH-003](#challenge-003--中国大陆环境-海外-bt-站-dns-污染--gfw-阻断) | ~~GFW 阻断~~ → **健康检查误判** | low | partially-debunked | 2026-05-21 实测：GFW 影响 0%，误判 48% |
 | [CH-004](#challenge-004--llm-修复-selector-成本--延迟) | LLM 修复 selector 成本/延迟过高 | medium | open | — |
 | [CH-005](#challenge-005--域名漂移--死链发现滞后) | 域名漂移 / 死链发现滞后 | medium | open | — |
+| [CH-006](#challenge-006--resource-index-live-抓取可复现性与数据不退化) | Resource Index live 抓取可复现性与数据不退化 | **blocker** | solved ✅ | 2026-07-25 R6 complete; independent re-review pending |
+| [CH-007](#challenge-007--resource-index-跨电脑长任务编排与恢复) | Resource Index 跨电脑长任务编排与恢复 | **blocker** | solved in implementation | 2026-07-25 portable latest runner complete |
 
 ---
 
@@ -244,6 +246,109 @@
   - 关键 brand 关键字 Google Alerts
   - **GitHub trending search**：监听 `magnet bt site list` 等 awesome-list 仓库的 commit
 - **下一步**：未排期
+
+---
+
+## CHALLENGE-006 — Resource Index live 抓取可复现性与数据不退化
+
+- **严重程度**：**blocker**
+- **状态**：open
+- **首次记录**：2026-07-25
+- **业务影响**：JavBus happy path 已能入库真实内容，但 commit `48688bc` 在 clean Windows worktree 中出现 18 个 Fixture hash 失败；部分重解析会清空已有演员/标签；未知异常会留下永久 `running` run。当前无法把内容库作为长期可信数据源，也不应继续扩第二站。
+- **当前方案 & 缺陷**：
+  - Fixture 和 migration checksum 直接绑定 checkout 原始换行字节，LF/CRLF 不可移植；
+  - live policy 在库层自动 enabled/acknowledged，CLI `--yes` 不是能力边界；
+  - relation update 使用 delete-and-replace，无法区分“未观察到”和“确认为空”；
+  - HTTP 5xx、预算、age-gate 中断和 run terminal state 语义未闭合；
+  - registry listing 路径仍硬编码 JavBus 类。
+- **已尝试**：
+  - 2026-07-25 commit-bound clean worktree 复验：真实详情 1/21/2/9 与关键词 2/44 均成功；正常幂等成立；资源索引测试 28 passed / 18 failed；多项故障注入反例复现。
+- **下一步**：
+  1. R1：先修 EOL/checksum 可复现性和显式依赖；
+  2. R2：修 policy/输入/URL 来源边界；
+  3. R3：修终态、HTTP 错误和真实请求预算；
+  4. R4：修集合 completeness 和 warning 可观测；
+  5. R5：用 fake second source 证明 registry 后再加真实第二站。
+- **审查证据**：`RESOURCE-INDEX-JAVBUS-LIVE-REVIEW-2026-07-25.md`
+- **更新日志**：2026-07-25 —— 创建；结论为 happy path PASS、稳定性与可复现性 FAIL。
+
+### CHALLENGE-006 closure update — 2026-07-25
+
+- **Status**: solved ✅ for controlled local one-shot live crawl.
+- Closed LF/CRLF Fixture and migration checksum portability, true default-off policy, 10s minimum delay, full request budgeting, 5xx retry/non-2xx rejection, age-gate hard-stop, URL/redirect fencing, terminal run states, empty-run failure, relation non-regression, warning observability and generic listing registry.
+- Verification: resource_index 66 passed; all magnet non-integration Python tests 127 passed / 2 deselected; real SSIS-960 first crawl 1/21/2/9 and repeat 0 new/21 updated with all observations seen_count=2.
+- Evidence: `RESOURCE-INDEX-JAVBUS-LIVE-HARDENING-2026-07-25.md`.
+- Unattended scheduler, crash-recovery checkpoints and a second real source remain future scope, not part of this solved defect.
+
+### CHALLENGE-006 second-review update — 2026-07-25
+
+- **Status**: reopened.
+- `max_pages` counts logical documents rather than physical retry attempts; transport retries bypass the 10-second interval.
+- Automatic redirects are followed before target validation; origin fencing does not restrict effective port.
+- `KeyboardInterrupt` leaves a permanent `running` ingest run.
+- A second source writing the same content creates a hybrid canonical row with source-A identity and source-B URL/parser/title.
+- Happy path and clean-checkout reproducibility remain PASS, but robustness, request-policy enforcement, redirect security and second-source readiness are FAIL.
+- Evidence: `RESOURCE-INDEX-JAVBUS-LIVE-REREVIEW-2026-07-25.md`.
+- Next: execute R6-T1 through R6-T5 as one complete hardening batch before another independent review.
+
+### CHALLENGE-006 R6 implementation update — 2026-07-25
+
+- **Status**: solved in implementation; independent clean-worktree re-review still required.
+- Physical request budget now counts every retry and redirect; `ingest_runs.http_requests` records the exact count.
+- Every retry and redirect is spaced by at least 10 seconds; cancellation during the wait does not consume a request.
+- Redirects are followed manually with pre-request scheme/host/effective-port and DNS-address validation.
+- `KeyboardInterrupt` reaches a durable `cancelled` terminal state; stale `running` runs are recovered on the next live ingest.
+- Schema `0002` adds `content_observations`; canonical content fields are selected as one source-coherent record by source priority, metadata completeness and recency.
+- Added self-contained `python magnet/validate_enum.py`; root source metadata is synchronized to 241 rules.
+- Automated evidence: R6 adversarial 22 passed, resource_index 88 passed, all magnet non-integration 151 passed / 2 deselected.
+- Live evidence: budget=2 stopped at exactly 2 requests; SSIS-960 used 3 requests and returned 1/21/2/9; SSIS limit=2 used 6 requests and returned 2/44.
+- Evidence: `RESOURCE-INDEX-JAVBUS-LIVE-R6-CLOSEOUT-2026-07-25.md`.
+
+---
+
+## CHALLENGE-007 — Resource Index 跨电脑长任务编排与恢复
+
+- **严重程度**：**blocker**
+- **状态**：solved in implementation；独立复验待执行
+- **首次记录**：2026-07-25
+- **业务影响**：上一次最新 100 条最终数据完整，但 21 个成功 run 共发出 285 次详情 HTTP；按冻结快照只需 218 次，因 502 回传失败和人工重放额外访问 67 次，额外开销约 30.7%。临时 `python -c` 无法作为另一台电脑上的稳定部署方案。
+- **根因**：
+  - 外部命令通道与实际抓取进程的生命周期耦合；
+  - 无 durable snapshot/job/item 状态；
+  - 无数据库级单实例锁；
+  - 完成判定依赖命令结果，不依赖实际 URL 覆盖；
+  - 无正式 setup/doctor/status/resume 入口；
+  - 全局依赖、相对路径和覆盖式日志不利于跨电脑复制。
+- **已实现**：
+  - schema `0003`：`latest_crawl_jobs + latest_crawl_items`；
+  - 冻结最新列表快照，重复番号不同 URL 保留；
+  - 小批次、每次启动每条最多尝试一次、跨启动最多三次；
+  - exact detail URL 覆盖对账，中断后只补缺失记录；
+  - 完成后的同快照重复运行零 ingest run、零 HTTP；
+  - DB 路径绑定的单实例锁和同机死 PID 恢复；
+  - 原子 Feed、追加日志、无网络 status；
+  - Windows 最小虚拟环境、冻结直接依赖、doctor 和 bat/PowerShell 入口。
+- **验证**：
+  - latest runner 对抗测试 16 passed；
+  - resource_index 105 passed；全 magnet 非集成 168 passed / 2 deselected；
+  - 全新 Python 3.10 与 3.13 虚拟环境冻结依赖安装与 doctor 均 PASS；
+  - 真网 count=3：先切片 2/3，再只补 rank 3，完成后重复命令 runs=2、requests=8 保持不变。
+- **证据**：`RESOURCE-INDEX-PORTABLE-LATEST-RUNNER-2026-07-25.md`
+- **剩余边界**：SQLite 不支持多机共享目录并发 writer；当前不是 Windows Service；最终推广前需独立 clean-worktree 复验。
+
+### CHALLENGE-007 SixV implementation update — 2026-07-25
+
+- **Status**: solved in implementation for a second real latest source; commit-bound clean-worktree verification pending.
+- Added `sixv` as the second real live latest adapter and upgraded schema `0003 -> 0004` with isolated `movie_items/movie_resources`; normal movies no longer contaminate adult-only tables.
+- Real source structure is frozen as `/dy/` plus `/dy/index_2.html`, exactly 50 records in source order; red title DOM is persisted as `recommended=true` and `highlight_labels=["推荐"]`.
+- Closed three real detail-template variants, GB2312/GB18030 decoding, compact multi-field paragraphs, alias labels, malformed `片\">` fragments and controlled listing-genre fallback when the detail omits category.
+- Movie upsert preserves prior non-empty arrays when a later parse is incomplete; `--reparse-incomplete` repairs only current SixV records missing genres or synopsis.
+- Windows stale PID probing now treats `SystemError` from `os.kill(pid, 0)` as a dead process; Ctrl+C and source hard-stop leave unvisited ranks pending and pause the invocation.
+- Real latest-50 result: 50 movies, 9 red recommendations, 134 resources (71 magnets + 63 cloud links), zero missing title/cover/resource/genre/synopsis, zero duplicate URL, zero running or failed item.
+- Two DevSpace 502 disconnects were handled by inspecting lock/PID/job state instead of blindly replaying; final normal rerun kept ingest runs and HTTP counts unchanged.
+- Verification: SixV 13 passed; resource_index 119 passed; all magnet non-integration 182 passed / 2 deselected; schema 0004 doctor, PowerShell 4/4, fresh Python 3.13 deployment and outside-project doctor/status PASS.
+- Evidence: `RESOURCE-INDEX-SIXV-LATEST50-2026-07-25.md`.
+- Remaining: cover image bytes are not cached in SQLite; App/API integration, local image storage and an independent final adversarial audit remain future scope.
 
 ---
 

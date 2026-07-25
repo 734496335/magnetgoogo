@@ -8,7 +8,8 @@ from pathlib import Path
 
 DEFAULT_PARSER_VERSION = "javbus-parser/1.0.0"
 SOURCE_ID_JAVBUS = "javbus"
-SCHEMA_VERSION = "0001"
+SOURCE_ID_SIXV = "sixv"
+SCHEMA_VERSION = "0004"
 
 # Risk status reserved for future policy engine
 RISK_MANUAL_REVIEW = "manual_review"
@@ -33,13 +34,9 @@ class ResourceIndexConfig:
         raw_db = db_path or os.environ.get("MAGNET_RESOURCE_DB") or "resource_index.db"
         raw_fix = fixture_root or os.environ.get("MAGNET_RESOURCE_FIXTURE_ROOT")
         raw_log = log_path or os.environ.get("MAGNET_RESOURCE_LOG_PATH")
-        live = os.environ.get("MAGNET_RESOURCE_LIVE_FETCH_ENABLED", "0").strip() in {
-            "1",
-            "true",
-            "TRUE",
-            "yes",
-            "YES",
-        }
+        live = os.environ.get(
+            "MAGNET_RESOURCE_LIVE_FETCH_ENABLED", "0"
+        ).strip().lower() in {"1", "true", "yes", "on"}
         return cls(
             db_path=Path(raw_db),
             fixture_root=Path(raw_fix) if raw_fix else None,
