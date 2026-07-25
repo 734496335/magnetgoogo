@@ -195,36 +195,50 @@ def parse_detail(document: RawDocumentEnvelope) -> ParsedContentBundle:
     source_item_key = path_key(document.source_url)
     content_id = content_id_for(ContentType.ADULT_VIDEO, content_code)
 
+    # Fallback: site often puts genres/actors outside labeled <p> blocks
+    if not fields.get("tags"):
+        tags_fb = []
+        for a in soup.select("span.genre a, .genre a"):
+            href = absolutize(document.source_url, a.get("href"))
+            name = normalize_whitespace(a.get_text())
+            if name and href and "/genre/" in (href or ""):
+                tags_fb.append((name, href))
+        if tags_fb:
+            fields["tags"] = tags_fb
+    if not fields.get("actors"):
+        actors_fb = []
+        for a in soup.select('a[href*="/star/"]'):
+            href = absolutize(document.source_url, a.get("href"))
+            name = normalize_person_name(a.get_text())
+            if name and href:
+                actors_fb.append((name, href))
+        if actors_fb:
+            fields["actors"] = actors_fb
+
     people: list[PersonRef] = []
+    seen_people: set[tuple[str, str]] = set()
     sort_i = 0
-    for name, url in fields.get("directors") or []:
+
+    def _add_person(
+        name: str,
+        url: str | None,
+        role: PersonRole,
+        slug_prefixes: tuple[str, ...],
+    ) -> None:
+        nonlocal sort_i
         if not name:
-            continue
-        slug = external_key_from_path(url or "", ("/director", "/directors")) if url else None
+            return
+        slug = external_key_from_path(url or "", slug_prefixes) if url else None
+        pid = person_id_for(slug=slug, display_name=name, source_prefix=sel.SOURCE_ID)
+        key = (pid, role.value)
+        if key in seen_people:
+            return
+        seen_people.add(key)
         people.append(
             PersonRef(
-                person_id=person_id_for(
-                    slug=slug, display_name=name, source_prefix=sel.SOURCE_ID
-                ),
+                person_id=pid,
                 display_name=name,
-                role=PersonRole.DIRECTOR,
-                source_profile_url=url,
-                source_external_key=slug,
-                sort_order=sort_i,
-            )
-        )
-        sort_i += 1
-    for name, url in fields.get("actors") or []:
-        if not name:
-            continue
-        slug = external_key_from_path(url or "", ("/star", "/actress", "/actor")) if url else None
-        people.append(
-            PersonRef(
-                person_id=person_id_for(
-                    slug=slug, display_name=name, source_prefix=sel.SOURCE_ID
-                ),
-                display_name=name,
-                role=PersonRole.ACTOR,
+                role=role,
                 source_profile_url=url,
                 source_external_key=slug,
                 sort_order=sort_i,
@@ -232,16 +246,24 @@ def parse_detail(document: RawDocumentEnvelope) -> ParsedContentBundle:
         )
         sort_i += 1
 
+    for name, url in fields.get("directors") or []:
+        _add_person(name, url, PersonRole.DIRECTOR, ("/director", "/directors"))
+    for name, url in fields.get("actors") or []:
+        _add_person(name, url, PersonRole.ACTOR, ("/star", "/actress", "/actor"))
+
     tags: list[TagRef] = []
+    seen_tags: set[str] = set()
     for name, url in fields.get("tags") or []:
         if not name:
             continue
         key = external_key_from_path(url or "", ("/genre", "/genres", "/tag")) if url else None
+        tid = tag_id_for(external_key=key, display_name=name, source_prefix=sel.SOURCE_ID)
+        if tid in seen_tags:
+            continue
+        seen_tags.add(tid)
         tags.append(
             TagRef(
-                tag_id=tag_id_for(
-                    external_key=key, display_name=name, source_prefix=sel.SOURCE_ID
-                ),
+                tag_id=tid,
                 display_name=name,
                 source_url=url,
                 source_external_key=key,

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from magnet.resource_index.acquisition.fixture_reader import iter_envelopes, load_manifest
-from magnet.resource_index.adapters.javbus.adapter import JavBusAdapter
+from magnet.resource_index.adapters.registry import get_adapter
 from magnet.resource_index.domain.enums import DocumentType, IngestMode, IngestRunStatus
 from magnet.resource_index.domain.models import RawDocumentEnvelope
 from magnet.resource_index.domain.validation import validate_bundle
@@ -38,10 +38,8 @@ class IngestResult:
     error_summary: dict[str, Any] = field(default_factory=dict)
 
 
-def _get_adapter(source_id: str) -> JavBusAdapter:
-    if source_id != "javbus":
-        raise ResourceIndexError("CONFIG_ERROR", f"unknown source: {source_id}", {})
-    return JavBusAdapter()
+def _get_adapter(source_id: str):
+    return get_adapter(source_id)
 
 
 def ingest_fixture(

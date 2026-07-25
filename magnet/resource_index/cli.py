@@ -9,10 +9,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from magnet.resource_index.adapters.registry import list_sources
 from magnet.resource_index.errors import ResourceIndexError
 from magnet.resource_index.observability.events import log_event, setup_logging
 from magnet.resource_index.pipeline.export_feed import export_adult_feed
 from magnet.resource_index.pipeline.ingest import ingest_fixture
+from magnet.resource_index.pipeline.ingest_live import ingest_live
 from magnet.resource_index.store.sqlite_repository import SqliteResourceRepository
 
 
@@ -157,6 +159,72 @@ def cmd_export_feed(args: argparse.Namespace) -> int:
         repo.close()
 
 
+def cmd_list_sources(_args: argparse.Namespace) -> int:
+    sources = list_sources()
+    _print_json(sources, pretty=True)
+    return 0
+
+
+def cmd_crawl(args: argparse.Namespace) -> int:
+    """Live crawl a source into the resource index DB."""
+    if not args.yes:
+        print(
+            "error_code=LIVE_POLICY_NOT_ACKNOWLEDGED",
+            file=sys.stderr,
+        )
+        print(
+            "message=pass --yes to acknowledge live crawl of the target source",
+            file=sys.stderr,
+        )
+        return 1
+    logger = setup_logging(args.log)
+    repo = SqliteResourceRepository(args.db)
+    try:
+        repo.init_schema()
+        detail_urls = None
+        if args.detail_url:
+            detail_urls = list(args.detail_url)
+        result = ingest_live(
+            repo=repo,
+            source_id=args.source,
+            query=args.query,
+            detail_urls=detail_urls,
+            listing_url=args.listing_url,
+            limit=args.limit,
+            delay_seconds=args.delay,
+            max_pages=args.max_pages,
+        )
+        log_event(
+            logger,
+            run_id=result.run_id,
+            source_id=args.source,
+            stage="crawl",
+            message="live crawl complete",
+            status=result.status,
+            contents_created=result.contents_created,
+            resources_created=result.resources_created,
+            errors=result.errors,
+        )
+        print(f"run_id={result.run_id}")
+        print(f"status={result.status}")
+        print(f"documents_seen={result.documents_seen}")
+        print(f"contents_created={result.contents_created}")
+        print(f"contents_updated={result.contents_updated}")
+        print(f"resources_created={result.resources_created}")
+        print(f"resources_updated={result.resources_updated}")
+        print(f"warnings={result.warnings}")
+        print(f"errors={result.errors}")
+        if result.error_summary:
+            print(f"error_summary={json.dumps(result.error_summary, ensure_ascii=False)}")
+        return 0 if result.status in {"success", "partial"} else 1
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        return 1
+    finally:
+        repo.close()
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="magnet.resource_index.cli")
     sub = p.add_subparsers(dest="command", required=True)
@@ -203,6 +271,38 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--limit", type=int, default=100)
     s.add_argument("--include-review-fixtures", action="store_true")
     s.set_defaults(func=cmd_export_feed)
+
+    s = sub.add_parser("list-sources")
+    s.set_defaults(func=cmd_list_sources)
+
+    s = sub.add_parser(
+        "crawl",
+        help="Live crawl a source (javbus first) into the local resource index DB",
+    )
+    s.add_argument("--source", default="javbus")
+    s.add_argument("--db", required=True)
+    s.add_argument("--query", default=None, help="Search keyword (e.g. SSIS-960)")
+    s.add_argument(
+        "--detail-url",
+        action="append",
+        default=None,
+        help="Direct detail URL (repeatable)",
+    )
+    s.add_argument(
+        "--listing-url",
+        default=None,
+        help="Listing/home URL when not using --query",
+    )
+    s.add_argument("--limit", type=int, default=6, help="Max detail items to ingest")
+    s.add_argument("--delay", type=float, default=1.5, help="Seconds between HTTP requests")
+    s.add_argument("--max-pages", type=int, default=40, help="HTTP page budget for this run")
+    s.add_argument(
+        "--yes",
+        action="store_true",
+        help="Acknowledge live crawl of the target source",
+    )
+    s.add_argument("--log", default=None)
+    s.set_defaults(func=cmd_crawl)
 
     return p
 

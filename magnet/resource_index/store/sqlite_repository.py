@@ -198,9 +198,14 @@ class SqliteResourceRepository:
             for alias in bundle.aliases:
                 self._add_alias(content_id, alias.alias, alias.alias_type.value, now_s)
 
-            # people replace
+            # people replace (dedupe person_id+role for safety)
             self.conn.execute("DELETE FROM content_people WHERE content_id = ?", (content_id,))
+            seen_pr: set[tuple[str, str]] = set()
             for person in bundle.people:
+                pr_key = (person.person_id, person.role.value)
+                if pr_key in seen_pr:
+                    continue
+                seen_pr.add(pr_key)
                 self.conn.execute(
                     """
                     INSERT INTO people(person_id, display_name, normalized_name,

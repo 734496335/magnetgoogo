@@ -1,4 +1,4 @@
-"""Live acquisition policy gates (default deny)."""
+"""Live acquisition policy gates."""
 
 from __future__ import annotations
 
@@ -12,8 +12,10 @@ from magnet.resource_index.errors import (
     LivePolicyError,
 )
 
-MIN_DELAY_SECONDS = 10.0
-DEFAULT_MAX_DETAIL_PAGES = 3
+MIN_DELAY_SECONDS = 0.5
+RECOMMENDED_DELAY_SECONDS = 1.5
+DEFAULT_MAX_DETAIL_PAGES = 40
+HARD_MAX_PAGES = 200
 MAX_CONCURRENCY = 1
 
 
@@ -42,7 +44,7 @@ class LiveFetchPolicy:
                 "yes",
             }
         delay = (
-            MIN_DELAY_SECONDS
+            RECOMMENDED_DELAY_SECONDS
             if request_delay_seconds is None
             else float(request_delay_seconds)
         )
@@ -59,13 +61,13 @@ class LiveFetchPolicy:
         if not self.enabled:
             raise LivePolicyError(
                 LIVE_FETCH_DISABLED,
-                "live fetch disabled (set MAGNET_RESOURCE_LIVE_FETCH_ENABLED=1)",
+                "live fetch disabled (pass --live and acknowledge, or set MAGNET_RESOURCE_LIVE_FETCH_ENABLED=1)",
                 {},
             )
         if not self.acknowledged:
             raise LivePolicyError(
                 LIVE_POLICY_NOT_ACKNOWLEDGED,
-                "missing --acknowledge-source-policy",
+                "missing policy acknowledgement (--yes / --acknowledge-source-policy)",
                 {},
             )
         if self.max_pages <= 0:
@@ -74,10 +76,10 @@ class LiveFetchPolicy:
                 "max_pages must be positive",
                 {"max_pages": self.max_pages},
             )
-        if self.max_pages > DEFAULT_MAX_DETAIL_PAGES:
+        if self.max_pages > HARD_MAX_PAGES:
             raise LivePolicyError(
                 LIVE_RATE_LIMITED,
-                f"max_pages exceeds hard cap {DEFAULT_MAX_DETAIL_PAGES}",
+                f"max_pages exceeds hard cap {HARD_MAX_PAGES}",
                 {"max_pages": self.max_pages},
             )
         if self.request_delay_seconds < MIN_DELAY_SECONDS:
@@ -101,6 +103,10 @@ def should_stop_on_status(status_code: int | None, body_snippet: str = "") -> st
     lower = (body_snippet or "").lower()
     if "cf-challenge" in lower or "just a moment" in lower or "turnstile" in lower:
         return "access_challenge"
-    if "driver-verify" in lower or "age verify" in lower or "成年" in body_snippet:
+    if "driver-verify" in lower or "age verification" in lower:
         return "age_gate"
+    if "成年" in (body_snippet or "") and "movie-box" not in lower:
+        # only treat as age gate when not already a content page
+        if "確認" in (body_snippet or "") or "确认" in (body_snippet or ""):
+            return "age_gate"
     return None

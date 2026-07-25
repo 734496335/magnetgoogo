@@ -102,6 +102,28 @@ Modules: magnetgoogo-app/app/search.tsx, magnetgoogo-app/src/core/{types.ts,sear
 
 ---
 Date/Time: 2026-07-25 (UTC+8)
+Version: resource-index-javbus-live-crawl
+Scope: Implement stable live crawl for javbus.com into resource_index; multi-source registry for future sites
+Modules: magnet/resource_index/acquisition/{http_client,live_fetcher,policy}.py, adapters/{registry.py,javbus/live_crawler.py}, pipeline/ingest_live.py, cli.py, store/sqlite_repository.py, adapters/javbus/{detail_parser,resource_parser}.py, tests/resource_index/*
+
+### Completed
+- Real HTTP live path: curl_cffi Session, age-verify bootstrap, search/listing, detail, AJAX magnet table.
+- CLI: `crawl --source javbus --query ... --yes` and `--detail-url`.
+- Adapter registry so new sites register adapter + live crawler without rewriting pipeline.
+- Fixed live upsert crash on duplicate person_id+role; improved magnet title from dn; genre/star fallbacks.
+- Live smoke: SSIS query 2 items / detail SSIS-960 → content+magnets+people+tags.
+
+### Verification
+- `pytest magnet/tests/resource_index` → 46 passed
+- Live: contents_created>=1, resources_created>=20 for SSIS-960
+- crawler_v3 + validate_enum unchanged green
+
+### Next
+- Add more sites via registry when needed; optional API/App later.
+---
+
+---
+Date/Time: 2026-07-25 (UTC+8)
 Version: resource-index-phase1-commit-phase2-plan
 Scope: Isolated Phase-1 commit set + Phase-2 planning document (no Phase-2 code)
 Modules: magnet/resource_index/**, magnet/tests/resource_index/**, magnet/tests/fixtures/resource_index/**, .gitignore, docs/project-nebula/RESOURCE-INDEX-PHASE{1-REVIEW,2-PLAN}-2026-07-25.md, docs/project-nebula/{_progress.txt,DEV-LOG.md}
