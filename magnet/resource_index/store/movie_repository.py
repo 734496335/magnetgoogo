@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -204,6 +205,89 @@ class MovieRepository:
             (source_id, detail_url),
         ).fetchone()
         return row is not None
+
+    def cover_targets(self, *, source_id: str) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            """
+            SELECT
+                m.movie_id,
+                m.cover_source_url,
+                m.detail_url,
+                CASE
+                    WHEN c.movie_id IS NOT NULL
+                     AND c.source_url = m.cover_source_url
+                     AND LENGTH(c.image_blob) > 0
+                    THEN 1 ELSE 0
+                END AS cover_stored
+            FROM movie_items m
+            LEFT JOIN movie_cover_assets c ON c.movie_id = m.movie_id
+            WHERE m.source_id = ?
+              AND m.cover_source_url IS NOT NULL
+              AND TRIM(m.cover_source_url) <> ''
+            ORDER BY m.update_date DESC, m.detail_url
+            """,
+            (source_id,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def upsert_cover_asset(
+        self,
+        *,
+        movie_id: str,
+        source_url: str,
+        mime_type: str,
+        content_hash: str,
+        width: int,
+        height: int,
+        image_blob: bytes,
+        fetched_at: datetime,
+    ) -> None:
+        now_s = _iso(fetched_at)
+        assert now_s is not None
+        self.conn.execute(
+            """
+            INSERT INTO movie_cover_assets(
+                movie_id, source_url, mime_type, content_hash,
+                width, height, byte_size, image_blob,
+                fetched_at, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(movie_id) DO UPDATE SET
+                source_url = excluded.source_url,
+                mime_type = excluded.mime_type,
+                content_hash = excluded.content_hash,
+                width = excluded.width,
+                height = excluded.height,
+                byte_size = excluded.byte_size,
+                image_blob = excluded.image_blob,
+                fetched_at = excluded.fetched_at,
+                updated_at = excluded.updated_at
+            """,
+            (
+                movie_id,
+                source_url,
+                mime_type,
+                content_hash,
+                width,
+                height,
+                len(image_blob),
+                sqlite3.Binary(image_blob),
+                now_s,
+                now_s,
+                now_s,
+            ),
+        )
+
+    def get_cover_asset(self, movie_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            """
+            SELECT movie_id, source_url, mime_type, content_hash,
+                   width, height, byte_size, image_blob, fetched_at
+            FROM movie_cover_assets
+            WHERE movie_id = ?
+            """,
+            (movie_id,),
+        ).fetchone()
+        return dict(row) if row is not None else None
 
     def counts(self, *, source_id: str) -> dict[str, int]:
         movies = self.conn.execute(

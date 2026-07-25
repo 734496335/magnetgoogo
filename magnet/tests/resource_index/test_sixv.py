@@ -16,6 +16,8 @@ from magnet.resource_index.adapters.sixv.models import (
 )
 from magnet.resource_index.adapters.sixv.parser import (
     decode_sixv_html,
+    normalize_movie_genres,
+    normalize_movie_title,
     parse_latest_listing,
     parse_movie_detail,
 )
@@ -26,6 +28,18 @@ from magnet.resource_index.store.movie_repository import MovieRepository
 from magnet.resource_index.store.sqlite_repository import SqliteResourceRepository
 
 NOW = datetime(2026, 7, 25, 12, 0, tzinfo=timezone.utc)
+
+
+def test_movie_title_normalization_removes_listing_noise() -> None:
+    assert normalize_movie_title(
+        "2026科幻惊悚《揭秘日》1080p.HD中英双字",
+        "2026科幻惊悚《揭秘日》1080p.HD中英双字",
+    ) == "揭秘日"
+    assert normalize_movie_title("宇宙巨人:希曼崛起") == "宇宙巨人：希曼崛起"
+    assert normalize_movie_title("末日逃生2:迁移") == "末日逃生2：迁移"
+    assert normalize_movie_title("WWE: Unreal") == "WWE: Unreal"
+    assert normalize_movie_genres(("纪录", "片", "运动")) == ("纪录片", "运动")
+
 
 LISTING_HTML = """
 <html><body><div id="main"><ul class="list">
@@ -242,14 +256,14 @@ def test_detail_parser_falls_back_to_listing_genres_when_source_omits_category()
     assert movie.genres == ("剧情",)
 
 
-def test_schema_0004_adds_movie_tables(tmp_path: Path) -> None:
+def test_schema_0005_adds_movie_and_cover_tables(tmp_path: Path) -> None:
     repo = SqliteResourceRepository(tmp_path / "movie.db")
-    assert repo.init_schema() == "0004"
+    assert repo.init_schema() == "0005"
     tables = {
         row[0]
         for row in repo.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
     }
-    assert {"movie_items", "movie_resources"} <= tables
+    assert {"movie_items", "movie_resources", "movie_cover_assets"} <= tables
     repo.close()
 
 

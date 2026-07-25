@@ -1,99 +1,73 @@
-import Constants from 'expo-constants';
 import { File, Paths } from 'expo-file-system';
-import { parseResourceFeed, type ResourceFeed } from './resourceFeedProtocol';
+import {
+  findMovieById,
+  parseResourceFeed,
+  type MovieFeed,
+  type MovieFeedItem,
+} from './resourceFeedProtocol';
 
-const BUNDLED_FEED_PATH = ['resource-index', 'javbus_latest_100_feed.json'] as const;
-const REMOTE_TIMEOUT_MS = 6000;
+const BUNDLE_ROOT = ['resource-index', 'sixv'] as const;
+const BUNDLED_FEED_PATH = [...BUNDLE_ROOT, 'feed.json'] as const;
 
-export type ResourceFeedOrigin = 'remote' | 'bundled';
+export type ResourceFeedOrigin = 'bundled';
 
 export interface LoadedResourceFeed {
-  feed: ResourceFeed;
+  feed: MovieFeed;
   origin: ResourceFeedOrigin;
 }
 
 let memoryCache: LoadedResourceFeed | null = null;
 
-function configuredRemoteUrls(): string[] {
-  const raw = Constants.expoConfig?.extra?.resourceFeedUrl;
-  const values = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split(',') : [];
-  return values
-    .map((value) => String(value).trim())
-    .filter((value) => /^https:\/\//i.test(value));
+function safeAssetParts(relativePath: string): string[] {
+  const parts = relativePath.split('/').filter(Boolean);
+  if (!parts.length || parts.some((part) => part === '.' || part === '..' || part.includes('\\'))) {
+    throw new Error('INVALID_MOVIE_ASSET_PATH');
+  }
+  return parts;
 }
 
-function logResourceFeedFailure(stage: string, errorCode: string, error: unknown, extra?: Record<string, unknown>) {
+function logResourceFeedFailure(stage: string, errorCode: string, error: unknown) {
   console.warn('[ResourceFeed]', {
     stage,
     error_code: errorCode,
     error: error instanceof Error ? error.message : String(error),
-    ...extra,
   });
-}
-
-async function parseTextPayload(text: string, stage: string): Promise<ResourceFeed> {
-  let json: unknown;
-  try {
-    json = JSON.parse(text);
-  } catch (error) {
-    logResourceFeedFailure(stage, 'INVALID_JSON', error);
-    throw error;
-  }
-  return parseResourceFeed(json);
-}
-
-async function loadRemote(url: string): Promise<LoadedResourceFeed> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REMOTE_TIMEOUT_MS);
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: { Accept: 'application/json' },
-    });
-    if (!response.ok) {
-      throw new Error(`HTTP_${response.status}`);
-    }
-    const feed = await parseTextPayload(await response.text(), 'remote_parse');
-    return { feed, origin: 'remote' };
-  } finally {
-    clearTimeout(timer);
-  }
 }
 
 async function loadBundled(): Promise<LoadedResourceFeed> {
   const file = new File(Paths.bundle, ...BUNDLED_FEED_PATH);
   if (!file.exists) {
-    throw new Error(`BUNDLED_FEED_MISSING:${file.uri}`);
+    throw new Error(`BUNDLED_MOVIE_FEED_MISSING:${file.uri}`);
   }
-  const feed = await parseTextPayload(await file.text(), 'bundled_parse');
-  return { feed, origin: 'bundled' };
+  let json: unknown;
+  try {
+    json = JSON.parse(await file.text());
+  } catch (error) {
+    logResourceFeedFailure('bundled_parse', 'INVALID_MOVIE_FEED_JSON', error);
+    throw error;
+  }
+  return { feed: parseResourceFeed(json), origin: 'bundled' };
 }
 
 export async function loadResourceFeed(forceRefresh = false): Promise<LoadedResourceFeed> {
   if (!forceRefresh && memoryCache) return memoryCache;
-
-  const urls = configuredRemoteUrls();
-  for (const url of urls) {
-    try {
-      const loaded = await loadRemote(url);
-      memoryCache = loaded;
-      return loaded;
-    } catch (error) {
-      logResourceFeedFailure('remote_load', 'REMOTE_FEED_FAILED', error, { url });
-    }
-  }
-
   try {
-    const loaded = await loadBundled();
-    memoryCache = loaded;
-    return loaded;
+    memoryCache = await loadBundled();
+    return memoryCache;
   } catch (error) {
-    logResourceFeedFailure('bundled_load', 'BUNDLED_FEED_FAILED', error, {
-      configured_remote_count: urls.length,
-    });
+    logResourceFeedFailure('bundled_load', 'BUNDLED_MOVIE_FEED_FAILED', error);
     if (memoryCache) return memoryCache;
-    throw new Error('RESOURCE_FEED_UNAVAILABLE');
+    throw new Error('MOVIE_FEED_UNAVAILABLE');
   }
+}
+
+export async function loadMovieById(movieId: string): Promise<MovieFeedItem | null> {
+  const { feed } = await loadResourceFeed(false);
+  return findMovieById(feed, movieId);
+}
+
+export function movieCoverUri(item: MovieFeedItem): string {
+  return new File(Paths.bundle, ...BUNDLE_ROOT, ...safeAssetParts(item.cover_asset_path)).uri;
 }
 
 export function clearResourceFeedMemoryCache() {

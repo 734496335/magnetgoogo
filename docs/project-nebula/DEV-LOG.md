@@ -1,5 +1,33 @@
 ---
 Date/Time: 2026-07-25 (UTC+8)
+Version: app-v0.2.1-sixv-movie-discovery
+Scope: Replace the adult resource feed with an offline-first SixV movie discovery and detail experience
+Modules: magnet/resource_index/{adapters/sixv/parser.py,pipeline/movie_cover_assets.py,store/movie_repository.py,store/sql/0005_movie_cover_assets.sql,cli.py,config.py}, deploy/resource-index/**, magnetgoogo-app/{app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/core/resource*,plugins/with-resource-feed.js,scripts/*resource*}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
+
+### Product result
+- Removed JavBus/number-code/adult content from the App resource module.
+- Added a minimalist movie discovery page with 9 recommended movies and 41 recent movies.
+- Added an offline movie detail page with synopsis, metadata, cast, ratings, quality tags, Baidu/Quark/Xunlei/magnet actions and search-more flow.
+- Hid raw cloud URLs from the UI while retaining extraction codes and one-tap opening.
+
+### Offline cover pipeline
+- Added schema 0005 and stored all 50 compressed covers as SQLite BLOBs with MIME, SHA-256, dimensions and timestamps.
+- First cover sync downloaded 50/50; repeat sync made 0 HTTP requests.
+- Exported a 50-cover App bundle and removed the legacy JavBus Android asset during prebuild.
+- Deleted the temporary Cloudflare cover Worker; the final design has no runtime image proxy dependency.
+
+### Verification
+- Resource Index 122/122; all magnet Python tests 197/197; baseline enum 241/241.
+- PowerShell 4/4; TypeScript PASS; movie feed PASS; App adversarial 34/34; fluency 17/17.
+- Expo Android export 1407 modules / HBC 4.78 MB; Gradle build PASS.
+- K30S showed local posters, correct recommendation titles, movie detail and all resource providers; no adult terms, raw cloud URLs or fatal crashes.
+
+### Release state
+- v0.2.1 remains development-only. No tag, formal APK release or remote configuration deployment.
+---
+
+---
+Date/Time: 2026-07-25 (UTC+8)
 Version: app-v0.2.1-resource-tabs
 Scope: Add three-tab navigation and integrate the crawled latest-resource feed without publishing data files
 Modules: magnetgoogo-app/app/(tabs)/**, magnetgoogo-app/src/core/{resourceCopy.ts,resourceFeed.ts,resourceFeedProtocol.ts}, magnetgoogo-app/plugins/with-resource-feed.js, magnetgoogo-app/scripts/{app-adversarial-tests.mjs,resource-feed-tests.mjs}, magnetgoogo-app/{app.json,package.json}, .gitignore, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}

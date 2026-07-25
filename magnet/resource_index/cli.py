@@ -14,6 +14,10 @@ from magnet.resource_index.observability.events import log_event, setup_logging
 from magnet.resource_index.pipeline.export_feed import export_adult_feed
 from magnet.resource_index.pipeline.ingest import ingest_fixture
 from magnet.resource_index.pipeline.ingest_live import ingest_live
+from magnet.resource_index.pipeline.movie_cover_assets import (
+    export_movie_app_bundle,
+    sync_movie_covers,
+)
 from magnet.resource_index.pipeline.latest_crawl import (
     LatestCrawlPaths,
     LatestCrawlRunner,
@@ -304,6 +308,47 @@ def cmd_crawl_latest(args: argparse.Namespace) -> int:
         repo.close()
 
 
+def cmd_sync_movie_covers(args: argparse.Namespace) -> int:
+    if not args.yes:
+        print("error_code=LIVE_POLICY_NOT_ACKNOWLEDGED", file=sys.stderr)
+        print("message=pass --yes to acknowledge movie cover downloads", file=sys.stderr)
+        return 1
+    repo = SqliteResourceRepository(args.db)
+    try:
+        result = sync_movie_covers(
+            repo,
+            source_id=args.source,
+            delay_seconds=args.delay,
+            timeout_seconds=args.timeout,
+        )
+        _print_json(result.__dict__, pretty=True)
+        return 0 if result.failed == 0 else 2
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        return 1
+    finally:
+        repo.close()
+
+
+def cmd_export_movie_app_bundle(args: argparse.Namespace) -> int:
+    repo = SqliteResourceRepository(args.db)
+    try:
+        result = export_movie_app_bundle(
+            repo,
+            feed_path=args.feed,
+            output_dir=args.output_dir,
+        )
+        _print_json(result.__dict__, pretty=True)
+        return 0
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        return 1
+    finally:
+        repo.close()
+
+
 def cmd_crawl(args: argparse.Namespace) -> int:
     """Live crawl a source into the resource index DB."""
     if not args.yes:
@@ -473,6 +518,26 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--yes", action="store_true")
     s.add_argument("--log", default=None)
     s.set_defaults(func=cmd_crawl_latest)
+
+    s = sub.add_parser(
+        "sync-movie-covers",
+        help="Download missing SixV movie covers into SQLite",
+    )
+    s.add_argument("--source", default="sixv")
+    s.add_argument("--db", required=True)
+    s.add_argument("--delay", type=float, default=1.5)
+    s.add_argument("--timeout", type=float, default=30.0)
+    s.add_argument("--yes", action="store_true")
+    s.set_defaults(func=cmd_sync_movie_covers)
+
+    s = sub.add_parser(
+        "export-movie-app-bundle",
+        help="Export the SixV movie feed and SQLite covers for App bundling",
+    )
+    s.add_argument("--db", required=True)
+    s.add_argument("--feed", required=True)
+    s.add_argument("--output-dir", required=True)
+    s.set_defaults(func=cmd_export_movie_app_bundle)
 
     s = sub.add_parser(
         "crawl",

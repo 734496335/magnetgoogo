@@ -6,66 +6,137 @@ export interface ResourceCopy {
   tabSettings: string;
   title: string;
   subtitle: (count: number) => string;
-  tapHint: string;
+  recommendedTitle: string;
+  latestTitle: string;
+  updatedAt: string;
   loading: string;
   emptyTitle: string;
   emptyBody: string;
   retry: string;
-  updatedAt: string;
   minutes: (value: number) => string;
+  rating: (value: number) => string;
   resourceCount: (value: number) => string;
-  searchAction: string;
-  sourceBundled: string;
-  sourceRemote: string;
+  recommendation: string;
+  detailSynopsis: string;
+  detailInfo: string;
+  detailCast: string;
+  detailResources: string;
+  detailDirector: string;
+  detailActors: string;
+  detailCountry: string;
+  detailLanguage: string;
+  detailRelease: string;
+  searchMore: string;
+  openResource: string;
+  cloudResourceHint: string;
+  extractionCode: string;
+  extractionCodeCopied: string;
+  magnetCopied: string;
+  movieNotFound: string;
+  noSynopsis: string;
+  back: string;
+  openFailed: string;
+  providerMagnet: string;
+  providerXunlei: string;
+  providerQuark: string;
+  providerBaidu: string;
 }
 
 const EN: ResourceCopy = {
   tabSearch: 'Search',
-  tabResources: 'Resources',
+  tabResources: 'Movies',
   tabSettings: 'Settings',
-  title: 'Latest Resources',
-  subtitle: (count) => `${count} items in source order`,
-  tapHint: 'Tap any card to search its code',
-  loading: 'Loading latest resources…',
-  emptyTitle: 'No resources available',
-  emptyBody: 'Refresh later or check the resource feed configuration.',
-  retry: 'Retry',
+  title: 'Movies',
+  subtitle: (count) => `${count} recent releases`,
+  recommendedTitle: 'Recommended',
+  latestTitle: 'Recently added',
   updatedAt: 'Updated',
+  loading: 'Loading movies…',
+  emptyTitle: 'No movies available',
+  emptyBody: 'The movie snapshot is unavailable. Rebuild the App bundle and try again.',
+  retry: 'Retry',
   minutes: (value) => `${value} min`,
+  rating: (value) => `${value.toFixed(1)}`,
   resourceCount: (value) => `${value} links`,
-  searchAction: 'Search',
-  sourceBundled: 'Built-in snapshot',
-  sourceRemote: 'Live feed',
+  recommendation: 'Pick',
+  detailSynopsis: 'Story',
+  detailInfo: 'Details',
+  detailCast: 'Cast & crew',
+  detailResources: 'Available links',
+  detailDirector: 'Director',
+  detailActors: 'Cast',
+  detailCountry: 'Country',
+  detailLanguage: 'Language',
+  detailRelease: 'Release',
+  searchMore: 'Search for more',
+  openResource: 'Open',
+  cloudResourceHint: 'Cloud storage link',
+  extractionCode: 'Access code',
+  extractionCodeCopied: 'Access code copied',
+  magnetCopied: 'Magnet link copied',
+  movieNotFound: 'Movie not found',
+  noSynopsis: 'No synopsis available',
+  back: 'Back',
+  openFailed: 'Unable to open this link',
+  providerMagnet: 'Magnet',
+  providerXunlei: 'Xunlei',
+  providerQuark: 'Quark',
+  providerBaidu: 'Baidu Netdisk',
+};
+
+const ZH: ResourceCopy = {
+  tabSearch: '搜索',
+  tabResources: '资源',
+  tabSettings: '设置',
+  title: '影视',
+  subtitle: (count) => `最近更新 ${count} 部`,
+  recommendedTitle: '值得一看',
+  latestTitle: '最近更新',
+  updatedAt: '更新于',
+  loading: '正在加载影视…',
+  emptyTitle: '暂无影视内容',
+  emptyBody: '本地影视数据未准备完成，请重新构建 App 后再试。',
+  retry: '重新加载',
+  minutes: (value) => `${value} 分钟`,
+  rating: (value) => `${value.toFixed(1)}`,
+  resourceCount: (value) => `${value} 个资源`,
+  recommendation: '推荐',
+  detailSynopsis: '剧情简介',
+  detailInfo: '影片信息',
+  detailCast: '主创阵容',
+  detailResources: '播放与下载',
+  detailDirector: '导演',
+  detailActors: '主演',
+  detailCountry: '国家地区',
+  detailLanguage: '语言',
+  detailRelease: '上映',
+  searchMore: '搜索更多资源',
+  openResource: '打开',
+  cloudResourceHint: '点击打开云盘资源',
+  extractionCode: '提取码',
+  extractionCodeCopied: '提取码已复制',
+  magnetCopied: '磁力链接已复制',
+  movieNotFound: '影片不存在',
+  noSynopsis: '暂无简介',
+  back: '返回',
+  openFailed: '无法打开该链接',
+  providerMagnet: '磁力',
+  providerXunlei: '迅雷',
+  providerQuark: '夸克',
+  providerBaidu: '百度网盘',
 };
 
 const COPY: Record<Lang, ResourceCopy> = {
-  zh: {
-    tabSearch: '搜索',
-    tabResources: '资源',
-    tabSettings: '设置',
-    title: '最新资源',
-    subtitle: (count) => `按来源顺序展示最新 ${count} 条`,
-    tapHint: '点击任意卡片，直接搜索对应番号',
-    loading: '正在加载最新资源…',
-    emptyTitle: '暂时没有可展示的资源',
-    emptyBody: '请稍后刷新，或检查资源 Feed 配置。',
-    retry: '重新加载',
-    updatedAt: '更新于',
-    minutes: (value) => `${value} 分钟`,
-    resourceCount: (value) => `${value} 个磁力`,
-    searchAction: '搜索',
-    sourceBundled: '内置快照',
-    sourceRemote: '在线数据',
-  },
+  zh: ZH,
   en: EN,
-  es: { ...EN, tabSearch: 'Buscar', tabResources: 'Recursos', tabSettings: 'Ajustes', title: 'Recursos recientes' },
-  ru: { ...EN, tabSearch: 'Поиск', tabResources: 'Ресурсы', tabSettings: 'Настройки', title: 'Новые ресурсы' },
-  pt: { ...EN, tabSearch: 'Buscar', tabResources: 'Recursos', tabSettings: 'Configurações', title: 'Recursos recentes' },
-  ja: { ...EN, tabSearch: '検索', tabResources: 'リソース', tabSettings: '設定', title: '最新リソース', searchAction: '検索' },
-  ko: { ...EN, tabSearch: '검색', tabResources: '리소스', tabSettings: '설정', title: '최신 리소스', searchAction: '검색' },
-  fr: { ...EN, tabSearch: 'Recherche', tabResources: 'Ressources', tabSettings: 'Réglages', title: 'Ressources récentes' },
-  de: { ...EN, tabSearch: 'Suche', tabResources: 'Ressourcen', tabSettings: 'Einstellungen', title: 'Neueste Ressourcen' },
-  ar: { ...EN, tabSearch: 'بحث', tabResources: 'الموارد', tabSettings: 'الإعدادات', title: 'أحدث الموارد', searchAction: 'بحث' },
+  es: { ...EN, tabSearch: 'Buscar', tabResources: 'Películas', tabSettings: 'Ajustes' },
+  ru: { ...EN, tabSearch: 'Поиск', tabResources: 'Фильмы', tabSettings: 'Настройки' },
+  pt: { ...EN, tabSearch: 'Buscar', tabResources: 'Filmes', tabSettings: 'Configurações' },
+  ja: { ...EN, tabSearch: '検索', tabResources: '映画', tabSettings: '設定' },
+  ko: { ...EN, tabSearch: '검색', tabResources: '영화', tabSettings: '설정' },
+  fr: { ...EN, tabSearch: 'Recherche', tabResources: 'Films', tabSettings: 'Réglages' },
+  de: { ...EN, tabSearch: 'Suche', tabResources: 'Filme', tabSettings: 'Einstellungen' },
+  ar: { ...EN, tabSearch: 'بحث', tabResources: 'أفلام', tabSettings: 'الإعدادات' },
 };
 
 export function getResourceCopy(lang: Lang): ResourceCopy {

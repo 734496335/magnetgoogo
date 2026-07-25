@@ -1,10 +1,10 @@
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
   FlatList,
   Image,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -15,108 +15,154 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLang } from '../../src/core/LangContext';
 import { useTheme, type Colors } from '../../src/core/ThemeContext';
-import { addHistory } from '../../src/core/searchHistory';
 import { getResourceCopy } from '../../src/core/resourceCopy';
-import { loadResourceFeed, type ResourceFeedOrigin } from '../../src/core/resourceFeed';
+import { loadResourceFeed, movieCoverUri } from '../../src/core/resourceFeed';
 import {
   resourceFeedItemKey,
-  type ResourceFeed,
-  type ResourceFeedItem,
+  type MovieFeed,
+  type MovieFeedItem,
 } from '../../src/core/resourceFeedProtocol';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const PAGE_PADDING = 16;
-const CARD_GAP = 12;
-const CARD_WIDTH = (SCREEN_WIDTH - PAGE_PADDING * 2 - CARD_GAP) / 2;
-const COVER_HEIGHT = Math.round(CARD_WIDTH * 1.38);
+const RECOMMENDED_WIDTH = 158;
+const RECOMMENDED_COVER_HEIGHT = 224;
+const ROW_COVER_WIDTH = 86;
+const ROW_COVER_HEIGHT = 122;
 
-interface ResourceCardProps {
-  item: ResourceFeedItem;
+interface PosterProps {
+  item: MovieFeedItem;
+  style: object;
   colors: Colors;
-  minutesLabel: (value: number) => string;
-  resourceCountLabel: (value: number) => string;
-  searchLabel: string;
-  onOpen: (code: string) => void;
 }
 
-const ResourceCard = memo(function ResourceCard({
+const MoviePoster = memo(function MoviePoster({ item, style, colors }: PosterProps) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <View style={[style, styles.posterShell, { backgroundColor: colors.chipBg }]}>
+      {failed ? (
+        <View style={styles.posterFallback}>
+          <Ionicons name="film-outline" size={30} color={colors.textTertiary} />
+        </View>
+      ) : (
+        <Image
+          source={{ uri: movieCoverUri(item) }}
+          style={styles.posterImage}
+          resizeMode="cover"
+          fadeDuration={120}
+          onError={() => setFailed(true)}
+        />
+      )}
+    </View>
+  );
+});
+
+interface RecommendedCardProps {
+  item: MovieFeedItem;
+  colors: Colors;
+  recommendation: string;
+  onOpen: (movieId: string) => void;
+}
+
+const RecommendedCard = memo(function RecommendedCard({
   item,
   colors,
-  minutesLabel,
-  resourceCountLabel,
-  searchLabel,
+  recommendation,
   onOpen,
-}: ResourceCardProps) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const handleOpen = useCallback(() => onOpen(item.content_code), [item.content_code, onOpen]);
-  const people = item.people.slice(0, 2).map((person) => person.display_name).join(' · ');
-  const metadata = [
-    item.release_date,
-    item.duration_minutes === null ? null : minutesLabel(item.duration_minutes),
-  ].filter(Boolean).join(' · ');
-
+}: RecommendedCardProps) {
+  const open = useCallback(() => onOpen(item.movie_id), [item.movie_id, onOpen]);
   return (
     <TouchableOpacity
-      style={[
-        styles.card,
-        {
-          width: CARD_WIDTH,
-          backgroundColor: colors.card,
-          borderColor: colors.border,
-          shadowColor: colors.shadow,
-        },
-      ]}
-      activeOpacity={0.82}
-      onPress={handleOpen}
+      style={styles.recommendedCard}
+      activeOpacity={0.86}
+      onPress={open}
       accessibilityRole="button"
-      accessibilityLabel={`${item.content_code} ${searchLabel}`}
+      accessibilityLabel={item.title}
     >
-      <View style={[styles.coverWrap, { height: COVER_HEIGHT, backgroundColor: colors.chipBg }]}>
-        {imageFailed ? (
-          <View style={styles.coverFallback}>
-            <Ionicons name="image-outline" size={34} color={colors.textTertiary} />
+      <View style={styles.recommendedPosterWrap}>
+        <MoviePoster
+          item={item}
+          colors={colors}
+          style={{ width: RECOMMENDED_WIDTH, height: RECOMMENDED_COVER_HEIGHT }}
+        />
+        <View style={styles.recommendBadge}>
+          <Text style={styles.recommendBadgeText}>{recommendation}</Text>
+        </View>
+        {item.douban_rating !== null && (
+          <View style={styles.ratingBadge}>
+            <Ionicons name="star" size={11} color="#facc15" />
+            <Text style={styles.ratingBadgeText}>{item.douban_rating.toFixed(1)}</Text>
           </View>
-        ) : (
-          <Image
-            source={{ uri: item.cover_source_url }}
-            style={styles.cover}
-            resizeMode="cover"
-            onError={() => setImageFailed(true)}
-          />
         )}
-        <View style={styles.rankBadge}>
-          <Text style={styles.rankText}>#{item.rank}</Text>
-        </View>
-        <View style={styles.searchBadge}>
-          <Ionicons name="search" size={12} color="#fff" />
-          <Text style={styles.searchBadgeText}>{searchLabel}</Text>
-        </View>
       </View>
+      <Text style={[styles.recommendedTitle, { color: colors.text }]} numberOfLines={2}>
+        {item.title}
+      </Text>
+      <Text style={[styles.recommendedMeta, { color: colors.textTertiary }]} numberOfLines={1}>
+        {[item.year, item.genres.slice(0, 2).join(' · ')].filter(Boolean).join(' · ')}
+      </Text>
+    </TouchableOpacity>
+  );
+});
 
-      <View style={styles.cardBody}>
-        <Text style={[styles.code, { color: colors.accent }]} numberOfLines={1}>
-          {item.content_code}
-        </Text>
-        <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
+interface MovieRowProps {
+  item: MovieFeedItem;
+  colors: Colors;
+  minutesLabel: (value: number) => string;
+  resourceLabel: (value: number) => string;
+  onOpen: (movieId: string) => void;
+}
+
+const MovieRow = memo(function MovieRow({ item, colors, minutesLabel, resourceLabel, onOpen }: MovieRowProps) {
+  const open = useCallback(() => onOpen(item.movie_id), [item.movie_id, onOpen]);
+  const metadata = [
+    item.year,
+    item.genres.slice(0, 2).join(' · '),
+    item.duration_minutes ? minutesLabel(item.duration_minutes) : null,
+  ].filter(Boolean).join(' · ');
+  const visibleTags = item.quality_tags.slice(0, 3);
+  return (
+    <TouchableOpacity
+      style={[styles.movieRow, { borderBottomColor: colors.border }]}
+      activeOpacity={0.72}
+      onPress={open}
+      accessibilityRole="button"
+      accessibilityLabel={item.title}
+    >
+      <MoviePoster
+        item={item}
+        colors={colors}
+        style={{ width: ROW_COVER_WIDTH, height: ROW_COVER_HEIGHT }}
+      />
+      <View style={styles.movieInfo}>
+        <Text style={[styles.movieTitle, { color: colors.text }]} numberOfLines={2}>
           {item.title}
         </Text>
-        {!!people && (
-          <Text style={[styles.people, { color: colors.textSecondary }]} numberOfLines={1}>
-            {people}
-          </Text>
-        )}
         {!!metadata && (
-          <Text style={[styles.meta, { color: colors.textTertiary }]} numberOfLines={1}>
+          <Text style={[styles.movieMeta, { color: colors.textTertiary }]} numberOfLines={1}>
             {metadata}
           </Text>
         )}
-        <View style={styles.cardFooter}>
-          <Ionicons name="magnet-outline" size={13} color={colors.textTertiary} />
-          <Text style={[styles.resourceCount, { color: colors.textTertiary }]}>
-            {resourceCountLabel(item.resource_count)}
+        <View style={styles.tagRow}>
+          {visibleTags.map((tag) => (
+            <View key={tag} style={[styles.qualityTag, { backgroundColor: colors.tagBg }]}>
+              <Text style={[styles.qualityTagText, { color: colors.tagText }]}>{tag}</Text>
+            </View>
+          ))}
+        </View>
+        <View style={styles.rowFooter}>
+          {item.douban_rating !== null && (
+            <View style={styles.inlineRating}>
+              <Ionicons name="star" size={12} color="#f59e0b" />
+              <Text style={[styles.inlineRatingText, { color: colors.textSecondary }]}>
+                {item.douban_rating.toFixed(1)}
+              </Text>
+            </View>
+          )}
+          <Text style={[styles.resourceText, { color: colors.textTertiary }]}>
+            {resourceLabel(item.resources.length)}
           </Text>
         </View>
       </View>
+      <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
     </TouchableOpacity>
   );
 });
@@ -127,8 +173,7 @@ export default function ResourcesScreen() {
   const { lang } = useLang();
   const { colors } = useTheme();
   const copy = getResourceCopy(lang);
-  const [feed, setFeed] = useState<ResourceFeed | null>(null);
-  const [origin, setOrigin] = useState<ResourceFeedOrigin | null>(null);
+  const [feed, setFeed] = useState<MovieFeed | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -140,11 +185,10 @@ export default function ResourcesScreen() {
     try {
       const loaded = await loadResourceFeed(forceRefresh);
       setFeed(loaded.feed);
-      setOrigin(loaded.origin);
     } catch (error) {
       console.warn('[ResourcesScreen]', {
-        stage: 'load_feed',
-        error_code: 'RESOURCE_FEED_LOAD_FAILED',
+        stage: 'load_movie_feed',
+        error_code: 'MOVIE_FEED_LOAD_FAILED',
         error: error instanceof Error ? error.message : String(error),
       });
       setFailed(true);
@@ -158,74 +202,85 @@ export default function ResourcesScreen() {
     void load(false);
   }, [load]);
 
-  const handleOpen = useCallback(async (code: string) => {
-    try {
-      await addHistory(code);
-    } catch (error) {
-      console.warn('[ResourcesScreen]', {
-        stage: 'save_history',
-        error_code: 'RESOURCE_HISTORY_SAVE_FAILED',
-        query: code,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-    router.push({ pathname: '/search', params: { q: code } });
+  const openMovie = useCallback((movieId: string) => {
+    router.push({
+      pathname: '/movie/[movieId]',
+      params: { movieId },
+    });
   }, [router]);
 
+  const recommended = useMemo(
+    () => feed?.items.filter((item) => item.recommended) ?? [],
+    [feed?.items],
+  );
+  const recent = useMemo(
+    () => feed?.items.filter((item) => !item.recommended) ?? [],
+    [feed?.items],
+  );
   const generatedAt = useMemo(() => {
-    if (!feed?.summary.generated_at) return '';
-    const date = new Date(feed.summary.generated_at);
-    if (Number.isNaN(date.getTime())) return feed.summary.generated_at;
-    return date.toLocaleString(lang === 'zh' ? 'zh-CN' : lang, {
+    if (!feed?.generated_at) return '';
+    const date = new Date(feed.generated_at);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleDateString(lang === 'zh' ? 'zh-CN' : lang, {
       month: '2-digit',
       day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
     });
-  }, [feed?.summary.generated_at, lang]);
+  }, [feed?.generated_at, lang]);
 
-  const renderItem = useCallback(({ item }: { item: ResourceFeedItem }) => (
-    <ResourceCard
+  const renderRecommended = useCallback((item: MovieFeedItem) => (
+    <RecommendedCard
+      key={item.movie_id}
+      item={item}
+      colors={colors}
+      recommendation={copy.recommendation}
+      onOpen={openMovie}
+    />
+  ), [colors, copy.recommendation, openMovie]);
+
+  const renderItem = useCallback(({ item }: { item: MovieFeedItem }) => (
+    <MovieRow
       item={item}
       colors={colors}
       minutesLabel={copy.minutes}
-      resourceCountLabel={copy.resourceCount}
-      searchLabel={copy.searchAction}
-      onOpen={handleOpen}
+      resourceLabel={copy.resourceCount}
+      onOpen={openMovie}
     />
-  ), [colors, copy.minutes, copy.resourceCount, copy.searchAction, handleOpen]);
+  ), [colors, copy.minutes, copy.resourceCount, openMovie]);
 
   const header = useMemo(() => (
-    <View style={styles.headerBlock}>
-      <View style={styles.titleRow}>
-        <View style={styles.titleGroup}>
+    <View>
+      <View style={styles.pageHeader}>
+        <View>
           <Text style={[styles.pageTitle, { color: colors.text }]}>{copy.title}</Text>
-          <Text style={[styles.subtitle, { color: colors.textTertiary }]}>
+          <Text style={[styles.pageSubtitle, { color: colors.textTertiary }]}>
             {copy.subtitle(feed?.items.length ?? 0)}
           </Text>
         </View>
-        {origin && (
-          <View style={[styles.originChip, { backgroundColor: colors.tagBg }]}>
-            <View style={[styles.originDot, { backgroundColor: origin === 'remote' ? '#22c55e' : '#f59e0b' }]} />
-            <Text style={[styles.originText, { color: colors.tagText }]}>
-              {origin === 'remote' ? copy.sourceRemote : copy.sourceBundled}
-            </Text>
-          </View>
+        {!!generatedAt && (
+          <Text style={[styles.updatedAt, { color: colors.textTertiary }]}>
+            {copy.updatedAt} {generatedAt}
+          </Text>
         )}
       </View>
 
-      <View style={[styles.hint, { backgroundColor: colors.chipBg }]}>
-        <Ionicons name="sparkles-outline" size={17} color={colors.accent} />
-        <Text style={[styles.hintText, { color: colors.textSecondary }]}>{copy.tapHint}</Text>
-      </View>
-
-      {!!generatedAt && (
-        <Text style={[styles.updatedAt, { color: colors.textTertiary }]}>
-          {copy.updatedAt} {generatedAt}
-        </Text>
+      {recommended.length > 0 && (
+        <View style={styles.recommendedSection}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{copy.recommendedTitle}</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.recommendedContent}
+          >
+            {recommended.map(renderRecommended)}
+          </ScrollView>
+        </View>
       )}
+
+      <Text style={[styles.sectionTitle, styles.latestTitle, { color: colors.text }]}>
+        {copy.latestTitle}
+      </Text>
     </View>
-  ), [colors, copy, feed?.items.length, generatedAt, origin]);
+  ), [colors, copy, feed?.items.length, generatedAt, recommended, renderRecommended]);
 
   if (loading && !feed) {
     return (
@@ -240,11 +295,14 @@ export default function ResourcesScreen() {
     return (
       <View style={[styles.center, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
         <View style={[styles.emptyIcon, { backgroundColor: colors.chipBg }]}>
-          <Ionicons name="albums-outline" size={34} color={colors.textTertiary} />
+          <Ionicons name="film-outline" size={34} color={colors.textTertiary} />
         </View>
         <Text style={[styles.emptyTitle, { color: colors.text }]}>{copy.emptyTitle}</Text>
         <Text style={[styles.emptyBody, { color: colors.textTertiary }]}>{copy.emptyBody}</Text>
-        <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.accent }]} onPress={() => void load(true)}>
+        <TouchableOpacity
+          style={[styles.retryButton, { backgroundColor: colors.accent }]}
+          onPress={() => void load(true)}
+        >
           <Text style={styles.retryText}>{copy.retry}</Text>
         </TouchableOpacity>
       </View>
@@ -254,11 +312,9 @@ export default function ResourcesScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
       <FlatList
-        data={feed?.items ?? []}
+        data={recent}
         renderItem={renderItem}
         keyExtractor={resourceFeedItemKey}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
         ListHeaderComponent={header}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -289,86 +345,74 @@ const styles = StyleSheet.create({
     paddingHorizontal: 36,
   },
   loadingText: { marginTop: 14, fontSize: 14 },
-  listContent: {
-    paddingHorizontal: PAGE_PADDING,
-    paddingBottom: 24,
-  },
-  row: {
-    justifyContent: 'space-between',
-    marginBottom: CARD_GAP,
-  },
-  headerBlock: {
-    paddingTop: 12,
-    paddingBottom: 16,
-  },
-  titleRow: {
+  listContent: { paddingBottom: 28 },
+  pageHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 22,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
   },
-  titleGroup: { flex: 1, paddingRight: 10 },
-  pageTitle: { fontSize: 26, fontWeight: '800', letterSpacing: -0.4 },
-  subtitle: { marginTop: 5, fontSize: 13 },
-  originChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
+  pageTitle: { fontSize: 31, fontWeight: '800', letterSpacing: -0.8 },
+  pageSubtitle: { marginTop: 5, fontSize: 13 },
+  updatedAt: { fontSize: 11, marginBottom: 2 },
+  recommendedSection: { marginBottom: 24 },
+  sectionTitle: {
+    paddingHorizontal: 20,
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
-  originDot: { width: 6, height: 6, borderRadius: 3, marginRight: 5 },
-  originText: { fontSize: 10, fontWeight: '700' },
-  hint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginTop: 14,
-  },
-  hintText: { flex: 1, marginLeft: 8, fontSize: 12, lineHeight: 18 },
-  updatedAt: { marginTop: 9, fontSize: 11 },
-  card: {
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  coverWrap: { width: '100%', position: 'relative', overflow: 'hidden' },
-  cover: { width: '100%', height: '100%' },
-  coverFallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  rankBadge: {
+  latestTitle: { marginBottom: 4 },
+  recommendedContent: { paddingHorizontal: 20, paddingTop: 12, paddingRight: 8 },
+  recommendedCard: { width: RECOMMENDED_WIDTH, marginRight: 13 },
+  recommendedPosterWrap: { position: 'relative' },
+  posterShell: { borderRadius: 13, overflow: 'hidden' },
+  posterImage: { width: '100%', height: '100%' },
+  posterFallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  recommendBadge: {
     position: 'absolute',
     top: 8,
     left: 8,
-    backgroundColor: 'rgba(17,24,39,0.78)',
-    borderRadius: 8,
+    borderRadius: 7,
     paddingHorizontal: 7,
     paddingVertical: 4,
+    backgroundColor: '#ef4444',
   },
-  rankText: { color: '#fff', fontSize: 10, fontWeight: '800' },
-  searchBadge: {
+  recommendBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  ratingBadge: {
     position: 'absolute',
     right: 8,
     bottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(66,133,244,0.92)',
-    borderRadius: 10,
+    borderRadius: 8,
     paddingHorizontal: 7,
     paddingVertical: 5,
+    backgroundColor: 'rgba(15,23,42,0.84)',
   },
-  searchBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700', marginLeft: 3 },
-  cardBody: { minHeight: 126, padding: 10 },
-  code: { fontSize: 13, fontWeight: '800', letterSpacing: 0.2 },
-  title: { marginTop: 5, fontSize: 12, lineHeight: 17, fontWeight: '600' },
-  people: { marginTop: 6, fontSize: 10 },
-  meta: { marginTop: 4, fontSize: 10 },
-  cardFooter: { flexDirection: 'row', alignItems: 'center', marginTop: 'auto', paddingTop: 8 },
-  resourceCount: { marginLeft: 4, fontSize: 10, fontWeight: '600' },
+  ratingBadgeText: { color: '#fff', marginLeft: 3, fontSize: 11, fontWeight: '800' },
+  recommendedTitle: { marginTop: 9, fontSize: 14, lineHeight: 19, fontWeight: '700' },
+  recommendedMeta: { marginTop: 4, fontSize: 11 },
+  movieRow: {
+    minHeight: 146,
+    marginHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  movieInfo: { flex: 1, alignSelf: 'stretch', marginLeft: 13, paddingVertical: 2 },
+  movieTitle: { fontSize: 16, lineHeight: 22, fontWeight: '700' },
+  movieMeta: { marginTop: 6, fontSize: 11 },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 9 },
+  qualityTag: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3, marginRight: 5, marginBottom: 4 },
+  qualityTagText: { fontSize: 9, fontWeight: '700' },
+  rowFooter: { marginTop: 'auto', flexDirection: 'row', alignItems: 'center' },
+  inlineRating: { flexDirection: 'row', alignItems: 'center' },
+  inlineRatingText: { marginLeft: 3, fontSize: 11, fontWeight: '700' },
+  resourceText: { marginLeft: 10, fontSize: 10 },
   emptyIcon: {
     width: 72,
     height: 72,

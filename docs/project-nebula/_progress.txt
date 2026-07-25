@@ -1,30 +1,27 @@
-Current phase: App v0.2.1 RESOURCE TAB K30S PASS / NOT RELEASED 2026-07-25
+Current phase: App v0.2.1 SIXV MOVIE DISCOVERY K30S PASS / NOT RELEASED 2026-07-25
 
 ## Completed
-- Bottom navigation now has exactly three tabs: Search, Resources and Settings.
-- Original search home remains the Search tab; original settings functions remain the Settings tab.
-- Resources tab renders a two-column ranked feed with cover, code, title, people, date, duration and link count.
-- Tapping a resource records history and enters the existing `/search?q=<content_code>` flow.
-- Resource feed loading is remote-first with a bundled Android asset fallback.
-- Strict feed parsing rejects invalid shape, count mismatch and non-continuous ranking.
-- Android config plugin injects only `javbus_latest_100_feed.json`; SQLite is not packaged.
-- Android development build number is now versionCode 5; app version remains 0.2.1.
-
-## Data boundary
-- Local feed passes: 100 source records / 97 canonical contents / 3 duplicate observations.
-- Feed contains 299 unique resources and 309 resource observations; zero records lack resources.
-- `/data/resource_index/` is Git-ignored; feed, URL snapshot and SQLite remain uncommitted.
-- `resourceFeedUrl` is intentionally empty, so the current build shows the bundled snapshot.
+- Bottom navigation remains Search / Resources / Settings.
+- Resources no longer consumes or displays the JavBus adult feed.
+- SixV latest feed is the only App movie source: 50 movies / 9 recommended / 134 resources.
+- Resources UI is now minimalist: horizontal recommendations plus a recent-movie list.
+- Movie detail shows poster, rating, synopsis, metadata, cast and download/search actions.
+- Baidu, Quark, Xunlei and magnet resources are supported; cloud URLs stay visually hidden.
+- Movie titles and malformed split genres are normalized in the SixV parser/export layer.
+- Schema 0005 stores 50 compressed movie covers as SQLite BLOBs.
+- Cover sync is idempotent: second run made 0 HTTP requests.
+- App bundle exports 50 local covers; phones do not access SixV/JavBus image hosts.
+- Android plugin removes legacy JavBus assets and injects only the SixV offline bundle.
+- Temporary resource-cover Cloudflare Worker was deleted and is not part of the design.
 
 ## Verification
-- TypeScript -> PASS; App adversarial suite -> 33/33 PASS.
-- Fluency suite -> 17/17 PASS; resource feed suite -> PASS.
-- Expo Android export -> 1406 modules, HBC 4.76 MB.
-- Gradle unit/debug build -> BUILD SUCCESSFUL; plugin bundled 100 items.
-- K30S install -> Success, versionCode 5.
-- K30S UI shows three tabs and “内置快照 / 最新100条”; first card is MY-1065.
-- Tapping MY-1065 started the existing SearchKeepAlive search path; no fatal crash.
+- Resource Index focused tests: 122/122 PASS; all magnet tests: 197/197 PASS.
+- SixV baseline enum validation: 241/241; PowerShell scripts: 4/4 parse PASS.
+- TypeScript PASS; movie feed contract PASS; App adversarial 34/34; fluency 17/17.
+- Expo export: 1407 modules / HBC 4.78 MB; Gradle: BUILD SUCCESSFUL.
+- K30S install PASS; local posters render with non-placeholder pixel variance.
+- K30S shows 影视 / 值得一看 / 最近更新 and no adult/JavBus terms.
+- 寒战1994 detail shows all metadata and 6 resources without exposing raw cloud URLs.
 
 ## Remaining before release
-- Deploy the feed to stable HTTPS and configure `resourceFeedUrl` for live refresh.
-- Run final v0.2.1 full release acceptance; SQLite-backed in-app detail is deferred.
+- Run final signed v0.2.1 release acceptance; do not tag, publish or deploy yet.

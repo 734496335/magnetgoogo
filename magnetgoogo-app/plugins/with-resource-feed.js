@@ -9,57 +9,99 @@ const TARGET_RELATIVE = path.join(
   'main',
   'assets',
   'resource-index',
+  'sixv',
+);
+const LEGACY_ADULT_FEED_RELATIVE = path.join(
+  'android',
+  'app',
+  'src',
+  'main',
+  'assets',
+  'resource-index',
   'javbus_latest_100_feed.json',
 );
 
 const EMPTY_FEED = {
-  summary: {
-    generated_at: '1970-01-01T00:00:00.000Z',
-    source_id: 'unconfigured',
-    record_count: 0,
-    canonical_content_count: 0,
-    content_observation_count: 0,
-    resource_count: 0,
-    resource_observation_count: 0,
-    people_count: 0,
-    tag_count: 0,
-    records_without_resources: 0,
-    missing_urls: [],
-    running_runs: 0,
-    partial_runs: 0,
-  },
+  schema_version: 'movie-app-feed/1',
+  source_id: 'sixv',
+  generated_at: '1970-01-01T00:00:00.000Z',
+  snapshot_captured_at: null,
   items: [],
+  summary: {
+    record_count: 0,
+    target_count: 0,
+    recommended_count: 0,
+    resource_count: 0,
+    missing_urls: [],
+    snapshot_http_requests: 0,
+    detail_http_requests: 0,
+    database_movie_count: 0,
+    cover_count: 0,
+    offline_ready: true,
+  },
 };
 
 function resolveSource(projectRoot) {
-  const configured = process.env.RESOURCE_FEED_PATH;
+  const configured = process.env.MOVIE_APP_BUNDLE_PATH || process.env.RESOURCE_FEED_PATH;
   if (configured) {
     return path.isAbsolute(configured) ? configured : path.resolve(projectRoot, configured);
   }
-  return path.resolve(projectRoot, '..', 'data', 'resource_index', 'javbus_latest_100_feed.json');
+  return path.resolve(projectRoot, '..', 'data', 'resource_index', 'sixv_app_bundle');
 }
 
-function validateFeed(raw, sourcePath) {
+function readAndValidateFeed(sourceDir) {
+  const feedPath = path.join(sourceDir, 'feed.json');
   let payload;
   try {
-    payload = JSON.parse(raw);
+    payload = JSON.parse(fs.readFileSync(feedPath, 'utf8'));
   } catch (error) {
-    throw new Error(`[with-resource-feed] invalid JSON at ${sourcePath}: ${error.message}`);
+    throw new Error(`[with-resource-feed] invalid movie feed at ${feedPath}: ${error.message}`);
   }
-
-  if (!payload || typeof payload !== 'object' || !payload.summary || !Array.isArray(payload.items)) {
-    throw new Error(`[with-resource-feed] invalid feed shape at ${sourcePath}`);
+  if (
+    payload?.schema_version !== 'movie-app-feed/1'
+    || payload?.source_id !== 'sixv'
+    || !Array.isArray(payload.items)
+    || !payload.summary
+  ) {
+    throw new Error(`[with-resource-feed] SixV movie feed identity mismatch at ${feedPath}`);
   }
-  if (payload.summary.record_count !== payload.items.length) {
-    throw new Error(
-      `[with-resource-feed] record_count=${payload.summary.record_count} but items=${payload.items.length}`,
-    );
+  if (
+    payload.summary.record_count !== payload.items.length
+    || payload.summary.cover_count !== payload.items.length
+    || payload.summary.offline_ready !== true
+  ) {
+    throw new Error('[with-resource-feed] movie/cover counts are not offline-ready');
   }
+  let recommended = 0;
+  let resources = 0;
   payload.items.forEach((item, index) => {
-    if (!item || item.rank !== index + 1 || typeof item.content_code !== 'string') {
-      throw new Error(`[with-resource-feed] invalid item/rank at index ${index}`);
+    if (
+      !item
+      || item.rank !== index + 1
+      || typeof item.movie_id !== 'string'
+      || typeof item.title !== 'string'
+      || typeof item.cover_asset_path !== 'string'
+      || !Array.isArray(item.resources)
+    ) {
+      throw new Error(`[with-resource-feed] invalid movie at index ${index}`);
     }
+    if ('content_code' in item || 'adult' in item || 'people' in item) {
+      throw new Error(`[with-resource-feed] legacy adult field at index ${index}`);
+    }
+    const coverPath = path.resolve(sourceDir, item.cover_asset_path);
+    const relative = path.relative(sourceDir, coverPath);
+    if (relative.startsWith('..') || path.isAbsolute(relative) || !fs.existsSync(coverPath)) {
+      throw new Error(`[with-resource-feed] missing or unsafe cover at index ${index}`);
+    }
+    if (item.recommended) recommended += 1;
+    resources += item.resources.length;
   });
+  if (
+    payload.summary.recommended_count !== recommended
+    || payload.summary.resource_count !== resources
+  ) {
+    throw new Error('[with-resource-feed] summary does not match movie items');
+  }
   return payload;
 }
 
@@ -68,21 +110,24 @@ module.exports = function withResourceFeed(config) {
     'android',
     async (modConfig) => {
       const projectRoot = modConfig.modRequest.projectRoot;
-      const sourcePath = resolveSource(projectRoot);
-      const targetPath = path.resolve(projectRoot, TARGET_RELATIVE);
-      fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+      const sourceDir = resolveSource(projectRoot);
+      const targetDir = path.resolve(projectRoot, TARGET_RELATIVE);
+      const legacyAdultFeed = path.resolve(projectRoot, LEGACY_ADULT_FEED_RELATIVE);
 
-      if (fs.existsSync(sourcePath)) {
-        const raw = fs.readFileSync(sourcePath, 'utf8');
-        const payload = validateFeed(raw, sourcePath);
-        fs.writeFileSync(targetPath, JSON.stringify(payload), 'utf8');
+      fs.rmSync(legacyAdultFeed, { force: true });
+      fs.rmSync(targetDir, { recursive: true, force: true });
+      fs.mkdirSync(targetDir, { recursive: true });
+
+      if (fs.existsSync(path.join(sourceDir, 'feed.json'))) {
+        const payload = readAndValidateFeed(sourceDir);
+        fs.cpSync(sourceDir, targetDir, { recursive: true });
         console.log(
-          `[with-resource-feed] bundled ${payload.items.length} items from ${sourcePath}`,
+          `[with-resource-feed] bundled ${payload.items.length} SixV movies, ${payload.summary.recommended_count} recommended and ${payload.summary.cover_count} offline covers`,
         );
       } else {
-        fs.writeFileSync(targetPath, JSON.stringify(EMPTY_FEED), 'utf8');
+        fs.writeFileSync(path.join(targetDir, 'feed.json'), JSON.stringify(EMPTY_FEED), 'utf8');
         console.warn(
-          `[with-resource-feed] source not found; bundled empty feed. Expected ${sourcePath}`,
+          `[with-resource-feed] movie bundle not found; bundled empty feed. Expected ${sourceDir}`,
         );
       }
 

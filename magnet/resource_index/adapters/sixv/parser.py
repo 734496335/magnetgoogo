@@ -130,6 +130,48 @@ def extract_quality_tags(*values: str | None) -> tuple[str, ...]:
     return tuple(result)
 
 
+def normalize_movie_genres(
+    genres: tuple[str, ...] | list[str],
+    listing_title: str | None = None,
+) -> tuple[str, ...]:
+    """Join malformed adjacent genre fragments and retain stable source order."""
+    values = [normalize_whitespace(value) for value in genres if normalize_whitespace(value)]
+    output: list[str] = []
+    index = 0
+    while index < len(values):
+        current = values[index]
+        if index + 1 < len(values):
+            combined = current + values[index + 1]
+            if combined in _LISTING_GENRES:
+                current = combined
+                index += 1
+        if current not in output:
+            output.append(current)
+        index += 1
+    if not output and listing_title:
+        output.extend(extract_listing_genres(listing_title))
+    return tuple(output)
+
+
+def normalize_movie_title(title: str, listing_title: str | None = None) -> str:
+    """Return a product-facing title without list prefixes or quality suffixes."""
+    normalized = normalize_whitespace(title)
+    listing = normalize_whitespace(listing_title or "")
+    looks_like_listing = normalized == listing or bool(
+        re.match(r"^(?:19|20)\d{2}[^《]{0,20}《", normalized)
+    )
+    bracket_source = normalized if "《" in normalized else listing
+    bracket_match = re.search(r"《\s*([^》]+?)\s*》", bracket_source)
+    if looks_like_listing and bracket_match:
+        normalized = normalize_whitespace(bracket_match.group(1))
+    normalized = re.sub(
+        r"(?<=[\u3400-\u9fff0-9]):(?=[\u3400-\u9fff])",
+        "：",
+        normalized,
+    )
+    return normalized
+
+
 def _is_red(element: Tag) -> bool:
     for node in [element, *element.find_all(True)]:
         color = str(node.get("color") or "").replace(" ", "").casefold()
@@ -356,7 +398,10 @@ def parse_movie_detail(
     metadata = _metadata(end_text)
     h1 = soup.find("h1")
     heading = normalize_whitespace(h1.get_text(" ", strip=True)) if h1 else candidate.listing_title
-    title = _first(metadata.get("标题")) or heading
+    title = normalize_movie_title(
+        _first(metadata.get("标题")) or heading,
+        candidate.listing_title,
+    )
     original_title = _first(metadata.get("片名")) or _first(metadata.get("译名"))
     year_text = _first(metadata.get("年代"))
     year_match = re.search(r"(19\d{2}|20\d{2})", year_text or "")
@@ -394,8 +439,10 @@ def parse_movie_detail(
         release_date=_parse_date(_first(metadata.get("上映日期"))),
         duration_minutes=int(duration_match.group(1)) if duration_match else None,
         countries=_split_values(metadata.get("产地")),
-        genres=_split_values(metadata.get("类别"))
-        or extract_listing_genres(candidate.listing_title),
+        genres=normalize_movie_genres(
+            _split_values(metadata.get("类别")),
+            candidate.listing_title,
+        ),
         languages=_split_values(metadata.get("语言")),
         directors=_split_values(metadata.get("导演")),
         actors=_split_values(metadata.get("演员")),

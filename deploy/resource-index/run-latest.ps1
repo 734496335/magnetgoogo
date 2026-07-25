@@ -69,6 +69,30 @@ Push-Location $RepoRoot
 try {
     & $PythonExe @Arguments
     $Code = $LASTEXITCODE
+    if ($Code -eq 0 -and $Source -eq "sixv") {
+        $EffectiveDatabase = if ([string]::IsNullOrWhiteSpace($Database)) {
+            Join-Path $OutputDir ("sixv_latest_{0}.db" -f $Count)
+        } else {
+            $Database
+        }
+        $FeedPath = Join-Path $OutputDir ("sixv_latest_{0}_feed.json" -f $Count)
+        $AppBundlePath = Join-Path $OutputDir "sixv_app_bundle"
+
+        & $PythonExe -B -m magnet.resource_index.cli sync-movie-covers `
+            --source sixv --db $EffectiveDatabase --delay $DelaySeconds --yes
+        $CoverCode = $LASTEXITCODE
+        if ($CoverCode -ne 0) {
+            throw "Movie cover sync failed with exit code $CoverCode."
+        }
+
+        & $PythonExe -B -m magnet.resource_index.cli export-movie-app-bundle `
+            --db $EffectiveDatabase --feed $FeedPath --output-dir $AppBundlePath
+        $BundleCode = $LASTEXITCODE
+        if ($BundleCode -ne 0) {
+            throw "Movie App bundle export failed with exit code $BundleCode."
+        }
+        Write-Host "Movie App bundle ready: $AppBundlePath"
+    }
 } finally {
     Pop-Location
 }

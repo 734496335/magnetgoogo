@@ -87,9 +87,17 @@ sixv_latest_50.db
 sixv_latest_50_urls.json
 sixv_latest_50_feed.json
 sixv_latest_50.log
+sixv_app_bundle\feed.json
+sixv_app_bundle\covers\*.jpg
 ```
 
-- `.db`：完整内容、人物、标签、磁力、来源观测和作业状态；
+6V 完整抓取成功后，`run-latest.bat` 会自动继续：
+
+1. 下载缺失封面并压缩写入 `sixv_latest_50.db`；
+2. 已入库封面再次运行时保持零网络请求；
+3. 从 SQLite 导出 `sixv_app_bundle`，供 App 离线打包。
+
+- `.db`：完整内容、人物、标签、磁力、网盘资源、电影封面二进制和作业状态；
 - `_urls.json`：本轮最新 100 条的冻结顺序；
 - `_feed.json`：供 App 直接展示的排序 Feed；
 - `.log`：追加写入的运行日志。
@@ -189,11 +197,16 @@ deploy\resource-index\run-latest.bat -Source sixv -Count 50 -ReparseIncomplete
 
 ## 9. App 接入
 
-JavBus 列表读取 `javbus_latest_100_feed.json`，详情数据读取 `javbus_latest_100.db`。
+App 的“资源”模块只使用 6V 影视数据，不再接入 JavBus 成人 Feed。
 
-6V 电影列表读取 `sixv_latest_50_feed.json`，详情、推荐标签、磁力和网盘资源读取 `sixv_latest_50.db`。
+构建时读取：
 
-两种 Feed 的 `rank` 都保留来源列表顺序。6V Feed 额外提供 `recommended`、`highlight_labels`、类型、清晰度、字幕、豆瓣/IMDb、导演演员和下载资源字段。
+```text
+data\resource_index\sixv_app_bundle\feed.json
+data\resource_index\sixv_app_bundle\covers\*.jpg
+```
+
+`feed.json` 保留来源列表排名，并包含 `recommended`、`highlight_labels`、类型、清晰度、字幕、豆瓣/IMDb、导演演员和磁力/网盘资源字段。封面由 SQLite 导出为本地图片，随 APK 打包，手机无需访问 6V 图片域名。
 
 ## 10. 运维建议
 

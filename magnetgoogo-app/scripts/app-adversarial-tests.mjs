@@ -380,13 +380,28 @@ await test('U2', 'bottom navigation exposes search, resources and settings only'
   assert.equal((layout.match(/<Tabs\.Screen/g) || []).length, 3);
 });
 
-await test('U3', 'resource cards preserve source order and enter the existing search route', () => {
+await test('U3', 'movie discovery preserves ranking and opens a dedicated detail route', () => {
   const screen = read('app/(tabs)/resources.tsx');
-  const plugin = read('plugins/with-resource-feed.js');
+  const detail = read('app/movie/[movieId].tsx');
   assert.match(screen, /keyExtractor=\{resourceFeedItemKey\}/);
-  assert.match(screen, /numColumns=\{2\}/);
-  assert.match(screen, /router\.push\(\{ pathname: '\/search', params: \{ q: code \} \}\)/);
-  assert.match(plugin, /javbus_latest_100_feed\.json/);
+  assert.match(screen, /item\.recommended/);
+  assert.match(screen, /pathname: '\/movie\/\[movieId\]'/);
+  assert.doesNotMatch(screen, /content_code|MY-1065|javbus/i);
+  assert.match(detail, /copy\.detailSynopsis/);
+  assert.match(detail, /copy\.detailResources/);
+  assert.match(detail, /pathname: '\/search'/);
+});
+
+await test('U4', 'movie bundle is offline-first and excludes the legacy adult feed', () => {
+  const loader = read('src/core/resourceFeed.ts');
+  const protocol = read('src/core/resourceFeedProtocol.ts');
+  const plugin = read('plugins/with-resource-feed.js');
+  assert.match(loader, /resource-index', 'sixv'/);
+  assert.match(loader, /movieCoverUri/);
+  assert.match(protocol, /movie-app-feed\/1/);
+  assert.match(protocol, /LEGACY_ADULT_FIELD/);
+  assert.match(plugin, /sixv_app_bundle/);
+  assert.match(plugin, /rmSync\(legacyAdultFeed/);
   assert.doesNotMatch(plugin, /javbus_latest_100\.db/);
 });
 
