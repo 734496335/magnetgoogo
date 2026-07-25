@@ -48,6 +48,7 @@ class IngestRunStatus(str, Enum):
     SUCCESS = "success"
     PARTIAL = "partial"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class RiskStatus(str, Enum):

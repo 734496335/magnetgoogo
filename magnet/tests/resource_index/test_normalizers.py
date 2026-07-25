@@ -63,3 +63,6 @@ def test_magnet_invalid():
 
 def test_absolutize():
     assert absolutize("https://www.javbus.com/x", "/TST-001") == "https://www.javbus.com/TST-001"
+    assert absolutize("https://www.javbus.com/x", "javascript:alert(1)") is None
+    assert absolutize("https://www.javbus.com/x", "data:text/html,x") is None
+    assert absolutize("https://www.javbus.com/x", "https://user:pass@example.com/x") is None

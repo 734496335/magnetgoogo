@@ -33,6 +33,7 @@ class IngestResult:
     contents_updated: int = 0
     resources_created: int = 0
     resources_updated: int = 0
+    http_requests: int = 0
     warnings: int = 0
     errors: int = 0
     error_summary: dict[str, Any] = field(default_factory=dict)
@@ -67,7 +68,43 @@ def ingest_fixture(
     error_codes: dict[str, int] = {}
 
     # Index documents by name for linking detail <-> resource_table
-    pairs = iter_envelopes(manifest)
+    try:
+        pairs = iter_envelopes(manifest)
+    except Exception as exc:
+        if isinstance(exc, ResourceIndexError):
+            code = exc.error_code
+            message = exc.message
+            context = exc.context
+        else:
+            code = "UNEXPECTED"
+            message = str(exc)
+            context = {"exception_type": type(exc).__name__}
+        result.errors = 1
+        result.status = IngestRunStatus.FAILED.value
+        result.error_summary = {code: 1}
+        repo.add_ingest_event(
+            rid,
+            occurred_at=clock(),
+            stage="fixture_read",
+            severity="error",
+            message=message,
+            error_code=code,
+            context=context,
+        )
+        repo.finish_ingest_run(
+            rid,
+            status=result.status,
+            finished_at=clock(),
+            documents_seen=0,
+            contents_created=0,
+            contents_updated=0,
+            resources_created=0,
+            resources_updated=0,
+            warnings=0,
+            errors=1,
+            error_summary=result.error_summary,
+        )
+        return result
     by_name: dict[str, RawDocumentEnvelope] = {doc.name: env for doc, env in pairs}
     doc_meta = {doc.name: doc for doc, _ in pairs}
 
@@ -164,6 +201,16 @@ def ingest_fixture(
             result.warnings += stats.warnings
             for w in full.warnings:
                 error_codes[w.error_code] = error_codes.get(w.error_code, 0) + 1
+                repo.add_ingest_event(
+                    rid,
+                    occurred_at=clock(),
+                    stage="parse",
+                    severity="warning",
+                    message=w.message,
+                    source_item_key=full.content.source_item_key,
+                    error_code=w.error_code,
+                    context=w.context,
+                )
             repo.add_ingest_event(
                 rid,
                 occurred_at=clock(),

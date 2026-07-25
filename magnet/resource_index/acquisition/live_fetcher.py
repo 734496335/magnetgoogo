@@ -1,21 +1,20 @@
-"""Live page acquisition for resource_index (real HTTP via LiveHttpClient)."""
+"""Live page acquisition for resource_index."""
 
 from __future__ import annotations
 
 import hashlib
 from datetime import datetime, timezone
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 from magnet.resource_index.acquisition.http_client import LiveHttpClient
-from magnet.resource_index.acquisition.policy import LiveFetchPolicy
+from magnet.resource_index.acquisition.policy import LiveFetchPolicy, PhysicalRequestBudget
 from magnet.resource_index.domain.enums import DocumentType
 from magnet.resource_index.domain.identity import document_id_for
 from magnet.resource_index.domain.models import RawDocumentEnvelope
-from magnet.resource_index.errors import LIVE_FETCH_DISABLED, LivePolicyError
 
 
 class LiveFetcher:
-    """Policy-gated HTTP fetcher producing RawDocumentEnvelope objects."""
+    """Policy-gated fetcher producing RawDocumentEnvelope objects."""
 
     def __init__(
         self,
@@ -23,13 +22,23 @@ class LiveFetcher:
         *,
         client: LiveHttpClient | None = None,
         source_id: str = "javbus",
+        request_budget: PhysicalRequestBudget | None = None,
+        allowed_origins: set[str] | None = None,
     ) -> None:
         self.policy = policy
         self.source_id = source_id
+        self.request_budget = request_budget or PhysicalRequestBudget(policy.max_pages)
         self.client = client or LiveHttpClient(
             request_delay_seconds=policy.request_delay_seconds,
+            request_budget=self.request_budget,
+            allowed_origins=allowed_origins,
         )
-        self._pages_fetched = 0
+        if getattr(self.client, "manages_request_budget", False):
+            self.client.set_request_budget(self.request_budget)
+
+    @property
+    def _pages_fetched(self) -> int:
+        return self.request_budget.used
 
     def assert_enabled(self) -> None:
         self.policy.assert_allowed()
@@ -39,14 +48,6 @@ class LiveFetcher:
 
     def clear_cookies(self) -> None:
         self.client.clear_cookies()
-
-    def _budget(self) -> None:
-        if self._pages_fetched >= self.policy.max_pages:
-            raise LivePolicyError(
-                LIVE_FETCH_DISABLED,
-                f"max_pages budget exhausted ({self.policy.max_pages})",
-                {"max_pages": self.policy.max_pages},
-            )
 
     def fetch_document(
         self,
@@ -58,16 +59,28 @@ class LiveFetcher:
         referer: str | None = None,
         headers: dict[str, str] | None = None,
         count_against_budget: bool = True,
+        allow_age_gate: bool = False,
     ) -> RawDocumentEnvelope:
         self.assert_enabled()
-        if count_against_budget:
-            self._budget()
+        if count_against_budget and not getattr(
+            self.client, "manages_request_budget", False
+        ):
+            self.request_budget.consume(url_host=urlparse(url).netloc)
         if method.upper() == "POST":
-            resp = self.client.post(url, data=data, referer=referer, headers=headers)
+            resp = self.client.post(
+                url,
+                data=data,
+                referer=referer,
+                headers=headers,
+                allow_age_gate=allow_age_gate,
+            )
         else:
-            resp = self.client.get(url, referer=referer, headers=headers)
-        if count_against_budget:
-            self._pages_fetched += 1
+            resp = self.client.get(
+                url,
+                referer=referer,
+                headers=headers,
+                allow_age_gate=allow_age_gate,
+            )
         body = resp.text
         body_hash = hashlib.sha256(body.encode("utf-8", errors="replace")).hexdigest()
         return RawDocumentEnvelope(

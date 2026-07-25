@@ -93,7 +93,7 @@ def test_mocked_crawl_query_to_bundle():
         enabled=True,
         acknowledged=True,
         max_pages=20,
-        request_delay_seconds=0.5,
+        request_delay_seconds=10.0,
     )
     crawler = JavBusLiveCrawler(policy=policy, client=client)  # type: ignore[arg-type]
     crawler.client = client  # type: ignore[assignment]

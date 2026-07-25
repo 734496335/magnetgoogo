@@ -54,7 +54,17 @@ def test_allowed_ok():
         env_enabled=True,
         acknowledged=True,
         max_pages=20,
-        request_delay_seconds=1.5,
+        request_delay_seconds=10.0,
+    )
+    p.assert_allowed()
+
+
+def test_environment_enable_is_case_insensitive(monkeypatch):
+    monkeypatch.setenv("MAGNET_RESOURCE_LIVE_FETCH_ENABLED", "True")
+    p = LiveFetchPolicy.from_flags(
+        acknowledged=True,
+        max_pages=20,
+        request_delay_seconds=10.0,
     )
     p.assert_allowed()
 

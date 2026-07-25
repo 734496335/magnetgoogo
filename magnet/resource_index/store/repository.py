@@ -29,6 +29,7 @@ class TableCounts:
     content_tags: int
     aliases: int
     contents_without_resources: int
+    content_observations: int = 0
 
 
 class ResourceRepository(Protocol):
@@ -71,6 +72,7 @@ class ResourceRepository(Protocol):
         warnings: int,
         errors: int,
         error_summary: dict[str, Any],
+        http_requests: int = 0,
     ) -> None: ...
 
     def add_ingest_event(
@@ -85,6 +87,13 @@ class ResourceRepository(Protocol):
         error_code: str | None = None,
         context: dict[str, Any] | None = None,
     ) -> None: ...
+
+    def recover_stale_ingest_runs(
+        self,
+        *,
+        stale_before: datetime,
+        recovered_at: datetime,
+    ) -> int: ...
 
     def last_successful_run(self) -> dict[str, Any] | None: ...
 

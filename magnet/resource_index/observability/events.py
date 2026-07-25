@@ -8,7 +8,11 @@ from pathlib import Path
 from typing import Any
 
 
-def setup_logging(log_path: str | Path | None = None) -> logging.Logger:
+def setup_logging(
+    log_path: str | Path | None = None,
+    *,
+    append: bool = False,
+) -> logging.Logger:
     logger = logging.getLogger("resource_index")
     logger.handlers.clear()
     logger.setLevel(logging.INFO)
@@ -27,7 +31,11 @@ def setup_logging(log_path: str | Path | None = None) -> logging.Logger:
     if log_path:
         path = Path(log_path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        fh = logging.FileHandler(path, encoding="utf-8", mode="w")
+        fh = logging.FileHandler(
+            path,
+            encoding="utf-8",
+            mode="a" if append else "w",
+        )
         fh.setFormatter(fmt)
         logger.addHandler(fh)
     return logger

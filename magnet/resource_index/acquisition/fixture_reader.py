@@ -87,12 +87,19 @@ def load_manifest(manifest_path: str | Path) -> FixtureManifest:
     )
 
 
+_TEXT_FIXTURE_SUFFIXES = {".html", ".htm", ".json", ".txt", ".xml", ".md", ".sql"}
+
+
+def _canonical_fixture_bytes(path: Path) -> bytes:
+    raw = path.read_bytes()
+    if path.suffix.lower() not in _TEXT_FIXTURE_SUFFIXES:
+        return raw
+    text = raw.decode("utf-8")
+    return text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+
+
 def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as fh:
-        for chunk in iter(lambda: fh.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
+    return hashlib.sha256(_canonical_fixture_bytes(path)).hexdigest()
 
 
 def read_document(
@@ -101,7 +108,8 @@ def read_document(
 ) -> RawDocumentEnvelope:
     root = Path(manifest.root_dir)
     file_path = (root / doc.path).resolve()
-    if not str(file_path).startswith(str(root.resolve())):
+    resolved_root = root.resolve()
+    if not file_path.is_relative_to(resolved_root):
         raise FixtureError(
             FIXTURE_MANIFEST_INVALID,
             "fixture path escapes root",

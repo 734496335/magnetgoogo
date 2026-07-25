@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +15,7 @@ from magnet.resource_index.domain.validation import validate_bundle
 from magnet.resource_index.errors import (
     DATABASE_CONSTRAINT_ERROR,
     RESOURCE_CONTENT_CONFLICT,
+    STALE_INGEST_RECOVERED,
     ConflictError,
     StorageError,
 )
@@ -29,7 +30,7 @@ def _iso(dt: datetime | date | None) -> str | None:
     if isinstance(dt, datetime):
         if dt.tzinfo is None:
             return dt.replace(microsecond=0).isoformat() + "Z"
-        return dt.astimezone().replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     return dt.isoformat()
 
 
@@ -88,6 +89,7 @@ class SqliteResourceRepository:
         warnings: int,
         errors: int,
         error_summary: dict[str, Any],
+        http_requests: int = 0,
     ) -> None:
         self.conn.execute(
             """
@@ -101,7 +103,8 @@ class SqliteResourceRepository:
                 resources_updated = ?,
                 warnings = ?,
                 errors = ?,
-                error_summary_json = ?
+                error_summary_json = ?,
+                http_requests = ?
             WHERE run_id = ?
             """,
             (
@@ -115,6 +118,7 @@ class SqliteResourceRepository:
                 warnings,
                 errors,
                 json.dumps(error_summary, ensure_ascii=False, sort_keys=True),
+                http_requests,
                 run_id,
             ),
         )
@@ -150,6 +154,51 @@ class SqliteResourceRepository:
             ),
         )
 
+    def recover_stale_ingest_runs(
+        self,
+        *,
+        stale_before: datetime,
+        recovered_at: datetime,
+    ) -> int:
+        rows = self.conn.execute(
+            """
+            SELECT run_id, error_summary_json, errors
+            FROM ingest_runs
+            WHERE status = 'running' AND started_at <= ?
+            ORDER BY started_at
+            """,
+            (_iso(stale_before),),
+        ).fetchall()
+        for row in rows:
+            try:
+                summary = json.loads(row["error_summary_json"] or "{}")
+            except json.JSONDecodeError:
+                summary = {}
+            summary[STALE_INGEST_RECOVERED] = summary.get(STALE_INGEST_RECOVERED, 0) + 1
+            self.conn.execute(
+                """
+                UPDATE ingest_runs SET
+                    status = 'failed', finished_at = ?, errors = ?, error_summary_json = ?
+                WHERE run_id = ? AND status = 'running'
+                """,
+                (
+                    _iso(recovered_at),
+                    int(row["errors"] or 0) + 1,
+                    json.dumps(summary, ensure_ascii=False, sort_keys=True),
+                    row["run_id"],
+                ),
+            )
+            self.add_ingest_event(
+                row["run_id"],
+                occurred_at=recovered_at,
+                stage="recovery",
+                severity="error",
+                message="stale running ingest was recovered as failed",
+                error_code=STALE_INGEST_RECOVERED,
+                context={"stale_before": _iso(stale_before)},
+            )
+        return len(rows)
+
     def upsert_bundle(self, bundle: ParsedContentBundle, *, now: datetime) -> UpsertStats:
         validate_bundle(bundle)
         stats = UpsertStats(warnings=len(bundle.warnings))
@@ -172,23 +221,33 @@ class SqliteResourceRepository:
                 if by_code is not None:
                     existing = by_code
 
+            previous_title = existing["title"] if existing is not None else None
             if existing is None:
                 self._insert_content(content, now_s)
                 stats.content_created = True
                 content_id = content.content_id
             else:
                 content_id = existing["content_id"]
-                self._update_content(existing, content, now_s)
                 stats.content_updated = True
-                if existing["title"] and existing["title"] != content.title:
-                    self._add_alias(
-                        content_id,
-                        existing["title"],
-                        AliasType.PREVIOUS_TITLE.value,
-                        now_s,
-                    )
 
-            # raw code alias
+            self._upsert_content_observation(
+                content_id=content_id,
+                bundle=bundle,
+                now_s=now_s,
+            )
+            canonical = self._refresh_canonical_content(content_id, now_s=now_s)
+            incoming_is_canonical = (
+                canonical["source_id"] == content.source_id
+                and canonical["source_item_key"] == content.source_item_key
+            )
+            if previous_title and previous_title != canonical["source_title"]:
+                self._add_alias(
+                    content_id,
+                    previous_title,
+                    AliasType.PREVIOUS_TITLE.value,
+                    now_s,
+                )
+
             self._add_alias(
                 content_id,
                 content.raw_content_code,
@@ -198,73 +257,81 @@ class SqliteResourceRepository:
             for alias in bundle.aliases:
                 self._add_alias(content_id, alias.alias, alias.alias_type.value, now_s)
 
-            # people replace (dedupe person_id+role for safety)
-            self.conn.execute("DELETE FROM content_people WHERE content_id = ?", (content_id,))
-            seen_pr: set[tuple[str, str]] = set()
-            for person in bundle.people:
-                pr_key = (person.person_id, person.role.value)
-                if pr_key in seen_pr:
-                    continue
-                seen_pr.add(pr_key)
-                self.conn.execute(
-                    """
-                    INSERT INTO people(person_id, display_name, normalized_name,
-                        source_profile_url, source_external_key, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(person_id) DO UPDATE SET
-                        display_name = excluded.display_name,
-                        normalized_name = excluded.normalized_name,
-                        source_profile_url = COALESCE(excluded.source_profile_url, people.source_profile_url),
-                        source_external_key = COALESCE(excluded.source_external_key, people.source_external_key),
-                        updated_at = excluded.updated_at
-                    """,
-                    (
-                        person.person_id,
-                        person.display_name,
-                        normalize_whitespace(person.display_name).casefold(),
-                        person.source_profile_url,
-                        person.source_external_key,
-                        now_s,
-                        now_s,
-                    ),
-                )
-                self.conn.execute(
-                    """
-                    INSERT INTO content_people(content_id, person_id, role, sort_order)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    (content_id, person.person_id, person.role.value, person.sort_order),
-                )
+            relation_presence = bundle.provenance.internal.get("relation_presence") or {}
+            people_observed = incoming_is_canonical and (
+                bool(bundle.people) or relation_presence.get("people") is True
+            )
+            tags_observed = incoming_is_canonical and (
+                bool(bundle.tags) or relation_presence.get("tags") is True
+            )
 
-            # tags replace
-            self.conn.execute("DELETE FROM content_tags WHERE content_id = ?", (content_id,))
-            for tag in bundle.tags:
-                self.conn.execute(
-                    """
-                    INSERT INTO tags(tag_id, display_name, normalized_name,
-                        source_url, source_external_key, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(tag_id) DO UPDATE SET
-                        display_name = excluded.display_name,
-                        normalized_name = excluded.normalized_name,
-                        source_url = COALESCE(excluded.source_url, tags.source_url),
-                        source_external_key = COALESCE(excluded.source_external_key, tags.source_external_key),
-                        updated_at = excluded.updated_at
-                    """,
-                    (
-                        tag.tag_id,
-                        tag.display_name,
-                        normalize_whitespace(tag.display_name).casefold(),
-                        tag.source_url,
-                        tag.source_external_key,
-                        now_s,
-                        now_s,
-                    ),
-                )
-                self.conn.execute(
-                    "INSERT INTO content_tags(content_id, tag_id) VALUES (?, ?)",
-                    (content_id, tag.tag_id),
-                )
+            if people_observed:
+                self.conn.execute("DELETE FROM content_people WHERE content_id = ?", (content_id,))
+                seen_pr: set[tuple[str, str]] = set()
+                for person in bundle.people:
+                    pr_key = (person.person_id, person.role.value)
+                    if pr_key in seen_pr:
+                        continue
+                    seen_pr.add(pr_key)
+                    self.conn.execute(
+                        """
+                        INSERT INTO people(person_id, display_name, normalized_name,
+                            source_profile_url, source_external_key, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(person_id) DO UPDATE SET
+                            display_name = excluded.display_name,
+                            normalized_name = excluded.normalized_name,
+                            source_profile_url = COALESCE(excluded.source_profile_url, people.source_profile_url),
+                            source_external_key = COALESCE(excluded.source_external_key, people.source_external_key),
+                            updated_at = excluded.updated_at
+                        """,
+                        (
+                            person.person_id,
+                            person.display_name,
+                            normalize_whitespace(person.display_name).casefold(),
+                            person.source_profile_url,
+                            person.source_external_key,
+                            now_s,
+                            now_s,
+                        ),
+                    )
+                    self.conn.execute(
+                        """
+                        INSERT INTO content_people(content_id, person_id, role, sort_order)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (content_id, person.person_id, person.role.value, person.sort_order),
+                    )
+
+            if tags_observed:
+                self.conn.execute("DELETE FROM content_tags WHERE content_id = ?", (content_id,))
+                for tag in bundle.tags:
+                    self.conn.execute(
+                        """
+                        INSERT INTO tags(tag_id, display_name, normalized_name,
+                            source_url, source_external_key, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(tag_id) DO UPDATE SET
+                            display_name = excluded.display_name,
+                            normalized_name = excluded.normalized_name,
+                            source_url = COALESCE(excluded.source_url, tags.source_url),
+                            source_external_key = COALESCE(excluded.source_external_key, tags.source_external_key),
+                            updated_at = excluded.updated_at
+                        """,
+                        (
+                            tag.tag_id,
+                            tag.display_name,
+                            normalize_whitespace(tag.display_name).casefold(),
+                            tag.source_url,
+                            tag.source_external_key,
+                            now_s,
+                            now_s,
+                        ),
+                    )
+                    self.conn.execute(
+                        "INSERT INTO content_tags(content_id, tag_id) VALUES (?, ?)",
+                        (content_id, tag.tag_id),
+                    )
 
             # media upsert
             for media in bundle.media:
@@ -362,10 +429,135 @@ class SqliteResourceRepository:
             ),
         )
 
-    def _update_content(self, existing: sqlite3.Row, content: ContentItem, now_s: str) -> None:
+    def _upsert_content_observation(
+        self,
+        *,
+        content_id: str,
+        bundle: ParsedContentBundle,
+        now_s: str,
+    ) -> None:
+        content = bundle.content
+        existing = self.conn.execute(
+            """
+            SELECT * FROM content_observations
+            WHERE content_id = ? AND source_id = ? AND source_item_key = ?
+            """,
+            (content_id, content.source_id, content.source_item_key),
+        ).fetchone()
+
+        def merged(field: str, value: Any) -> Any:
+            old = existing[field] if existing is not None else None
+            return _coalesce(value, old)
+
+        raw_code = merged("raw_content_code", content.raw_content_code)
+        title = merged("source_title", content.title)
+        original_title = merged("source_original_title", content.original_title)
+        release_date = merged("release_date", _iso(content.release_date))
+        duration = merged("duration_minutes", content.duration_minutes)
+        maker = merged("maker_name", content.maker_name)
+        publisher = merged("publisher_name", content.publisher_name)
+        label = merged("label_name", content.label_name)
+        series = merged("series_name", content.series_name)
+        cover = merged("cover_source_url", content.cover_source_url)
+        detail_url = merged("detail_url", content.detail_url)
+        parser_version = merged("parser_version", content.parser_version)
+        raw_document_hash = merged(
+            "raw_document_hash",
+            bundle.provenance.document_sha256,
+        )
+        priority_raw = bundle.provenance.internal.get("source_priority")
+        if priority_raw is None and existing is not None:
+            priority = int(existing["source_priority"])
+        else:
+            try:
+                priority = int(priority_raw or 0)
+            except (TypeError, ValueError):
+                priority = int(existing["source_priority"]) if existing is not None else 0
+        quality_values = (
+            original_title,
+            release_date,
+            duration,
+            maker,
+            publisher,
+            label,
+            series,
+            cover,
+        )
+        quality = 1 + sum(value is not None and value != "" for value in quality_values)
+
+        self.conn.execute(
+            """
+            INSERT INTO content_observations(
+                content_id, source_id, source_item_key, raw_content_code,
+                source_title, source_original_title, release_date, duration_minutes,
+                maker_name, publisher_name, label_name, series_name,
+                cover_source_url, detail_url, parser_version, raw_document_hash,
+                source_priority, metadata_quality, first_seen_at, last_seen_at, seen_count
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+            ON CONFLICT(content_id, source_id, source_item_key) DO UPDATE SET
+                raw_content_code = excluded.raw_content_code,
+                source_title = excluded.source_title,
+                source_original_title = excluded.source_original_title,
+                release_date = excluded.release_date,
+                duration_minutes = excluded.duration_minutes,
+                maker_name = excluded.maker_name,
+                publisher_name = excluded.publisher_name,
+                label_name = excluded.label_name,
+                series_name = excluded.series_name,
+                cover_source_url = excluded.cover_source_url,
+                detail_url = excluded.detail_url,
+                parser_version = excluded.parser_version,
+                raw_document_hash = excluded.raw_document_hash,
+                source_priority = excluded.source_priority,
+                metadata_quality = excluded.metadata_quality,
+                last_seen_at = excluded.last_seen_at,
+                seen_count = content_observations.seen_count + 1
+            """,
+            (
+                content_id,
+                content.source_id,
+                content.source_item_key,
+                raw_code,
+                title,
+                original_title,
+                release_date,
+                duration,
+                maker,
+                publisher,
+                label,
+                series,
+                cover,
+                detail_url,
+                parser_version,
+                raw_document_hash,
+                priority,
+                quality,
+                now_s,
+                now_s,
+            ),
+        )
+
+    def _refresh_canonical_content(self, content_id: str, *, now_s: str) -> sqlite3.Row:
+        canonical = self.conn.execute(
+            """
+            SELECT * FROM content_observations
+            WHERE content_id = ?
+            ORDER BY source_priority DESC, metadata_quality DESC,
+                     last_seen_at DESC, source_id, source_item_key
+            LIMIT 1
+            """,
+            (content_id,),
+        ).fetchone()
+        if canonical is None:
+            raise StorageError(
+                DATABASE_CONSTRAINT_ERROR,
+                "content has no source observation",
+                {"content_id": content_id},
+            )
         self.conn.execute(
             """
             UPDATE content_items SET
+                raw_content_code = ?,
                 title = ?,
                 original_title = ?,
                 release_date = ?,
@@ -376,28 +568,34 @@ class SqliteResourceRepository:
                 series_name = ?,
                 cover_source_url = ?,
                 detail_url = ?,
+                source_id = ?,
+                source_item_key = ?,
                 parser_version = ?,
                 last_seen_at = ?,
                 updated_at = ?
             WHERE content_id = ?
             """,
             (
-                _coalesce(content.title, existing["title"]),
-                _coalesce(content.original_title, existing["original_title"]),
-                _coalesce(_iso(content.release_date), existing["release_date"]),
-                _coalesce(content.duration_minutes, existing["duration_minutes"]),
-                _coalesce(content.maker_name, existing["maker_name"]),
-                _coalesce(content.publisher_name, existing["publisher_name"]),
-                _coalesce(content.label_name, existing["label_name"]),
-                _coalesce(content.series_name, existing["series_name"]),
-                _coalesce(content.cover_source_url, existing["cover_source_url"]),
-                _coalesce(content.detail_url, existing["detail_url"]),
-                content.parser_version or existing["parser_version"],
+                canonical["raw_content_code"],
+                canonical["source_title"],
+                canonical["source_original_title"],
+                canonical["release_date"],
+                canonical["duration_minutes"],
+                canonical["maker_name"],
+                canonical["publisher_name"],
+                canonical["label_name"],
+                canonical["series_name"],
+                canonical["cover_source_url"],
+                canonical["detail_url"],
+                canonical["source_id"],
+                canonical["source_item_key"],
+                canonical["parser_version"],
                 now_s,
                 now_s,
-                existing["content_id"],
+                content_id,
             ),
         )
+        return canonical
 
     def _add_alias(self, content_id: str, alias: str, alias_type: str, now_s: str) -> None:
         text = normalize_whitespace(alias)
@@ -588,8 +786,21 @@ class SqliteResourceRepository:
             """,
             (data["content_id"],),
         ).fetchall()
+        sources = self.conn.execute(
+            """
+            SELECT source_id, source_item_key, source_title, detail_url,
+                   parser_version, source_priority, metadata_quality,
+                   first_seen_at, last_seen_at, seen_count
+            FROM content_observations
+            WHERE content_id = ?
+            ORDER BY source_priority DESC, metadata_quality DESC,
+                     last_seen_at DESC, source_id
+            """,
+            (data["content_id"],),
+        ).fetchall()
         data["people"] = [dict(p) for p in people]
         data["tags"] = [t["display_name"] for t in tags]
+        data["sources"] = [dict(source) for source in sources]
         return data
 
     def list_resources_for_content(self, content_code: str) -> list[dict[str, Any]]:
@@ -610,13 +821,19 @@ class SqliteResourceRepository:
         q = f"%{query.strip()}%"
         rows = self.conn.execute(
             """
-            SELECT content_id, content_code, title, release_date, maker_name, adult
-            FROM content_items
-            WHERE content_code LIKE ? OR title LIKE ? OR series_name LIKE ?
-            ORDER BY content_code
+            SELECT c.content_id, c.content_code, c.title, c.release_date, c.maker_name, c.adult
+            FROM content_items c
+            WHERE c.content_code LIKE ?
+               OR c.title LIKE ?
+               OR c.series_name LIKE ?
+               OR EXISTS (
+                    SELECT 1 FROM content_observations o
+                    WHERE o.content_id = c.content_id AND o.source_title LIKE ?
+               )
+            ORDER BY c.content_code
             LIMIT ?
             """,
-            (q.upper() if query.isascii() else q, q, q, limit),
+            (q.upper() if query.isascii() else q, q, q, q, limit),
         ).fetchall()
         return [dict(r) for r in rows]
 
@@ -644,6 +861,7 @@ class SqliteResourceRepository:
             content_tags=c("content_tags"),
             aliases=c("content_aliases"),
             contents_without_resources=without,
+            content_observations=c("content_observations"),
         )
 
     def last_successful_run(self) -> dict[str, Any] | None:

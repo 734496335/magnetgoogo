@@ -81,6 +81,21 @@ def validate_resource_release(resource: ResourceRelease) -> None:
 
 def validate_bundle(bundle: ParsedContentBundle) -> None:
     validate_content_item(bundle.content)
+    provenance = bundle.provenance
+    if (
+        provenance.source_id != bundle.content.source_id
+        or provenance.source_item_key != bundle.content.source_item_key
+        or provenance.detail_url != bundle.content.detail_url
+        or provenance.parser_version != bundle.content.parser_version
+    ):
+        raise ValidationError(
+            "VALIDATION_ERROR",
+            "content and provenance source identity must match",
+            {
+                "content_source_id": bundle.content.source_id,
+                "provenance_source_id": provenance.source_id,
+            },
+        )
     for resource in bundle.resources:
         if resource.content_id != bundle.content.content_id:
             raise ValidationError(

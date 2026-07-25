@@ -12,11 +12,33 @@ from magnet.resource_index.errors import (
     LivePolicyError,
 )
 
-MIN_DELAY_SECONDS = 0.5
-RECOMMENDED_DELAY_SECONDS = 1.5
+MIN_DELAY_SECONDS = 10.0
+RECOMMENDED_DELAY_SECONDS = 10.0
 DEFAULT_MAX_DETAIL_PAGES = 40
 HARD_MAX_PAGES = 200
 MAX_CONCURRENCY = 1
+
+
+@dataclass
+class PhysicalRequestBudget:
+    limit: int
+    used: int = 0
+
+    def assert_available(self, *, url_host: str | None = None) -> None:
+        if self.limit <= 0 or self.used >= self.limit:
+            raise LivePolicyError(
+                LIVE_RATE_LIMITED,
+                f"physical request budget exhausted ({self.limit})",
+                {"max_pages": self.limit, "used": self.used, "url_host": url_host},
+            )
+
+    def consume(self, *, url_host: str | None = None) -> None:
+        self.assert_available(url_host=url_host)
+        self.used += 1
+
+    @property
+    def remaining(self) -> int:
+        return max(0, self.limit - self.used)
 
 
 @dataclass(frozen=True)
@@ -37,12 +59,9 @@ class LiveFetchPolicy:
         request_delay_seconds: float | None = None,
     ) -> "LiveFetchPolicy":
         if env_enabled is None:
-            env_enabled = os.environ.get("MAGNET_RESOURCE_LIVE_FETCH_ENABLED", "0").strip() in {
-                "1",
-                "true",
-                "TRUE",
-                "yes",
-            }
+            env_enabled = os.environ.get(
+                "MAGNET_RESOURCE_LIVE_FETCH_ENABLED", "0"
+            ).strip().lower() in {"1", "true", "yes", "on"}
         delay = (
             RECOMMENDED_DELAY_SECONDS
             if request_delay_seconds is None

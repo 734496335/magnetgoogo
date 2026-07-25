@@ -304,7 +304,16 @@ def parse_detail(document: RawDocumentEnvelope) -> ParsedContentBundle:
         )
 
     gid, uc = extract_gid_uc(document.body)
-    internal: dict[str, Any] = {"gid": gid, "uc": uc, "risk_status": RISK_MANUAL_REVIEW}
+    internal: dict[str, Any] = {
+        "gid": gid,
+        "uc": uc,
+        "risk_status": RISK_MANUAL_REVIEW,
+        "source_priority": 100,
+        "relation_presence": {
+            "people": "actors" in fields or "directors" in fields,
+            "tags": "tags" in fields,
+        },
+    }
     if gid is None:
         warnings.append(
             ParseWarning("RESOURCE_DESCRIPTOR_MISSING", "gid not found on detail page", {})

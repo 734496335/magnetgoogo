@@ -28,8 +28,27 @@ def migration_files() -> list[Path]:
     return files
 
 
+def _canonical_sql_bytes(path: Path) -> bytes:
+    text = path.read_text(encoding="utf-8")
+    return text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+
+
 def file_checksum(path: Path) -> str:
+    return hashlib.sha256(_canonical_sql_bytes(path)).hexdigest()
+
+
+def raw_file_checksum(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def compatible_file_checksums(path: Path) -> set[str]:
+    canonical = _canonical_sql_bytes(path)
+    crlf = canonical.replace(b"\n", b"\r\n")
+    return {
+        hashlib.sha256(canonical).hexdigest(),
+        hashlib.sha256(crlf).hexdigest(),
+        raw_file_checksum(path),
+    }
 
 
 def apply_migrations(conn: sqlite3.Connection) -> str:
@@ -50,13 +69,21 @@ def apply_migrations(conn: sqlite3.Connection) -> str:
     for path in migration_files():
         version = path.stem.split("_", 1)[0]
         checksum = file_checksum(path)
+        compatible_checksums = compatible_file_checksums(path)
         if version in applied:
-            if applied[version] != checksum:
+            stored = applied[version]
+            if stored not in compatible_checksums:
                 raise StorageError(
                     DATABASE_CONSTRAINT_ERROR,
                     "migration checksum mismatch",
                     {"version": version},
                 )
+            if stored != checksum:
+                conn.execute(
+                    "UPDATE schema_migrations SET checksum = ? WHERE version = ?",
+                    (checksum, version),
+                )
+                conn.commit()
             latest = version
             continue
         sql = path.read_text(encoding="utf-8")

@@ -11,7 +11,13 @@ def absolutize(base: str, href: str | None) -> str | None:
     text = href.strip()
     if not text:
         return None
-    return urljoin(base, text)
+    resolved = urljoin(base, text)
+    parsed = urlparse(resolved)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        return None
+    if parsed.username or parsed.password:
+        return None
+    return resolved
 
 
 def path_key(url: str) -> str:
