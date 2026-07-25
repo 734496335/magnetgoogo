@@ -59,7 +59,7 @@ export function LangProvider({ children }: { children: React.ReactNode }) {
       try {
         const saved = await AsyncStorage.getItem(STORAGE_KEY);
         if (ALL_LANGS.includes(saved as Lang)) {
-          setLangState(saved);
+          setLangState(saved as Lang);
         } else {
           setLangState(detectDeviceLang());
         }

@@ -3,6 +3,7 @@
  * Max 50 entries, newest first. Duplicate queries move to top.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { sanitizeHistoryItems } from './storageSanitizers';
 
 const STORAGE_KEY = 'mg_search_history';
 const MAX_ITEMS = 50;
@@ -18,11 +19,11 @@ export async function getHistory(): Promise<HistoryItem[]> {
   if (_cache) return _cache;
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    _cache = raw ? JSON.parse(raw) : [];
+    _cache = sanitizeHistoryItems(raw ? JSON.parse(raw) : [], MAX_ITEMS);
   } catch {
     _cache = [];
   }
-  return _cache!;
+  return _cache!.slice();
 }
 
 export async function addHistory(query: string): Promise<void> {

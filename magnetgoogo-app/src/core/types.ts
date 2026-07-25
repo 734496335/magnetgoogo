@@ -40,6 +40,9 @@ export interface ResultCardModel {
   sourceName: string;
   sourceCount: number;
   sourceNames: string[];
+  /** Pre-computed sort keys — avoid regex on every render */
+  sizeBytes: number;
+  videoQuality: number;
 }
 
 export interface KindTheme {
@@ -106,6 +109,11 @@ export function guessKind(title: string): Kind {
   // "游戏" alone is ambiguous (鱿鱼游戏=TV, 权力的游戏=TV), require stronger context
   if (/\bgame\b|switch|ps[345]|xbox|nintendo|steam|gog\b|fitgirl|repack/i.test(t)) return 'game';
   if (/游戏/.test(t) && !/鱿鱼游戏|权力.*游戏|饥饿游戏|致命游戏|游戏人生|模仿游戏|电影|电视|剧/.test(t)) return 'game';
+
+  // ── Software / App (check before broad alphanumeric movie-code heuristic) ──
+  if (/\.(exe|dmg|apk|msi|deb|rpm|appimage|pkg|ipa|xapk|snap|flatpak)\b/.test(t)) return 'software';
+  if (/软件|\bcrack(?:ed)?\b|\bkeygen\b|portable|安装包|\bpatch(?:ed)?\b|activat/.test(t)) return 'software';
+  if (/(?:office|photoshop|ubuntu|windows|autocad|vmware|adobe)[ ._-]?\d{2,4}.{0,30}(?:professional|portable|lts|amd64|arm64|x64|x86|\.iso\b)/i.test(t)) return 'software';
 
   // ── TV sub-types (specific regions) ──
   if (/美剧|american\s*(?:tv|drama|series)/i.test(t)) return 'tv_us';
@@ -175,7 +183,7 @@ export function extractTags(title: string): string[] {
     [/dolby.?vision|\bDoVi\b|\bDV\b|杜比视界/i, '杜比视界'],
     [/\batmos\b|杜比全景声|全景声/i, '全景声'],
     [/\bdolby\b|杜比/i, '杜比'],
-    [/\bDTS[\b-]/i, 'DTS'],
+    [/\bDTS(?:\b|-)/i, 'DTS'],
     [/hevc|x265|h\.?265/i, 'HEVC'],
     [/\bcrack(?:ed)?\b|破解|注册机|\bkeygen\b|\bpatch(?:ed)?\b|激活|免激活|\bactivat/i, '破解'],
     [/中[文字]|国[语粤]|简体|繁体|(?:中英|双语|内[嵌挂封]|内置字幕)|(?:\b(?:CMCT|CHD|CHDWEB|DFAN|iNT-TLF|TLF|WIKI[Ff]ans?|YYeTs|人人影视|FIX字幕侠|AI双语|New字幕组|BMDru|TTG|FRDS|MySiLU|52KHD)\b)|字幕组/i, '中字'],
@@ -203,14 +211,38 @@ export function formatSize(bytes?: number): string {
   return `${val.toFixed(val >= 100 ? 0 : 1)} ${units[idx]}`;
 }
 
+const SIZE_PATTERN = /(\d+(?:\.\d+)?)\s*(TiB|GiB|MiB|KiB|TB|GB|MB|KB|bytes?|B)\b/i;
+
+function normalizeSizeUnit(unit: string): string {
+  const upper = unit.toUpperCase();
+  if (upper === 'BYTE' || upper === 'BYTES') return 'B';
+  return upper.replace('IB', 'B');
+}
+
 /** Parse size string — extract only the valid size portion (e.g. "14.61 GB"). */
 export function parseSizeLabel(sizeStr?: string): string {
   if (!sizeStr) return '';
-  // Extract the first valid size pattern, ignoring surrounding junk/newlines
-  const m = sizeStr.match(/(\d+\.?\d*)\s*(TB|GB|MB|KB|TiB|GiB|MiB|KiB|bytes?)\b/i);
-  if (!m) return '';
-  // Normalize binary units → decimal: GiB→GB, MiB→MB, TiB→TB, KiB→KB
-  return m[0].replace(/TiB/gi, 'TB').replace(/GiB/gi, 'GB').replace(/MiB/gi, 'MB').replace(/KiB/gi, 'KB');
+  const match = sizeStr.match(SIZE_PATTERN);
+  if (!match) return '';
+  return `${match[1]} ${normalizeSizeUnit(match[2])}`;
+}
+
+/** Parse decimal/binary size labels to bytes for all list sort paths. */
+export function parseSizeBytes(sizeStr?: string): number {
+  if (!sizeStr) return 0;
+  const match = sizeStr.match(SIZE_PATTERN);
+  if (!match) return 0;
+  const value = Number.parseFloat(match[1]);
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  const unit = normalizeSizeUnit(match[2]);
+  const multipliers: Record<string, number> = {
+    B: 1,
+    KB: 1024,
+    MB: 1024 ** 2,
+    GB: 1024 ** 3,
+    TB: 1024 ** 4,
+  };
+  return value * (multipliers[unit] || 0);
 }
 
 function kindLabelText(kind: Kind, t?: Translations): string {
@@ -242,6 +274,19 @@ function kindLabelText(kind: Kind, t?: Translations): string {
 /** Strip separators for fuzzy code matching (e.g. "SDDE-720" → "sdde720"). */
 function normalize(s: string): string {
   return s.toLowerCase().replace(/[\s\-_.+]+/g, '');
+}
+
+/** Stable FlatList/cache id for hashed, non-btih, and malformed results. */
+export function getResultStableId(r: Pick<SearchResult, 'title' | 'magnet' | 'source' | 'site_name'>): string {
+  const hashMatch = r.magnet.match(/btih:([a-z0-9]{32,40})/i);
+  if (hashMatch) return hashMatch[1].toLowerCase();
+
+  const cleanMagnet = r.magnet.split('&')[0]?.trim();
+  if (cleanMagnet) return cleanMagnet;
+
+  const sourceName = (r.site_name || r.source || 'unknown').trim().toLowerCase();
+  const normalizedTitle = normalize(r.title) || 'untitled';
+  return `no-magnet:${sourceName}:${normalizedTitle}`;
 }
 
 /** Compute relevance score: how well does the title match the query? */
@@ -297,6 +342,21 @@ function cleanDateLabel(raw?: string): string {
   return '';
 }
 
+/** Detect video quality from title — returns a stable score. */
+const _QUALITY_PATS: [RegExp, number][] = [
+  [/remux/i, 100],
+  [/blu[\s.-]?ray|bluray|bdrip|bdremux|brrip/i, 95],
+  [/web[\s.-]?dl|webdl|webrip|web[\s.-]?rip/i, 80],
+  [/hdrip|hdtv|pdtv/i, 65],
+  [/dvdrip|dvd[\s.-]?scr|dvd/i, 50],
+  [/hdcam|cam[\s.-]?rip|\bcam\b/i, 15],
+  [/ts\b|telesync|tc\b|telecine/i, 10],
+];
+function _videoQuality(title: string): number {
+  for (const [re, s] of _QUALITY_PATS) { if (re.test(title)) return s; }
+  return 50;
+}
+
 /** Build a ResultCardModel from a raw SearchResult. */
 export function toResultCardModel(r: SearchResult, index: number, query?: string, t?: Translations): ResultCardModel {
   const kind = guessKind(r.title);
@@ -310,14 +370,17 @@ export function toResultCardModel(r: SearchResult, index: number, query?: string
     if (n > 0 && n < 10000) fileCountLabel = fmtFileCount(n);
   }
 
+  const stableId = getResultStableId(r);
+
   const dr = r as any;
+  const sizeLabel = parseSizeLabel(r.size);
   return {
-    id: `${index}-${r.magnet.slice(-8)}`,
+    id: stableId,
     title: r.title,
     magnet: r.magnet,
     kind,
     kindLabel: kindLabelText(kind, t),
-    sizeLabel: parseSizeLabel(r.size),
+    sizeLabel,
     dateLabel,
     fileCountLabel,
     tags: extractTags(r.title),
@@ -326,5 +389,7 @@ export function toResultCardModel(r: SearchResult, index: number, query?: string
     sourceName: r.site_name || r.source || '',
     sourceCount: dr.sourceCount || 1,
     sourceNames: dr.sourceNames || [r.site_name || r.source || ''],
+    sizeBytes: parseSizeBytes(sizeLabel),
+    videoQuality: _videoQuality(r.title),
   };
 }

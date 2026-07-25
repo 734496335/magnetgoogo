@@ -1,0 +1,66 @@
+package __PACKAGE__
+
+import android.content.Intent
+import android.os.Bundle
+import android.util.Log
+import com.facebook.react.HeadlessJsTaskService
+import com.facebook.react.bridge.Arguments
+import com.facebook.react.jstasks.HeadlessJsTaskConfig
+
+class SearchHeadlessService : HeadlessJsTaskService() {
+  companion object {
+    private const val TAG = "SearchHeadlessService"
+    const val TASK_NAME = "SearchHeadlessTask"
+    const val ACTION_STOP = "__PACKAGE__.SEARCH_HEADLESS_STOP"
+    const val EXTRA_QUERY = "query"
+    const val EXTRA_TOKEN = "token"
+    const val EXTRA_SEARCH_ID = "searchId"
+  }
+
+  private var activeToken: Int = 0
+
+  override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    if (intent?.action == ACTION_STOP) {
+      val requestedToken = intent.getIntExtra(EXTRA_TOKEN, 0)
+      if (requestedToken == 0 || activeToken == 0 || requestedToken == activeToken) {
+        Log.i(TAG, "stop requested token=$requestedToken active=$activeToken")
+        activeToken = 0
+        stopSelf()
+        return START_NOT_STICKY
+      }
+      Log.i(TAG, "ignore stale stop token=$requestedToken active=$activeToken")
+      return START_NOT_STICKY
+    }
+
+    activeToken = intent?.getIntExtra(EXTRA_TOKEN, 0) ?: 0
+    val query = intent?.getStringExtra(EXTRA_QUERY)?.trim().orEmpty()
+    Log.i(TAG, "onStartCommand query=$query token=$activeToken")
+    return super.onStartCommand(intent, flags, startId)
+  }
+
+  override fun getTaskConfig(intent: Intent?): HeadlessJsTaskConfig? {
+    val query = intent?.getStringExtra(EXTRA_QUERY)?.trim().orEmpty()
+    if (query.isEmpty()) return null
+    val token = intent?.getIntExtra(EXTRA_TOKEN, 0) ?: 0
+    val searchId = intent?.getStringExtra(EXTRA_SEARCH_ID).orEmpty()
+    Log.i(TAG, "getTaskConfig query=$query token=$token")
+    val data = Arguments.fromBundle(
+      Bundle().apply {
+        putString(EXTRA_QUERY, query)
+        putInt(EXTRA_TOKEN, token)
+        putString(EXTRA_SEARCH_ID, searchId)
+      },
+    )
+    return HeadlessJsTaskConfig(
+      TASK_NAME,
+      data,
+      30 * 60 * 1000L,
+      true,
+    )
+  }
+
+  override fun onDestroy() {
+    activeToken = 0
+    super.onDestroy()
+  }
+}

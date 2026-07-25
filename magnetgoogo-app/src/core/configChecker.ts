@@ -8,6 +8,7 @@
  */
 
 import Constants from 'expo-constants';
+import { compareSemver, isRemoteConfig, type ValidRemoteConfig } from './configValidation';
 
 // Endpoints raced in parallel — first valid response wins.
 const CN_ALI = 'https://cn.magnetgoogo.com';
@@ -28,18 +29,7 @@ function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 60
   });
 }
 
-export interface RemoteConfig {
-  latest_version: string;
-  min_version: string;
-  download: {
-    primary: string;
-    mirrors: string[];
-  };
-  announcement: string;
-  source_expiry_hours: number;
-  source_schema_version: number;
-  updated_at: string;
-}
+export interface RemoteConfig extends ValidRemoteConfig {}
 
 export interface ConfigCheckResult {
   config: RemoteConfig | null;
@@ -54,19 +44,6 @@ export interface ConfigCheckResult {
 /** Get the current app version from app.json / Constants. */
 export function getAppVersion(): string {
   return Constants.expoConfig?.version || '0.1.0';
-}
-
-/** Compare semver strings. Returns -1, 0, or 1. */
-function compareSemver(a: string, b: string): number {
-  const pa = a.split('.').map(Number);
-  const pb = b.split('.').map(Number);
-  for (let i = 0; i < 3; i++) {
-    const na = pa[i] || 0;
-    const nb = pb[i] || 0;
-    if (na < nb) return -1;
-    if (na > nb) return 1;
-  }
-  return 0;
 }
 
 /** Fetch config.json and check version constraints. Race all endpoints. */
@@ -97,8 +74,9 @@ export async function checkConfig(): Promise<ConfigCheckResult> {
         const resp = await fetchWithTimeout(url, { headers });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
+        if (!isRemoteConfig(data)) throw new Error('invalid_config');
         console.log(`[ConfigChecker] ✓ Loaded config from ${url}`);
-        return data as RemoteConfig;
+        return data;
       }),
     );
     config = result;

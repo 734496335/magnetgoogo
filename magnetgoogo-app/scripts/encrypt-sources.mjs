@@ -18,10 +18,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ── Same key fragments as crypto.ts — MUST stay in sync ──
 const _F = [
-  { f: 'a837c14b9e5d0a23', m: 'e556a52dfa3b6e45' },
-  { f: '3c19574f28410a1c', m: '5e7b332e48256e3a' },
-  { f: '672f0b115c39462b', m: '354a6f723a5f204d' },
-  { f: '1c0b5e47193a5818', m: '6e6e3a26796c3c3e' },
+  { f: '8e16f5d77f2cbe1d', m: '879013eacc3c0e66' },
+  { f: 'd3ece411ab179a96', m: '2c3f0b24625b15fb' },
+  { f: '04f8509f59e484d6', m: '95ae4517844b1c0d' },
+  { f: '7242f48883974ebb', m: '0de88d8f93fc7a65' },
 ];
 
 function _xorHex(a, b) {

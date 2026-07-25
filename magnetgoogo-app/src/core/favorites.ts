@@ -3,6 +3,7 @@
  * Stores magnet links + metadata for quick access.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { sanitizeFavoriteItems } from './storageSanitizers';
 
 const STORAGE_KEY = 'mg_favorites';
 
@@ -21,11 +22,11 @@ export async function getFavorites(): Promise<FavoriteItem[]> {
   if (_cache) return _cache;
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    _cache = raw ? JSON.parse(raw) : [];
+    _cache = sanitizeFavoriteItems(raw ? JSON.parse(raw) : []);
   } catch {
     _cache = [];
   }
-  return _cache!;
+  return _cache!.slice();
 }
 
 async function _save(): Promise<void> {
@@ -36,8 +37,7 @@ export async function addFavorite(item: Omit<FavoriteItem, 'addedAt'>): Promise<
   const list = await getFavorites();
   // Prevent duplicate by magnet
   if (list.some((f) => f.magnet === item.magnet)) return;
-  list.unshift({ ...item, addedAt: Date.now() });
-  _cache = list;
+  _cache = [{ ...item, addedAt: Date.now() }, ...list];
   await _save();
 }
 

@@ -56,7 +56,7 @@ export default function FeedbackFAB() {
     // Close modal immediately — fire and forget
     setText('');
     setVisible(false);
-    showToast(isZh ? '反馈提交中…' : 'Submitting…');
+    showToast(isZh ? '吐槽提交中…' : 'Sending…');
 
     // Background submit
     const ctrl = new AbortController();
@@ -84,7 +84,7 @@ export default function FeedbackFAB() {
         }
         const json = await resp.json().catch(() => ({ ok: false }));
         if (json.ok) {
-          showToast(isZh ? '✓ 已收到反馈，感谢！' : '✓ Feedback received, thanks!');
+          showToast(isZh ? '✓ 吐槽收到，谢谢！' : '✓ Got it, thanks!');
         } else {
           console.log(`[Feedback] API error:`, json);
           showToast(isZh ? '提交失败' : 'Submit failed');
@@ -112,13 +112,13 @@ export default function FeedbackFAB() {
         <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={[styles.sheet, { backgroundColor: colors.card }]}>
             <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetTitle, { color: colors.text }]}>{isZh ? '意见反馈' : 'Feedback'}</Text>
+              <Text style={[styles.sheetTitle, { color: colors.text }]}>{isZh ? '来吐槽吧' : 'Let it out'}</Text>
               <TouchableOpacity onPress={() => setVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="close" size={22} color={colors.textTertiary} />
               </TouchableOpacity>
             </View>
             <Text style={[styles.sheetHint, { color: colors.textTertiary }]}>
-              {isZh ? '匿名提交，无需登录。Bug、建议、吐槽都欢迎。' : 'Anonymous. No login required. Bugs, suggestions, anything.'}
+              {isZh ? '匿名提交，无需登录。Bug、建议、吐槽都来吧。' : 'Anonymous. Bugs, complaints, rants — all welcome.'}
             </Text>
             <TextInput
               style={[styles.input, { color: colors.text, backgroundColor: colors.inputBg, borderColor: colors.border || '#e0dcd6' }]}

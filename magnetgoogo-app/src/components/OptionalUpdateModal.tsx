@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Modal, View, Text, TouchableOpacity, Linking, StyleSheet, Platform, Alert } from 'react-native';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import type { ConfigCheckResult } from '../core/configChecker';
 

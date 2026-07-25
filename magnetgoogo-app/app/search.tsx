@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+﻿import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Image,
   Platform,
   Vibration,
+  AppState,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,55 +27,84 @@ import {
   SearchResult,
   ResultCardModel,
   toResultCardModel,
+  computeRelevance,
+  getResultStableId,
+  parseSizeBytes,
 } from '../src/core/types';
-import { searchSource } from '../src/core/searchEngine';
-import { deduplicateResults, extractInfoHash, type DedupedResult } from '../src/core/dedup';
+import { extractInfoHash } from '../src/core/dedup';
+import {
+  createSearchResultAccumulatorState,
+  mergePendingSearchResults,
+  rebuildSearchCardModels,
+  type SearchResultAccumulatorState,
+} from '../src/core/searchResultAccumulator';
 import { addHistory } from '../src/core/searchHistory';
 import { addFavorite, removeFavorite, getFavorites, type FavoriteItem } from '../src/core/favorites';
 import { VerifyManager, type VerifyRequest } from '../src/core/VerifyManager';
 import VerifyWebView from '../src/components/VerifyWebView';
 import FeedbackFAB from '../src/components/FeedbackFAB';
 import { useTheme } from '../src/core/ThemeContext';
-import { trackSearch, trackCopy, trackOpen, trackSourceResult } from '../src/core/analytics';
-import { startReport, type ReportBuilder, type ResultItemLog } from '../src/core/searchDebugLogger';
-import { computeRelevance } from '../src/core/types';
-import { BrandTracker } from '../src/core/brandDedup';
+import { trackCopy, trackOpen, trackSearchCompleted, trackSearchSubmitted } from '../src/core/analytics';
+import { notifySearchCompleted } from '../src/core/searchNotifications';
+import { loadSourceStats } from '../src/core/sourceStats';
+import { startSearchKeepAlive, stopSearchKeepAlive, handoffSearchToBackground } from '../src/core/searchKeepAlive';
+import {
+  claimBackgroundSearch,
+  clearBackgroundSearchState,
+  getBackgroundSearchSnapshot,
+  subscribeBackgroundSearch,
+} from '../src/core/backgroundSearch';
+import {
+  BACKGROUND_SEARCH_POLL_INTERVAL_MS,
+  BACKGROUND_SEARCH_TASK_TIMEOUT_MS,
+  backgroundSnapshotMatches,
+  isBackgroundSearchTerminal,
+  mergeBackgroundSearchResults,
+  type BackgroundSearchSnapshot,
+} from '../src/core/backgroundSearchProtocol';
+import { runSearchTask } from '../src/core/searchRunner';
+import { normalizeSearchTerm } from '../src/core/searchTerm';
 
-// ── Search throttle (5s cooldown) ──────────────────────────────────────
+// Search throttle (3s cooldown)
 const SEARCH_COOLDOWN_MS = 3000;
 let _lastSearchTime = 0;
 
-// ── Module-level search session (survives component unmount) ────────────
+// Module-level search session (survives component unmount)
 // When the user navigates away, the search promises keep running and
 // updating this cache.  When the component re-mounts, it restores
 // state from here instead of re-searching.
-interface _Session {
+interface _Session extends SearchResultAccumulatorState {
+  generation: number;
   query: string;
+  searchId?: string;
   rawResults: SearchResult[];
   searching: boolean;
+  startedAt: number;
   sourceCount: number;
   doneCount: number;
   abortRef: { current: boolean };
-  // Mounted component's setState callbacks — null when unmounted
+  // Mounted component's setState callbacks; null when unmounted.
   _notify: (() => void) | null;
-  // Incremental dedup: avoid recomputing from scratch every sync
-  _dedupMap: Map<string, DedupedResult>;
-  _noHashResults: DedupedResult[];
-  _processedCount: number;
-  _cardModels: ResultCardModel[];
+  _keepAliveToken?: number;
 }
 let _session: _Session | null = null;
+let _searchGeneration = 0;
 
-// ── Skeleton card component ─────────────────────────────────────────
+/** Ids that already played enter animation (stable across reorders). */
+const _animatedCardIds = new Set<string>();
+
+// Skeleton card component
 function SkeletonCard({ cardBg, shimmerBg, tileBg }: { cardBg: string; shimmerBg: string; tileBg: string }) {
   const opacity = useRef(new Animated.Value(0.3)).current;
   useEffect(() => {
-    Animated.loop(
+    const anim = Animated.loop(
       Animated.sequence([
         Animated.timing(opacity, { toValue: 0.7, duration: 800, useNativeDriver: true }),
         Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
       ]),
-    ).start();
+    );
+    anim.start();
+    return () => anim.stop();
   }, [opacity]);
   const bar = (w: number | `${number}%`, h: number, mt = 0) => (
     <Animated.View style={{ width: w, height: h, borderRadius: h / 2, backgroundColor: shimmerBg, opacity, marginTop: mt }} />
@@ -108,7 +138,7 @@ function SkeletonList({ cardBg, shimmerBg, tileBg }: { cardBg: string; shimmerBg
   );
 }
 
-// ── Bouncing dots component ─────────────────────────────────────────
+// Bouncing dots component
 function BouncingDots() {
   const d1 = useRef(new Animated.Value(0)).current;
   const d2 = useRef(new Animated.Value(0)).current;
@@ -123,9 +153,17 @@ function BouncingDots() {
           Animated.timing(v, { toValue: 0, duration: 250, easing: Easing.in(Easing.quad), useNativeDriver: true }),
         ]),
       );
-    bounce(d1, 0).start();
-    bounce(d2, 150).start();
-    bounce(d3, 300).start();
+    const a1 = bounce(d1, 0);
+    const a2 = bounce(d2, 150);
+    const a3 = bounce(d3, 300);
+    a1.start();
+    a2.start();
+    a3.start();
+    return () => {
+      a1.stop();
+      a2.stop();
+      a3.stop();
+    };
   }, [d1, d2, d3]);
 
   const dot = (v: Animated.Value) => (
@@ -135,41 +173,51 @@ function BouncingDots() {
   return <View style={{ flexDirection: 'row' }}>{dot(d1)}{dot(d2)}{dot(d3)}</View>;
 }
 
-// ── Animated card wrapper ───────────────────────────────────────────
+// Animated card wrapper — animate by stable id once, never by list index (prevents re-fly on re-rank).
 const MAX_ANIMATED_CARDS = 8;
-function AnimatedCard({ index, children }: { index: number; children: React.ReactNode }) {
-  // Only animate first N cards; rest render instantly to reduce overhead
-  if (index >= MAX_ANIMATED_CARDS) return <View>{children}</View>;
-
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(24)).current;
+function AnimatedCard({
+  id,
+  index,
+  children,
+}: {
+  id: string;
+  index: number;
+  children: React.ReactNode;
+}) {
+  const already = _animatedCardIds.has(id);
+  // Only the first MAX ids ever get enter animation; later ids appear static.
+  const canEnter = !already && _animatedCardIds.size < MAX_ANIMATED_CARDS;
+  const opacity = useRef(new Animated.Value(canEnter ? 0 : 1)).current;
+  const translateY = useRef(new Animated.Value(canEnter ? 16 : 0)).current;
+  const started = useRef(false);
 
   useEffect(() => {
-    const delay = Math.min(index * 60, 500);
+    if (started.current) return;
+    started.current = true;
+    _animatedCardIds.add(id);
+    if (!canEnter) return;
+    const delay = Math.min(index * 45, 360);
     Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 350, delay, useNativeDriver: true }),
-      Animated.timing(translateY, { toValue: 0, duration: 350, delay, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 240, delay, useNativeDriver: true }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 240,
+        delay,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
     ]).start();
-  }, [index, opacity, translateY]);
+  }, [id, index, canEnter, opacity, translateY]);
 
+  if (!canEnter) return <View>{children}</View>;
   return <Animated.View style={{ opacity, transform: [{ translateY }] }}>{children}</Animated.View>;
 }
 
-// ── Sort types ──────────────────────────────────────────────────────
-type SortKey = 'relevance' | 'size' | 'date';
+// Sort types
+type SortKey = 'comprehensive' | 'relevance' | 'size' | 'date';
 type SortDir = 'desc' | 'asc';
 const RELEVANCE_THRESHOLD = 30;
 type ListItem = ResultCardModel | { _divider: true; id: string };
-
-function parseSizeBytes(label: string): number {
-  if (!label) return 0;
-  const m = label.match(/([\d.]+)\s*(TB|GB|MB|KB|B)/i);
-  if (!m) return 0;
-  const v = parseFloat(m[1]);
-  const u = m[2].toUpperCase();
-  const map: Record<string, number> = { B: 1, KB: 1024, MB: 1048576, GB: 1073741824, TB: 1099511627776 };
-  return v * (map[u] || 0);
-}
 
 function parseDate(label: string): number {
   if (!label) return 0;
@@ -177,16 +225,16 @@ function parseDate(label: string): number {
   return isNaN(d.getTime()) ? 0 : d.getTime();
 }
 
-// ── Main Screen ─────────────────────────────────────────────────────
+// Main screen
 export default function SearchScreen() {
   const { q } = useLocalSearchParams<{ q: string }>();
-  const [query, setQuery] = useState(q || '');
+  const [query, setQuery] = useState(() => normalizeSearchTerm(q));
   const [results, setResults] = useState<ResultCardModel[]>([]);
   const [searching, setSearching] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [sourceCount, setSourceCount] = useState(0);
   const [doneCount, setDoneCount] = useState(0);
-  const [sortKey, setSortKey] = useState<SortKey>('relevance');
+  const [sortKey, setSortKey] = useState<SortKey>('comprehensive');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [favSet, setFavSet] = useState<Set<string>>(new Set());
   const { sources } = useSources();
@@ -195,71 +243,106 @@ export default function SearchScreen() {
   const { lang, t } = useLang();
   const { colors } = useTheme();
 
-  // ── Sync with module-level session on mount / unmount ──
+  // Sync with module-level session on mount / unmount.
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const syncFromSession = useCallback(() => {
+  const backgroundHandoffRef = useRef<{ query: string; token: number } | null>(null);
+  const backgroundPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const backgroundPollStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const backgroundPollBusyRef = useRef(false);
+  /** While user is scrolling, defer list data updates to avoid jump/jank. */
+  const isScrollingRef = useRef(false);
+  const pendingListSyncRef = useRef(false);
+  const scrollEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const rebuildCardModels = useCallback((s: _Session, forceFullSort: boolean) => {
+    rebuildSearchCardModels(s, {
+      searching: s.searching,
+      forceFullSort,
+      query: s.query,
+      extractInfoHash,
+      getStableId: getResultStableId,
+      buildCard: (result, index) => toResultCardModel(result, index, s.query, t),
+    });
+  }, [t]);
+
+  const syncFromSession = useCallback((opts?: { forceList?: boolean }) => {
     if (!_session) return;
 
-    // Incremental dedup: only process new results since last sync
     const s = _session;
-    const newResults = s.rawResults.slice(s._processedCount);
-    if (newResults.length > 0) {
-      for (const r of newResults) {
-        const hash = extractInfoHash(r.magnet);
-        const srcName = (r as any).site_name || r.source || '';
-        if (!hash) {
-          s._noHashResults.push({
-            ...r, sourceCount: 1, sourceNames: [srcName], bestSeeders: r.seeders || 0,
-          });
-        } else {
-          const existing = s._dedupMap.get(hash);
-          if (!existing) {
-            s._dedupMap.set(hash, {
-              ...r, sourceCount: 1, sourceNames: [srcName], bestSeeders: r.seeders || 0,
-            });
-          } else {
-            existing.sourceCount++;
-            if (srcName && !existing.sourceNames.includes(srcName)) existing.sourceNames.push(srcName);
-            if (r.title.length > existing.title.length) existing.title = r.title;
-            if (!existing.size && r.size) existing.size = r.size;
-            if ((r.seeders || 0) > existing.bestSeeders) { existing.bestSeeders = r.seeders || 0; existing.seeders = r.seeders; }
-            if (!existing.date && r.date) existing.date = r.date;
-          }
-        }
-      }
-      s._processedCount = s.rawResults.length;
+    let cardCacheInvalidated = false;
+    if ((s as any)._cachedLang !== lang) {
+      (s as any)._cachedLang = lang;
+      s._cardModelCache.clear();
+      cardCacheInvalidated = true;
+    }
+    let listChanged = mergePendingSearchResults(s, s.rawResults, s.query, {
+      extractInfoHash,
+      getStableId: getResultStableId,
+      computeRelevance,
+      parseSizeBytes,
+    });
 
-      // Rebuild sorted deduped list
-      const sorted = [...s._dedupMap.values()];
-      sorted.sort((a, b) => b.sourceCount !== a.sourceCount
-        ? b.sourceCount - a.sourceCount : b.bestSeeders - a.bestSeeders);
-      const deduped = [...sorted, ...s._noHashResults];
-
-      // Only recompute card models for changed items
-      s._cardModels = deduped.map((r, i) => toResultCardModel(r, i, s.query, t));
+    // Full rank only when search finished (or user stopped). Mid-search stays first-seen order.
+    const forceFullSort = !s.searching && !s._finalSorted;
+    if (listChanged || forceFullSort || cardCacheInvalidated) {
+      rebuildCardModels(s, forceFullSort);
+      listChanged = true;
     }
 
-    setResults(s._cardModels);
+    // Progress chips update always (fixed-height status row — no layout thrash)
     setSearching(s.searching);
     setSourceCount(s.sourceCount);
     setDoneCount(s.doneCount);
-    setQuery(s.query);
-  }, [t]);
+
+    // Defer list data while scrolling to keep scroll position stable
+    if (listChanged || opts?.forceList) {
+      if (isScrollingRef.current && !opts?.forceList) {
+        pendingListSyncRef.current = true;
+      } else {
+        pendingListSyncRef.current = false;
+        // New array ref so FlatList sees an update; order is stable while searching
+        setResults(s._cardModels.slice());
+      }
+    }
+  }, [t, lang, rebuildCardModels]);
 
   // Debounced version: batch rapid _notify calls (every source completion)
+  // 700ms while searching reduces thrash vs 500ms; still feels live.
   const debouncedSync = useCallback(() => {
-    if (syncTimerRef.current) return;           // already scheduled
+    if (syncTimerRef.current) return;
+    const delay = _session?.searching ? 700 : 400;
     syncTimerRef.current = setTimeout(() => {
       syncTimerRef.current = null;
       syncFromSession();
-    }, 500);
+    }, delay);
+  }, [syncFromSession]);
+
+  const onScrollBeginDrag = useCallback(() => {
+    isScrollingRef.current = true;
+    if (scrollEndTimerRef.current) {
+      clearTimeout(scrollEndTimerRef.current);
+      scrollEndTimerRef.current = null;
+    }
+  }, []);
+
+  const onScrollEnd = useCallback(() => {
+    if (scrollEndTimerRef.current) clearTimeout(scrollEndTimerRef.current);
+    // Coalesce fling end
+    scrollEndTimerRef.current = setTimeout(() => {
+      scrollEndTimerRef.current = null;
+      isScrollingRef.current = false;
+      if (pendingListSyncRef.current) {
+        pendingListSyncRef.current = false;
+        syncFromSession({ forceList: true });
+      }
+    }, 120);
   }, [syncFromSession]);
 
   useEffect(() => {
     // Subscribe: session calls this when async results arrive
     if (_session) _session._notify = debouncedSync;
     return () => {
-      // Unsubscribe on unmount — search keeps running in background
+      // Unsubscribe on unmount; search keeps running in background.
       if (_session) _session._notify = null;
       if (syncTimerRef.current) { clearTimeout(syncTimerRef.current); syncTimerRef.current = null; }
     };
@@ -269,237 +352,374 @@ export default function SearchScreen() {
     getFavorites().then((favs) => setFavSet(new Set(favs.map((f) => f.magnet))));
   }, []);
 
-  // ── Legado-style verification: register listener for challenge events ──
+  // Legado-style verification: register listener for challenge events.
   const [verifyRequest, setVerifyRequest] = useState<VerifyRequest | null>(null);
   useEffect(() => {
     VerifyManager.setListener((req) => setVerifyRequest(req));
     return () => VerifyManager.setListener(null);
   }, []);
 
+  const stopBackgroundObservation = useCallback(() => {
+    if (backgroundPollRef.current) {
+      clearInterval(backgroundPollRef.current);
+      backgroundPollRef.current = null;
+    }
+    if (backgroundPollStopRef.current) {
+      clearTimeout(backgroundPollStopRef.current);
+      backgroundPollStopRef.current = null;
+    }
+    backgroundPollBusyRef.current = false;
+  }, []);
+
+  const handoffActiveSessionToBackground = useCallback(async (
+    session: _Session | null = _session,
+  ): Promise<boolean> => {
+    if (
+      !session ||
+      _session !== session ||
+      !session.searching ||
+      backgroundHandoffRef.current ||
+      !session.query.trim()
+    ) {
+      return false;
+    }
+
+    stopBackgroundObservation();
+    const token = session._keepAliveToken || 0;
+    if (!token) return false;
+
+    backgroundHandoffRef.current = { query: session.query, token };
+    const handoffSnapshot: BackgroundSearchSnapshot = {
+      query: session.query,
+      token,
+      searchId: session.searchId,
+      updatedAt: new Date().toISOString(),
+      startedAt: session.startedAt,
+      sourceCount: session.sourceCount || sources.length,
+      doneCount: session.doneCount,
+      searching: true,
+      completed: false,
+      resultCount: session.rawResults.length,
+      results: session.rawResults,
+    };
+
+    try {
+      await claimBackgroundSearch(handoffSnapshot);
+      const ok = await handoffSearchToBackground(session.query, token, session.searchId || '');
+      if (!ok || backgroundHandoffRef.current?.token !== token) {
+        backgroundHandoffRef.current = null;
+        await clearBackgroundSearchState(session.query, token);
+        return false;
+      }
+      if (_session === session) session.abortRef.current = true;
+      return true;
+    } catch (error) {
+      console.warn('[Search] background handoff failed', {
+        search_id: session.searchId || '',
+        rule_id: '',
+        stage: 'background_handoff',
+        error_code: error instanceof Error ? error.message : String(error),
+      });
+      if (backgroundHandoffRef.current?.token === token) {
+        backgroundHandoffRef.current = null;
+      }
+      await clearBackgroundSearchState(session.query, token).catch(() => {});
+      return false;
+    }
+  }, [sources.length, stopBackgroundObservation]);
+
+  const applyBackgroundSnapshot = useCallback((snapshot: BackgroundSearchSnapshot): boolean => {
+    const expectedQuery = backgroundHandoffRef.current?.query || _session?.query || '';
+    const expectedToken = backgroundHandoffRef.current?.token || _session?._keepAliveToken || 0;
+    if (!expectedQuery || !expectedToken || !backgroundSnapshotMatches(snapshot, expectedQuery, expectedToken)) {
+      return false;
+    }
+
+    const terminal = isBackgroundSearchTerminal(snapshot);
+    const existing = _session?.query === snapshot.query ? _session : null;
+    const mergedResults = mergeBackgroundSearchResults(
+      existing?.rawResults || [],
+      snapshot.results,
+      getResultStableId,
+    );
+
+    if (existing && !terminal) {
+      existing.rawResults = mergedResults;
+      existing.searching = true;
+      existing.searchId = snapshot.searchId || existing.searchId;
+      existing.startedAt = snapshot.startedAt || existing.startedAt;
+      existing.sourceCount = snapshot.sourceCount || existing.sourceCount || sources.length;
+      existing.doneCount = snapshot.doneCount;
+      existing._keepAliveToken = snapshot.token || existing._keepAliveToken;
+      existing.abortRef.current = true;
+      existing._notify = debouncedSync;
+    } else {
+      _session = {
+        generation: existing?.generation || ++_searchGeneration,
+        query: snapshot.query,
+        searchId: snapshot.searchId || existing?.searchId,
+        rawResults: mergedResults,
+        searching: !terminal,
+        startedAt: snapshot.startedAt || existing?.startedAt || Date.now(),
+        sourceCount: snapshot.sourceCount || existing?.sourceCount || sources.length,
+        doneCount: snapshot.doneCount || (terminal ? snapshot.sourceCount : 0),
+        abortRef: { current: true },
+        _notify: debouncedSync,
+        _keepAliveToken: snapshot.token || existing?._keepAliveToken,
+        ...createSearchResultAccumulatorState(),
+      };
+      _animatedCardIds.clear();
+    }
+
+    setQuery(snapshot.query);
+    syncFromSession({ forceList: terminal });
+    if (terminal) backgroundHandoffRef.current = null;
+    return true;
+  }, [debouncedSync, q, sources.length, syncFromSession]);
+
+  const pollBackgroundSnapshot = useCallback(async () => {
+    if (backgroundPollBusyRef.current) return;
+    backgroundPollBusyRef.current = true;
+    try {
+      const snapshot = await getBackgroundSearchSnapshot();
+      if (!snapshot) {
+        if (!backgroundHandoffRef.current) stopBackgroundObservation();
+        return;
+      }
+      const applied = applyBackgroundSnapshot(snapshot);
+      if (applied && isBackgroundSearchTerminal(snapshot)) {
+        stopBackgroundObservation();
+        await clearBackgroundSearchState(snapshot.query, snapshot.token);
+      }
+    } catch (error) {
+      console.warn('[Search] background poll failed', {
+        search_id: _session?.searchId || '',
+        rule_id: '',
+        stage: 'background_poll',
+        error_code: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      backgroundPollBusyRef.current = false;
+    }
+  }, [applyBackgroundSnapshot, stopBackgroundObservation]);
+
+  const resumeBackgroundObservation = useCallback(() => {
+    stopBackgroundObservation();
+    void pollBackgroundSnapshot();
+    backgroundPollRef.current = setInterval(
+      () => void pollBackgroundSnapshot(),
+      BACKGROUND_SEARCH_POLL_INTERVAL_MS,
+    );
+    backgroundPollStopRef.current = setTimeout(
+      stopBackgroundObservation,
+      BACKGROUND_SEARCH_TASK_TIMEOUT_MS,
+    );
+  }, [pollBackgroundSnapshot, stopBackgroundObservation]);
+
+  useEffect(() => subscribeBackgroundSearch((snapshot) => {
+    if (AppState.currentState !== 'active') return;
+    const applied = applyBackgroundSnapshot(snapshot);
+    if (applied && isBackgroundSearchTerminal(snapshot)) {
+      stopBackgroundObservation();
+      void clearBackgroundSearchState(snapshot.query, snapshot.token);
+    }
+  }), [applyBackgroundSnapshot, stopBackgroundObservation]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'background') {
+        void handoffActiveSessionToBackground();
+        return;
+      }
+      if (next === 'active') resumeBackgroundObservation();
+    });
+
+    if (AppState.currentState === 'active') resumeBackgroundObservation();
+    return () => {
+      sub.remove();
+      stopBackgroundObservation();
+    };
+  }, [handoffActiveSessionToBackground, resumeBackgroundObservation, stopBackgroundObservation]);
+
   const doSearch = useCallback(
     async (term: string) => {
-      if (!term.trim() || sources.length === 0) return;
+      const normalizedTerm = normalizeSearchTerm(term);
+      if (!normalizedTerm || sources.length === 0) return;
 
-      // Search throttle: 5s cooldown
+      // Search throttle: 3s cooldown.
       const now = Date.now();
       const elapsed = now - _lastSearchTime;
       if (elapsed < SEARCH_COOLDOWN_MS) {
         const wait = Math.ceil((SEARCH_COOLDOWN_MS - elapsed) / 1000);
-        Alert.alert('', lang === 'zh' ? `搜索太频繁，请${wait}秒后再试` : `Please wait ${wait}s before searching again`);
+        Alert.alert('', lang === 'zh' ? `搜索太频繁，请 ${wait} 秒后再试` : `Please wait ${wait}s before searching again`);
         return;
       }
       _lastSearchTime = now;
 
-      addHistory(term.trim());
+      // Invalidate any older foreground/headless search before starting a new owner.
+      const generation = ++_searchGeneration;
+      const previousSession = _session;
+      const previousHandoff = backgroundHandoffRef.current;
+      const previousToken = previousHandoff?.token || previousSession?._keepAliveToken || 0;
+      const previousQuery = previousHandoff?.query || previousSession?.query || '';
+      if (previousSession) previousSession.abortRef.current = true;
+      backgroundHandoffRef.current = null;
+      setQuery(normalizedTerm);
 
-      // Abort any previous session
-      if (_session) _session.abortRef.current = true;
+      await Promise.allSettled([
+        addHistory(normalizedTerm),
+        loadSourceStats(),
+        previousToken && previousQuery
+          ? clearBackgroundSearchState(previousQuery, previousToken)
+          : Promise.resolve(false),
+        previousToken ? stopSearchKeepAlive(previousToken) : Promise.resolve(),
+      ]);
+      if (generation !== _searchGeneration) return;
 
-      // Create new session
+      const keepAliveToken = await startSearchKeepAlive(normalizedTerm);
+      if (generation !== _searchGeneration) {
+        await stopSearchKeepAlive(keepAliveToken).catch(() => {});
+        return;
+      }
+
+      // Create new session.
       const session: _Session = {
-        query: term,
+        generation,
+        query: normalizedTerm,
+        searchId: undefined,
         rawResults: [],
         searching: true,
+        startedAt: Date.now(),
         sourceCount: 0,
         doneCount: 0,
         abortRef: { current: false },
         _notify: debouncedSync,
-        _dedupMap: new Map(),
-        _noHashResults: [],
-        _processedCount: 0,
-        _cardModels: [],
+        _keepAliveToken: keepAliveToken,
+        ...createSearchResultAccumulatorState(),
       };
       _session = session;
+      _animatedCardIds.clear();
 
       setSearching(true);
       setResults([]);
-      setSortKey('relevance');
+      setSortKey('comprehensive');
       setSortDir('desc');
       setDoneCount(0);
 
-      // 3-tier scheduling: direct(fast) → detail/custom(medium) → browser(slow)
-      const getSpeedTier = (s: any): number => {
-        if (s.search?.requires_browser) return 2;
-        if (VerifyManager.isVerifyOrigin(s.site?.origin)) return 2;
-        if (s.capabilities?.supports_detail) return 1;
-        if (s.search?.requires_csrf) return 1;
-        const h = s.search?.handler || '';
-        if (h && h !== 'std') return 1;
-        return 0;
-      };
-      const sortedSources = [...sources].sort((a, b) => {
-        const aTier = getSpeedTier(a);
-        const bTier = getSpeedTier(b);
-        if (aTier !== bTier) return aTier - bTier;
-        const aScore = (a as any).quality?.score ?? 50;
-        const bScore = (b as any).quality?.score ?? 50;
-        return bScore - aScore;
-      });
-      const allSources = sortedSources;
-      session.sourceCount = allSources.length;
-      setSourceCount(allSources.length);
-
-      // ── Brand-level dedup: runtime tracker ──
-      const brandTracker = new BrandTracker();
-
-      // ── Debug report ──
-      const debugReport = startReport(term, allSources.length);
-
-      const CONCURRENCY = 15;
-      const BROWSER_CONCURRENCY = 4;
-      const BROWSER_TIMEOUT_MS = 25_000;
-
-      // ── Worker pool: shared cursor across all workers ──
-      let cursor = 0;
-      const runNext = async (sources: any[], timeoutMs?: number): Promise<void> => {
-        while (cursor < sources.length && !session.abortRef.current) {
-          const idx = cursor++;
-          const rule = sources[idx];
-          const srcName = (rule as any).site?.name || 'unknown';
-          const srcOrigin = (rule as any).site?.origin || '';
-          const srcQuality = (rule as any).quality?.score ?? 0;
-          const srcWaf = !!(rule as any).search?.requires_waf_bypass;
-          const srcBrowser = !!(rule as any).search?.requires_browser;
-          // Runtime brand dedup: skip if this brand already has enough successes
-          if (brandTracker.shouldSkip(rule)) {
-            debugReport.recordSource(srcName, srcOrigin, 'skipped', 0, 0, {
-              requiresWaf: srcWaf, requiresBrowser: srcBrowser, qualityScore: srcQuality,
-            });
-            session.doneCount++;
-            session._notify?.();
-            continue;
-          }
-          const srcHost = srcOrigin ? (() => { try { return new URL(srcOrigin).hostname; } catch { return srcName; } })() : srcName;
-          const t0 = Date.now();
-          try {
-            // Wrap searchSource with optional timeout
-            const searchPromise = searchSource(rule as any, term);
-            const items = timeoutMs
-              ? await Promise.race([
-                  searchPromise,
-                  new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs)),
-                ])
-              : await searchPromise;
-            const elapsed = Date.now() - t0;
-            trackSourceResult(srcHost, true, items.length, elapsed);
-            // Record to debug report — full per-item breakdown
-            const itemLogs: ResultItemLog[] = items.map(r => ({
-              title: r.title,
-              hash: (r.magnet.match(/btih:([a-fA-F0-9]+)/i)?.[1] || '').slice(0, 16),
-              size: r.size || '',
-              relevance: computeRelevance(r.title, term),
-            }));
-            debugReport.recordSource(
-              srcName, srcOrigin,
-              items.length > 0 ? 'ok' : 'empty',
-              items.length, elapsed,
-              {
-                sampleTitles: items.slice(0, 3).map(r => r.title),
-                sampleHashes: items.slice(0, 3).map(r => (r.magnet.match(/btih:([a-fA-F0-9]+)/i)?.[1] || '').slice(0, 12)),
-                items: itemLogs,
-                requiresWaf: srcWaf,
-                requiresBrowser: srcBrowser,
-                qualityScore: srcQuality,
-              },
-            );
-            if (items.length > 0) brandTracker.recordSuccess(rule);
-            if (items.length > 0 && !session.abortRef.current) {
-              const mapped: SearchResult[] = items
-                .filter((r) => !isBlockedContent(r.title))
-                .map((r) => ({
-                  title: r.title,
-                  magnet: r.magnet,
-                  size: r.size,
-                  date: r.date,
-                  source: r.source,
-                  site_name: r.site_name,
-                }));
-              session.rawResults.push(...mapped);
-              session._notify?.();
-            }
-          } catch (err: any) {
-            const elapsed = Date.now() - t0;
-            const msg = err?.message || 'unknown';
-            const isBlacklisted = msg === '__blacklisted__';
-            trackSourceResult(srcHost, false, 0, elapsed, msg);
-            debugReport.recordSource(
-              srcName, srcOrigin,
-              isBlacklisted ? 'skipped' : elapsed > 9000 ? 'timeout' : 'error',
-              0, elapsed,
-              {
-                error: isBlacklisted ? 'blacklisted (session)' : msg,
-                requiresWaf: srcWaf,
-                requiresBrowser: srcBrowser,
-                qualityScore: srcQuality,
-              },
-            );
-          } finally {
-            brandTracker.recordDone(rule);
-            session.doneCount++;
-            session._notify?.();
-          }
-        }
-      };
-
-      // ── Phase 1: HTTP sources (Tier 0 + Tier 1) ──
-      const httpSources = allSources.filter(s => {
-        const tier = getSpeedTier(s);
-        return tier === 0 || tier === 1;
-      });
-      // ── Phase 2: Browser/WebView sources (Tier 2) ──
-      const browserSources = allSources.filter(s => getSpeedTier(s) === 2);
-
-      // Phase 1: fast HTTP search with full concurrency
-      cursor = 0;
-      await Promise.allSettled(
-        Array.from({ length: Math.min(CONCURRENCY, httpSources.length) }, () => runNext(httpSources)),
-      );
-
-      // Phase 2: browser/WebView search with limited concurrency + timeout
-      if (browserSources.length > 0 && !session.abortRef.current) {
-        cursor = 0;
-        // Phase 2 global timeout: 30s
-        const phase2Deadline = Date.now() + 30_000;
-        const phase2Workers = Array.from(
-          { length: Math.min(BROWSER_CONCURRENCY, browserSources.length) },
-          () => runNext(browserSources, BROWSER_TIMEOUT_MS),
-        );
-        await Promise.race([
-          Promise.allSettled(phase2Workers),
-          new Promise<void>(resolve => {
-            const remaining = phase2Deadline - Date.now();
-            setTimeout(() => { session.abortRef.current = true; resolve(); }, Math.max(remaining, 0));
-          }),
-        ]);
+      // The app may have reached background before the async session was created.
+      // Do not rely exclusively on a one-shot AppState event in that race.
+      if (AppState.currentState !== 'active') {
+        const handedOff = await handoffActiveSessionToBackground(session);
+        if (handedOff) return;
       }
 
-      session.searching = false;
-      trackSearch(term, session.rawResults.length);
-      debugReport.finish();
-      session._notify?.();
+      try {
+        try {
+          session.searchId = await trackSearchSubmitted({
+            term: normalizedTerm,
+            sourceCount: sources.length,
+            backgroundCapable: true,
+          });
+        } catch {
+          // Analytics must never block the actual search.
+        }
+
+        if (_session !== session || generation !== _searchGeneration) {
+          session.abortRef.current = true;
+          return;
+        }
+
+        const result = await runSearchTask({
+          term: normalizedTerm,
+          sources,
+          shouldAbort: () => session.abortRef.current || generation !== _searchGeneration,
+          onItems: (items) => {
+            if (_session !== session || generation !== _searchGeneration) return;
+            session.rawResults.push(...items);
+            session._notify?.();
+          },
+          onProgress: (done, total) => {
+            if (_session !== session || generation !== _searchGeneration) return;
+            session.doneCount = done;
+            session.sourceCount = total;
+            session._notify?.();
+          },
+        });
+
+        if (_session !== session || generation !== _searchGeneration) return;
+        const handoffState = backgroundHandoffRef.current as { query: string; token: number } | null;
+        const handedOff = handoffState?.token === keepAliveToken;
+        if (!handedOff) {
+          session.searching = false;
+          session.doneCount = result.doneCount;
+          session.sourceCount = result.sourceCount;
+          session._notify?.();
+          if (session.searchId) {
+            trackSearchCompleted({
+              searchId: session.searchId,
+              term: normalizedTerm,
+              sourceCount: result.sourceCount,
+              doneCount: result.doneCount,
+              resultCount: session.rawResults.length,
+              aborted: result.aborted,
+              background: false,
+              durationMs: result.analytics.durationMs,
+              timeToFirstResultMs: result.analytics.timeToFirstResultMs,
+              sourceRollup: result.analytics.sourceRollup,
+            }).catch(() => {});
+          }
+          if (!result.aborted) {
+            notifySearchCompleted({
+              query: normalizedTerm,
+              resultCount: session.rawResults.length,
+              sourceCount: result.sourceCount,
+              elapsedMs: result.report.totalDurationMs || Date.now() - session.startedAt,
+            }).catch(() => {});
+          }
+        }
+      } catch (error) {
+        if (_session === session && generation === _searchGeneration) {
+          session.searching = false;
+          session.sourceCount = session.sourceCount || sources.length;
+          session._notify?.();
+          console.warn('[Search] unexpected failure', error);
+        }
+      } finally {
+        const handoffState = backgroundHandoffRef.current as { query: string; token: number } | null;
+        const handedOff = handoffState?.token === keepAliveToken;
+        if (!handedOff) {
+          stopSearchKeepAlive(keepAliveToken).catch(() => {});
+        }
+      }
     },
-    [sources, syncFromSession],
+    [sources, lang, debouncedSync, handoffActiveSessionToBackground],
   );
 
-  // ── On mount: restore existing session or start new search ──
+  // On mount/sources ready: restore existing session or start new search.
   useEffect(() => {
-    if (!q) return;
-    if (_session && _session.query === q) {
-      // Same query — restore from session (search may still be running)
+    const routeQuery = normalizeSearchTerm(q);
+    if (!routeQuery || sources.length === 0) return;
+    if (_session && _session.query === routeQuery) {
+      // Same query; restore from session (search may still be running).
+      setQuery(routeQuery);
       syncFromSession();
     } else {
-      // New query — start fresh search
-      doSearch(q);
+      // New query; start fresh search.
+      doSearch(routeQuery);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q]);
+  }, [q, sources.length]);
 
-  // ── Sorting + relevance divider ─────────────────────────────────────────
+  // Sorting + relevance divider.
+  // Comprehensive order is owned by the session: first-seen while searching,
+  // one final rank after completion. Do not sort it again in the render path.
   const sortedResults = React.useMemo((): ListItem[] => {
+    if (sortKey === 'comprehensive') {
+      return results;
+    }
     const arr = [...results];
     if (sortKey === 'relevance') {
       arr.sort((a, b) => b.relevance - a.relevance);
-      // Inject divider between high and low relevance
       const dividerIdx = arr.findIndex((r) => r.relevance < RELEVANCE_THRESHOLD);
       if (dividerIdx > 0 && dividerIdx < arr.length) {
         const out: ListItem[] = arr.slice(0, dividerIdx);
@@ -512,17 +732,16 @@ export default function SearchScreen() {
     const cmp = (a: ResultCardModel, b: ResultCardModel) => {
       let va: number, vb: number;
       if (sortKey === 'size') {
-        va = parseSizeBytes(a.sizeLabel);
-        vb = parseSizeBytes(b.sizeLabel);
+        va = a.sizeBytes;
+        vb = b.sizeBytes;
       } else {
         va = parseDate(a.dateLabel);
         vb = parseDate(b.dateLabel);
       }
       return sortDir === 'desc' ? vb - va : va - vb;
     };
-    // Split into high/low relevance, sort each group independently
-    const high = arr.filter(r => r.relevance >= RELEVANCE_THRESHOLD);
-    const low = arr.filter(r => r.relevance < RELEVANCE_THRESHOLD);
+    const high = arr.filter((r) => r.relevance >= RELEVANCE_THRESHOLD);
+    const low = arr.filter((r) => r.relevance < RELEVANCE_THRESHOLD);
     high.sort(cmp);
     low.sort(cmp);
     if (high.length > 0 && low.length > 0) {
@@ -535,8 +754,8 @@ export default function SearchScreen() {
   }, [results, sortKey, sortDir]);
 
   const toggleSort = (key: SortKey) => {
-    if (key === 'relevance') {
-      setSortKey('relevance');
+    if (key === 'comprehensive' || key === 'relevance') {
+      setSortKey(key);
       setSortDir('desc');
       return;
     }
@@ -548,27 +767,27 @@ export default function SearchScreen() {
     }
   };
 
-  // ── Handlers ────────────────────────────────────────────────────
-  const handleCopy = async (model: ResultCardModel) => {
+  // Handlers.
+  const handleCopy = useCallback(async (model: ResultCardModel) => {
     try {
       await Clipboard.setStringAsync(model.magnet);
-      trackCopy();
+      trackCopy(_session?.searchId);
       Vibration.vibrate(Platform.OS === 'android' ? 30 : 10);
       setCopiedId(model.id);
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
       Alert.alert(t.copyFailed);
     }
-  };
+  }, [t]);
 
-  const handleOpen = (magnet: string) => {
-    trackOpen();
+  const handleOpen = useCallback((magnet: string) => {
+    trackOpen(_session?.searchId);
     Linking.openURL(magnet).catch(() =>
       Alert.alert(t.cannotOpen, t.cannotOpenMsg),
     );
-  };
+  }, [t]);
 
-  const handleToggleFav = async (item: ResultCardModel) => {
+  const handleToggleFav = useCallback(async (item: ResultCardModel) => {
     const isFav = favSet.has(item.magnet);
     if (isFav) {
       await removeFavorite(item.magnet);
@@ -583,10 +802,10 @@ export default function SearchScreen() {
     }
     const updated = await getFavorites();
     setFavSet(new Set(updated.map((f) => f.magnet)));
-  };
+  }, [favSet]);
 
-  // ── Card / divider renderer ─────────────────────────────────────────────────
-  const renderListItem = ({ item, index }: { item: ListItem; index: number }) => {
+  // Card / divider renderer.
+  const renderListItem = useCallback(({ item, index }: { item: ListItem; index: number }) => {
     if ('_divider' in item) {
       return (
         <View style={styles.relevanceDivider}>
@@ -604,7 +823,7 @@ export default function SearchScreen() {
     const isFav = favSet.has(item.magnet);
 
     return (
-      <AnimatedCard index={index}>
+      <AnimatedCard id={item.id} index={index}>
         <View style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.shadow, borderColor: colors.border }]}>
           <View style={styles.cardRow}>
             <LinearGradient
@@ -667,13 +886,13 @@ export default function SearchScreen() {
         </View>
       </AnimatedCard>
     );
-  };
+  }, [copiedId, favSet, colors, handleCopy, handleOpen, handleToggleFav, t]);
 
-  // ── Sort bar helper ─────────────────────────────────────────────
+  // Sort bar helper.
   const SortChip = ({ label, k }: { label: string; k: SortKey }) => {
     const active = sortKey === k;
     const arrow =
-      k === 'relevance' ? null : active ? (sortDir === 'desc' ? '↓' : '↑') : null;
+      k === 'comprehensive' || k === 'relevance' ? null : active ? (sortDir === 'desc' ? '↓' : '↑') : null;
     return (
       <TouchableOpacity
         style={[styles.sortChip, { backgroundColor: colors.chipBg }, active && { backgroundColor: colors.chipActiveBg }]}
@@ -718,23 +937,31 @@ export default function SearchScreen() {
         </View>
       </View>
 
-      {/* Status */}
+      {/* Status — fixed minHeight so progress text ticks don't shove the list */}
       <View style={styles.statusRow}>
         {searching ? (
           <View style={styles.statusInner}>
-            <Text style={styles.statusText}>
+            <Text style={styles.statusText} numberOfLines={1}>
               {t.searchingStatus(doneCount, sourceCount, results.length)}
             </Text>
             <BouncingDots />
             <TouchableOpacity
               style={[styles.cancelBtn, { backgroundColor: colors.chipBg }]}
-              onPress={() => { if (_session) _session.abortRef.current = true; setSearching(false); }}
+              onPress={() => {
+                if (_session) {
+                  _session.abortRef.current = true;
+                  _session.searching = false;
+                }
+                setSearching(false);
+                // One-shot comprehensive order on stop; honor scroll deferral.
+                syncFromSession();
+              }}
             >
               <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>{lang === 'zh' ? '停止' : 'Stop'}</Text>
             </TouchableOpacity>
           </View>
         ) : results.length > 0 ? (
-          <Text style={styles.statusText}>
+          <Text style={styles.statusText} numberOfLines={1}>
             {t.searchDoneStatus(doneCount, sourceCount, results.length)}
           </Text>
         ) : sources.length === 0 ? (
@@ -757,6 +984,7 @@ export default function SearchScreen() {
       {/* Sort bar */}
       {results.length > 0 && (
         <View style={styles.sortBar}>
+          <SortChip label={t.sortComprehensive} k="comprehensive" />
           <SortChip label={t.sortRelevance} k="relevance" />
           <SortChip label={t.sortSize} k="size" />
           <SortChip label={t.sortDate} k="date" />
@@ -764,24 +992,34 @@ export default function SearchScreen() {
       )}
 
       {/* Results */}
-      {searching && results.length === 0 ? (
-        <SkeletonList cardBg={colors.card} shimmerBg={colors.border} tileBg={colors.chipBg} />
-      ) : (
-        <FlatList<ListItem>
-          data={sortedResults}
-          renderItem={renderListItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
-          showsVerticalScrollIndicator={false}
-          refreshing={false}
-          onRefresh={() => doSearch(query)}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={8}
-          windowSize={7}
-          initialNumToRender={6}
-          updateCellsBatchingPeriod={100}
-        />
-      )}
+      <FlatList<ListItem>
+        data={sortedResults}
+        renderItem={renderListItem}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          searching ? (
+            <SkeletonList cardBg={colors.card} shimmerBg={colors.border} tileBg={colors.chipBg} />
+          ) : null
+        }
+        onScrollBeginDrag={onScrollBeginDrag}
+        onScrollEndDrag={onScrollEnd}
+        onMomentumScrollBegin={onScrollBeginDrag}
+        onMomentumScrollEnd={onScrollEnd}
+        scrollEventThrottle={32}
+        removeClippedSubviews={Platform.OS === 'android'}
+        maxToRenderPerBatch={6}
+        windowSize={5}
+        initialNumToRender={8}
+        updateCellsBatchingPeriod={80}
+        // Avoid blank flashes when data identity churns mid-search
+        maintainVisibleContentPosition={
+          Platform.OS === 'ios'
+            ? { minIndexForVisible: 0, autoscrollToTopThreshold: 12 }
+            : undefined
+        }
+      />
 
       <FeedbackFAB />
 
@@ -833,16 +1071,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 0,
     paddingBottom: 8,
+    minHeight: 36,
+    justifyContent: 'center',
   },
   statusInner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
+    minHeight: 28,
   },
   statusText: {
     fontSize: 13,
     color: '#4285F4',
     fontWeight: '600',
+    flexShrink: 1,
   },
   sortBar: {
     flexDirection: 'row',

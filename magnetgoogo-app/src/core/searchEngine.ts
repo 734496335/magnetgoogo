@@ -14,13 +14,16 @@ import {
   fetchPage,
   fetchPageManual,
   storeCookiesForOrigin,
+  getStoredCookies,
   invalidateCookies,
   extractCookies,
   mergeCookies,
   FETCH_HEADERS,
   type FetchResult,
+  isBackgroundNetworkMode,
 } from './httpClient';
 import { VerifyManager } from './VerifyManager';
+import { extractInfoHash } from './dedup';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -93,6 +96,84 @@ function cleanDate(raw: string): string {
   return raw.trim();
 }
 
+type RawFetchTextResult = {
+  ok: boolean;
+  status: number;
+  text: string;
+  finalUrl: string;
+  cookies: string;
+};
+
+function getRemainingSourceBudget(deadlineAt: number, maxSliceMs: number): number {
+  const remainingMs = deadlineAt - Date.now();
+  if (remainingMs <= 0) return 0;
+  return Math.min(maxSliceMs, remainingMs);
+}
+
+async function fetchTextWithTimeout(
+  url: string,
+  options?: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+    referer?: string;
+    contentType?: string;
+    timeoutMs?: number;
+    redirect?: RequestRedirect;
+  },
+): Promise<RawFetchTextResult | null> {
+  const timeoutMs = options?.timeoutMs ?? 10_000;
+  const headers = { ...(options?.headers || {}) };
+  if (options?.referer) headers.Referer = options.referer;
+  if (options?.contentType) headers['Content-Type'] = options.contentType;
+
+  if (isBackgroundNetworkMode()) {
+    const bgResp = await fetchPageManual(url, {
+      method: options?.method ?? 'GET',
+      body: options?.body,
+      contentType: headers['Content-Type'],
+      cookies: headers.Cookie,
+      referer: headers.Referer,
+      extraHeaders: Object.fromEntries(
+        Object.entries(headers).filter(([key]) => key !== 'Content-Type' && key !== 'Cookie' && key !== 'Referer'),
+      ),
+      timeoutMs,
+    });
+    if (!bgResp) return null;
+    return {
+      ok: bgResp.status >= 200 && bgResp.status < 400,
+      status: bgResp.status,
+      text: bgResp.html || '',
+      finalUrl: bgResp.responseUrl || url,
+      cookies: bgResp.cookies || '',
+    };
+  }
+
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, {
+      method: options?.method ?? 'GET',
+      headers,
+      body: options?.body,
+      redirect: options?.redirect ?? 'follow',
+      signal: ac.signal,
+    });
+    const text = await resp.text();
+    return {
+      ok: resp.ok,
+      status: resp.status,
+      text,
+      finalUrl: resp.url || url,
+      cookies: extractCookies(resp),
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function extractTitleFromMagnet(magnet: string): string {
   try {
     const m = magnet.match(/[?&]dn=([^&]+)/);
@@ -138,6 +219,7 @@ function extractFromSearchPage(
   const sizeHints: string[] = [];
   const dateHints: string[] = [];
   const items = $(selectors.list_item);
+  const _magnetCount = ($.html().match(/magnet:\?xt=urn:btih:/gi) || []).length;
 
   items.each((_: number, el: any) => {
     const item = $(el);
@@ -288,6 +370,52 @@ function extractFromSearchPage(
     }
   });
 
+  // ── Brute-force regex fallback: scan full HTML when selectors found nothing ──
+  if (results.length === 0 && _magnetCount > 0) {
+    const htmlStr = $.html();
+    // Match hex (40-char) or Base32 (32-char) btih hashes
+    const magnetRe = /magnet:\?xt=urn:btih:([a-fA-F0-9]{40}|[A-Za-z2-7]{32})/gi;
+    const seen = new Set<string>();
+    let m: RegExpExecArray | null;
+    while ((m = magnetRe.exec(htmlStr)) !== null) {
+      const hashHex = extractInfoHash(m[0]);
+      if (!hashHex || seen.has(hashHex)) continue;
+      seen.add(hashHex);
+      // Reconstruct magnet with normalized hex hash
+      const mag = `magnet:?xt=urn:btih:${hashHex}`;
+      const title = extractTitleFromMagnet(m[0]);
+      results.push({
+        title: cleanTitle(title || 'Unknown Title'),
+        magnet: mag, size: '', date: '', seeders: 0, leechers: 0,
+        source: origin, site_name: siteName, score,
+      });
+      if (results.length >= 20) break;
+    }
+  }
+  // Second pass: look for bare 40-char hex or 32-char Base32 info hashes in data attributes, copy buttons, etc.
+  if (results.length === 0) {
+    const htmlStr = $.html();
+    if (htmlStr.length > 1000) {
+      const hashRe = /\b([a-fA-F0-9]{40}|[A-Za-z2-7]{32})\b/g;
+      const seen = new Set<string>();
+      let m: RegExpExecArray | null;
+      while ((m = hashRe.exec(htmlStr)) !== null) {
+        const raw = m[1];
+        // Try to normalize to hex via extractInfoHash
+        const hexHash = extractInfoHash(`magnet:?xt=urn:btih:${raw}`) || raw.toLowerCase();
+        if (seen.has(hexHash)) continue;
+        seen.add(hexHash);
+        const magnet = `magnet:?xt=urn:btih:${hexHash}`;
+        results.push({
+          title: `Hash: ${hexHash.slice(0, 12)}...`,
+          magnet, size: '', date: '', seeders: 0, leechers: 0,
+          source: origin, site_name: siteName, score,
+        });
+        if (results.length >= 10) break;
+      }
+    }
+  }
+
   return { results, detailUrls, titleHints, sizeHints, dateHints };
 }
 
@@ -315,7 +443,8 @@ async function fetchDetailResults(
 ): Promise<ResultItem[]> {
   const results: ResultItem[] = [];
   const seen = new Set<string>();
-  const urlsToFetch = detailUrls.slice(0, Math.min(detailUrls.length, 12));
+  // Cap at 5 on mobile (was 12) — prevents 12 simultaneous cheerio.load() bursts
+  const urlsToFetch = detailUrls.slice(0, Math.min(detailUrls.length, 5));
 
   const _norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
   const _sln = _norm(siteName);
@@ -334,7 +463,8 @@ async function fetchDetailResults(
     return false;
   };
 
-  const fetches = urlsToFetch.map(async (url, urlIdx) => {
+  // Helper: parse one detail page (synchronous cheerio work isolated here)
+  const parseOne = async (url: string, urlIdx: number): Promise<ResultItem[]> => {
     const { html } = await fetchPage(url, undefined, undefined, referer);
     if (!html) return [];
 
@@ -345,18 +475,32 @@ async function fetchDetailResults(
     const dateHint = dateHints[urlIdx] || '';
 
     const magnetLinks = $(detailSelectors.magnet || 'a[href^="magnet:"]');
-    // Collect magnets from CSS selector matches
     const foundMagnets: string[] = [];
     magnetLinks.each((_: number, el: any) => {
       const mag = $(el).attr('href') || '';
       if (mag.startsWith('magnet:?')) foundMagnets.push(mag);
     });
-    // Fallback: regex extract from full HTML (handles onclick="copyMagnetLink('magnet:...')" etc.)
+    // Fallback: regex extract from full HTML (support both hex and Base32 btih)
     if (foundMagnets.length === 0) {
       const htmlStr = $.html();
-      const re = /magnet:\?xt=urn:btih:[a-fA-F0-9]{32,40}/gi;
+      const re = /magnet:\?xt=urn:btih:[a-fA-F0-9]{32,40}|magnet:\?xt=urn:btih:[A-Za-z2-7]{32}/gi;
       let m;
       while ((m = re.exec(htmlStr)) !== null) foundMagnets.push(m[0]);
+    }
+    // Second fallback: bare 40-char hex info hashes in data attributes, copy buttons, spans, etc.
+    // Sites like cld141.buzz store hashes as bare text, not in magnet URIs.
+    if (foundMagnets.length === 0) {
+      const htmlStr = $.html();
+      const hashRe = /\b([a-fA-F0-9]{40})\b/g;
+      const hashSeen = new Set<string>();
+      let hm: RegExpExecArray | null;
+      while ((hm = hashRe.exec(htmlStr)) !== null) {
+        const hex = hm[1].toLowerCase();
+        if (hashSeen.has(hex)) continue;
+        hashSeen.add(hex);
+        foundMagnets.push(`magnet:?xt=urn:btih:${hex}`);
+        if (foundMagnets.length >= 5) break;
+      }
     }
 
     for (const magnet of foundMagnets) {
@@ -364,12 +508,10 @@ async function fetchDetailResults(
       seen.add(magnet);
 
       let title = '';
-      // 1) Configured selector
       if (detailSelectors.title) {
         const candidate = $(detailSelectors.title).first().text().trim();
         if (candidate && !_looksLikeSite(candidate)) title = candidate;
       }
-      // 2) Fallback selectors
       if (!title) {
         const candidates = [
           $('.box-info-heading h1').first().text().trim(),
@@ -379,35 +521,23 @@ async function fetchDetailResults(
           cleanTitle($('title').first().text().trim()),
         ];
         for (const c of candidates) {
-          if (c && c.length >= 3 && !_looksLikeSite(c)) {
-            title = c;
-            break;
-          }
+          if (c && c.length >= 3 && !_looksLikeSite(c)) { title = c; break; }
         }
       }
-      // 3) Keyword check
       if (title && title.length < 30 && searchQuery) {
-        const kws = searchQuery
-          .toLowerCase()
-          .split(/[\s_\-+]+/)
-          .filter((w) => w.length >= 2);
+        const kws = searchQuery.toLowerCase().split(/[\s_\-+]+/).filter((w) => w.length >= 2);
         const tl = title.toLowerCase();
         const hasKeyword = kws.length === 0 || kws.some((kw) => tl.includes(kw));
         if (!hasKeyword) title = '';
       }
-      // 4) Hint fallback
       if (!title && hint) title = hint;
-      // 5) Magnet dn= fallback
       if (!title || title.length < 3) title = extractTitleFromMagnet(magnet);
 
-      // Size
       let _bodyText: string | null = null;
       const getBodyText = () => (_bodyText ??= $('body').text());
 
       let size = '';
-      if (detailSelectors.size) {
-        size = $(detailSelectors.size).first().text().trim();
-      }
+      if (detailSelectors.size) size = $(detailSelectors.size).first().text().trim();
       if (!size) {
         const sizeMatch = getBodyText().match(/([\d.]+)\s*(TB|TiB|GB|GiB|MB|MiB|KB|KiB)\b/i);
         if (sizeMatch) size = sizeMatch[0].replace(/iB\b/i, 'B');
@@ -417,11 +547,8 @@ async function fetchDetailResults(
         if (cnSize) size = `${cnSize[1]} ${cnSize[2]}`;
       }
 
-      // Date
       let date = '';
-      if (detailSelectors.date) {
-        date = $(detailSelectors.date).first().text().trim();
-      }
+      if (detailSelectors.date) date = $(detailSelectors.date).first().text().trim();
       if (!date) {
         const dateMatch = getBodyText().match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
         if (dateMatch) date = dateMatch[1];
@@ -431,7 +558,6 @@ async function fetchDetailResults(
         if (cnDate) date = `${cnDate[1]}-${cnDate[2].padStart(2, '0')}-${cnDate[3].padStart(2, '0')}`;
       }
 
-      // Seeders / Leechers
       let seeders = -1;
       let leechers = -1;
       if (detailSelectors.seeders) {
@@ -463,14 +589,23 @@ async function fetchDetailResults(
         score,
       });
     }
-
     return items;
-  });
+  };
 
-  const allItems = await Promise.all(fetches);
-  for (const items of allItems) {
-    results.push(...items);
-    if (results.length >= limit) break;
+  // Process in batches of 3 with a macrotask yield between batches.
+  // Prevents N simultaneous cheerio.load() calls cascading on JS thread.
+  const BATCH = 3;
+  for (let i = 0; i < urlsToFetch.length && results.length < limit; i += BATCH) {
+    const batch = urlsToFetch.slice(i, i + BATCH);
+    const batchItems = await Promise.all(batch.map((url, j) => parseOne(url, i + j)));
+    for (const items of batchItems) {
+      results.push(...items);
+      if (results.length >= limit) break;
+    }
+    // Yield to event loop between batches so UI can process scroll/touch events
+    if (i + BATCH < urlsToFetch.length && !isBackgroundNetworkMode()) {
+      await new Promise<void>((r) => setTimeout(r, 0));
+    }
   }
 
   return results.slice(0, limit);
@@ -485,27 +620,31 @@ async function fetchJavBus(
   score: number,
 ): Promise<ResultItem[]> {
   const results: ResultItem[] = [];
-  const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), 15_000);
-  const sig = ac.signal;
+  const requestTimeoutMs = isBackgroundNetworkMode() ? 3_000 : 15_000;
+  const sourceDeadlineAt = Date.now() + (isBackgroundNetworkMode() ? 10_000 : 18_000);
   try {
     // Step 1: GET homepage → grab session cookies (age verify no longer needed)
-    const r0 = await fetch(origin, {
+    const homeBudgetMs = getRemainingSourceBudget(sourceDeadlineAt, requestTimeoutMs);
+    if (homeBudgetMs <= 0) return results;
+    const r0 = await fetchTextWithTimeout(origin, {
       headers: FETCH_HEADERS,
       redirect: 'follow',
-      signal: sig,
+      timeoutMs: homeBudgetMs,
     });
-    const sessionCookies = extractCookies(r0);
+    if (!r0) return results;
+    const sessionCookies = r0.cookies;
 
     // Step 2: Search
     const searchUrl = `${origin}/search/${encodeURIComponent(query)}`;
-    const r2 = await fetch(searchUrl, {
+    const searchBudgetMs = getRemainingSourceBudget(sourceDeadlineAt, requestTimeoutMs);
+    if (searchBudgetMs <= 0) return results;
+    const r2 = await fetchTextWithTimeout(searchUrl, {
       headers: { ...FETCH_HEADERS, Cookie: sessionCookies, Referer: origin + '/' },
       redirect: 'follow',
-      signal: sig,
+      timeoutMs: searchBudgetMs,
     });
-    if (!r2.ok) return results;
-    const searchHtml = await r2.text();
+    if (!r2?.ok) return results;
+    const searchHtml = r2.text;
     const $ = cheerio.load(searchHtml);
     const detailUrls: string[] = [];
     $('a.movie-box').each((_: number, el: any) => {
@@ -519,13 +658,15 @@ async function fetchJavBus(
     const pagesToFetch = detailUrls.slice(0, 6);
     const detailFetches = pagesToFetch.map(async (dUrl) => {
       try {
-        const dr = await fetch(dUrl, {
+        const detailBudgetMs = getRemainingSourceBudget(sourceDeadlineAt, requestTimeoutMs);
+        if (detailBudgetMs <= 0) return;
+        const dResp = await fetchTextWithTimeout(dUrl, {
           headers: { ...FETCH_HEADERS, Cookie: sessionCookies },
           redirect: 'follow',
-          signal: sig,
+          timeoutMs: detailBudgetMs,
         });
-        if (!dr.ok) return;
-        const dHtml = await dr.text();
+        if (!dResp?.ok) return;
+        const dHtml = dResp.text;
         const d$ = cheerio.load(dHtml);
         const pageTitle =
           d$('h3').first().text().trim() || d$('title').first().text().trim();
@@ -537,12 +678,14 @@ async function fetchJavBus(
         const uc = ucM ? ucM[1] : '0';
 
         const ajaxUrl = `${origin}/ajax/uncledatoolsbyajax.php?gid=${gid}&lang=zh&uc=${uc}&floor=${Math.floor(Math.random() * 1000 + 1)}`;
-        const ar = await fetch(ajaxUrl, {
+        const ajaxBudgetMs = getRemainingSourceBudget(sourceDeadlineAt, requestTimeoutMs);
+        if (ajaxBudgetMs <= 0) return;
+        const ar = await fetchTextWithTimeout(ajaxUrl, {
           headers: { ...FETCH_HEADERS, Referer: dUrl, Cookie: sessionCookies },
-          signal: sig,
+          timeoutMs: ajaxBudgetMs,
         });
-        if (!ar.ok) return;
-        const aHtml = await ar.text();
+        if (!ar?.ok) return;
+        const aHtml = ar.text;
         const a$ = cheerio.load(aHtml);
 
         a$('a[href^="magnet:"]').each((_: number, mel: any) => {
@@ -570,9 +713,7 @@ async function fetchJavBus(
       } catch {}
     });
     await Promise.all(detailFetches);
-  } catch {} finally {
-    clearTimeout(timer);
-  }
+  } catch {}
   return results;
 }
 
@@ -583,31 +724,58 @@ async function fetchMeijumi(
   score: number,
 ): Promise<ResultItem[]> {
   const results: ResultItem[] = [];
+  const requestTimeoutMs = isBackgroundNetworkMode() ? 3_000 : 15_000;
+  const sourceDeadlineAt = Date.now() + (isBackgroundNetworkMode() ? 10_000 : 18_000);
   try {
     const seen = new Set<string>();
     const searchUrl = `${origin}/?s=${encodeURIComponent(query)}`;
 
     // Step 1: GET → captcha answer in cookie
-    const resp1 = await fetchPageManual(searchUrl, { method: 'GET' });
-    if (!resp1) return results;
-    const answerMatch = resp1.cookies.match(/result=(\d+)/);
+    // Use raw fetch with redirect:'follow' to get the full cookie set
+    const step1BudgetMs = getRemainingSourceBudget(sourceDeadlineAt, requestTimeoutMs);
+    if (step1BudgetMs <= 0) return results;
+    const r1 = await fetchTextWithTimeout(searchUrl, {
+      headers: FETCH_HEADERS,
+      redirect: 'follow',
+      timeoutMs: step1BudgetMs,
+    });
+    if (!r1) return results;
+    const cookies1 = r1.cookies;
+    if (!cookies1) return results;
+    // Store cookies immediately so subsequent fetches can use them
+    storeCookiesForOrigin(origin, cookies1);
+
+    const answerMatch = cookies1.match(/result=(\d+)/);
     if (!answerMatch) return results;
     const answer = answerMatch[1];
 
-    // Step 2: POST answer
-    await fetchPageManual(searchUrl, {
+    // Step 2: POST answer (must include the result cookie from step 1)
+    const step2BudgetMs = getRemainingSourceBudget(sourceDeadlineAt, requestTimeoutMs);
+    if (step2BudgetMs <= 0) return results;
+    const r2 = await fetchTextWithTimeout(searchUrl, {
       method: 'POST',
+      headers: {
+        ...FETCH_HEADERS,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Cookie': cookies1,
+        'Referer': searchUrl,
+      },
       body: `result=${answer}`,
-      contentType: 'application/x-www-form-urlencoded',
-      cookies: `result=${answer}`,
-      referer: searchUrl,
+      redirect: 'follow',
+      timeoutMs: step2BudgetMs,
     });
+    if (!r2) return results;
+    const cookies2 = r2.cookies;
+    // Merge step2 cookies with step1 and store (server sets esc_search_captcha=1)
+    const mergedCookies = mergeCookies(cookies1, cookies2);
+    storeCookiesForOrigin(origin, mergedCookies);
 
-    // Step 3: GET with captcha-passed cookie
-    const resp3 = await fetchPage(searchUrl, `result=${answer}; esc_search_captcha=1`);
+    // Step 3: GET with all captcha cookies (fetchPage reads stored cookies from cookieJar)
+    const step3BudgetMs = getRemainingSourceBudget(sourceDeadlineAt, requestTimeoutMs);
+    if (step3BudgetMs <= 0) return results;
+    const resp3 = await fetchPage(searchUrl, undefined, step3BudgetMs);
     if (!resp3.html) return results;
     const $ = cheerio.load(resp3.html);
-    const allCookies = `result=${answer}; esc_search_captcha=1`;
     const detailUrls: string[] = [];
 
     $('a[href]').each((_: number, el: any) => {
@@ -617,11 +785,13 @@ async function fetchMeijumi(
       }
     });
 
-    // Step 4: Follow detail pages
+    // Step 4: Follow detail pages (fetchPage carries stored cookies)
     const pages = detailUrls.slice(0, 8);
     const fetches = pages.map(async (dUrl) => {
       try {
-        const dr = await fetchPage(dUrl, allCookies);
+        const detailBudgetMs = getRemainingSourceBudget(sourceDeadlineAt, requestTimeoutMs);
+        if (detailBudgetMs <= 0) return;
+        const dr = await fetchPage(dUrl, undefined, detailBudgetMs);
         if (!dr.html) return;
         const d$ = cheerio.load(dr.html);
         const title =
@@ -729,6 +899,466 @@ async function fetchYhg(
   return results;
 }
 
+async function fetch6v520(
+  origin: string,
+  query: string,
+  siteName: string,
+  score: number,
+): Promise<ResultItem[]> {
+  const results: ResultItem[] = [];
+  try {
+    // Step 1: POST search form (server requires gb2312 encoding for CJK queries)
+    let encodedQuery: string;
+    const isAscii = /^[\x20-\x7E]+$/.test(query);
+    if (isAscii) {
+      encodedQuery = encodeURIComponent(query);
+    } else {
+      try {
+        const iconv = require('iconv-lite');
+        const buf: Buffer = iconv.encode(query, 'gbk');
+        encodedQuery = Array.from(buf).map(b => '%' + b.toString(16).toUpperCase().padStart(2, '0')).join('');
+      } catch {
+        encodedQuery = encodeURIComponent(query);
+      }
+    }
+    const body = 'show=title%2Csmalltext&tempid=1&tbname=article&mid=1&classid=0&keyboard=' + encodedQuery;
+
+    let respText = '';
+    let finalUrl = '';
+    if (isBackgroundNetworkMode()) {
+      const stored = getStoredCookies(origin);
+      const resp = await fetchPageManual(origin + '/e/search/index.php', {
+        method: 'POST',
+        body,
+        contentType: 'application/x-www-form-urlencoded',
+        cookies: stored || undefined,
+        referer: origin + '/',
+        timeoutMs: 15_000,
+      });
+      if (!resp) return results;
+      respText = resp.html || '';
+      finalUrl = resp.responseUrl || '';
+      if (resp.cookies) storeCookiesForOrigin(origin, resp.cookies);
+    } else {
+      // Foreground keeps the existing redirect-follow behavior because some mirrors
+      // only reveal searchid after the POST redirect chain resolves.
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), 15_000);
+      try {
+        const stored = getStoredCookies(origin);
+        const headers: Record<string, string> = {
+          ...FETCH_HEADERS,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Referer': origin + '/',
+        };
+        if (stored) headers['Cookie'] = stored;
+        const resp = await fetch(origin + '/e/search/index.php', {
+          method: 'POST',
+          headers,
+          body,
+          redirect: 'follow',
+          signal: ac.signal,
+        });
+        clearTimeout(timer);
+        respText = await resp.text();
+        finalUrl = resp.url || '';
+        const newCookies = extractCookies(resp);
+        if (newCookies) storeCookiesForOrigin(origin, newCookies);
+      } catch (e: any) {
+        clearTimeout(timer);
+        return results;
+      }
+    }
+
+    // Step 2: Extract searchid from final URL (after redirect) or response body
+    let searchId = '';
+    if (finalUrl) {
+      const m = finalUrl.match(/searchid=(\d+)/);
+      if (m) searchId = m[1];
+    }
+    if (!searchId && respText) {
+      const m = respText.match(/searchid=(\d+)/);
+      if (m) searchId = m[1];
+    }
+    if (!searchId) return results;
+
+    // Step 3: GET results page
+    const resultResp = await fetchPage(origin + '/e/search/result/?searchid=' + searchId);
+    if (!resultResp.html) return results;
+
+    // Step 4: Extract detail links from RESULTS section only (skip navigation)
+    const countIdx = resultResp.html.indexOf('项符合');
+    const mainIdx = resultResp.html.indexOf('<div id="main">');
+    const sliceFrom = countIdx > 0 ? countIdx : (mainIdx > 0 ? mainIdx : 0);
+    const resultSection = resultResp.html.slice(sliceFrom);
+
+    const detailUrls: string[] = [];
+    const linkRe = /<a[^>]*href="\/([a-z]+\/\d{4}-\d{2}-\d{2}\/\d+\.html)"[^>]*target="?_blank"?[^>]*>/g;
+    let lm: RegExpExecArray | null;
+    while ((lm = linkRe.exec(resultSection)) !== null) {
+      const full = origin + '/' + lm[1];
+      if (!detailUrls.includes(full)) detailUrls.push(full);
+    }
+
+    // Step 5: Fetch detail pages and extract magnets
+    const seen = new Set<string>();
+    for (const detailUrl of detailUrls.slice(0, 10)) {
+      const detailResp = await fetchPage(detailUrl);
+      if (!detailResp.html) continue;
+      const $d = cheerio.load(detailResp.html);
+
+      const pageTitle = $d('title').text().replace(/[-–|].*$/, '').trim()
+        || $d('h1').first().text().trim();
+
+      $d('a[href^="magnet:"]').each((_: number, el: any) => {
+        const magnet = $d(el).attr('href') || '';
+        if (!magnet || seen.has(magnet)) return;
+        seen.add(magnet);
+        const linkText = $d(el).text().trim();
+        results.push({
+          title: linkText || pageTitle || query,
+          magnet,
+          size: '',
+          date: '',
+          seeders: 0,
+          leechers: 0,
+          source: origin,
+          site_name: siteName,
+          score,
+        });
+      });
+    }
+  } catch {}
+  return results;
+}
+
+// ── 种子帝 (zhongzidi) handler — list page + detail follow ─────────
+async function fetchZhongzidi(
+  origin: string,
+  query: string,
+  siteName: string,
+  score: number,
+): Promise<ResultItem[]> {
+  const results: ResultItem[] = [];
+  try {
+    const searchUrl = `${origin}/list/${encodeURIComponent(query)}/1`;
+    const resp = await fetchPage(searchUrl);
+    if (!resp.html) return results;
+    const $ = cheerio.load(resp.html);
+
+    // Parse list items: each <li class="list-group-item"> has title link, size, date
+    const detailUrls: string[] = [];
+    const titleHints: string[] = [];
+    const sizeHints: string[] = [];
+    const dateHints: string[] = [];
+
+    $('ul.list-group li').each((_: number, el: any) => {
+      const item = $(el);
+      const titleLink = item.find('a.text-success').first();
+      const title = titleLink.text().trim();
+      if (!title) return;
+
+      const href = titleLink.attr('href') || '';
+      if (href && !href.startsWith('magnet:') && !href.startsWith('#')) {
+        const detailUrl = href.startsWith('http') ? href : new URL(href, origin).href;
+        detailUrls.push(detailUrl);
+        titleHints.push(title);
+        sizeHints.push(item.find('.text-filesize').text().trim());
+        dateHints.push(item.find('.text-time').text().trim());
+      }
+    });
+
+    // Also check for any direct magnets on the page
+    const seen = new Set<string>();
+    $('a[href^="magnet:"]').each((_: number, el: any) => {
+      const magnet = $(el).attr('href') || '';
+      if (!magnet || seen.has(magnet)) return;
+      seen.add(magnet);
+      results.push({
+        title: $(el).text().trim() || query,
+        magnet,
+        size: '',
+        date: '',
+        seeders: 0,
+        leechers: 0,
+        source: origin,
+        site_name: siteName,
+        score,
+      });
+    });
+
+    // Follow detail pages to extract magnets
+    for (let i = 0; i < Math.min(detailUrls.length, 10); i++) {
+      const dUrl = detailUrls[i];
+      try {
+        const dr = await fetchPage(dUrl);
+        if (!dr.html) continue;
+        const d$ = cheerio.load(dr.html);
+
+        const pageTitle = titleHints[i]
+          || d$('h1').first().text().trim()
+          || d$('title').text().replace(/[-–|].*$/, '').trim();
+
+        d$('a[href^="magnet:"]').each((_: number, el: any) => {
+          const magnet = d$(el).attr('href') || '';
+          if (!magnet || seen.has(magnet)) return;
+          seen.add(magnet);
+
+          const bodyText = d$('body').text();
+          let size = sizeHints[i] || '';
+          if (!size) {
+            const sizeMatch = bodyText.match(/([\d.]+)\s*(TB|TiB|GB|GiB|MB|MiB|KB|KiB)\b/i);
+            if (sizeMatch) size = sizeMatch[0].replace(/iB\b/i, 'B');
+          }
+          let date = dateHints[i] || '';
+          if (!date) {
+            const dateMatch = bodyText.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
+            if (dateMatch) date = dateMatch[1];
+          }
+
+          results.push({
+            title: pageTitle || query,
+            magnet,
+            size: normalizeSize(size),
+            date,
+            seeders: 0,
+            leechers: 0,
+            source: origin,
+            site_name: siteName,
+            score,
+          });
+        });
+      } catch {}
+    }
+  } catch {}
+  return results;
+}
+
+// ── BTSOW JSON API handler ─────────────────────────────────────────
+async function fetchBtsow(
+  origin: string,
+  query: string,
+  siteName: string,
+  score: number,
+): Promise<ResultItem[]> {
+  const results: ResultItem[] = [];
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const body = JSON.stringify([{ search: query }, 30, 1]);
+    const resp = await fetchPageManual(origin + '/bts/data/api/search', {
+      method: 'POST',
+      body,
+      contentType: 'application/json',
+    });
+    if (!resp?.html) return results;
+
+    let json: any;
+    try { json = JSON.parse(resp.html); } catch { return results; }
+    if (json.code !== 200 || !json.data) return results;
+
+    const seen = new Set<string>();
+    for (const item of json.data) {
+      const hash: string = (item.hash || '').toUpperCase();
+      if (!hash || seen.has(hash)) continue;
+      seen.add(hash);
+      const name: string = (item.name || '').replace(/<[^>]+>/g, '').replace(/​/g, '');
+      const sizeBytes: number = item.size || 0;
+      let size = '';
+      if (sizeBytes > 1024 * 1024 * 1024) size = (sizeBytes / (1024 ** 3)).toFixed(2) + ' GB';
+      else if (sizeBytes > 1024 * 1024) size = (sizeBytes / (1024 ** 2)).toFixed(1) + ' MB';
+      results.push({
+        title: name || query,
+        magnet: 'magnet:?xt=urn:btih:' + hash,
+        size,
+        date: item.lastUpdateTime ? new Date(item.lastUpdateTime * 1000).toISOString().slice(0, 10) : '',
+        seeders: 0, leechers: 0,
+        source: origin, site_name: siteName, score,
+      });
+    }
+  } catch {}
+  return results;
+}
+
+// ── Snowfl meta-search JSON API handler ────────────────────────────
+// Prefix rotates in /b.min.js — last verified 2026-06-11
+const SNOWFL_API_PREFIX = 'phHKGSoKzgIcensvRHjReEMyHOnfLoFjSsqPHeyzMd';
+
+async function fetchSnowfl(
+  origin: string,
+  query: string,
+  siteName: string,
+  score: number,
+): Promise<ResultItem[]> {
+  const results: ResultItem[] = [];
+  try {
+    const session = Math.random().toString(36).slice(2, 10);
+    const url = `${origin}/${SNOWFL_API_PREFIX}/${encodeURIComponent(query)}/${session}/0/NONE/NONE/0`;
+    const resp = await fetchPageManual(url, {
+      method: 'GET',
+      referer: origin + '/',
+      extraHeaders: { 'X-Requested-With': 'XMLHttpRequest' },
+    });
+    if (!resp?.html) return results;
+
+    let items: any[];
+    try { items = JSON.parse(resp.html); } catch { return results; }
+    if (!Array.isArray(items)) return results;
+
+    const seen = new Set<string>();
+    for (const item of items) {
+      let magnet: string = item.magnet || '';
+      magnet = magnet.replace(/\\u003d/gi, '=').replace(/\\u0026/gi, '&');
+      if (!magnet || seen.has(magnet)) continue;
+      seen.add(magnet);
+      results.push({
+        title: (item.name || query).replace(/<[^>]+>/g, ''),
+        magnet,
+        size: item.size || '',
+        date: item.age || '',
+        seeders: parseInt(item.seeder) || 0,
+        leechers: parseInt(item.leecher) || 0,
+        source: item.site || origin,
+        site_name: siteName,
+        score,
+      });
+    }
+  } catch {}
+  return results;
+}
+
+// ── YTS movie torrent handler ──────────────────────────────────────
+async function fetchYts(
+  origin: string,
+  query: string,
+  siteName: string,
+  score: number,
+): Promise<ResultItem[]> {
+  const results: ResultItem[] = [];
+  try {
+    const searchResp = await fetchPage(origin + '/browse-movies/' + encodeURIComponent(query));
+    if (!searchResp.html) return results;
+    const $ = cheerio.load(searchResp.html);
+
+    const detailUrls: string[] = [];
+    const seen = new Set<string>();
+    $('a[href*="/movie/"]').each((_: number, el: any) => {
+      const href = $(el).attr('href') || '';
+      if (!href.includes('/movie/')) return;
+      const fullUrl = href.startsWith('http') ? href : origin + href;
+      if (seen.has(fullUrl)) return;
+      seen.add(fullUrl);
+      detailUrls.push(fullUrl);
+    });
+
+    if (detailUrls.length === 0) return results;
+
+    const magnetSeen = new Set<string>();
+    const fetches = detailUrls.slice(0, 10).map(async (detailUrl) => {
+      const { html } = await fetchPage(detailUrl);
+      if (!html) return [] as ResultItem[];
+
+      const d$ = cheerio.load(html);
+      const movieTitle = d$('h1').first().text().trim() || query;
+      let year = '';
+      d$('h2').each((_: number, h2: any) => {
+        const t = d$(h2).text().trim();
+        if (/^\d{4}$/.test(t)) year = t;
+      });
+
+      const items: ResultItem[] = [];
+      d$('a.download-torrent[href^="magnet:"]').each((_: number, el: any) => {
+        const magnet = (d$(el).attr('href') || '').replace(/&amp;/g, '&');
+        if (!magnet.startsWith('magnet:?')) return;
+        const hash = extractInfoHash(magnet);
+        if (!hash || magnetSeen.has(hash)) return;
+        magnetSeen.add(hash);
+
+        const quality = d$(el).text().trim();
+        const title = year ? `${movieTitle} (${year}) ${quality}` : `${movieTitle} ${quality}`;
+        let size = '';
+        const container = d$(el).closest('div.torrent-qualities');
+        if (container.length) {
+          const sm = container.text().match(/([\d,.]+)\s*(TB|GB|MB|KB)/i);
+          if (sm) size = sm[0];
+        }
+        items.push({
+          title: title.trim(),
+          magnet,
+          size,
+          date: year,
+          seeders: 0,
+          leechers: 0,
+          source: origin,
+          site_name: siteName,
+          score,
+        });
+      });
+      return items;
+    });
+
+    const batches = await Promise.all(fetches);
+    for (const batch of batches) results.push(...batch);
+  } catch (e) {
+    console.error('[fetchYts]', e);
+  }
+  return results;
+}
+
+// ── Wuji (无极磁链) handler ────────────────────────────────────────
+async function fetchWuji(
+  origin: string,
+  query: string,
+  siteName: string,
+  score: number,
+): Promise<ResultItem[]> {
+  const results: ResultItem[] = [];
+  try {
+    const searchResp = await fetchPage(origin + '/search?q=' + encodeURIComponent(query));
+    if (!searchResp.html) return results;
+    const $ = cheerio.load(searchResp.html);
+
+    const rows: Array<{ title: string; detailUrl: string }> = [];
+    const seen = new Set<string>();
+    $('a[href^="/!"]').each((_: number, el: any) => {
+      const href = $(el).attr('href') || '';
+      if (!href || seen.has(href)) return;
+      seen.add(href);
+      const title = $(el).text().trim();
+      if (!title) return;
+      rows.push({ title, detailUrl: origin + href });
+    });
+
+    if (rows.length === 0) return results;
+
+    const finalResults: ResultItem[] = [];
+    const fetches = rows.slice(0, 8).map(async (row) => {
+      const detailResp = await fetchPage(row.detailUrl);
+      if (!detailResp.html) return;
+      const $d = cheerio.load(detailResp.html);
+      $d('a[href^="magnet:"]').each((_: number, el: any) => {
+        const magnet = ($d(el).attr('href') || '').replace(/&amp;/g, '&');
+        if (!magnet.startsWith('magnet:?')) return;
+        finalResults.push({
+          title: row.title,
+          magnet,
+          size: '',
+          date: '',
+          seeders: 0,
+          leechers: 0,
+          source: origin,
+          site_name: siteName,
+          score,
+        });
+      });
+    });
+    await Promise.all(fetches);
+    return finalResults;
+  } catch (e) {
+    console.error('[fetchWuji]', e);
+  }
+  return results;
+}
+
 async function fetchRarbggo(
   origin: string,
   query: string,
@@ -771,7 +1401,7 @@ async function fetchRarbggo(
 
         d$('a[href^="magnet:"]').each((_: number, el: any) => {
           const mag = d$(el).attr('href') || '';
-          const hash = mag.match(/btih:([a-fA-F0-9]+)/i)?.[1]?.toLowerCase();
+          const hash = extractInfoHash(mag);
           if (hash && !seen.has(hash)) {
             seen.add(hash);
             results.push({
@@ -803,14 +1433,38 @@ async function fetchRrjav(
   const results: ResultItem[] = [];
   try {
     const searchUrl = `${origin}/?s=${encodeURIComponent(query)}`;
-    const resp = await fetchPage(searchUrl);
-    if (!resp.html) return results;
-    const $ = cheerio.load(resp.html);
-
     const seen = new Set<string>();
+
+    // The v3 uses tier1_cloak (browser rendering) + brute-force hash extraction.
+    // The App needs to use WebView verification since the site has CF protection.
+    let html: string | null = null;
+
+    // Try regular fetch first (may work if CF cookies are cached)
+    const resp = await fetchPage(searchUrl);
+    if (resp.challenge) {
+      // CF challenge detected — use WebView verification
+      if (isBackgroundNetworkMode()) {
+        return [];
+      }
+      invalidateCookies(origin);
+      const vr = await VerifyManager.requestVerification(
+        searchUrl, resp.challenge.type as any, origin, siteName,
+      );
+      if (vr.success && vr.html) {
+        if (vr.cookies) storeCookiesForOrigin(origin, vr.cookies);
+        html = vr.html;
+      }
+    } else if (resp.html) {
+      html = resp.html;
+    }
+
+    if (!html) return results;
+    const $ = cheerio.load(html);
+
+    // Try to find magnets in the search results page
     $('a[href^="magnet:"]').each((_: number, el: any) => {
       const mag = $(el).attr('href') || '';
-      const hash = mag.match(/btih:([a-fA-F0-9]+)/i)?.[1]?.toLowerCase();
+      const hash = extractInfoHash(mag);
       if (!hash || seen.has(hash)) return;
       seen.add(hash);
 
@@ -842,6 +1496,70 @@ async function fetchRrjav(
         score,
       });
     });
+
+    // Brute-force fallback: scan full HTML for bare hashes (the v3 does this)
+    if (results.length === 0) {
+      const htmlStr = $.html();
+      const hashRe = /\b([a-fA-F0-9]{40})\b/g;
+      let m: RegExpExecArray | null;
+      while ((m = hashRe.exec(htmlStr)) !== null) {
+        const hex = m[1].toLowerCase();
+        if (seen.has(hex)) continue;
+        seen.add(hex);
+        const magnet = `magnet:?xt=urn:btih:${hex}`;
+        results.push({
+          title: `Hash: ${hex.slice(0, 12)}...`,
+          magnet, size: '', date: '', seeders: 0, leechers: 0,
+          source: origin, site_name: siteName, score,
+        });
+        if (results.length >= 10) break;
+      }
+    }
+
+    // Follow detail pages if we have them (supports_detail: true)
+    if (results.length === 0) {
+      const detailUrls: string[] = [];
+      $('a[href]').each((_: number, el: any) => {
+        const href = $(el).attr('href') || '';
+        if (href.match(/rrjav\.com\/\d+\.html/) && !detailUrls.includes(href)) {
+          detailUrls.push(href.startsWith('http') ? href : new URL(href, origin).href);
+        }
+      });
+
+      for (const dUrl of detailUrls.slice(0, 5)) {
+        try {
+          const dr = await fetchPage(dUrl);
+          if (!dr.html) continue;
+          const d$ = cheerio.load(dr.html);
+          d$('a[href^="magnet:"]').each((_: number, el: any) => {
+            const mag = d$(el).attr('href') || '';
+            const hash = extractInfoHash(mag);
+            if (!hash || seen.has(hash)) return;
+            seen.add(hash);
+            const title = d$('h1, h2, h3').first().text().trim() || extractTitleFromMagnet(mag) || 'Unknown Title';
+            results.push({
+              title, magnet: mag, size: '', date: '', seeders: 0, leechers: 0,
+              source: origin, site_name: siteName, score,
+            });
+          });
+          // Also brute-force detail page HTML for bare hashes
+          const dHtmlStr = d$.html();
+          const dHashRe = /\b([a-fA-F0-9]{40})\b/g;
+          let dm: RegExpExecArray | null;
+          while ((dm = dHashRe.exec(dHtmlStr)) !== null) {
+            const hex = dm[1].toLowerCase();
+            if (seen.has(hex)) continue;
+            seen.add(hex);
+            const magnet = `magnet:?xt=urn:btih:${hex}`;
+            const title = d$('h1, h2, h3').first().text().trim() || `Hash: ${hex.slice(0, 12)}...`;
+            results.push({
+              title, magnet, size: '', date: '', seeders: 0, leechers: 0,
+              source: origin, site_name: siteName, score,
+            });
+          }
+        } catch {}
+      }
+    }
   } catch {}
   return results;
 }
@@ -855,13 +1573,13 @@ async function fetch1337x(
 ): Promise<ResultItem[]> {
   // 1. Fetch search page
   const searchUrl = `${origin}/search/${encodeURIComponent(query)}/1/`;
-  console.log(`[fetch1337x] Fetching search: ${searchUrl}`);
   const searchResult = await fetchPage(searchUrl);
-  if (!searchResult.html) {
-    console.log(`[fetch1337x] No HTML returned for ${searchUrl} challenge=${JSON.stringify(searchResult.challenge)}`);
+  if (isBackgroundNetworkMode() && searchResult.challenge) {
     return [];
   }
-  console.log(`[fetch1337x] Got HTML, length=${searchResult.html.length}`);
+  if (!searchResult.html) {
+    return [];
+  }
 
   const $ = cheerio.load(searchResult.html);
   const rows = $('tr:has(a[href*="/torrent/"])');
@@ -898,9 +1616,7 @@ async function fetch1337x(
     searchRows.push({ title, detailUrl, size, date, seeders, leechers });
   });
 
-  console.log(`[fetch1337x] Parsed ${searchRows.length} rows from search page`);
   if (searchRows.length === 0) return [];
-  searchRows.slice(0, 3).forEach((r, i) => console.log(`[fetch1337x]   row${i}: title="${r.title}" detail=${r.detailUrl.slice(0, 80)}`));
 
   // 2b. Relevance pre-filter: 1337x shows trending when no results match.
   //     Require at least min(2, total) query words present in the title.
@@ -912,10 +1628,8 @@ async function fetch1337x(
     return hits >= minMatch;
   });
   if (relevant.length === 0) {
-    console.log(`[fetch1337x] No titles match ≥${minMatch} of query words [${qWords.join(',')}] — likely trending page, returning empty`);
     return [];
   }
-  console.log(`[fetch1337x] ${relevant.length}/${searchRows.length} titles match ≥${minMatch} query words`);
 
   // 3. Follow detail pages concurrently (max 8) to extract magnet links
   const toFetch = relevant.slice(0, 8);
@@ -923,14 +1637,18 @@ async function fetch1337x(
 
   const fetches = toFetch.map(async (row) => {
     try {
-      const { html: detailHtml } = await fetchPage(row.detailUrl);
+      const detailResult = await fetchPage(row.detailUrl);
+      if (isBackgroundNetworkMode() && detailResult.challenge) {
+        return null;
+      }
+      const detailHtml = detailResult.html;
       if (!detailHtml) return null;
 
       const d$ = cheerio.load(detailHtml);
       const magnet = d$('a[href^="magnet:"]').first().attr('href') || '';
       if (!magnet.startsWith('magnet:?')) return null;
 
-      const hash = magnet.match(/btih:([a-fA-F0-9]+)/i)?.[1]?.toLowerCase();
+      const hash = extractInfoHash(magnet);
       if (!hash || seen.has(hash)) return null;
       seen.add(hash);
 
@@ -956,8 +1674,6 @@ async function fetch1337x(
   for (const item of items) {
     if (item) results.push(item);
   }
-  console.log(`[fetch1337x] Final results: ${results.length} items`);
-  results.slice(0, 3).forEach((r, i) => console.log(`[fetch1337x]   result${i}: title="${r.title}" magnet=${r.magnet.slice(0, 50)}`));
   return results;
 }
 
@@ -968,15 +1684,12 @@ async function fetchCiliMo(
   const results: ResultItem[] = [];
   try {
     const url = `${origin}/api/search?q=${encodeURIComponent(query)}`;
-    const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), 10_000);
-    const resp = await fetch(url, {
+    const resp = await fetchTextWithTimeout(url, {
       headers: { ...FETCH_HEADERS, 'Accept': 'application/json' },
-      signal: ac.signal,
+      timeoutMs: 10_000,
     });
-    clearTimeout(timer);
-    if (!resp.ok) return results;
-    const data = await resp.json() as any;
+    if (!resp?.ok) return results;
+    const data = JSON.parse(resp.text || '{}') as any;
     const items = data.results || [];
     for (const item of items.slice(0, 20)) {
       const hash = item.info_hash;
@@ -1004,9 +1717,7 @@ async function fetchCiliMo(
         score,
       });
     }
-    console.log(`[CiliMo] Found ${results.length} results for "${query}"`);
   } catch (e: any) {
-    console.error(`[CiliMo] Error: ${e.message}`);
   }
   return results;
 }
@@ -1018,15 +1729,12 @@ async function fetchClkd(
   const results: ResultItem[] = [];
   try {
     const url = `${origin}/clkd/api/search?keyword=${encodeURIComponent(query)}`;
-    const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), 10_000);
-    const resp = await fetch(url, {
+    const resp = await fetchTextWithTimeout(url, {
       headers: { ...FETCH_HEADERS, 'Accept': 'application/json' },
-      signal: ac.signal,
+      timeoutMs: 10_000,
     });
-    clearTimeout(timer);
-    if (!resp.ok) return results;
-    const json = await resp.json() as any;
+    if (!resp?.ok) return results;
+    const json = JSON.parse(resp.text || '{}') as any;
     const items = json.data?.list || json.list || [];
     for (const item of items.slice(0, 20)) {
       const hash = item.hashInfo || item.id;
@@ -1057,10 +1765,280 @@ async function fetchClkd(
         score,
       });
     }
-    console.log(`[CLKD] Found ${results.length} results for "${query}"`);
   } catch (e: any) {
-    console.error(`[CLKD] Error: ${e.message}`);
   }
+  return results;
+}
+
+/* ---- LuLuTang (噜噜糖) handler: JSON API /api/search?keyword=  ---- */
+async function fetchLulutang(
+  origin: string, query: string, siteName: string, score: number,
+): Promise<ResultItem[]> {
+  const results: ResultItem[] = [];
+  try {
+    const url = `${origin}/api/search?keyword=${encodeURIComponent(query)}&page=1`;
+    const resp = await fetchTextWithTimeout(url, {
+      headers: { ...FETCH_HEADERS, 'Accept': 'application/json' },
+      timeoutMs: 10_000,
+    });
+    if (!resp?.ok) return results;
+    const json = JSON.parse(resp.text || '{}') as any;
+    if (json.code !== 0) return results;
+    const items: any[] = json.data || [];
+    for (const item of items.slice(0, 20)) {
+      const infoHash: string = item.info_hash || '';
+      if (!infoHash) continue;
+      // info_hash is base64url-encoded (20 raw bytes). Convert to 40-char hex for btih.
+      const b64 = infoHash.replace(/-/g, '+').replace(/_/g, '/');
+      const hex = (() => {
+        try {
+          const binary = atob(b64);
+          return Array.from(binary, (c) => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
+        } catch {
+          return infoHash;
+        }
+      })();
+      const magnet = `magnet:?xt=urn:btih:${hex}`;
+      // Title may contain <mark> tags — strip them
+      let title = (item.title || '').replace(/<\/?[^>]+>/g, '').trim();
+      if (!title) title = 'Unknown';
+      const sizeRaw: number = typeof item.size === 'number' ? item.size : 0;
+      let size = '';
+      if (sizeRaw >= 1e12) size = `${(sizeRaw / 1e12).toFixed(2)} TB`;
+      else if (sizeRaw >= 1e9) size = `${(sizeRaw / 1e9).toFixed(2)} GB`;
+      else if (sizeRaw >= 1e6) size = `${(sizeRaw / 1e6).toFixed(1)} MB`;
+      else if (sizeRaw > 0) size = `${(sizeRaw / 1e3).toFixed(0)} KB`;
+      const date = item.created_at ? String(item.created_at).slice(0, 10) : '';
+      results.push({ title, magnet, size, date, seeders: 0, leechers: 0, source: origin, site_name: siteName, score });
+    }
+  } catch (e: any) {
+  }
+  return results;
+}
+
+/* ---- SSBC platform handler (磁力天堂/磁力发/磁力王 — CryptoJS+AJAX framework) ---- */
+async function fetchSsbc(
+  origin: string, query: string, siteName: string, score: number,
+): Promise<ResultItem[]> {
+  const results: ResultItem[] = [];
+  const requestTimeoutMs = isBackgroundNetworkMode() ? 3_000 : 10_000;
+  const sourceDeadlineAt = Date.now() + (isBackgroundNetworkMode() ? 9_000 : 15_000);
+  try {
+    // Step 1: Resolve redirect (movih.com → jzciliwang123.shop, berrl.com → cltt1.shop)
+    // Only the final followed URL is needed here. A prior fetchPage() call added
+    // a redundant full request without contributing any data.
+    let realOrigin = origin;
+    try {
+      const redirectBudgetMs = getRemainingSourceBudget(sourceDeadlineAt, requestTimeoutMs);
+      if (redirectBudgetMs <= 0) return results;
+      const rawResp = await fetchTextWithTimeout(origin + '/', {
+        headers: FETCH_HEADERS,
+        redirect: 'follow',
+        timeoutMs: redirectBudgetMs,
+      });
+      // The final URL after redirect chain
+      const finalUrl = rawResp?.finalUrl || '';
+      if (finalUrl) {
+        const parsed = new URL(finalUrl);
+        realOrigin = parsed.origin;
+      }
+    } catch {}
+
+    // Step 2: POST /api/ssbc — try resolved origin first, then original
+    const origins = realOrigin !== origin ? [realOrigin, origin] : [origin];
+    for (const tryOrigin of origins) {
+      const apiUrl = `${tryOrigin}/api/ssbc`;
+      const body = new URLSearchParams({ key: query, type: 'all', from: '1' });
+
+      // Use raw fetch with redirect:'follow' to avoid fetchPageManual issues
+      let respText = '';
+      try {
+        const apiBudgetMs = getRemainingSourceBudget(sourceDeadlineAt, requestTimeoutMs);
+        if (apiBudgetMs <= 0) break;
+        const rawResp = await fetchTextWithTimeout(apiUrl, {
+          method: 'POST',
+          headers: {
+            ...FETCH_HEADERS,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Referer': tryOrigin + '/',
+          },
+          body: body.toString(),
+          redirect: 'follow',
+          timeoutMs: apiBudgetMs,
+        });
+        respText = rawResp?.text || '';
+      } catch {
+        continue;
+      }
+
+      if (!respText) continue;
+
+      // Step 3: Parse JSON response
+      let json: any;
+      try { json = JSON.parse(respText); } catch { continue; }
+      if (json.code !== 200) continue;
+
+      const torrents: any[] = json.data?.infos?.torrent || [];
+      const seen = new Set<string>();
+
+      for (const t of torrents) {
+        const infohash: string = t.infohash || t.infohash_IK || '';
+        if (!infohash || seen.has(infohash)) continue;
+        seen.add(infohash);
+
+        const magnet = `magnet:?xt=urn:btih:${infohash}`;
+        let name: string = t.name_simple || t.name_IK || '';
+        name = name.replace(/<[^>]+>/g, '');
+
+        const sizeBytes = parseInt(t.size, 10) || 0;
+        let size = '';
+        if (sizeBytes >= 1e12) size = `${(sizeBytes / 1e12).toFixed(2)} TB`;
+        else if (sizeBytes >= 1e9) size = `${(sizeBytes / 1e9).toFixed(2)} GB`;
+        else if (sizeBytes >= 1e6) size = `${(sizeBytes / 1e6).toFixed(1)} MB`;
+        else if (sizeBytes > 0) size = `${(sizeBytes / 1e3).toFixed(0)} KB`;
+
+        const date = t.createdate || '';
+
+        results.push({
+          title: name || query, magnet, size, date,
+          seeders: 0, leechers: 0, source: origin, site_name: siteName, score,
+        });
+      }
+      break; // Success — don't try other origins
+    }
+  } catch {}
+  return results;
+}
+
+/* ---- ThatCDN platform handler (磁力熊猫/磁力柠檬/吴签/老王 family) ---- *
+ * Reverse-engineered captcha bypass: POST to /anti/recaptcha/v4/gen + verify.
+ * Mirrors crawler_v3/handlers/thatcdn.py logic exactly.
+ */
+async function fetchThatCdn(
+  origin: string, query: string, siteName: string, score: number,
+): Promise<ResultItem[]> {
+  const results: ResultItem[] = [];
+  try {
+    const TIMEOUT_MS = isBackgroundNetworkMode() ? 8_000 : 25_000;
+    const sourceDeadlineAt = Date.now() + (isBackgroundNetworkMode() ? 12_000 : 25_000);
+    const baseHdr = { ...FETCH_HEADERS };
+
+    // Step 1: Resolve rdata redirect (xiongmaogb.top → xiongmaoqv.top, etc.)
+    let realOrigin = origin.replace(/\?.*$/, '').replace(/\/$/, '');
+    try {
+      const homeBudgetMs = getRemainingSourceBudget(sourceDeadlineAt, TIMEOUT_MS);
+      if (homeBudgetMs <= 0) return results;
+      const homeResp = await fetchTextWithTimeout(realOrigin + '/', {
+        headers: baseHdr,
+        redirect: 'follow',
+        timeoutMs: homeBudgetMs,
+      });
+      const homeHtml = homeResp?.text || '';
+      const rdataM = homeHtml.match(/<meta[^>]*name=["']rdata["'][^>]*content=["']([^"']+)["']/i);
+      if (rdataM) {
+        const reversed = rdataM[1].split('').reverse().join('');
+        const decoded = Buffer.from(reversed, 'base64').toString('utf-8');
+        const data = JSON.parse(decoded) as { urls?: string[] };
+        if (data.urls?.length) realOrigin = data.urls[0].replace(/\/$/, '');
+      }
+    } catch {}
+
+    // Step 2: Initial search request — may return captcha challenge or results directly
+    // RN native fetch auto-manages cookie jar (JSESSIONID set here, fct set after verify)
+    const searchUrl = `${realOrigin}/search?keyword=${encodeURIComponent(query)}`;
+    const searchBudgetMs = getRemainingSourceBudget(sourceDeadlineAt, TIMEOUT_MS);
+    if (searchBudgetMs <= 0) return results;
+    const s1 = await fetchTextWithTimeout(searchUrl, {
+      headers: { ...baseHdr, Referer: realOrigin + '/' },
+      redirect: 'follow',
+      timeoutMs: searchBudgetMs,
+    });
+    let searchHtml = s1?.text || '';
+
+    // Step 3: Captcha bypass (auto-solvable API token flow — no user interaction needed)
+    if (/challenge|recaptcha/i.test(searchHtml.slice(0, 4000))) {
+      const uid = Math.random().toString(36).slice(2, 12) + '_' + Date.now();
+
+      // 3a: Fetch token from gen endpoint (cookie jar auto-included by native fetch)
+      const genBudgetMs = getRemainingSourceBudget(sourceDeadlineAt, TIMEOUT_MS);
+      if (genBudgetMs <= 0) return results;
+      const genResp = await fetchTextWithTimeout(
+        `${realOrigin}/anti/recaptcha/v4/gen?aywcUid=${encodeURIComponent(uid)}&_=${Date.now()}`,
+        {
+          headers: { ...baseHdr, Referer: searchUrl },
+          timeoutMs: genBudgetMs,
+        },
+      );
+      const genData = JSON.parse(genResp?.text || '{}') as { errno?: number; token?: string };
+      if (genData?.errno !== 0 || !genData?.token) {
+        return results;
+      }
+
+      // 3b: Submit verify — server returns search-results HTML and sets fct cookie
+      const costtime = 3000 + Math.floor(Math.random() * 2000);
+      const verifyBudgetMs = getRemainingSourceBudget(sourceDeadlineAt, TIMEOUT_MS);
+      if (verifyBudgetMs <= 0) return results;
+      const verifyResp = await fetchTextWithTimeout(
+        `${realOrigin}/anti/recaptcha/v4/verify?token=${encodeURIComponent(genData.token)}&aywcUid=${encodeURIComponent(uid)}&costtime=${costtime}`,
+        {
+          headers: { ...baseHdr, Referer: searchUrl },
+          redirect: 'follow',
+          timeoutMs: verifyBudgetMs,
+        },
+      );
+      searchHtml = verifyResp?.text || '';
+      if (searchHtml.length < 3000) { return results; }
+    }
+
+    // Step 4: Parse search results — each result is h3.panel-title > a[href^=/detail/]
+    const $s = cheerio.load(searchHtml);
+    const detailLinks: { url: string; title: string }[] = [];
+    $s('h3.panel-title a[href]').each((_, el) => {
+      const href = $s(el).attr('href') || '';
+      const title = $s(el).text().replace(/<[^>]+>/g, '').trim();
+      if (href.startsWith('/detail/') && title && title.length > 1) {
+        detailLinks.push({ url: `${realOrigin}${href}`, title });
+      }
+    });
+
+    if (detailLinks.length === 0) { return results; }
+
+    // Step 5: Parallel detail-page fetch to extract magnet URIs (max 8)
+    const MAGNET_RE = /magnet:\?xt=urn:btih:[A-Za-z0-9]{32,}/i;
+    const limit = Math.min(detailLinks.length, 8);
+    const fetched = await Promise.allSettled(
+      detailLinks.slice(0, limit).map(async ({ url, title }) => {
+        const detailBudgetMs = getRemainingSourceBudget(sourceDeadlineAt, TIMEOUT_MS);
+        if (detailBudgetMs <= 0) return null;
+        const r = await fetchTextWithTimeout(url, {
+          headers: { ...baseHdr, Referer: searchUrl },
+          timeoutMs: detailBudgetMs,
+        });
+        const html = r?.text || '';
+        const m = html.match(MAGNET_RE);
+        return m ? { title, magnet: m[0] } : null;
+      }),
+    );
+
+    const seen = new Set<string>();
+    for (const r of fetched) {
+      if (r.status !== 'fulfilled' || !r.value) continue;
+      const hash = extractInfoHash(r.value.magnet) || r.value.magnet;
+      if (seen.has(hash)) continue;
+      seen.add(hash);
+      results.push({
+        title: r.value.title,
+        magnet: r.value.magnet,
+        size: '',
+        date: '',
+        seeders: 0,
+        leechers: 0,
+        source: origin,
+        site_name: siteName,
+        score,
+      });
+    }
+  } catch {}
   return results;
 }
 
@@ -1079,20 +2057,49 @@ export async function searchSource(
 
   // Skip blacklisted origins (failed verification this session)
   if (VerifyManager.isBlacklisted(origin)) {
-    console.log(`[Verify:Skip] ${rule.site.name} (${origin}) blacklisted — skipping`);
     throw new Error('__blacklisted__');
   }
+
+  const siteName = rule.site.name;
+  const score = rule.quality?.score ?? 50;
+  const handler = rule.search.handler || '';
+
+  // ── Custom handler dispatch (before template/selectors — handler-only rules omit parse_metadata) ──
+  if (handler === 'javbus') return (await fetchJavBus(origin, query, siteName, score)).slice(0, 30);
+  if (handler === 'meijumi') return (await fetchMeijumi(origin, query, siteName, score)).slice(0, 30);
+  if (handler === 'yhg') return (await fetchYhg(origin, query, siteName, score)).slice(0, 30);
+  if (handler === '6v520') return (await fetch6v520(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'rarbggo') return (await fetchRarbggo(origin, query, siteName, score)).slice(0, 30);
+  if (handler === 'rrjav') return (await fetchRrjav(origin, query, siteName, score)).slice(0, 30);
+  if (handler === '1337x') return (await fetch1337x(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'cilimo') return (await fetchCiliMo(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'clkd') return (await fetchClkd(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'lulutang') return (await fetchLulutang(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'btsow') return (await fetchBtsow(origin, query, siteName, score)).slice(0, 30);
+  if (handler === 'snowfl') return (await fetchSnowfl(origin, query, siteName, score)).slice(0, 30);
+  if (handler === 'yts') return (await fetchYts(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'wuji') return (await fetchWuji(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'ssbc') return (await fetchSsbc(origin, query, siteName, score)).slice(0, 30);
+  if (handler === 'thatcdn') return (await fetchThatCdn(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'zhongzidi') return (await fetchZhongzidi(origin, query, siteName, score)).slice(0, 20);
+
+  // ── Template flow ──
   const template = rule.search.request_template;
   // Build search URL: {query} → URL-encoded, {query_b64} → base64-encoded
   const queryB64 = typeof btoa === 'function'
     ? btoa(unescape(encodeURIComponent(query)))
     : Buffer.from(query, 'utf-8').toString('base64');
+  const queryB64url = queryB64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const searchUrl =
     origin +
     template
       .replace('{query}', encodeURIComponent(query))
-      .replace('{query_b64}', queryB64);
-  const selectors = rule.search.parse_metadata.selectors;
+      .replace('{query_b64}', queryB64)
+      .replace('{query_b64url}', queryB64url);
+  const selectors = rule.search.parse_metadata?.selectors;
+  if (!selectors) {
+    return [];
+  }
   const supportsDetail = rule.capabilities?.supports_detail ?? false;
   const detailSelectors = rule.search.detail?.selectors
     ? { ...rule.search.detail.selectors }
@@ -1101,56 +2108,33 @@ export async function searchSource(
   if (/1337x|1377x/i.test(origin) && detailSelectors) {
     detailSelectors.title = '.box-info-heading h1';
   }
-  const siteName = rule.site.name;
-  const score = rule.quality?.score ?? 50;
-  const handler = rule.search.handler || '';
   const customReferer = rule.search.referer || '';
-  // ── Custom handler dispatch ──
-  if (handler === 'javbus') return (await fetchJavBus(origin, query, siteName, score)).slice(0, 30);
-  if (handler === 'meijumi') return (await fetchMeijumi(origin, query, siteName, score)).slice(0, 30);
-  if (handler === 'yhg') return (await fetchYhg(origin, query, siteName, score)).slice(0, 30);
-  if (handler === 'rarbggo') return (await fetchRarbggo(origin, query, siteName, score)).slice(0, 30);
-  if (handler === 'rrjav') return (await fetchRrjav(origin, query, siteName, score)).slice(0, 30);
-  if (handler === '1337x') return (await fetch1337x(origin, query, siteName, score)).slice(0, 20);
-  if (handler === 'cilimo') return (await fetchCiliMo(origin, query, siteName, score)).slice(0, 20);
-  if (handler === 'clkd') return (await fetchClkd(origin, query, siteName, score)).slice(0, 20);
 
   // ── SPA sources: render via WebView (like Legado's BackstageWebView) ──
   if (rule.search.requires_browser) {
-    console.log(`[SPA:${siteName}] requires browser → WebView (url=${searchUrl})`);
+    if (isBackgroundNetworkMode()) {
+      return [];
+    }
     const vr = await VerifyManager.requestVerification(
       searchUrl, 'spa_render', origin, siteName,
     );
     if (vr.success && vr.html) {
-      console.log(`[SPA:${siteName}] WebView OK — html=${vr.html.length}B cookies=${(vr.cookies||'').length}B`);
       // Store any cookies from the WebView session
       if (vr.cookies) storeCookiesForOrigin(origin, vr.cookies);
       const $ = cheerio.load(vr.html);
       const { results: spaResults, detailUrls: spaDetailUrls, titleHints: spaTH, sizeHints: spaSH, dateHints: spaDH } =
         extractFromSearchPage($, selectors, origin, siteName, score);
-      console.log(`[SPA:${siteName}] parse: results=${spaResults.length} detailUrls=${spaDetailUrls.length} selector.list_item="${selectors.list_item}" selector.title="${selectors.title}"`);
-      if (spaResults.length === 0 && spaDetailUrls.length === 0) {
-        // Debug: dump page text snippet to understand why nothing matched
-        const bodyText = ($('body').text() || '').replace(/\s+/g, ' ').trim();
-        console.log(`[SPA:${siteName}] EMPTY — bodyText[0:300]="${bodyText.slice(0, 300)}"`);
-        const title = $('title').text();
-        console.log(`[SPA:${siteName}] pageTitle="${title}" listItems=${$(selectors.list_item).length}`);
-      }
       const spaCleaned = spaResults.filter((r) => r.title && r.title !== 'Unknown Title' && r.title.length >= 4);
       // Follow detail pages if needed
       if (supportsDetail && detailSelectors && spaDetailUrls.length > 0 && spaCleaned.length < 20) {
-        console.log(`[SPA:${siteName}] detail-follow: ${spaDetailUrls.length} urls, detailMagnetSel="${detailSelectors.magnet}"`);
         const spaDetailResults = await fetchDetailResults(
           spaDetailUrls, detailSelectors, origin, siteName, score,
           20 - spaCleaned.length, spaTH, spaSH, spaDH, query,
         );
-        console.log(`[SPA:${siteName}] detail results: ${spaDetailResults.length} (magnets: ${spaDetailResults.filter(r => r.magnet).length})`);
         spaCleaned.push(...spaDetailResults);
       }
-      console.log(`[SPA:${siteName}] final: ${spaCleaned.length} results`);
       return spaCleaned.slice(0, 30);
     }
-    console.log(`[SPA:${siteName}] WebView FAILED: ${vr.error}`);
     return [];
   }
 
@@ -1179,9 +2163,11 @@ export async function searchSource(
     const result = await fetchPage(searchUrl, undefined, undefined, customReferer || undefined);
     // Challenge detected → trigger WebView verification (Legado-style)
     if (result.challenge) {
+      if (isBackgroundNetworkMode()) {
+        return [];
+      }
       // Old cookies didn't work → invalidate so fresh ones get persisted
       invalidateCookies(origin);
-      console.log(`[SearchEngine] Challenge on ${siteName}: ${result.challenge.type} — requesting WebView`);
       const vr = await VerifyManager.requestVerification(
         result.challenge.verifyUrl,
         result.challenge.type as any,
@@ -1200,7 +2186,6 @@ export async function searchSource(
           html = retryResult.html;
         }
       } else {
-        console.log(`[SearchEngine] Verification failed for ${siteName}: ${vr.error}`);
         return [];
       }
     } else {
@@ -1237,7 +2222,7 @@ export async function searchSource(
     const urlsToFollow = detailUrls.filter(
       (url) =>
         !cleaned.some((r) =>
-          url.includes(r.magnet.match(/btih:([a-fA-F0-9]+)/)?.[1] || '__none__'),
+          url.includes(extractInfoHash(r.magnet) || '__none__'),
         ),
     );
     if (urlsToFollow.length > 0) {
@@ -1283,7 +2268,7 @@ export async function searchSource(
   const allResults = [...cleaned, ...detailCleaned];
   const seen = new Set<string>();
   const merged = allResults.filter((r) => {
-    const hash = r.magnet.match(/btih:([a-fA-F0-9]+)/i)?.[1]?.toLowerCase() || r.magnet;
+    const hash = extractInfoHash(r.magnet) || r.magnet;
     if (seen.has(hash)) return false;
     seen.add(hash);
     return true;

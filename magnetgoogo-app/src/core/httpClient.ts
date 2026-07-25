@@ -13,6 +13,7 @@ const FETCH_HEADERS: Record<string, string> = {
   Accept:
     'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
 };
+let _backgroundNetworkMode = false;
 
 // ── Persistent cookie store ──────────────────────────────────────────
 // Cookies are saved permanently. If they expire, the server returns a
@@ -104,6 +105,65 @@ export interface FetchResult {
   challenge?: { type: string; verifyUrl: string };
 }
 
+interface XhrResult {
+  status: number;
+  responseText: string;
+  headers: Record<string, string>;
+  responseURL?: string;
+}
+
+export function setBackgroundNetworkMode(enabled: boolean) {
+  _backgroundNetworkMode = enabled;
+}
+
+export function isBackgroundNetworkMode(): boolean {
+  return _backgroundNetworkMode;
+}
+
+function parseRawHeaders(raw: string): Record<string, string> {
+  const headers: Record<string, string> = {};
+  for (const line of raw.split(/\r?\n/)) {
+    const idx = line.indexOf(':');
+    if (idx <= 0) continue;
+    const key = line.slice(0, idx).trim().toLowerCase();
+    const value = line.slice(idx + 1).trim();
+    if (!key) continue;
+    headers[key] = headers[key] ? `${headers[key]}, ${value}` : value;
+  }
+  return headers;
+}
+
+function xhrRequest(
+  url: string,
+  options?: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+    timeoutMs?: number;
+  },
+): Promise<XhrResult> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(options?.method || 'GET', url, true);
+    xhr.timeout = options?.timeoutMs ?? 10_000;
+    for (const [k, v] of Object.entries(options?.headers || {})) {
+      xhr.setRequestHeader(k, v);
+    }
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState !== 4) return;
+      resolve({
+        status: xhr.status,
+        responseText: xhr.responseText || '',
+        headers: parseRawHeaders(xhr.getAllResponseHeaders?.() || ''),
+        responseURL: (xhr as any).responseURL || undefined,
+      });
+    };
+    xhr.ontimeout = () => reject(new Error('timeout'));
+    xhr.onerror = () => reject(new Error('network_error'));
+    xhr.send(options?.body ?? null);
+  });
+}
+
 function detectChallenge(
   status: number,
   html: string,
@@ -189,9 +249,37 @@ export async function fetchPage(
     if (allCookies) headers['Cookie'] = allCookies;
     if (referer) headers['Referer'] = referer;
 
+    const host = new URL(url).hostname;
+    if (_backgroundNetworkMode) {
+      let xr: XhrResult;
+      try {
+        xr = await xhrRequest(url, {
+          method: 'GET',
+          headers,
+          timeoutMs,
+        });
+      } catch (e: any) {
+        console.log(`[httpClient] ${host} XHR FAILED: ${e?.message || 'unknown'} (${timeoutMs}ms)`);
+        return { html: null };
+      }
+      const html = xr.responseText || '';
+      console.log(`[httpClient] ${host} xhr status=${xr.status} htmlLen=${html.length}`);
+      const challenge = detectChallenge(xr.status, html, xr.responseURL || url);
+      if (challenge) {
+        console.log(`[Verify:Challenge] Detected ${challenge.type} on ${new URL(url).origin} (status=${xr.status}, hasCookies=${!!storedCookies})`);
+        return { html: null, status: xr.status, challenge };
+      }
+      if (xr.status < 200 || xr.status >= 300) return { html: null, status: xr.status };
+      const newCookies = xr.headers['set-cookie'] || '';
+      if (newCookies) {
+        const merged = mergeCookies(storedCookies, newCookies);
+        cookieJar.set(origin, { cookies: merged, ts: Date.now() });
+      }
+      return { html, status: xr.status };
+    }
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const host = new URL(url).hostname;
 
     let resp: Response;
     try {
@@ -257,14 +345,30 @@ export async function fetchPageManual(
     contentType?: string;
     cookies?: string;
     referer?: string;
+    extraHeaders?: Record<string, string>;
     timeoutMs?: number;
   },
-): Promise<{ html: string; cookies: string; status: number } | null> {
+): Promise<{ html: string; cookies: string; status: number; responseUrl?: string } | null> {
   try {
-    const headers: Record<string, string> = { ...FETCH_HEADERS };
+    const headers: Record<string, string> = { ...FETCH_HEADERS, ...(options?.extraHeaders ?? {}) };
     if (options?.cookies) headers['Cookie'] = options.cookies;
     if (options?.contentType) headers['Content-Type'] = options.contentType;
     if (options?.referer) headers['Referer'] = options.referer;
+
+    if (_backgroundNetworkMode) {
+      const xr = await xhrRequest(url, {
+        method: options?.method ?? 'GET',
+        headers,
+        body: options?.body,
+        timeoutMs: options?.timeoutMs ?? 10_000,
+      });
+      return {
+        html: xr.responseText || '',
+        cookies: xr.headers['set-cookie'] || '',
+        status: xr.status,
+        responseUrl: xr.responseURL,
+      };
+    }
 
     const controller = new AbortController();
     const timer = setTimeout(
@@ -281,9 +385,13 @@ export async function fetchPageManual(
     });
     clearTimeout(timer);
 
+    const location = resp.headers.get('location');
+    const responseUrl = location
+      ? (location.startsWith('http') ? location : new URL(location, url).href)
+      : undefined;
     const html = await decodeResponse(resp);
     const cookies = extractCookies(resp);
-    return { html, cookies, status: resp.status };
+    return { html, cookies, status: resp.status, responseUrl };
   } catch {
     return null;
   }

@@ -38,6 +38,38 @@ function base32ToHex(b32: string): string {
   return hex;
 }
 
+/** Parse size string ("1.5 GB") to bytes for sorting. Returns 0 if unparseable. */
+function parseSizeBytes(size: string): number {
+  if (!size) return 0;
+  const m = size.match(/([\d.]+)\s*(TB|GB|MB|KB)/i);
+  if (!m) return 0;
+  const n = parseFloat(m[1]);
+  const unit = m[2].toUpperCase();
+  if (unit === 'TB') return n * 1024 * 1024 * 1024 * 1024;
+  if (unit === 'GB') return n * 1024 * 1024 * 1024;
+  if (unit === 'MB') return n * 1024 * 1024;
+  if (unit === 'KB') return n * 1024;
+  return 0;
+}
+
+/** Detect video quality from title keywords. Higher = better. 50 = unknown. */
+const QUALITY_PATTERNS: [RegExp, number][] = [
+  [/remux/i, 100],
+  [/blu[\s.-]?ray|bluray|bdrip|bdremux|brrip/i, 95],
+  [/web[\s.-]?dl|webdl|webrip|web[\s.-]?rip/i, 80],
+  [/hdrip|hdtv|pdtv/i, 65],
+  [/dvdrip|dvd[\s.-]?scr|dvd/i, 50],
+  [/hdcam|hdcam|cam[\s.-]?rip|\bcam\b/i, 15],
+  [/ts\b|telesync|tc\b|telecine/i, 10],
+];
+
+function detectVideoQuality(title: string): number {
+  for (const [re, score] of QUALITY_PATTERNS) {
+    if (re.test(title)) return score;
+  }
+  return 50;
+}
+
 export interface DedupedResult extends SearchResult {
   /** Number of sources that returned this exact torrent */
   sourceCount: number;
@@ -96,10 +128,18 @@ export function deduplicateResults(results: SearchResult[]): DedupedResult[] {
     }
   }
 
-  // Multi-source hits first, then by seeders
+  // Combined sort: relevance (sourceCount) > size > quality tag > seeders
   const deduped = [...hashMap.values()];
   deduped.sort((a, b) => {
+    // Primary: multi-source relevance
     if (b.sourceCount !== a.sourceCount) return b.sourceCount - a.sourceCount;
+    // Secondary: file size (larger = higher quality)
+    const sizeDiff = parseSizeBytes(b.size || '') - parseSizeBytes(a.size || '');
+    if (sizeDiff !== 0) return sizeDiff;
+    // Tertiary: video quality tags from title
+    const qDiff = detectVideoQuality(b.title) - detectVideoQuality(a.title);
+    if (qDiff !== 0) return qDiff;
+    // Fallback: seeders
     return b.bestSeeders - a.bestSeeders;
   });
 

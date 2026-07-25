@@ -13,7 +13,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { File, Directory, Paths } from 'expo-file-system/next';
 
-const DEV_ONLY = __DEV__;
+const DEV_ONLY = true;
 const STORAGE_KEY = 'mg_search_debug_reports';
 const MAX_REPORTS = 50;
 
@@ -222,7 +222,13 @@ export class ReportBuilder {
     _currentBuilder = null;
 
     const report = _reports.find(r => r.id === this._reportId)!;
-    if (__DEV__) printReport(report);
+    // Always persist last-search-report.json for adb pull / dual-bait device tests.
+    // (Previously gated on __DEV__, which is false in Hermes release-mode debug APKs.)
+    try {
+      printReport(report);
+    } catch {
+      /* ignore file write failures */
+    }
 
     // Final persist
     persistNow();

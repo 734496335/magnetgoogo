@@ -1,67 +1,60 @@
 /**
  * Source storage layer.
  *
- * Security model (3-layer):
- *   Layer 1 — Transit: AES-256-CBC encrypted payload (sources.enc.json)
- *   Layer 2 — Disk: encrypted payload cached locally (still AES-encrypted,
- *             NOT plaintext). Expires after source_expiry_hours (default 72h).
- *   Layer 3 — Memory: sources stored XOR-obfuscated with a random session
- *             key. A Frida memory dump sees only garbled bytes.
- *
- * Fetch strategy: parallel race (Promise.any) across all endpoints.
- * Whichever responds first with a valid payload wins. Typical latency
- * drops from 10-15s (sequential) to 1-3s (parallel).
- *
- * Auth: Pre-reserved for future member tier.
- *   - Free: GitHub CDN static files (no auth)
- *   - Member: CF Worker validates Authorization: Bearer <token>
+ * Security model:
+ *   Layer 1: transit payload remains encrypted (sources.enc.json)
+ *   Layer 2: disk cache stores the encrypted payload, not plaintext
+ *   Layer 3: in-memory rules are obfuscated with a session key
  */
 import * as SecureStore from 'expo-secure-store';
-import { File, Paths, Directory } from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 import { decryptSources } from './crypto';
 import { getAppVersion } from './configChecker';
 import { COMPLIANCE_MODE } from './complianceConfig';
+import bootstrapPayload from '../../assets/bootstrap-sources.enc.json';
 
 const SOURCE_FILE = COMPLIANCE_MODE ? '/sources-green.enc.json' : '/sources.enc.json';
+const DEBUG_SOURCE_FILE = new File(Paths.document, 'debug-sources.enc.json');
 
-// ── Endpoints (new repo: mg-data) ────────────────────────────────────
-// All endpoints are raced in parallel; first valid response wins.
 const CN_ALI = 'https://cn.magnetgoogo.com';
+const CN_BASE = 'https://magnetgoogo.com';
 const CDN_BASE = 'https://cdn.jsdelivr.net/gh/734496335/mg-data@main';
 const RAW_BASE = 'https://raw.githubusercontent.com/734496335/mg-data/main';
 const GATEWAY_BASE = 'https://api.naoshiquan.com';
 const GATEWAY_OLD = 'https://maggoogo-gateway.734496335lp.workers.dev';
-const CN_BASE = 'https://magnetgoogo.com';
 const DEFAULT_REMOTE_URL = CDN_BASE;
 
-// Disk cache (new expo-file-system API)
 const CACHE_DIR = new Directory(Paths.document, 'source-cache');
 const CACHE_FILE = new File(CACHE_DIR, 'sources.cache.json');
 const DEFAULT_EXPIRY_HOURS = 72;
-
-// Auth token key in SecureStore
+const BOOTSTRAP_EXPIRY_HOURS = 24 * 7;
+const BOOTSTRAP_FIRST_USED_KEY = 'mg_bootstrap_first_used_at';
 const AUTH_TOKEN_KEY = 'mg_auth_token';
 
-/** Fetch with timeout (default 8s — shorter because we race). */
 function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
   return new Promise((resolve, reject) => {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => { ctrl.abort(); reject(new Error('timeout')); }, timeoutMs);
+    const timer = setTimeout(() => {
+      ctrl.abort();
+      reject(new Error('timeout'));
+    }, timeoutMs);
     fetch(url, { ...options, signal: ctrl.signal })
-      .then(r => { clearTimeout(timer); resolve(r); })
-      .catch(e => { clearTimeout(timer); reject(e); });
+      .then((resp) => {
+        clearTimeout(timer);
+        resolve(resp);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
   });
 }
 
-/**
- * Race multiple URLs in parallel. Returns the first that responds OK.
- * If all fail, throws the last error.
- */
 async function raceFetchOk(
   urls: string[],
   path: string,
   headers: Record<string, string>,
-  timeoutMs = 8000,
+  timeoutMs = 12000,
 ): Promise<{ text: string; url: string }> {
   const promises = urls.map(async (base) => {
     const fullUrl = `${base}${path}`;
@@ -73,13 +66,12 @@ async function raceFetchOk(
     if (!resp.ok) throw new Error(`HTTP ${resp.status} from ${base}`);
     const text = await resp.text();
     if (!text || text.length < 10) throw new Error(`Empty response from ${base}`);
-    console.log(`[SourceStore] ✓ ${base} responded first`);
+    console.log(`[SourceStore] ${base} responded first`);
     return { text, url: base };
   });
   return Promise.any(promises);
 }
 
-// ── types ───────────────────────────────────────────────────────────
 export interface SourceMeta {
   updatedAt: string;
   count: number;
@@ -92,42 +84,45 @@ export interface SourceRule {
 }
 
 interface DiskCache {
-  encPayload: string;    // raw AES-encrypted text (still encrypted!)
-  savedAt: string;       // ISO timestamp
-  expiryHours: number;   // how long this cache is valid
-  count: number;         // source count for quick display
-  remoteUrl: string;     // which endpoint was used
+  encPayload: string;
+  savedAt: string;
+  expiryHours: number;
+  count: number;
+  remoteUrl: string;
 }
 
-// ── In-memory obfuscated vault ──────────────────────────────────────
-let _sessionKey: Uint8Array = _randomKey(64);
+let _sessionKey: Uint8Array = randomKey(64);
 let _vault: Uint8Array[] = [];
 let _sourceCount = 0;
 let _cachedMeta: SourceMeta | null = null;
+let _activeSourceKind: 'bootstrap' | 'remote' | null = null;
+const _textEncoder = new TextEncoder();
+const _textDecoder = new TextDecoder();
 
-function _randomKey(len: number): Uint8Array {
+function randomKey(len: number): Uint8Array {
   const arr = new Uint8Array(len);
   for (let i = 0; i < len; i++) arr[i] = Math.floor(Math.random() * 256);
   return arr;
 }
 
-function _obfuscate(plainJson: string): Uint8Array {
-  const bytes = new Uint8Array(plainJson.length);
-  for (let i = 0; i < plainJson.length; i++) {
-    bytes[i] = plainJson.charCodeAt(i) ^ _sessionKey[i % _sessionKey.length];
+function obfuscate(plainJson: string): Uint8Array {
+  const bytes = _textEncoder.encode(plainJson);
+  const out = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) {
+    out[i] = bytes[i] ^ _sessionKey[i % _sessionKey.length];
   }
-  return bytes;
+  return out;
 }
 
-function _deobfuscate(blob: Uint8Array): string {
-  const chars: string[] = [];
+function deobfuscate(blob: Uint8Array): string {
+  const bytes = new Uint8Array(blob.length);
   for (let i = 0; i < blob.length; i++) {
-    chars.push(String.fromCharCode(blob[i] ^ _sessionKey[i % _sessionKey.length]));
+    bytes[i] = blob[i] ^ _sessionKey[i % _sessionKey.length];
   }
-  return chars.join('');
+  return _textDecoder.decode(bytes);
 }
 
-function _compareSemver(a: string, b: string): number {
+function compareSemver(a: string, b: string): number {
   const pa = a.split('.').map(Number);
   const pb = b.split('.').map(Number);
   for (let i = 0; i < 3; i++) {
@@ -139,13 +134,9 @@ function _compareSemver(a: string, b: string): number {
   return 0;
 }
 
-// ── Disk cache helpers ──────────────────────────────────────────────
-
-function _saveToDisk(encPayload: string, meta: SourceMeta, expiryHours: number) {
+function saveToDisk(encPayload: string, meta: SourceMeta, expiryHours: number) {
   try {
-    if (!CACHE_DIR.exists) {
-      CACHE_DIR.create();
-    }
+    if (!CACHE_DIR.exists) CACHE_DIR.create();
     const cache: DiskCache = {
       encPayload,
       savedAt: new Date().toISOString(),
@@ -153,24 +144,19 @@ function _saveToDisk(encPayload: string, meta: SourceMeta, expiryHours: number) 
       count: meta.count,
       remoteUrl: meta.remoteUrl,
     };
-    if (!CACHE_FILE.exists) {
-      CACHE_FILE.create();
-    }
+    if (!CACHE_FILE.exists) CACHE_FILE.create();
     CACHE_FILE.write(JSON.stringify(cache));
-    console.log(`[SourceStore] Saved ${meta.count} sources to disk cache (expires in ${expiryHours}h)`);
+    console.log(`[SourceStore] Saved ${meta.count} sources to disk cache`);
   } catch (e: any) {
     console.log(`[SourceStore] Disk save failed: ${e.message}`);
   }
 }
 
-function _loadFromDisk(): { green: SourceRule[]; meta: SourceMeta } | null {
+function loadFromDisk(): { green: SourceRule[]; meta: SourceMeta } | null {
   try {
     if (!CACHE_FILE.exists) return null;
-
     const text = CACHE_FILE.textSync();
     const cache: DiskCache = JSON.parse(text);
-
-    // Check expiry
     const savedAt = new Date(cache.savedAt).getTime();
     const expiresAt = savedAt + cache.expiryHours * 3600000;
     if (Date.now() > expiresAt) {
@@ -179,20 +165,15 @@ function _loadFromDisk(): { green: SourceRule[]; meta: SourceMeta } | null {
       return null;
     }
 
-    // Decrypt the cached encrypted payload
     const decrypted = decryptSources(cache.encPayload);
     const raw = JSON.parse(decrypted);
-
-    // Unwrap + filter green
-    const green = _extractGreen(raw);
-
+    const green = extractGreen(raw);
     const meta: SourceMeta = {
       updatedAt: cache.savedAt,
       count: green.length,
-      remoteUrl: cache.remoteUrl + ' (cached)',
+      remoteUrl: `${cache.remoteUrl} (cached)`,
     };
-
-    console.log(`[SourceStore] Loaded ${green.length} sources from disk cache \u2713`);
+    console.log(`[SourceStore] Loaded ${green.length} sources from disk cache`);
     return { green, meta };
   } catch (e: any) {
     console.log(`[SourceStore] Disk load failed: ${e.message}`);
@@ -200,13 +181,12 @@ function _loadFromDisk(): { green: SourceRule[]; meta: SourceMeta } | null {
   }
 }
 
-/** Extract green sources from raw parsed data. */
-function _extractGreen(raw: any): SourceRule[] {
+function extractGreen(raw: any): SourceRule[] {
   let sourceData = raw;
-  if (raw.payload && raw.expires_at) {
+  if (raw.payload) {
     if (raw.min_app_version) {
       const appVer = getAppVersion();
-      if (_compareSemver(appVer, raw.min_app_version) < 0) return [];
+      if (compareSemver(appVer, raw.min_app_version) < 0) return [];
     }
     sourceData = raw.payload;
   }
@@ -215,7 +195,6 @@ function _extractGreen(raw: any): SourceRule[] {
   if (Array.isArray(sourceData)) {
     list = sourceData;
   } else if (sourceData.rulesets && Array.isArray(sourceData.rulesets)) {
-    // Flatten all rules from ALL rulesets (not just the first one)
     for (const rs of sourceData.rulesets) {
       if (rs.rules && Array.isArray(rs.rules)) {
         list.push(...rs.rules);
@@ -228,28 +207,75 @@ function _extractGreen(raw: any): SourceRule[] {
   return list.filter((s: any) => s.health?.status === 'green');
 }
 
-/** Load sources into memory vault from an array. */
-function _loadIntoVault(green: SourceRule[], meta: SourceMeta) {
-  _sessionKey = _randomKey(64);
-  _vault = green.map((rule) => _obfuscate(JSON.stringify(rule)));
+function loadIntoVault(green: SourceRule[], meta: SourceMeta) {
+  _sessionKey = randomKey(64);
+  _vault = green.map((rule) => obfuscate(JSON.stringify(rule)));
   _sourceCount = green.length;
   _cachedMeta = meta;
 }
 
-// ── public API ──────────────────────────────────────────────────────
+async function getBootstrapFirstUsedAt(): Promise<number> {
+  try {
+    const saved = await SecureStore.getItemAsync(BOOTSTRAP_FIRST_USED_KEY);
+    const parsed = saved ? Number(saved) : 0;
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    const now = Date.now();
+    await SecureStore.setItemAsync(BOOTSTRAP_FIRST_USED_KEY, String(now));
+    return now;
+  } catch {
+    return Date.now();
+  }
+}
 
-/** Get all sources. Tries memory first, then disk cache. */
+async function loadBootstrapSources(): Promise<{ green: SourceRule[]; meta: SourceMeta } | null> {
+  try {
+    const firstUsedAt = await getBootstrapFirstUsedAt();
+    const expiresAt = firstUsedAt + BOOTSTRAP_EXPIRY_HOURS * 3600000;
+    if (Date.now() > expiresAt) {
+      const expiredAgo = Math.round((Date.now() - expiresAt) / 3600000);
+      console.log(`[SourceStore] Bootstrap sources expired ${expiredAgo}h ago`);
+      return null;
+    }
+
+    const text = JSON.stringify(bootstrapPayload);
+    if (!text || text.length < 10) {
+      throw new Error('bootstrap asset empty');
+    }
+
+    const decrypted = decryptSources(text);
+    const raw = JSON.parse(decrypted);
+    const green = extractGreen(raw);
+    const remainingHours = Math.max(0, Math.round((expiresAt - Date.now()) / 3600000));
+    const meta: SourceMeta = {
+      updatedAt: new Date(firstUsedAt).toISOString(),
+      count: green.length,
+      remoteUrl: `bootstrap://assets/bootstrap-sources.enc.json (${remainingHours}h left)`,
+    };
+    console.log(`[SourceStore] Loaded ${green.length} bootstrap sources from bundled asset`);
+    return { green, meta };
+  } catch (e: any) {
+    console.log(`[SourceStore] Bootstrap load failed: ${e.message}`);
+    return null;
+  }
+}
+
 export async function loadSources(): Promise<SourceRule[] | null> {
-  // Memory vault has data → use it
   if (_vault.length > 0) {
-    return _vault.map((blob) => JSON.parse(_deobfuscate(blob)));
+    return _vault.map((blob) => JSON.parse(deobfuscate(blob)));
   }
 
-  // Try disk cache
-  const disk = _loadFromDisk();
+  const disk = loadFromDisk();
   if (disk) {
-    _loadIntoVault(disk.green, disk.meta);
+    _activeSourceKind = 'remote';
+    loadIntoVault(disk.green, disk.meta);
     return disk.green;
+  }
+
+  const bootstrap = await loadBootstrapSources();
+  if (bootstrap) {
+    _activeSourceKind = 'bootstrap';
+    loadIntoVault(bootstrap.green, bootstrap.meta);
+    return bootstrap.green;
   }
 
   return null;
@@ -257,8 +283,6 @@ export async function loadSources(): Promise<SourceRule[] | null> {
 
 export async function loadMeta(): Promise<SourceMeta | null> {
   if (_cachedMeta) return _cachedMeta;
-
-  // Try reading meta from disk cache without full decrypt
   try {
     if (!CACHE_FILE.exists) return null;
     const text = CACHE_FILE.textSync();
@@ -266,7 +290,7 @@ export async function loadMeta(): Promise<SourceMeta | null> {
     return {
       updatedAt: cache.savedAt,
       count: cache.count,
-      remoteUrl: cache.remoteUrl + ' (cached)',
+      remoteUrl: `${cache.remoteUrl} (cached)`,
     };
   } catch {
     return null;
@@ -279,15 +303,37 @@ export function getSourceCount(): number {
 
 export function getSourceAt(index: number): SourceRule | null {
   if (index < 0 || index >= _vault.length) return null;
-  return JSON.parse(_deobfuscate(_vault[index]));
+  return JSON.parse(deobfuscate(_vault[index]));
 }
 
-export async function syncSources(
-  url?: string,
-): Promise<{ sources: SourceRule[]; meta: SourceMeta }> {
+export async function syncSources(url?: string): Promise<{ sources: SourceRule[]; meta: SourceMeta }> {
+  // Prefer explicit on-device debug override when present (adb push files/debug-sources.enc.json).
+  // Not gated on __DEV__ so Hermes release-mode debug APKs can still load pushed source packs.
+  if (!url && DEBUG_SOURCE_FILE.exists) {
+    try {
+      const encPayload = DEBUG_SOURCE_FILE.textSync();
+      if (encPayload && encPayload.length > 100) {
+        const decrypted = decryptSources(encPayload);
+        const envelope = JSON.parse(decrypted);
+        const green = extractGreen(envelope);
+        loadIntoVault(green, {
+          updatedAt: envelope.issued_at || new Date().toISOString(),
+          count: green.length,
+          remoteUrl: 'local://debug-sources.enc.json',
+        });
+        console.log(`[SourceStore] loaded ${green.length} green from debug-sources.enc.json`);
+        return { sources: green, meta: _cachedMeta! };
+      }
+    } catch (e: any) {
+      console.log(`[SourceStore] debug source file failed: ${e.message}, falling back to remote`);
+    }
+  } else if (__DEV__ && !url) {
+    console.log('[SourceStore] __DEV__ no explicit debug source file, using normal cache + remote sync');
+  }
+
   const endpoints = url
     ? [url.replace(/\/$/, '')]
-    : [CN_ALI, CN_BASE, CDN_BASE, RAW_BASE, GATEWAY_BASE, GATEWAY_OLD];
+    : [CN_BASE, GATEWAY_BASE, CDN_BASE, RAW_BASE, GATEWAY_OLD, CN_ALI];
 
   const appVer = getAppVersion();
   const authToken = await getAuthToken();
@@ -295,32 +341,28 @@ export async function syncSources(
     'Cache-Control': 'no-cache',
     'X-App-Version': appVer,
   };
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
-  }
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
 
   let raw: any;
   let encPayload = '';
   let usedUrl = '';
 
-  // ── Strategy: race all endpoints, sequential fallback ──
-  const allEndpoints = [...endpoints, CN_BASE].filter((v, i, a) => a.indexOf(v) === i);
-
-  // Tier 1: race all endpoints (8s timeout) — fastest wins
   try {
-    const result = await raceFetchOk(allEndpoints, SOURCE_FILE, headers);
+    const result = await raceFetchOk(endpoints, SOURCE_FILE, headers, 12000);
     encPayload = result.text;
     const decrypted = decryptSources(encPayload);
     raw = JSON.parse(decrypted);
     usedUrl = result.url;
   } catch (raceErr: any) {
     console.log(`[SourceStore] Tier 1 failed: ${raceErr.message}, trying sequentially...`);
-    // Tier 2: try each endpoint sequentially with longer timeout (CN first)
-    const fallbackOrder = [CN_ALI, CN_BASE, GATEWAY_BASE, CDN_BASE, RAW_BASE, GATEWAY_OLD];
     let found = false;
-    for (const base of fallbackOrder) {
+    for (const base of endpoints) {
       try {
-        const resp = await fetchWithTimeout(`${base}${SOURCE_FILE}`, { headers }, 15000);
+        const resp = await fetchWithTimeout(`${base}${SOURCE_FILE}`, { headers }, 20000);
+        if (resp.status === 403) {
+          const errBody = await resp.json().catch(() => ({}));
+          throw new Error(errBody.message || '请更新App到最新版本');
+        }
         if (!resp.ok) continue;
         const text = await resp.text();
         if (!text || text.length < 10) continue;
@@ -329,40 +371,42 @@ export async function syncSources(
         encPayload = text;
         usedUrl = base;
         found = true;
-        console.log(`[SourceStore] ✓ Fallback succeeded via ${base}`);
+        console.log(`[SourceStore] Fallback succeeded via ${base}`);
         break;
       } catch (e: any) {
         console.log(`[SourceStore] ${base} failed: ${e.message}`);
       }
     }
     if (!found) {
-      throw new Error(`所有端点均不可达，请检查网络`);
+      throw new Error('所有端点均不可达，请检查网络');
     }
   }
 
-  // ── Unwrap envelope — only enforce version gating, ignore expiry ──
   let expiryHours = DEFAULT_EXPIRY_HOURS;
-  if (raw.payload && raw.expires_at) {
-    if (raw.min_app_version && _compareSemver(appVer, raw.min_app_version) < 0) {
+  if (raw.payload) {
+    if (raw.min_app_version && compareSemver(appVer, raw.min_app_version) < 0) {
       throw new Error(`请更新App到 ${raw.min_app_version} 以上版本`);
+    }
+    if (raw.expires_at) {
+      const exp = new Date(raw.expires_at);
+      if (!isNaN(exp.getTime())) {
+        expiryHours = Math.max(1, Math.round((exp.getTime() - Date.now()) / 3600_000));
+      }
     }
     console.log(`[SourceStore] Envelope: schema=${raw.schema_version}, issued=${raw.issued_at}`);
   }
 
-  const green = _extractGreen(raw);
-
+  const green = extractGreen(raw);
   const meta: SourceMeta = {
     updatedAt: new Date().toISOString(),
     count: green.length,
     remoteUrl: usedUrl,
   };
 
-  // Load into memory vault
-  _loadIntoVault(green, meta);
-
-  // Persist encrypted payload to disk (still AES-encrypted, safe)
+  loadIntoVault(green, meta);
+  _activeSourceKind = 'remote';
   if (encPayload) {
-    _saveToDisk(encPayload, meta, expiryHours);
+    saveToDisk(encPayload, meta, expiryHours);
   }
 
   return { sources: green, meta };
@@ -381,13 +425,10 @@ export async function setRemoteUrl(url: string): Promise<void> {
   try {
     await SecureStore.setItemAsync('mg_remote_url', url);
   } catch {
-    // SecureStore may not be available in Expo Go on some devices
+    // ignore
   }
 }
 
-// ── Auth token (pre-reserved for future member tier) ─────────────────
-
-/** Get stored auth token (null if free user). */
 export async function getAuthToken(): Promise<string | null> {
   try {
     return await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
@@ -396,7 +437,6 @@ export async function getAuthToken(): Promise<string | null> {
   }
 }
 
-/** Store auth token after member login. */
 export async function setAuthToken(token: string): Promise<void> {
   try {
     await SecureStore.setItemAsync(AUTH_TOKEN_KEY, token);
@@ -405,7 +445,6 @@ export async function setAuthToken(token: string): Promise<void> {
   }
 }
 
-/** Clear auth token (logout). */
 export async function clearAuthToken(): Promise<void> {
   try {
     await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);

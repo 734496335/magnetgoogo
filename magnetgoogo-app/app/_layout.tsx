@@ -1,7 +1,7 @@
 import { Buffer } from 'buffer';
 (globalThis as any).Buffer = (globalThis as any).Buffer || Buffer;
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, Animated, StyleSheet } from 'react-native';
@@ -16,40 +16,50 @@ import { installCrashReporter } from '../src/core/crashReporter';
 import { loadPersistedCookies } from '../src/core/httpClient';
 import { initAnalytics } from '../src/core/analytics';
 import { loadReports } from '../src/core/searchDebugLogger';
+import { initSearchNotifications } from '../src/core/searchNotifications';
+import { hideStartupOverlay } from '../src/core/startupOverlay';
 
-// Install global crash handler as early as possible
 installCrashReporter();
 
 export default function RootLayout() {
   const [configResult, setConfigResult] = useState<ConfigCheckResult | null>(null);
+  const [configChecked, setConfigChecked] = useState(false);
 
   useEffect(() => {
     loadPersistedCookies();
     initAnalytics();
-    loadReports();
-    checkConfig().then((result) => {
-      // Safety: if config says force update but appVersion >= min_version, ignore
-      // (protects against stale CDN cache returning old min_version)
-      if (result.forceUpdate && result.config) {
-        const appVer = require('../src/core/configChecker').getAppVersion();
-        console.log(`[Layout] forceUpdate=${result.forceUpdate}, appVer=${appVer}, min=${result.config.min_version}`);
-      }
-      setConfigResult(result);
-    }).catch(() => {});
+    const deferred = setTimeout(() => {
+      loadReports();
+      initSearchNotifications().catch(() => {});
+      checkConfig()
+        .then((result) => {
+          if (result.forceUpdate && result.config) {
+            const appVer = require('../src/core/configChecker').getAppVersion();
+            console.log(
+              `[Layout] forceUpdate=${result.forceUpdate}, appVer=${appVer}, min=${result.config.min_version}`,
+            );
+          }
+          setConfigResult(result);
+        })
+        .catch(() => {})
+        .finally(() => {
+          setConfigChecked(true);
+        });
+    }, 300);
+    return () => clearTimeout(deferred);
   }, []);
 
   return (
     <ThemeProvider>
       <LangProvider>
         <SourceProvider>
-          <ThemedApp configResult={configResult} />
+          <ThemedApp configResult={configResult} configChecked={configChecked} />
         </SourceProvider>
       </LangProvider>
     </ThemeProvider>
   );
 }
 
-/** Global toast that shows source sync status on any screen. */
 function SyncToast() {
   const { syncToast } = useSources();
   const insets = useSafeAreaInsets();
@@ -73,7 +83,8 @@ function SyncToast() {
   }, [syncToast, opacity, translateY]);
 
   if (!display) return null;
-  const isError = syncToast?.includes('失败') || syncToast?.includes('fail');
+  const toastText = syncToast || '';
+  const isError = toastText.includes('失败') || /fail|error/i.test(toastText);
   return (
     <Animated.View
       style={[
@@ -118,8 +129,15 @@ const toastStyles = StyleSheet.create({
   },
 });
 
-function ThemedApp({ configResult }: { configResult: ConfigCheckResult | null }) {
+function ThemedApp({
+  configResult,
+  configChecked,
+}: {
+  configResult: ConfigCheckResult | null;
+  configChecked: boolean;
+}) {
   const { colors } = useTheme();
+  const { loading: sourcesLoading } = useSources();
   const [showOptionalUpdate, setShowOptionalUpdate] = useState(
     () => !!(configResult?.updateAvailable && !configResult?.forceUpdate),
   );
@@ -129,6 +147,14 @@ function ThemedApp({ configResult }: { configResult: ConfigCheckResult | null })
       setShowOptionalUpdate(true);
     }
   }, [configResult]);
+
+  useEffect(() => {
+    if (sourcesLoading || !configChecked) return;
+    const timer = setTimeout(() => {
+      void hideStartupOverlay();
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [configChecked, sourcesLoading]);
 
   return (
     <>
@@ -141,9 +167,7 @@ function ThemedApp({ configResult }: { configResult: ConfigCheckResult | null })
         }}
       />
       <SyncToast />
-      {configResult?.forceUpdate && (
-        <ForceUpdateModal result={configResult} visible={true} />
-      )}
+      {configResult?.forceUpdate && <ForceUpdateModal result={configResult} visible={true} />}
       {configResult && !configResult.forceUpdate && configResult.updateAvailable && (
         <OptionalUpdateModal
           result={configResult}

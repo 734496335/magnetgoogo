@@ -10,7 +10,7 @@
  * mirrors if the first ones are unreachable.
  */
 
-const MAX_HITS_PER_BRAND = 2;
+const MAX_HITS_PER_BRAND = __DEV__ ? 999 : 2;
 
 /** Domain-pattern → brand inference for sources without an explicit brand. */
 const DOMAIN_BRAND_PATTERNS: [RegExp, string][] = [

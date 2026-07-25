@@ -1,5 +1,49 @@
 ---
 Date/Time: 2026-07-25 (UTC+8)
+Version: app-v0.2.1-feature-baseline
+Scope: Record current App hardening as the first v0.2.1 feature baseline without publishing
+Modules: magnetgoogo-app/**, docs/project-nebula/{APP-CHANGELOG.md,APP-ADVERSARIAL-TESTPLAN-2026-07-25.md,APP-BACKGROUND-SEARCH-RELIABILITY-2026-07-25.md,FLUENCY-CARD-LOAD-TESTPLAN.md,_progress.txt,DEV-LOG.md}
+
+### Decision
+- Set App development metadata to `0.2.1` and create branch `feature/app-v0.2.1-hardening`.
+- Include the completed background-search, source-sync, search-race, storage/config and UI stability fixes as a feature baseline.
+- Do not create a Release tag, upload an APK, update remote config or deploy any endpoint.
+- Keep v0.2.1 open for the upcoming “资源” module that displays crawled latest resources and links into search.
+
+### Gate
+- Commit only the App feature closure and its tests/docs through an explicit whitelist; the repository contains extensive unrelated dirty work.
+- Resource-module implementation and final v0.2.1 release acceptance remain future work.
+---
+
+---
+Date/Time: 2026-07-25 (UTC+8)
+Version: app-background-search-k30s-native-acceptance
+Scope: Install current debug APK, adversarially verify background search, and close stale-snapshot/foreground-service races
+Modules: magnetgoogo-app/app/search.tsx, magnetgoogo-app/src/core/{backgroundSearch.ts,backgroundSearchProtocol.ts,searchKeepAlive.ts}, magnetgoogo-app/plugins/search-background/{SearchKeepAliveModule.kt.template,SearchKeepAliveService.kt.template}, magnetgoogo-app/scripts/{app-adversarial-tests.mjs,app-adversarial-report.json}, docs/project-nebula/{APP-BACKGROUND-SEARCH-RELIABILITY-2026-07-25.md,_progress.txt,DEV-LOG.md}
+
+### Device findings and fixes
+- Installed `com.magnetgoogo.app.debug` successfully on K30S and verified current Metro JS plus custom native modules.
+- Closed cross-process token reuse: strict nonzero token matching and randomized 31-bit token identity prevent same-query stale snapshot injection.
+- Reproduced A→B crash as `ForegroundServiceDidNotStartInTimeException` caused by delayed A stop racing B foreground-service start.
+- Added latest-token fencing in the native module, immediate foreground entry in Service.onCreate, and `stopSelfResult(startId)` protection.
+
+### K30S acceptance
+- Immediate Home after search start triggered SearchHeadlessService and source execution.
+- Early foreground return streamed progress/results without another lifecycle transition.
+- Ubuntu completed 121/121 with 60 results; A→B replacement completed B 121/121 with 58 results.
+- Stale A stop was explicitly ignored; no FATAL/ANR; Headless, KeepAlive and active search notification were removed at completion.
+
+### Verification
+- App adversarial suite -> 31/31 PASS (B1-B10); fluency suite -> 17/17 PASS; TypeScript PASS.
+- Native templates match generated Android sources; Gradle test/build -> BUILD SUCCESSFUL, 495 tasks.
+- Background-search main path verdict: K30S NATIVE PASS.
+
+### Remaining
+- Lock-screen/deep-sleep/process-kill endurance and isolated clean-prebuild remain separate follow-up gates.
+---
+
+---
+Date/Time: 2026-07-25 (UTC+8)
 Version: app-background-search-reliability-fix
 Scope: Repair background handoff/result hydration races and make native bridge reproducible
 Modules: magnetgoogo-app/app/search.tsx, magnetgoogo-app/src/core/{backgroundSearch.ts,backgroundSearchProtocol.ts,searchKeepAlive.ts}, magnetgoogo-app/plugins/**, magnetgoogo-app/app.json, magnetgoogo-app/scripts/{app-adversarial-tests.mjs,app-adversarial-report.json}, docs/project-nebula/{APP-BACKGROUND-SEARCH-RELIABILITY-2026-07-25.md,_progress.txt,DEV-LOG.md}

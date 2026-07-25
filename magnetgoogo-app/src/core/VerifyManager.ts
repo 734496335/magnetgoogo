@@ -50,7 +50,7 @@ class _VerifyManager {
 
   /** Session blacklist: origins that failed → skip for BLACKLIST_TTL_MS. */
   private _sessionBlacklist = new Map<string, number>();
-  private static BLACKLIST_TTL_MS = 10 * 60_000; // 10 minutes
+  private static BLACKLIST_TTL_MS = 24 * 60 * 60_000; // 24 hours
 
   /** Origins where challenge auto-resolved silently (never need modal). */
   private _autoPassOrigins = new Set<string>();
@@ -259,6 +259,28 @@ class _VerifyManager {
     return this._pendingResolve.size > 0;
   }
 
+  /** Clear ALL verification state — blacklist, cache, pending requests, timers. */
+  clearBlacklist(): void {
+    this._sessionBlacklist.clear();
+    this._originCache.clear();
+    this._autoPassOrigins.clear();
+    this._verifyOrigins.clear();
+    // Clear any pending verification requests
+    for (const [id, resolve] of this._pendingResolve) {
+      resolve({ success: false, error: 'blacklist_cleared' });
+    }
+    this._pendingResolve.clear();
+    // Clear active request
+    this._activeRequest = null;
+    // Clear queue
+    this._queue = [];
+    // Clear all timers
+    for (const timer of this._timers.values()) {
+      clearTimeout(timer);
+    }
+    this._timers.clear();
+  }
+
   /** Session stats for debugging. */
   getStats() {
     return {
@@ -273,3 +295,8 @@ class _VerifyManager {
 
 /** Singleton — shared between searchEngine and UI layer */
 export const VerifyManager = new _VerifyManager();
+
+/** Clear the verification blacklist. Used by bench test runner to avoid polluting results. */
+export function clearVerifyBlacklist(): void {
+  VerifyManager.clearBlacklist();
+}

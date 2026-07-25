@@ -249,6 +249,23 @@ export default function SettingsScreen() {
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
           </TouchableOpacity>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <TouchableOpacity
+            style={styles.syncRow}
+            onPress={() => router.push('/bench')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="speedometer-outline" size={20} color="#f59e0b" />
+            <View style={styles.rowContent}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>
+                {lang === 'zh' ? '源压测台' : 'Source Bench Test'}
+              </Text>
+              <Text style={[styles.rowSub, { color: colors.textTertiary }]}>
+                {lang === 'zh' ? '批量验证所有绿色源实际搜索效果' : 'Batch test all green sources with real queries'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+          </TouchableOpacity>
           </>)}
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <TouchableOpacity

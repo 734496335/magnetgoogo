@@ -33,6 +33,7 @@ const zh = {
     `搜索 ${done}/${total} 个源，找到 ${results} 条结果`,
   searchDoneStatus: (done: number, total: number, results: number) =>
     `已搜索 ${done}/${total} 个源，找到 ${results} 条结果`,
+  sortComprehensive: '综合',
   sortRelevance: '相关性',
   sortSize: '大小',
   sortDate: '时间',
@@ -85,7 +86,7 @@ const zh = {
 
   // ── Search UX ──
   lowRelevanceHint: '以下是相关度较低的结果',
-  feedbackBtn: '反馈',
+  feedbackBtn: '吐槽',
 
   // ── History ──
   historyTitle: '搜索历史',
@@ -96,6 +97,20 @@ const zh = {
   favoriteAdded: '已收藏',
   favoriteRemoved: '已取消收藏',
   noFavorites: '暂无收藏',
+
+  // ── Watchlist ──
+  watchlistTitle: '关键词订阅',
+  watchSubscribe: '订阅',
+  watchSubscribed: '已订阅',
+  watchUnsubscribe: '取消订阅',
+  noWatchlist: '暂无订阅',
+  watchlistHint: '在搜索结果页点击「订阅」，有新结果时会在此提示',
+  watchTapToSeeUpdate: '有新结果，点击查看',
+  watchLastCount: (n: number) => `上次 ${n} 条结果`,
+  watchSubscribedToast: '已订阅此关键词',
+  watchUpdateToast: '订阅关键词有新结果',
+  homeWatchlist: '我的订阅',
+  cancel: '取消',
 
   // ── Legal ──
   privacyTitle: '隐私政策',
@@ -116,36 +131,37 @@ const zh = {
 
 const en: typeof zh = {
   // ── Home ──
-  sloganPrefix: 'Every Magnet. ',
-  sloganBrand: 'One Search.',
-  searchPlaceholder: 'Movies, anime, torrents...',
+  sloganPrefix: 'Search every magnet. ',
+  sloganBrand: 'All in one.',
+  searchPlaceholder: 'Search movies, anime, games...',
   searchButton: 'Search Magnets',
-  emptyQueryToast: 'Please enter a search term',
+  emptyQueryToast: 'Please enter a search query',
 
   // ── Search results ──
   searchingStatus: (done, total, results) =>
-    `Searching ${done}/${total} sources, found ${results} results`,
+    `Searching ${done}/${total} indexers... ${results} found`,
   searchDoneStatus: (done, total, results) =>
-    `Searched ${done}/${total} sources, found ${results} results`,
+    `Searched ${done}/${total} indexers. ${results} found`,
+  sortComprehensive: 'Best Match',
   sortRelevance: 'Relevance',
   sortSize: 'Size',
   sortDate: 'Date',
   copyMagnet: 'Copy Magnet',
-  copied: 'Copied',
-  openMagnet: 'Open',
+  copied: 'Copied to clipboard',
+  openMagnet: 'Open Link',
   copyFailed: 'Copy failed',
-  cannotOpen: 'Cannot open',
-  cannotOpenMsg: 'No app found to handle magnet links',
-  noSourcesHint: 'Pull source data in Settings first',
+  cannotOpen: 'Unable to open link',
+  cannotOpenMsg: 'No compatible torrent client found on this device',
+  noSourcesHint: 'Please sync search indexers in Settings first',
   goToSettings: 'Go to Settings',
 
   // ── Settings ──
   settings: 'Settings',
-  sectionSources: 'Sources',
-  syncSources: 'Pull latest sources',
-  syncSuccess: (_count) => `Curated sources synced`,
+  sectionSources: 'Search Indexers',
+  syncSources: 'Sync latest indexers',
+  syncSuccess: (_count) => `Indexers synced successfully`,
   notSynced: 'Not synced',
-  lastSync: 'Last sync',
+  lastSync: 'Last synced',
   sectionLanguage: 'Language',
   langZh: '中文',
   langEn: 'English',
@@ -153,37 +169,37 @@ const en: typeof zh = {
   version: 'Version',
 
   // ── Kind labels (Tier 1: content types) ──
-  kindMovie: 'Movie',
-  kindTvUs: 'US TV',
-  kindTvJp: 'JP Drama',
-  kindTvKr: 'KR Drama',
-  kindTvCn: 'CN Drama',
+  kindMovie: 'Movies',
+  kindTvUs: 'US/EU TV Shows',
+  kindTvJp: 'Anime/Japanese Drama',
+  kindTvKr: 'Korean Drama',
+  kindTvCn: 'Chinese Drama',
   kindTv: 'TV Series',
   kindAnime: 'Anime',
-  kindVariety: 'Variety',
+  kindVariety: 'Variety Shows',
   kindDocumentary: 'Documentary',
   kindMusic: 'Music',
-  kindGame: 'Game',
-  kindEbook: 'eBook',
+  kindGame: 'Games',
+  kindEbook: 'eBooks',
   kindManga: 'Manga',
   // ── Kind labels (Tier 2: format types) ──
   kindVideo: 'Video',
   kindAudio: 'Audio',
   kindArchive: 'Archive',
-  kindImage: 'Image',
-  kindDocument: 'Document',
+  kindImage: 'Images',
+  kindDocument: 'Documents',
   kindSoftware: 'Software',
-  kindOther: 'Other',
+  kindOther: 'Others',
 
   sectionTheme: 'Theme',
 
   // ── Search UX ──
-  lowRelevanceHint: 'Results below may be less relevant',
+  lowRelevanceHint: 'Low relevance results',
   feedbackBtn: 'Feedback',
 
   // ── History ──
   historyTitle: 'Search History',
-  historyClear: 'Clear',
+  historyClear: 'Clear All',
 
   // ── Favorites ──
   favoritesTitle: 'Favorites',
@@ -191,21 +207,34 @@ const en: typeof zh = {
   favoriteRemoved: 'Removed from favorites',
   noFavorites: 'No favorites yet',
 
+  watchlistTitle: 'Keyword Subscription',
+  watchSubscribe: 'Subscribe',
+  watchSubscribed: 'Subscribed',
+  watchUnsubscribe: 'Unsubscribe',
+  noWatchlist: 'No subscriptions yet',
+  watchlistHint: 'Subscribe to search terms to get notified of new results',
+  watchTapToSeeUpdate: 'New results found. Tap to view.',
+  watchLastCount: (n: number) => `Last search: ${n} ${n === 1 ? 'result' : 'results'}`,
+  watchSubscribedToast: 'Subscribed to keyword',
+  watchUpdateToast: 'New results available for subscribed keyword',
+  homeWatchlist: 'My Subscriptions',
+  cancel: 'Cancel',
+
   // ── Legal ──
   privacyTitle: 'Privacy Policy',
   termsTitle: 'Terms of Service',
 
   // ── Empty results ──
   noResultsHint: 'No results found',
-  noResultsSuggestion: 'Try different keywords or check your spelling',
+  noResultsSuggestion: 'Try alternative keywords or check spelling',
 
   // ── Compliance mode ──
-  complianceBannerLine1: 'This is the compliant edition. Unlock more sources at our website.',
-  complianceBannerLink: 'Visit website',
-  complianceSearchPlaceholder: 'Open-source software, academic papers...',
+  complianceBannerLine1: 'You are using the Compliant Edition. To unlock indexers, visit our website.',
+  complianceBannerLink: 'Go to Website',
+  complianceSearchPlaceholder: 'Search open-source software, academic papers...',
 
   // ── Misc ──
-  fileCount: (n) => `${n} files`,
+  fileCount: (n) => `${n} ${n === 1 ? 'file' : 'files'}`,
 };
 
 const es: typeof zh = {
@@ -219,6 +248,7 @@ const es: typeof zh = {
     `Buscando ${done}/${total} fuentes, ${results} resultados`,
   searchDoneStatus: (done, total, results) =>
     `Consultadas ${done}/${total} fuentes, ${results} resultados`,
+  sortComprehensive: 'Inteligente',
   sortRelevance: 'Relevancia',
   sortSize: 'Tamaño',
   sortDate: 'Fecha',
@@ -267,7 +297,7 @@ const es: typeof zh = {
   sectionTheme: 'Tema',
 
   lowRelevanceHint: 'Los siguientes resultados pueden ser menos relevantes',
-  feedbackBtn: 'Feedback',
+  feedbackBtn: '¡Reclama!',
 
   historyTitle: 'Historial',
   historyClear: 'Borrar',
@@ -276,6 +306,19 @@ const es: typeof zh = {
   favoriteAdded: 'Añadido a favoritos',
   favoriteRemoved: 'Eliminado de favoritos',
   noFavorites: 'Sin favoritos',
+
+  watchlistTitle: 'Lista de seguimiento',
+  watchSubscribe: 'Seguir',
+  watchSubscribed: 'Siguiendo',
+  watchUnsubscribe: 'Dejar de seguir',
+  noWatchlist: 'Sin palabras clave',
+  watchlistHint: 'Toca Seguir en resultados; avisamos si cambian',
+  watchTapToSeeUpdate: 'Nuevos resultados — toca para ver',
+  watchLastCount: (n: number) => `Última búsqueda: ${n} resultados`,
+  watchSubscribedToast: 'Palabra añadida a la lista',
+  watchUpdateToast: 'Hay nuevos resultados',
+  homeWatchlist: 'Mi lista',
+  cancel: 'Cancelar',
 
   privacyTitle: 'Política de privacidad',
   termsTitle: 'Términos de servicio',
@@ -301,6 +344,7 @@ const ru: typeof zh = {
     `Поиск ${done}/${total} источников, найдено ${results}`,
   searchDoneStatus: (done, total, results) =>
     `Проверено ${done}/${total} источников, найдено ${results}`,
+  sortComprehensive: 'Умная',
   sortRelevance: 'Релевантность',
   sortSize: 'Размер',
   sortDate: 'Дата',
@@ -349,7 +393,7 @@ const ru: typeof zh = {
   sectionTheme: 'Тема',
 
   lowRelevanceHint: 'Результаты ниже могут быть менее релевантны',
-  feedbackBtn: 'Отзыв',
+  feedbackBtn: 'Пожаловаться',
 
   historyTitle: 'История поиска',
   historyClear: 'Очистить',
@@ -358,6 +402,19 @@ const ru: typeof zh = {
   favoriteAdded: 'Добавлено в избранное',
   favoriteRemoved: 'Удалено из избранного',
   noFavorites: 'Нет избранного',
+
+  watchlistTitle: 'Подписки',
+  watchSubscribe: 'Подписаться',
+  watchSubscribed: 'Подписан',
+  watchUnsubscribe: 'Отписаться',
+  noWatchlist: 'Нет подписок',
+  watchlistHint: 'Нажмите «Подписаться» на странице результатов',
+  watchTapToSeeUpdate: 'Новые результаты — нажмите',
+  watchLastCount: (n: number) => `Последний поиск: ${n}`,
+  watchSubscribedToast: 'Ключевое слово добавлено',
+  watchUpdateToast: 'Есть новые результаты',
+  homeWatchlist: 'Мои подписки',
+  cancel: 'Отмена',
 
   privacyTitle: 'Политика конфиденциальности',
   termsTitle: 'Условия использования',
@@ -383,6 +440,7 @@ const pt: typeof zh = {
     `Buscando ${done}/${total} fontes, ${results} resultados`,
   searchDoneStatus: (done, total, results) =>
     `Pesquisadas ${done}/${total} fontes, ${results} resultados`,
+  sortComprehensive: 'Inteligente',
   sortRelevance: 'Relevância',
   sortSize: 'Tamanho',
   sortDate: 'Data',
@@ -431,7 +489,7 @@ const pt: typeof zh = {
   sectionTheme: 'Tema',
 
   lowRelevanceHint: 'Os resultados abaixo podem ser menos relevantes',
-  feedbackBtn: 'Feedback',
+  feedbackBtn: 'Reclame!',
 
   historyTitle: 'Histórico',
   historyClear: 'Limpar',
@@ -440,6 +498,19 @@ const pt: typeof zh = {
   favoriteAdded: 'Adicionado aos favoritos',
   favoriteRemoved: 'Removido dos favoritos',
   noFavorites: 'Sem favoritos',
+
+  watchlistTitle: 'Lista de observação',
+  watchSubscribe: 'Observar',
+  watchSubscribed: 'Observando',
+  watchUnsubscribe: 'Remover',
+  noWatchlist: 'Nenhuma palavra-chave',
+  watchlistHint: 'Toque Observar nos resultados',
+  watchTapToSeeUpdate: 'Novos resultados — toque',
+  watchLastCount: (n: number) => `Última busca: ${n} resultados`,
+  watchSubscribedToast: 'Palavra adicionada',
+  watchUpdateToast: 'Novos resultados disponíveis',
+  homeWatchlist: 'Minha lista',
+  cancel: 'Cancelar',
 
   privacyTitle: 'Política de Privacidade',
   termsTitle: 'Termos de Serviço',
@@ -465,6 +536,7 @@ const ja: typeof zh = {
     `検索中 ${done}/${total} ソース、${results}件の結果`,
   searchDoneStatus: (done, total, results) =>
     `検索完了 ${done}/${total} ソース、${results}件の結果`,
+  sortComprehensive: '総合',
   sortRelevance: '関連性',
   sortSize: 'サイズ',
   sortDate: '日付',
@@ -513,7 +585,7 @@ const ja: typeof zh = {
   sectionTheme: 'テーマ',
 
   lowRelevanceHint: '以下の結果は関連性が低い可能性があります',
-  feedbackBtn: 'フィードバック',
+  feedbackBtn: '愚痴る',
 
   historyTitle: '検索履歴',
   historyClear: 'クリア',
@@ -522,6 +594,19 @@ const ja: typeof zh = {
   favoriteAdded: 'お気に入りに追加',
   favoriteRemoved: 'お気に入りから削除',
   noFavorites: 'お気に入りはありません',
+
+  watchlistTitle: 'キーワード購読',
+  watchSubscribe: '購読',
+  watchSubscribed: '購読中',
+  watchUnsubscribe: '購読解除',
+  noWatchlist: '購読なし',
+  watchlistHint: '検索結果で「購読」をタップ',
+  watchTapToSeeUpdate: '新しい結果があります',
+  watchLastCount: (n: number) => `前回 ${n} 件`,
+  watchSubscribedToast: 'キーワードを購読しました',
+  watchUpdateToast: '新しい結果があります',
+  homeWatchlist: '購読一覧',
+  cancel: 'キャンセル',
 
   privacyTitle: 'プライバシーポリシー',
   termsTitle: '利用規約',
@@ -547,6 +632,7 @@ const ko: typeof zh = {
     `검색 중 ${done}/${total} 소스, ${results}개 결과`,
   searchDoneStatus: (done, total, results) =>
     `검색 완료 ${done}/${total} 소스, ${results}개 결과`,
+  sortComprehensive: '종합',
   sortRelevance: '관련성',
   sortSize: '크기',
   sortDate: '날짜',
@@ -595,7 +681,7 @@ const ko: typeof zh = {
   sectionTheme: '테마',
 
   lowRelevanceHint: '아래 결과는 관련성이 낮을 수 있습니다',
-  feedbackBtn: '피드백',
+  feedbackBtn: '한마디',
 
   historyTitle: '검색 기록',
   historyClear: '지우기',
@@ -604,6 +690,19 @@ const ko: typeof zh = {
   favoriteAdded: '즐겨찾기에 추가됨',
   favoriteRemoved: '즐겨찾기에서 삭제됨',
   noFavorites: '즐겨찾기 없음',
+
+  watchlistTitle: '키워드 구독',
+  watchSubscribe: '구독',
+  watchSubscribed: '구독 중',
+  watchUnsubscribe: '구독 취소',
+  noWatchlist: '구독 없음',
+  watchlistHint: '검색 결과에서 구독을 탭하세요',
+  watchTapToSeeUpdate: '새 결과 — 탭하여 보기',
+  watchLastCount: (n: number) => `이전 ${n}개 결과`,
+  watchSubscribedToast: '키워드가 구독되었습니다',
+  watchUpdateToast: '새 결과가 있습니다',
+  homeWatchlist: '내 구독',
+  cancel: '취소',
 
   privacyTitle: '개인정보처리방침',
   termsTitle: '이용약관',
@@ -629,6 +728,7 @@ const fr: typeof zh = {
     `Recherche ${done}/${total} sources, ${results} résultats`,
   searchDoneStatus: (done, total, results) =>
     `Consultées ${done}/${total} sources, ${results} résultats`,
+  sortComprehensive: 'Intelligent',
   sortRelevance: 'Pertinence',
   sortSize: 'Taille',
   sortDate: 'Date',
@@ -677,7 +777,7 @@ const fr: typeof zh = {
   sectionTheme: 'Thème',
 
   lowRelevanceHint: 'Les résultats ci-dessous peuvent être moins pertinents',
-  feedbackBtn: 'Feedback',
+  feedbackBtn: 'Râlez!',
 
   historyTitle: 'Historique',
   historyClear: 'Effacer',
@@ -686,6 +786,19 @@ const fr: typeof zh = {
   favoriteAdded: 'Ajouté aux favoris',
   favoriteRemoved: 'Retiré des favoris',
   noFavorites: 'Aucun favori',
+
+  watchlistTitle: 'Abonnements',
+  watchSubscribe: 'Suivre',
+  watchSubscribed: 'Suivi',
+  watchUnsubscribe: 'Ne plus suivre',
+  noWatchlist: 'Aucun mot-clé',
+  watchlistHint: 'Appuyez sur Suivre dans les résultats',
+  watchTapToSeeUpdate: 'Nouveaux résultats',
+  watchLastCount: (n: number) => `Dernière recherche : ${n}`,
+  watchSubscribedToast: 'Mot-clé ajouté',
+  watchUpdateToast: 'Nouveaux résultats',
+  homeWatchlist: 'Mes abonnements',
+  cancel: 'Annuler',
 
   privacyTitle: 'Politique de confidentialité',
   termsTitle: 'Conditions d\'utilisation',
@@ -711,6 +824,7 @@ const de: typeof zh = {
     `Suche ${done}/${total} Quellen, ${results} Ergebnisse`,
   searchDoneStatus: (done, total, results) =>
     `Durchsucht ${done}/${total} Quellen, ${results} Ergebnisse`,
+  sortComprehensive: 'Smart',
   sortRelevance: 'Relevanz',
   sortSize: 'Größe',
   sortDate: 'Datum',
@@ -759,7 +873,7 @@ const de: typeof zh = {
   sectionTheme: 'Design',
 
   lowRelevanceHint: 'Die folgenden Ergebnisse sind möglicherweise weniger relevant',
-  feedbackBtn: 'Feedback',
+  feedbackBtn: 'Ärgern!',
 
   historyTitle: 'Suchverlauf',
   historyClear: 'Löschen',
@@ -768,6 +882,19 @@ const de: typeof zh = {
   favoriteAdded: 'Zu Favoriten hinzugefügt',
   favoriteRemoved: 'Aus Favoriten entfernt',
   noFavorites: 'Keine Favoriten',
+
+  watchlistTitle: 'Beobachtungsliste',
+  watchSubscribe: 'Beobachten',
+  watchSubscribed: 'Beobachtet',
+  watchUnsubscribe: 'Entfernen',
+  noWatchlist: 'Keine Stichwörter',
+  watchlistHint: 'In den Ergebnissen auf Beobachten tippen',
+  watchTapToSeeUpdate: 'Neue Ergebnisse',
+  watchLastCount: (n: number) => `Letzte Suche: ${n} Treffer`,
+  watchSubscribedToast: 'Stichwort hinzugefügt',
+  watchUpdateToast: 'Neue Ergebnisse verfügbar',
+  homeWatchlist: 'Meine Liste',
+  cancel: 'Abbrechen',
 
   privacyTitle: 'Datenschutzrichtlinie',
   termsTitle: 'Nutzungsbedingungen',
@@ -793,6 +920,7 @@ const ar: typeof zh = {
     `جارٍ البحث ${done}/${total} مصادر، ${results} نتيجة`,
   searchDoneStatus: (done, total, results) =>
     `تم البحث ${done}/${total} مصادر، ${results} نتيجة`,
+  sortComprehensive: 'ذكي',
   sortRelevance: 'الصلة',
   sortSize: 'الحجم',
   sortDate: 'التاريخ',
@@ -841,7 +969,7 @@ const ar: typeof zh = {
   sectionTheme: 'المظهر',
 
   lowRelevanceHint: 'النتائج أدناه قد تكون أقل صلة',
-  feedbackBtn: 'ملاحظات',
+  feedbackBtn: 'اشتكي!',
 
   historyTitle: 'سجل البحث',
   historyClear: 'مسح',
@@ -850,6 +978,19 @@ const ar: typeof zh = {
   favoriteAdded: 'أُضيف إلى المفضلة',
   favoriteRemoved: 'أُزيل من المفضلة',
   noFavorites: 'لا توجد مفضلات',
+
+  watchlistTitle: 'قائمة المتابعة',
+  watchSubscribe: 'متابعة',
+  watchSubscribed: 'متابَع',
+  watchUnsubscribe: 'إلغاء المتابعة',
+  noWatchlist: 'لا كلمات مفتاحية',
+  watchlistHint: 'اضغط متابعة في صفحة النتائج',
+  watchTapToSeeUpdate: 'نتائج جديدة',
+  watchLastCount: (n: number) => `آخر بحث: ${n} نتيجة`,
+  watchSubscribedToast: 'تمت إضافة الكلمة',
+  watchUpdateToast: 'نتائج جديدة متاحة',
+  homeWatchlist: 'متابعاتي',
+  cancel: 'إلغاء',
 
   privacyTitle: 'سياسة الخصوصية',
   termsTitle: 'شروط الخدمة',

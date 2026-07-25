@@ -1,28 +1,28 @@
-Current phase: resource_index LIVE crawl for javbus.com WORKING 2026-07-25
+Current phase: App v0.2.1 FEATURE BASELINE / NOT RELEASED 2026-07-25
 
-## Goal achieved
-- Live crawl javbus.com → parse content/people/tags/magnets → SQLite resource index
-- Multi-source extension via adapters/registry.py (register new adapter + crawler)
+## Included in this baseline
+- Background search native reliability is K30S accepted.
+- Immediate Home handoff, early-return hydration and terminal recovery pass.
+- Strict nonzero `{query, token}` identity prevents stale snapshot restore.
+- Randomized 31-bit tokens prevent cross-process token reuse.
+- New owner fencing prevents stale writes and old-result overwrite.
+- A→B foreground-service race and `ForegroundServiceDidNotStartInTimeException` are fixed.
+- Startup source sync is single-flight; search/storage/config/classification/sort/UI defects are hardened.
+- Native background implementation is represented by a tracked Expo config plugin and templates.
 
-## How to use
-python -m magnet.resource_index.cli init-db --db ri.db
-python -m magnet.resource_index.cli crawl --source javbus --db ri.db --query SSIS --limit 6 --yes
-python -m magnet.resource_index.cli crawl --source javbus --db ri.db --detail-url https://www.javbus.com/SSIS-960 --yes
-python -m magnet.resource_index.cli show-content SSIS-960 --db ri.db --pretty
-python -m magnet.resource_index.cli list-resources SSIS-960 --db ri.db --include-magnets --pretty
-python -m magnet.resource_index.cli list-sources
+## Verification
+- App adversarial suite -> 31/31 PASS.
+- Fluency suite -> 17/17 PASS; `npx tsc --noEmit` -> PASS.
+- Android export -> 1401 modules, HBC 4.73 MB.
+- Gradle test/build -> BUILD SUCCESSFUL, 495 tasks.
+- K30S early return and A→B replacement both pass; no residual services or notification.
 
-## Verified live (2026-07-25)
-- query SSIS limit=2 → 2 contents, 44 resources success
-- detail SSIS-960 → 1 content, 21 resources, 2 people, 9 tags success
-- unit tests: 46 passed; crawler_v3 68; validate_enum ALL VALID
+## Version / Git
+- Development version metadata: `0.2.1`.
+- Branch: `feature/app-v0.2.1-hardening`.
+- This is a feature baseline only: no Release tag, APK upload or remote deployment.
 
-## Architecture
-- LiveHttpClient (curl_cffi chrome124, delay, stop on 403/429/challenge)
-- JavBusLiveCrawler: age session → listing/search → detail → AJAX magnets
-- ingest_live pipeline + CLI crawl --yes
-- registry for future sites (adapter + live crawler factories)
-
-## Next (when needed)
-- Add another site: implement adapters/<site>/ + live_crawler, register in registry
-- Optional: Postgres / API / App (not required for crawl goal)
+## Next scope before v0.2.1 release
+- Add the “资源” module for displaying crawled latest resources and linking into search.
+- Complete resource-module integration, full regression and release acceptance.
+- Separate residual risks: lock-screen/deep-sleep/process-kill endurance and isolated clean prebuild.

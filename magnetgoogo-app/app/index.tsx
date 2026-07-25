@@ -49,14 +49,16 @@ function FlowingGradientButton({
   const flow = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const animation = Animated.loop(
       Animated.timing(flow, {
         toValue: 1,
         duration: 3000,
         easing: Easing.linear,
         useNativeDriver: true,
       }),
-    ).start();
+    );
+    animation.start();
+    return () => animation.stop();
   }, [flow]);
 
   const translateX = flow.interpolate({
