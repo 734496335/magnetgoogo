@@ -1,28 +1,30 @@
-Current phase: App v0.2.1 FEATURE BASELINE / NOT RELEASED 2026-07-25
+Current phase: App v0.2.1 RESOURCE TAB K30S PASS / NOT RELEASED 2026-07-25
 
-## Included in this baseline
-- Background search native reliability is K30S accepted.
-- Immediate Home handoff, early-return hydration and terminal recovery pass.
-- Strict nonzero `{query, token}` identity prevents stale snapshot restore.
-- Randomized 31-bit tokens prevent cross-process token reuse.
-- New owner fencing prevents stale writes and old-result overwrite.
-- A→B foreground-service race and `ForegroundServiceDidNotStartInTimeException` are fixed.
-- Startup source sync is single-flight; search/storage/config/classification/sort/UI defects are hardened.
-- Native background implementation is represented by a tracked Expo config plugin and templates.
+## Completed
+- Bottom navigation now has exactly three tabs: Search, Resources and Settings.
+- Original search home remains the Search tab; original settings functions remain the Settings tab.
+- Resources tab renders a two-column ranked feed with cover, code, title, people, date, duration and link count.
+- Tapping a resource records history and enters the existing `/search?q=<content_code>` flow.
+- Resource feed loading is remote-first with a bundled Android asset fallback.
+- Strict feed parsing rejects invalid shape, count mismatch and non-continuous ranking.
+- Android config plugin injects only `javbus_latest_100_feed.json`; SQLite is not packaged.
+- Android development build number is now versionCode 5; app version remains 0.2.1.
+
+## Data boundary
+- Local feed passes: 100 source records / 97 canonical contents / 3 duplicate observations.
+- Feed contains 299 unique resources and 309 resource observations; zero records lack resources.
+- `/data/resource_index/` is Git-ignored; feed, URL snapshot and SQLite remain uncommitted.
+- `resourceFeedUrl` is intentionally empty, so the current build shows the bundled snapshot.
 
 ## Verification
-- App adversarial suite -> 31/31 PASS.
-- Fluency suite -> 17/17 PASS; `npx tsc --noEmit` -> PASS.
-- Android export -> 1401 modules, HBC 4.73 MB.
-- Gradle test/build -> BUILD SUCCESSFUL, 495 tasks.
-- K30S early return and A→B replacement both pass; no residual services or notification.
+- TypeScript -> PASS; App adversarial suite -> 33/33 PASS.
+- Fluency suite -> 17/17 PASS; resource feed suite -> PASS.
+- Expo Android export -> 1406 modules, HBC 4.76 MB.
+- Gradle unit/debug build -> BUILD SUCCESSFUL; plugin bundled 100 items.
+- K30S install -> Success, versionCode 5.
+- K30S UI shows three tabs and “内置快照 / 最新100条”; first card is MY-1065.
+- Tapping MY-1065 started the existing SearchKeepAlive search path; no fatal crash.
 
-## Version / Git
-- Development version metadata: `0.2.1`.
-- Branch: `feature/app-v0.2.1-hardening`.
-- This is a feature baseline only: no Release tag, APK upload or remote deployment.
-
-## Next scope before v0.2.1 release
-- Add the “资源” module for displaying crawled latest resources and linking into search.
-- Complete resource-module integration, full regression and release acceptance.
-- Separate residual risks: lock-screen/deep-sleep/process-kill endurance and isolated clean prebuild.
+## Remaining before release
+- Deploy the feed to stable HTTPS and configure `resourceFeedUrl` for live refresh.
+- Run final v0.2.1 full release acceptance; SQLite-backed in-app detail is deferred.

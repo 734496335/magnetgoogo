@@ -13,14 +13,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSources } from '../src/core/SourceContext';
-import { useLang } from '../src/core/LangContext';
-import { useTheme, type ThemeMode } from '../src/core/ThemeContext';
-import { type Lang, ALL_LANGS, LANG_LABELS } from '../src/core/i18n';
-import { getCrashLogs, clearCrashLogs, formatCrashReport } from '../src/core/crashReporter';
-import { getAppVersion, checkConfig, type ConfigCheckResult } from '../src/core/configChecker';
-import OptionalUpdateModal from '../src/components/OptionalUpdateModal';
-import ForceUpdateModal from '../src/components/ForceUpdateModal';
+import { useSources } from '../../src/core/SourceContext';
+import { useLang } from '../../src/core/LangContext';
+import { useTheme, type ThemeMode } from '../../src/core/ThemeContext';
+import { type Lang, ALL_LANGS, LANG_LABELS } from '../../src/core/i18n';
+import { getCrashLogs, clearCrashLogs, formatCrashReport } from '../../src/core/crashReporter';
+import { getAppVersion, checkConfig, type ConfigCheckResult } from '../../src/core/configChecker';
+import OptionalUpdateModal from '../../src/components/OptionalUpdateModal';
+import ForceUpdateModal from '../../src/components/ForceUpdateModal';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -63,9 +63,7 @@ export default function SettingsScreen() {
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={26} color={colors.text} />
-        </TouchableOpacity>
+        <View style={{ width: 26 }} />
         <Text style={[styles.headerTitle, { color: colors.text }]}>{t.settings}</Text>
         <View style={{ width: 26 }} />
       </View>
@@ -172,12 +170,12 @@ export default function SettingsScreen() {
           <View style={styles.aboutRow}>
             <View style={styles.aboutBrandRow}>
               <Image
-                source={require('../assets/icon.png')}
+                source={require('../../assets/icon.png')}
                 style={styles.aboutMagnetIcon}
                 resizeMode="contain"
               />
               <Image
-                source={require('../assets/logo.png')}
+                source={require('../../assets/logo.png')}
                 style={styles.aboutLogo}
                 resizeMode="contain"
               />

@@ -368,8 +368,26 @@ await test('B10', 'foreground-service start/stop races cannot crash the app', ()
 });
 
 await test('U1', 'home gradient animation stops on unmount', () => {
-  const code = read('app/index.tsx');
+  const code = read('app/(tabs)/index.tsx');
   assert.match(code, /return \(\) => animation\.stop\(\)/);
+});
+
+await test('U2', 'bottom navigation exposes search, resources and settings only', () => {
+  const layout = read('app/(tabs)/_layout.tsx');
+  assert.match(layout, /name="index"/);
+  assert.match(layout, /name="resources"/);
+  assert.match(layout, /name="settings"/);
+  assert.equal((layout.match(/<Tabs\.Screen/g) || []).length, 3);
+});
+
+await test('U3', 'resource cards preserve source order and enter the existing search route', () => {
+  const screen = read('app/(tabs)/resources.tsx');
+  const plugin = read('plugins/with-resource-feed.js');
+  assert.match(screen, /keyExtractor=\{resourceFeedItemKey\}/);
+  assert.match(screen, /numColumns=\{2\}/);
+  assert.match(screen, /router\.push\(\{ pathname: '\/search', params: \{ q: code \} \}\)/);
+  assert.match(plugin, /javbus_latest_100_feed\.json/);
+  assert.doesNotMatch(plugin, /javbus_latest_100\.db/);
 });
 
 await test('D1', 'stored history/favorites are sanitized before entering caches', () => {

@@ -135,6 +135,7 @@ analytics-server/data/
 
 # ── resource_index (phase-1) ──
 /magnet/tests/fixtures_private/
+/data/resource_index/
 *.resource.db
 *.resource.db-*
 resource_index_*.db

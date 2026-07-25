@@ -1,5 +1,33 @@
 ---
 Date/Time: 2026-07-25 (UTC+8)
+Version: app-v0.2.1-resource-tabs
+Scope: Add three-tab navigation and integrate the crawled latest-resource feed without publishing data files
+Modules: magnetgoogo-app/app/(tabs)/**, magnetgoogo-app/src/core/{resourceCopy.ts,resourceFeed.ts,resourceFeedProtocol.ts}, magnetgoogo-app/plugins/with-resource-feed.js, magnetgoogo-app/scripts/{app-adversarial-tests.mjs,resource-feed-tests.mjs}, magnetgoogo-app/{app.json,package.json}, .gitignore, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
+
+### Completed
+- Replaced the single-entry navigation with Search / Resources / Settings bottom tabs while preserving the original search and settings functions.
+- Added a memoized two-column resource feed that preserves source-observation rank and enters the existing search route by content code.
+- Added strict feed validation plus remote-first loading with an Android bundled snapshot fallback.
+- Added an Expo config plugin that injects only the feed JSON during prebuild; the SQLite database and source snapshots remain outside Git and the APK.
+- Raised Android `versionCode` from the implicit downgrade value to 5 while keeping development version `0.2.1`.
+
+### Data and device acceptance
+- Local feed contract: 100 source observations / 97 canonical contents / 3 duplicate observations / 299 resources / 309 resource observations.
+- K30S displayed the bundled 100-item feed and all three tabs; tapping MY-1065 started the original SearchKeepAlive search path.
+- No React Native fatal error, AndroidRuntime crash or residual release action was observed.
+
+### Verification
+- TypeScript PASS; App adversarial 33/33; fluency 17/17; resource-feed suite PASS.
+- Expo export: 1406 modules / 4.76 MB HBC; Gradle unit/debug build PASS.
+- Debug APK installation PASS with versionCode 5.
+
+### Remaining
+- `resourceFeedUrl` is not configured. Deploying the feed to stable HTTPS is required for content updates without rebuilding the APK.
+- Final v0.2.1 release acceptance and any SQLite-backed detail view remain separate work.
+---
+
+---
+Date/Time: 2026-07-25 (UTC+8)
 Version: app-v0.2.1-feature-baseline
 Scope: Record current App hardening as the first v0.2.1 feature baseline without publishing
 Modules: magnetgoogo-app/**, docs/project-nebula/{APP-CHANGELOG.md,APP-ADVERSARIAL-TESTPLAN-2026-07-25.md,APP-BACKGROUND-SEARCH-RELIABILITY-2026-07-25.md,FLUENCY-CARD-LOAD-TESTPLAN.md,_progress.txt,DEV-LOG.md}

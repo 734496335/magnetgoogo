@@ -31,6 +31,7 @@
     },
     "android": {
       "package": "com.magnetgoogo.app",
+      "versionCode": 5,
       "permissions": ["android.permission.POST_NOTIFICATIONS"],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -49,6 +50,7 @@
       "expo-secure-store",
       "expo-font",
       "./plugins/with-search-background",
+      "./plugins/with-resource-feed",
       [
         "expo-build-properties",
         {
@@ -60,6 +62,7 @@
     ],
     "extra": {
       "router": {},
+      "resourceFeedUrl": "",
       "eas": {
         "projectId": "9f312496-11bc-4e6b-8a92-9b281670c0df"
       }

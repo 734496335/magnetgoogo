@@ -20,13 +20,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLang } from '../src/core/LangContext';
-import { useTheme } from '../src/core/ThemeContext';
-import { getHistory, addHistory, removeHistory, clearHistory, type HistoryItem } from '../src/core/searchHistory';
-import { getFavorites, type FavoriteItem } from '../src/core/favorites';
-import FeedbackFAB from '../src/components/FeedbackFAB';
-import { COMPLIANCE_MODE, WEBSITE_URL } from '../src/core/complianceConfig';
-import { getLatestReport, printReport } from '../src/core/searchDebugLogger';
+import { useLang } from '../../src/core/LangContext';
+import { useTheme } from '../../src/core/ThemeContext';
+import { getHistory, addHistory, removeHistory, clearHistory, type HistoryItem } from '../../src/core/searchHistory';
+import { getFavorites, type FavoriteItem } from '../../src/core/favorites';
+import FeedbackFAB from '../../src/components/FeedbackFAB';
+import { COMPLIANCE_MODE, WEBSITE_URL } from '../../src/core/complianceConfig';
+import { getLatestReport, printReport } from '../../src/core/searchDebugLogger';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const BTN_W = SCREEN_W * 0.78;
@@ -230,29 +230,18 @@ export default function HomeScreen() {
       {/* Toast */}
       <TopToast message={toast} visible={!!toast} onHide={hideToast} />
 
-      {/* Settings top-right */}
-      <View style={styles.topRow}>
-        <View style={{ flex: 1 }} />
-        <TouchableOpacity
-          style={styles.settingsBtn}
-          onPress={() => router.push('/settings')}
-        >
-          <Ionicons name="settings-outline" size={22} color={colors.textTertiary} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Push content to ~28% vertical position */}
-      <View style={{ height: SCREEN_H * 0.22 }} />
+      {/* Push content below the status bar while keeping room for the tab bar. */}
+      <View style={{ height: SCREEN_H * 0.18 }} />
 
       {/* Brand block: magnet icon + text logo + slogan */}
       <View style={styles.brandRow}>
         <Image
-          source={require('../assets/icon.png')}
+          source={require('../../assets/icon.png')}
           style={styles.magnetIcon}
           resizeMode="contain"
         />
         <Image
-          source={require('../assets/logo.png')}
+          source={require('../../assets/logo.png')}
           style={styles.logo}
           resizeMode="contain"
         />
@@ -364,14 +353,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fffdfb',
     alignItems: 'center',
     paddingHorizontal: 32,
-  },
-  topRow: {
-    flexDirection: 'row',
-    width: '100%',
-    paddingVertical: 4,
-  },
-  settingsBtn: {
-    padding: 8,
   },
   brandRow: {
     flexDirection: 'row',
