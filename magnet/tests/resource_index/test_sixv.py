@@ -258,7 +258,7 @@ def test_detail_parser_falls_back_to_listing_genres_when_source_omits_category()
 
 def test_schema_0007_adds_media_brand_identity(tmp_path: Path) -> None:
     repo = SqliteResourceRepository(tmp_path / "movie.db")
-    assert repo.init_schema() == "0007"
+    assert repo.init_schema() == "0008"
     tables = {
         row[0]
         for row in repo.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
@@ -274,7 +274,54 @@ def test_schema_0007_adds_media_brand_identity(tmp_path: Path) -> None:
         row[1]
         for row in repo.conn.execute("PRAGMA table_info(movie_items)")
     }
-    assert {"content_kind", "series_title", "brand_id", "endpoint_origin"} <= columns
+    assert {
+        "content_kind",
+        "series_title",
+        "brand_id",
+        "endpoint_origin",
+        "rotten_tomatoes_rating",
+        "rotten_tomatoes_rating_text",
+        "rotten_tomatoes_url",
+        "bangumi_rating",
+        "bangumi_rating_text",
+        "bangumi_subject_id",
+        "bangumi_url",
+    } <= columns
+    repo.close()
+
+
+def test_external_rating_placeholders_survive_null_crawler_updates(tmp_path: Path) -> None:
+    repo = SqliteResourceRepository(tmp_path / "ratings.db")
+    assert repo.init_schema() == "0008"
+    store = MovieRepository(repo)
+    candidate = _candidate(1)
+    rated = replace(
+        _detail(candidate),
+        rotten_tomatoes_rating=86,
+        rotten_tomatoes_rating_text="86%",
+        rotten_tomatoes_url="https://www.rottentomatoes.com/m/test_movie",
+        bangumi_rating=7.8,
+        bangumi_rating_text="7.8/10",
+        bangumi_subject_id="123456",
+        bangumi_url="https://bgm.tv/subject/123456",
+    )
+    store.upsert(rated, now=NOW)
+    store.upsert(_detail(candidate), now=NOW)
+
+    item = store.feed_item(
+        source_id="sixv",
+        detail_url=candidate.detail_url,
+        rank=1,
+        source_item_key=candidate.source_item_key,
+    )
+    assert item is not None
+    assert item["rotten_tomatoes_rating"] == 86
+    assert item["rotten_tomatoes_rating_text"] == "86%"
+    assert item["rotten_tomatoes_url"].endswith("/m/test_movie")
+    assert item["bangumi_rating"] == 7.8
+    assert item["bangumi_rating_text"] == "7.8/10"
+    assert item["bangumi_subject_id"] == "123456"
+    assert item["bangumi_url"].endswith("/subject/123456")
     repo.close()
 
 

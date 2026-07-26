@@ -477,7 +477,7 @@ def test_higher_priority_source_switches_canonical_as_a_whole(
 
 def test_schema_v2_backfills_content_observations(tmp_path: Path) -> None:
     repo = SqliteResourceRepository(tmp_path / "schema.db")
-    assert repo.init_schema() == "0007"
+    assert repo.init_schema() == "0008"
     repo.upsert_bundle(_bundle(resources=[]), now=NOW)
 
     count = repo.conn.execute("SELECT COUNT(*) FROM content_observations").fetchone()[0]
@@ -686,7 +686,7 @@ def test_existing_v1_database_upgrades_and_backfills(tmp_path: Path) -> None:
     conn.close()
 
     repo = SqliteResourceRepository(db)
-    assert repo.init_schema() == "0007"
+    assert repo.init_schema() == "0008"
     row = repo.conn.execute(
         "SELECT source_id, source_title, detail_url FROM content_observations"
     ).fetchone()

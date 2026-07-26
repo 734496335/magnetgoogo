@@ -9,8 +9,13 @@ param(
     [string]$FormalAggregateOutput = "",
     [string]$MovieOutput = "",
     [string]$SeriesOutput = "",
+    [string]$QuarantineOutput = "",
+    [string]$QualityOutput = "",
+    [string]$MovieBundleOutput = "",
+    [string]$SeriesBundleOutput = "",
     [int]$MovieLimit = 100,
-    [int]$SeriesLimit = 100
+    [int]$SeriesLimit = 100,
+    [double]$CoverDelaySeconds = 1.5
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,6 +36,10 @@ $AggregateOutput = Resolve-RepoPath $AggregateOutput "data\resource_index\media_
 $FormalAggregateOutput = Resolve-RepoPath $FormalAggregateOutput "data\resource_index\media_latest_200_feed.json"
 $MovieOutput = Resolve-RepoPath $MovieOutput "data\resource_index\movies_latest_100_feed.json"
 $SeriesOutput = Resolve-RepoPath $SeriesOutput "data\resource_index\series_latest_100_feed.json"
+$QuarantineOutput = Resolve-RepoPath $QuarantineOutput "data\resource_index\media_resource_quarantine.json"
+$QualityOutput = Resolve-RepoPath $QualityOutput "data\resource_index\media_quality_report.json"
+$MovieBundleOutput = Resolve-RepoPath $MovieBundleOutput "data\resource_index\movie_app_bundle"
+$SeriesBundleOutput = Resolve-RepoPath $SeriesBundleOutput "data\resource_index\series_app_bundle"
 $PythonExe = Join-Path $VenvPath "Scripts\python.exe"
 if (-not (Test-Path $PythonExe)) {
     throw "Runtime is not installed. Run deploy\resource-index\setup.bat first."
@@ -108,6 +117,8 @@ try {
             "--output", $FormalAggregateOutput,
             "--movie-output", $MovieOutput,
             "--series-output", $SeriesOutput,
+            "--quarantine-output", $QuarantineOutput,
+            "--quality-output", $QualityOutput,
             "--movie-limit", $MovieLimit,
             "--series-limit", $SeriesLimit,
             "--strict-kind-limits",
@@ -119,6 +130,42 @@ try {
             Write-Host "Formal media feed ready: $FormalAggregateOutput"
             Write-Host "Movie catalog ready: $MovieOutput"
             Write-Host "Series catalog ready: $SeriesOutput"
+            Write-Host "Resource quarantine ready: $QuarantineOutput"
+            Write-Host "Quality report ready: $QualityOutput"
+
+            & $PythonExe -B -m magnet.resource_index.cli build-media-app-bundle `
+                --feed $AggregateOutput --output-dir $MovieBundleOutput `
+                --content-kind movie --expected-count $MovieLimit `
+                --delay $CoverDelaySeconds --yes
+            $MovieBundleCode = $LASTEXITCODE
+            & $PythonExe -B -m magnet.resource_index.cli build-media-app-bundle `
+                --feed $AggregateOutput --output-dir $SeriesBundleOutput `
+                --content-kind series --expected-count $SeriesLimit `
+                --delay $CoverDelaySeconds --yes
+            $SeriesBundleCode = $LASTEXITCODE
+            if ($MovieBundleCode -eq 0) {
+                & $PythonExe -B -m magnet.resource_index.cli audit-media-app-bundle `
+                    --bundle-dir $MovieBundleOutput --content-kind movie --expected-count $MovieLimit
+                $MovieAuditCode = $LASTEXITCODE
+            } else {
+                $MovieAuditCode = $MovieBundleCode
+            }
+            if ($SeriesBundleCode -eq 0) {
+                & $PythonExe -B -m magnet.resource_index.cli audit-media-app-bundle `
+                    --bundle-dir $SeriesBundleOutput --content-kind series --expected-count $SeriesLimit
+                $SeriesAuditCode = $LASTEXITCODE
+            } else {
+                $SeriesAuditCode = $SeriesBundleCode
+            }
+            foreach ($BundleCode in @($MovieBundleCode, $SeriesBundleCode, $MovieAuditCode, $SeriesAuditCode)) {
+                if ($Code -eq 0 -and $BundleCode -ne 0) {
+                    $Code = $BundleCode
+                }
+            }
+            if ($MovieAuditCode -eq 0 -and $SeriesAuditCode -eq 0) {
+                Write-Host "Movie offline bundle ready: $MovieBundleOutput"
+                Write-Host "Series offline bundle ready: $SeriesBundleOutput"
+            }
         } else {
             Write-Warning "Formal movie/series quotas are not satisfied; previous complete catalogs were not overwritten."
         }

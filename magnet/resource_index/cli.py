@@ -25,8 +25,13 @@ from magnet.resource_index.pipeline.latest_crawl import (
     LatestCrawlRunner,
     read_latest_status,
     run_deployment_doctor,
+    select_best_latest_database,
 )
 from magnet.resource_index.pipeline.media_aggregate import aggregate_media_feeds
+from magnet.resource_index.pipeline.media_offline_bundle import (
+    audit_media_app_bundle,
+    build_media_app_bundle,
+)
 from magnet.resource_index.pipeline.movie_automation import (
     run_safe_movie_source,
     safe_movie_source_status,
@@ -262,6 +267,8 @@ def cmd_aggregate_media_feeds(args: argparse.Namespace) -> int:
             output_path=args.output,
             movie_output_path=args.movie_output,
             series_output_path=args.series_output,
+            quarantine_output_path=args.quarantine_output,
+            quality_output_path=args.quality_output,
             limit=args.limit,
             movie_limit=args.movie_limit,
             series_limit=args.series_limit,
@@ -275,6 +282,46 @@ def cmd_aggregate_media_feeds(args: argparse.Namespace) -> int:
         return 1
     _print_json(payload["summary"], pretty=True)
     return 0
+
+
+def cmd_build_media_app_bundle(args: argparse.Namespace) -> int:
+    if not args.yes:
+        print("error_code=LIVE_POLICY_NOT_ACKNOWLEDGED", file=sys.stderr)
+        print("message=pass --yes to acknowledge offline cover downloads", file=sys.stderr)
+        return 1
+    try:
+        result = build_media_app_bundle(
+            feed_path=args.feed,
+            output_dir=args.output_dir,
+            content_kind=args.content_kind,
+            expected_count=args.expected_count,
+            delay_seconds=args.delay,
+            timeout_seconds=args.timeout,
+        )
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        if exc.context:
+            print(f"context={json.dumps(exc.context, ensure_ascii=False, sort_keys=True)}", file=sys.stderr)
+        return 1
+    _print_json(result.__dict__, pretty=True)
+    return 0
+
+
+def cmd_audit_media_app_bundle(args: argparse.Namespace) -> int:
+    try:
+        report = audit_media_app_bundle(
+            bundle_dir=args.bundle_dir,
+            content_kind=args.content_kind,
+            expected_count=args.expected_count,
+            raise_on_error=False,
+        )
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        return 1
+    _print_json(report, pretty=True)
+    return 0 if report["status"] == "pass" else 1
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
@@ -499,6 +546,26 @@ def cmd_crawl_movies_safe(args: argparse.Namespace) -> int:
     return 1 if had_error else 0
 
 
+def cmd_select_latest_database(args: argparse.Namespace) -> int:
+    try:
+        result = select_best_latest_database(
+            args.candidate,
+            source_id=args.source,
+            target_count=args.count,
+        )
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        if exc.context:
+            print(f"context={json.dumps(exc.context, ensure_ascii=False, sort_keys=True)}", file=sys.stderr)
+        return 1
+    if args.path_only:
+        print(result["selected_path"])
+    else:
+        _print_json(result, pretty=True)
+    return 0
+
+
 def cmd_movie_sources_status(args: argparse.Namespace) -> int:
     source_ids = args.source or ["sixv", "dytt8899", "sixv-series", "meijumi"]
     try:
@@ -661,6 +728,16 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(func=cmd_list_movie_brands)
 
     s = sub.add_parser(
+        "select-latest-database",
+        help="Select the healthiest and most complete durable database for one source target",
+    )
+    s.add_argument("--source", required=True)
+    s.add_argument("--count", type=int, required=True)
+    s.add_argument("--candidate", action="append", required=True)
+    s.add_argument("--path-only", action="store_true")
+    s.set_defaults(func=cmd_select_latest_database)
+
+    s = sub.add_parser(
         "probe-movie-brands",
         help="Manually probe registered movie brand endpoints without changing config",
     )
@@ -678,11 +755,35 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--output", required=True)
     s.add_argument("--movie-output", default=None)
     s.add_argument("--series-output", default=None)
+    s.add_argument("--quarantine-output", default=None)
+    s.add_argument("--quality-output", default=None)
     s.add_argument("--limit", type=int, default=200)
     s.add_argument("--movie-limit", type=int, default=None)
     s.add_argument("--series-limit", type=int, default=None)
     s.add_argument("--strict-kind-limits", action="store_true")
     s.set_defaults(func=cmd_aggregate_media_feeds)
+
+    s = sub.add_parser(
+        "build-media-app-bundle",
+        help="Download verified covers and build a fully offline movie/series App bundle",
+    )
+    s.add_argument("--feed", required=True)
+    s.add_argument("--output-dir", required=True)
+    s.add_argument("--content-kind", choices=("movie", "series"), required=True)
+    s.add_argument("--expected-count", type=int, default=None)
+    s.add_argument("--delay", type=float, default=1.5)
+    s.add_argument("--timeout", type=float, default=30.0)
+    s.add_argument("--yes", action="store_true")
+    s.set_defaults(func=cmd_build_media_app_bundle)
+
+    s = sub.add_parser(
+        "audit-media-app-bundle",
+        help="Audit offline cover files and media semantic invariants without network",
+    )
+    s.add_argument("--bundle-dir", required=True)
+    s.add_argument("--content-kind", choices=("movie", "series"), required=True)
+    s.add_argument("--expected-count", type=int, default=None)
+    s.set_defaults(func=cmd_audit_media_app_bundle)
 
     s = sub.add_parser(
         "doctor",

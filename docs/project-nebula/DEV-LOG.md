@@ -1,5 +1,59 @@
 ---
 日期/时间：2026-07-26（UTC+8）
+本次版本：resource-index-offline-feed-p0-no-llm
+本次范围：关闭影视离线Feed四项P0数据质量问题，形成无需LLM的一键本地生产链，并预留烂番茄/Bangumi评分回写契约
+涉及模块：magnet/resource_index/{normalize,pipeline,store,schema0008,cli} / deploy/resource-index / magnetgoogo-app/{plugin,protocol,ratings,tests} / docs
+关键改动摘要（可检索）：
+  - 新增纯规则类型/国家归一化和资源季集解析，覆盖S01E01、S01E01-E02、第1-2集及磁力dn恢复。
+  - 聚合器按季过滤资源，将跨季和无法证明季号的资源写入隔离清单；无季多季页可拆成季级条目。
+  - 新增内容寻址封面打包器，电影和电视剧均输出100张本地封面、哈希、尺寸与离线审计。
+  - App Bundle只保留magnet/cloud，并从完整候选池自动补位，既不放宽协议也不减少100条。
+  - 新增run-media-offline.bat/.ps1，首次安装环境后自动抓取/恢复、聚合、隔离、封面和审计；运行时无LLM。
+  - 新增数据库证据选择器，完整legacy库优先于同名partial exact库，活跃锁整体阻断。
+  - schema 0008新增烂番茄和Bangumi七个可空字段，爬虫空值更新不会覆盖评分工具回写值。
+实测数据：
+  - 一键运行四来源全部选择完整正式库，source invocation_http_requests均为0。
+  - 正式候选电影146、电视剧109；严格输出100+100，资源1682；隔离2155条，淘汰无可靠资源21条。
+  - 隔离原因：season_mismatch=1469、season_unknown=686；正式质量报告异常0。
+  - 电影Bundle 100封面/352资源/4,139,597字节；电视剧Bundle 100封面/1331资源/5,064,591字节。
+  - 两Bundle再次构建均100复用、0下载、0 HTTP。
+  - 电影/电视剧200条均显式包含烂番茄/Bangumi字段，当前非空数为0。
+关键发现：
+  - 目标数量文件名不能作为数据库权威，必须以任务状态、成功rank、内容数和SQLite健康证据选择。
+  - 明确季条目不能静默接受未知季资源；保守隔离后仍需由更大候选池补足正式100条。
+  - App支持资源集合小于完整审计集合，Bundle导出应过滤和补位，而不是修改客户端协议。
+修改文件清单（新增/修改/删除）：
+  - `+ magnet/resource_index/normalize/{media.py,cover.py}`
+  - `+ magnet/resource_index/pipeline/media_offline_bundle.py`
+  - `+ magnet/resource_index/store/sql/0008_external_rating_placeholders.sql`
+  - `+ deploy/resource-index/run-media-offline.{bat,ps1}`
+  - `~ magnet/resource_index/{cli.py,config.py,domain/movie_models.py,pipeline/{latest_crawl,media_aggregate,movie_automation}.py,store/movie_repository.py}`
+  - `~ deploy/resource-index/{README.md,run-movies-safe.ps1}`
+  - `~ magnetgoogo-app/{plugins/with-resource-feed.js,src/core/{resourceFeedProtocol,movieRatings}.ts,src/components/MovieTagRow.tsx,scripts/*tests.mjs}`
+  - `+ docs/project-nebula/RESOURCE-INDEX-OFFLINE-FEED-P0-2026-07-26.md`
+关键契约变更：
+  - Resource Index schema 0007 -> 0008。
+  - media-app-feed/1要求离线封面；资源增加季集字段；评分增加烂番茄百分制与Bangumi十分制可空字段。
+  - 一键运行入口只依赖本地Python/SQLite/PowerShell，不调用LLM。
+风险与未决事项：
+  - P1日剧来源和真实排行榜未完成；无证据时不输出排行榜。
+  - 本轮未发布、未部署、未打Tag；SQLite仍为单机单写。
+验证方式：
+  - Resource Index 178 passed；全magnet非集成241 passed / 2 deselected；compileall PASS；枚举241/241。
+  - App资源Feed PASS；App对抗36/36；TypeScript PASS；Expo prebuild PASS；PowerShell 8/8。
+  - 正式数据库doctor 4/4 PASS，integrity=ok，schema=0008；一键全链PASS且0 LLM。
+复核要点/审查路径：
+  - 首先检查：normalize/media.py与media_aggregate.py（标签、季集、隔离）。
+  - 然后检查：media_offline_bundle.py与with-resource-feed.js（本地封面和App资源边界）。
+  - 再检查：latest_crawl.py与run-media-offline.ps1（数据库证据选择和一键运行）。
+  - 最后检查：0008迁移、MovieRepository COALESCE和movieRatings.ts。
+待办清单（按优先级）：
+  - [x] exact-commit clean-worktree复验。
+  - [ ] 独立评分工具回写烂番茄/Bangumi。
+---
+
+---
+日期/时间：2026-07-26（UTC+8）
 本次版本：resource-index-media-latest100-hardening
 本次范围：重新审阅影视多源内核，关闭100条规模缺口并正式产出电影100/电视剧100
 涉及模块：magnet/resource_index/{acquisition/policy,adapters/movie_registry,pipeline/{movie_latest,media_aggregate},store/migrations,cli,errors} / deploy/resource-index / tests / docs

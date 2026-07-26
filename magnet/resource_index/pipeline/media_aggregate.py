@@ -10,6 +10,14 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from magnet.resource_index.errors import CONFIG_ERROR, ResourceIndexError
+from magnet.resource_index.normalize.media import (
+    is_generic_resource_title,
+    label_has_anomaly,
+    normalize_country_labels,
+    normalize_genre_labels,
+    normalize_resource,
+    normalize_series_item_titles,
+)
 from magnet.resource_index.normalize.text import normalize_whitespace
 from magnet.resource_index.pipeline.latest_crawl import _atomic_write_json
 
@@ -75,6 +83,8 @@ def _completeness(item: dict[str, Any]) -> int:
         "duration_minutes",
         "imdb_id",
         "douban_rating",
+        "rotten_tomatoes_rating",
+        "bangumi_rating",
         "cover_source_url",
         "synopsis",
     )
@@ -128,7 +138,18 @@ def _merge_resources(*collections: Iterable[dict[str, Any]]) -> list[dict[str, A
             if existing is None:
                 merged[key] = resource
                 continue
-            for field in ("url", "resource_url", "info_hash", "display_title", "extraction_code"):
+            for field in (
+                "url",
+                "resource_url",
+                "info_hash",
+                "display_title",
+                "extraction_code",
+                "season_number",
+                "episode_start",
+                "episode_end",
+                "episode_label",
+                "title_source",
+            ):
                 if not existing.get(field) and resource.get(field):
                     existing[field] = resource[field]
             existing["quality_tags"] = _merge_unique(
@@ -145,6 +166,249 @@ def _merge_resources(*collections: Iterable[dict[str, Any]]) -> list[dict[str, A
         )
     )
     return output
+
+
+def _cover_candidates(item: dict[str, Any]) -> list[dict[str, Any]]:
+    url = normalize_whitespace(str(item.get("cover_source_url") or ""))
+    if not url:
+        return []
+    return [
+        {
+            "url": url,
+            "referer": item.get("detail_url"),
+            "source_id": item.get("source_id"),
+            "source_item_key": item.get("source_item_key"),
+        }
+    ]
+
+
+def _quarantine_entry(
+    *,
+    item: dict[str, Any],
+    resource: dict[str, Any],
+    reason: str,
+    target_season_number: int | None,
+    inferred_seasons: list[int] | None = None,
+) -> dict[str, Any]:
+    return {
+        "reason": reason,
+        "source_id": item.get("source_id"),
+        "brand_id": item.get("brand_id"),
+        "source_item_key": item.get("source_item_key"),
+        "detail_url": item.get("detail_url"),
+        "title": item.get("title"),
+        "series_title": item.get("series_title"),
+        "target_season_number": target_season_number,
+        "inferred_seasons": inferred_seasons or [],
+        "resource": deepcopy(resource),
+    }
+
+
+def _partition_series_item(
+    item: dict[str, Any],
+    *,
+    quarantine: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    normalized_resources = [
+        normalize_resource(resource).resource
+        for resource in item.get("resources") or []
+        if isinstance(resource, dict)
+    ]
+    explicit_season = _integer(item.get("season_number"))
+    if explicit_season is not None:
+        item["season_number"] = explicit_season
+        item["title"], item["series_title"] = normalize_series_item_titles(item)
+        accepted: list[dict[str, Any]] = []
+        for resource in normalized_resources:
+            resource_season = _integer(resource.get("season_number"))
+            if resource_season == explicit_season:
+                accepted.append(resource)
+                continue
+            reason = "season_unknown" if resource_season is None else "season_mismatch"
+            quarantine.append(
+                _quarantine_entry(
+                    item=item,
+                    resource=resource,
+                    reason=reason,
+                    target_season_number=explicit_season,
+                )
+            )
+        item["resources"] = accepted
+        return [item]
+
+    known_seasons = sorted(
+        {
+            season
+            for resource in normalized_resources
+            if (season := _integer(resource.get("season_number"))) is not None
+        }
+    )
+    if not known_seasons:
+        item["title"], item["series_title"] = normalize_series_item_titles(item)
+        item["resources"] = normalized_resources
+        return [item]
+
+    output: list[dict[str, Any]] = []
+    for season in known_seasons:
+        partition = deepcopy(item)
+        partition["season_number"] = season
+        partition["title"], partition["series_title"] = normalize_series_item_titles(partition)
+        partition["resources"] = [
+            resource
+            for resource in normalized_resources
+            if _integer(resource.get("season_number")) == season
+        ]
+        original_movie_id = normalize_whitespace(str(item.get("movie_id") or ""))
+        if original_movie_id:
+            partition["source_movie_id"] = original_movie_id
+            partition["movie_id"] = f"{original_movie_id}:season:{season}"
+        partition["season_partitioned"] = True
+        output.append(partition)
+
+    for resource in normalized_resources:
+        if _integer(resource.get("season_number")) is None:
+            quarantine.append(
+                _quarantine_entry(
+                    item=item,
+                    resource=resource,
+                    reason="season_unknown",
+                    target_season_number=None,
+                    inferred_seasons=known_seasons,
+                )
+            )
+    return output
+
+
+def _normalize_source_items(
+    raw_item: dict[str, Any],
+    *,
+    quarantine: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    item = deepcopy(raw_item)
+    item["content_kind"] = str(item.get("content_kind") or "movie")
+    item["countries"] = list(normalize_country_labels(item.get("countries") or []))
+    item["genres"] = list(
+        normalize_genre_labels(
+            item.get("genres") or [],
+            fallback_text=str(item.get("listing_title") or ""),
+        )
+    )
+    item["cover_candidates"] = _merge_unique(
+        list(item.get("cover_candidates") or []),
+        _cover_candidates(item),
+    )
+    if item["content_kind"] in _SERIES_KINDS:
+        return _partition_series_item(item, quarantine=quarantine)
+    item["resources"] = [
+        normalize_resource(resource).resource
+        for resource in item.get("resources") or []
+        if isinstance(resource, dict)
+    ]
+    return [item]
+
+
+def _enforce_final_season_resources(
+    item: dict[str, Any],
+    *,
+    quarantine: list[dict[str, Any]],
+) -> None:
+    if _identity_parts(item)[0] != "series":
+        return
+    target_season = _integer(item.get("season_number"))
+    if target_season is None:
+        return
+    accepted: list[dict[str, Any]] = []
+    for resource in item.get("resources") or []:
+        resource_season = _integer(resource.get("season_number"))
+        if resource_season == target_season:
+            accepted.append(resource)
+            continue
+        quarantine.append(
+            _quarantine_entry(
+                item=item,
+                resource=resource,
+                reason="season_unknown" if resource_season is None else "season_mismatch",
+                target_season_number=target_season,
+            )
+        )
+    item["resources"] = accepted
+
+
+def _quality_report(
+    *,
+    items: list[dict[str, Any]],
+    quarantine: list[dict[str, Any]],
+    dropped_zero_resource_count: int,
+) -> dict[str, Any]:
+    bad_labels: list[dict[str, Any]] = []
+    accepted_cross_season: list[dict[str, Any]] = []
+    weak_episode_titles: list[dict[str, Any]] = []
+    empty_resource_items: list[dict[str, Any]] = []
+    for item in items:
+        for field in ("genres", "countries"):
+            for value in item.get(field) or []:
+                if label_has_anomaly(value):
+                    bad_labels.append(
+                        {
+                            "media_identity": item.get("media_identity"),
+                            "field": field,
+                            "value": value,
+                        }
+                    )
+        resources = item.get("resources") or []
+        if not resources:
+            empty_resource_items.append(
+                {
+                    "media_identity": item.get("media_identity"),
+                    "title": item.get("title"),
+                }
+            )
+        target_season = _integer(item.get("season_number"))
+        for resource in resources:
+            resource_season = _integer(resource.get("season_number"))
+            if target_season is not None and resource_season != target_season:
+                accepted_cross_season.append(
+                    {
+                        "media_identity": item.get("media_identity"),
+                        "target_season_number": target_season,
+                        "resource_season_number": resource_season,
+                        "url": resource.get("url") or resource.get("resource_url"),
+                    }
+                )
+            if resource.get("episode_label") and is_generic_resource_title(resource.get("display_title")):
+                weak_episode_titles.append(
+                    {
+                        "media_identity": item.get("media_identity"),
+                        "display_title": resource.get("display_title"),
+                        "episode_label": resource.get("episode_label"),
+                    }
+                )
+    reasons: dict[str, int] = {}
+    for entry in quarantine:
+        reason = str(entry.get("reason") or "unknown")
+        reasons[reason] = reasons.get(reason, 0) + 1
+    errors = {
+        "bad_label_count": len(bad_labels),
+        "accepted_cross_season_count": len(accepted_cross_season),
+        "weak_episode_title_count": len(weak_episode_titles),
+        "empty_resource_item_count": len(empty_resource_items),
+    }
+    return {
+        "schema_version": "media-quality-report/1",
+        "status": "pass" if not any(errors.values()) else "fail",
+        "record_count": len(items),
+        "resource_count": sum(len(item.get("resources") or []) for item in items),
+        "dropped_zero_resource_count": dropped_zero_resource_count,
+        "quarantined_resource_count": len(quarantine),
+        "quarantine_reason_counts": reasons,
+        **errors,
+        "examples": {
+            "bad_labels": bad_labels[:20],
+            "accepted_cross_season": accepted_cross_season[:20],
+            "weak_episode_titles": weak_episode_titles[:20],
+            "empty_resource_items": empty_resource_items[:20],
+        },
+    }
 
 
 def _variant_key(variant: dict[str, Any]) -> tuple[str, str]:
@@ -204,6 +468,13 @@ def _merge_item(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[str,
         "douban_rating",
         "douban_rating_text",
         "douban_url",
+        "rotten_tomatoes_rating",
+        "rotten_tomatoes_rating_text",
+        "rotten_tomatoes_url",
+        "bangumi_rating",
+        "bangumi_rating_text",
+        "bangumi_subject_id",
+        "bangumi_url",
         "cover_source_url",
         "synopsis",
         "series_title",
@@ -219,6 +490,10 @@ def _merge_item(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[str,
     merged["resources"] = _merge_resources(
         existing.get("resources") or [],
         incoming.get("resources") or [],
+    )
+    merged["cover_candidates"] = _merge_unique(
+        merged.get("cover_candidates") or [],
+        secondary.get("cover_candidates") or [],
     )
     variants = _merge_variants(
         existing.get("source_variants") or [_source_variant(existing)],
@@ -414,6 +689,8 @@ def aggregate_media_feeds(
     output_path: str | Path | None = None,
     movie_output_path: str | Path | None = None,
     series_output_path: str | Path | None = None,
+    quarantine_output_path: str | Path | None = None,
+    quality_output_path: str | Path | None = None,
     limit: int = 200,
     movie_limit: int | None = None,
     series_limit: int | None = None,
@@ -427,6 +704,7 @@ def aggregate_media_feeds(
             raise ResourceIndexError(CONFIG_ERROR, f"{label} must be positive", {label: value})
 
     raw_items: list[dict[str, Any]] = []
+    quarantine: list[dict[str, Any]] = []
     sources: list[dict[str, Any]] = []
     for value in feed_paths:
         path = Path(value)
@@ -453,15 +731,19 @@ def aggregate_media_feeds(
         for raw_item in payload["items"]:
             if not isinstance(raw_item, dict):
                 raise ResourceIndexError(CONFIG_ERROR, "media feed item must be an object", {"path": str(path)})
-            item = deepcopy(raw_item)
-            item["content_kind"] = str(item.get("content_kind") or "movie")
-            item["source_variants"] = [_source_variant(item)]
-            item["source_count"] = 1
-            item["brand_count"] = 1
-            item["media_identity"] = media_identity(item)
-            raw_items.append(item)
+            for item in _normalize_source_items(raw_item, quarantine=quarantine):
+                item["source_variants"] = [_source_variant(item)]
+                item["source_count"] = 1
+                item["brand_count"] = 1
+                item["media_identity"] = media_identity(item)
+                raw_items.append(item)
 
     deduplicated = _deduplicate_items(raw_items)
+    for item in deduplicated:
+        _enforce_final_season_resources(item, quarantine=quarantine)
+    before_resource_gate = len(deduplicated)
+    deduplicated = [item for item in deduplicated if item.get("resources")]
+    dropped_zero_resource_count = before_resource_gate - len(deduplicated)
     deduplicated.sort(key=_item_sort_key, reverse=True)
     movie_items = [item for item in deduplicated if _identity_parts(item)[0] == "movie"]
     series_items = [item for item in deduplicated if _identity_parts(item)[0] == "series"]
@@ -483,6 +765,26 @@ def aggregate_media_feeds(
     else:
         selected = deduplicated[:limit]
 
+    quality = _quality_report(
+        items=selected,
+        quarantine=quarantine,
+        dropped_zero_resource_count=dropped_zero_resource_count,
+    )
+    if quality["status"] != "pass":
+        raise ResourceIndexError(
+            CONFIG_ERROR,
+            "media feed quality gate failed",
+            {
+                key: quality[key]
+                for key in (
+                    "bad_label_count",
+                    "accepted_cross_season_count",
+                    "weak_episode_title_count",
+                    "empty_resource_item_count",
+                )
+            },
+        )
+
     timestamp = generated_at or datetime.now().astimezone()
     payload = {
         "schema_version": "media-feed/1",
@@ -497,6 +799,21 @@ def aggregate_media_feeds(
             movie_limit=movie_limit,
             series_limit=series_limit,
         ),
+        "quality": quality,
+    }
+    payload["summary"].update(
+        {
+            "dropped_zero_resource_count": dropped_zero_resource_count,
+            "quarantined_resource_count": len(quarantine),
+            "quarantine_reason_counts": quality["quarantine_reason_counts"],
+        }
+    )
+    quarantine_payload = {
+        "schema_version": "media-resource-quarantine/1",
+        "generated_at": timestamp.isoformat(),
+        "record_count": len(quarantine),
+        "reason_counts": quality["quarantine_reason_counts"],
+        "items": quarantine,
     }
     if output_path is not None:
         _atomic_write_json(Path(output_path), payload)
@@ -504,4 +821,8 @@ def aggregate_media_feeds(
         _atomic_write_json(Path(movie_output_path), _kind_payload(payload, "movie"))
     if series_output_path is not None:
         _atomic_write_json(Path(series_output_path), _kind_payload(payload, "series"))
+    if quarantine_output_path is not None:
+        _atomic_write_json(Path(quarantine_output_path), quarantine_payload)
+    if quality_output_path is not None:
+        _atomic_write_json(Path(quality_output_path), quality)
     return payload

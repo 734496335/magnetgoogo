@@ -22,7 +22,47 @@ data\resource_index\media_latest_200_feed.json     正式合并200
 
 抓取池大于最终数量，是为了在跨品牌去重后仍保证电影100条、电视剧100条。若任一类型不足100条，手工严格聚合命令返回错误，不生成伪完整结果。
 
-## 2. 品牌与镜像体系
+## 2. 一键本地运行
+
+在Windows电脑上执行：
+
+```bat
+deploy\resource-index\run-media-offline.bat
+```
+
+首次运行会自动创建Python虚拟环境并安装锁定依赖，随后顺序执行：
+
+```text
+四个来源抓取或断点恢复
+→ 严格跨品牌聚合
+→ 标签与资源季集归一化
+→ 跨季/未知季资源隔离
+→ 电影100＋电视剧100质量门禁
+→ 本地封面下载与内容哈希校验
+→ App离线Bundle生成
+→ 无网络离线审计
+```
+
+运行链只使用本地Python规则、SQLite状态机和PowerShell，不调用LLM，也不需要人工逐条判断。主动刷新最新列表时使用：
+
+```bat
+deploy\resource-index\run-media-offline.bat -Refresh
+```
+
+数据库选择不是按文件名判断。脚本会只读比较候选库的完整任务状态、成功rank覆盖、内容数和SQLite健康状态，优先复用证据最完整的数据库；任何候选库仍被活跃进程持锁时立即停止，避免并发重复抓取。
+
+正式离线产物：
+
+```text
+data\resource_index\movie_app_bundle\feed.json
+data\resource_index\movie_app_bundle\covers\
+data\resource_index\series_app_bundle\feed.json
+data\resource_index\series_app_bundle\covers\
+data\resource_index\media_quality_report.json
+data\resource_index\media_resource_quarantine.json
+```
+
+## 3. 品牌与镜像体系
 
 品牌注册表：
 
@@ -55,7 +95,7 @@ python -m magnet.resource_index.cli probe-movie-brands --brand sixv --brand dytt
 
 候选域名不会因一次可访问就自动升级为正式来源。
 
-## 3. 安全边界
+## 4. 安全边界
 
 - 每个来源单进程、单并发；
 - 自动网络检查至少间隔12小时；
@@ -71,7 +111,7 @@ python -m magnet.resource_index.cli probe-movie-brands --brand sixv --brand dytt
 
 异常通道返回502时，先检查锁、PID、数据库rank和日志，不盲目重放命令。
 
-## 4. 安装与自检
+## 5. 安装与自检
 
 ```bat
 deploy\resource-index\setup.bat
@@ -86,7 +126,7 @@ deploy\resource-index\doctor.bat -Source meijumi
 
 默认数量：SixV电影100、DYTT电影50、SixV电视剧50、美剧迷100。
 
-## 5. 首次抓取与恢复
+## 6. 首次抓取与恢复
 
 ```bat
 deploy\resource-index\run-latest.bat -Source sixv -Refresh
@@ -116,7 +156,7 @@ deploy\resource-index\run-latest.bat -Source meijumi
 deploy\resource-index\run-latest.bat -Source sixv -MaxBatches 2
 ```
 
-## 6. 安全自动化
+## 7. 安全自动化
 
 管理四个正式来源并生成三份聚合Feed：
 
@@ -158,7 +198,7 @@ deploy\resource-index\install-movie-schedule.bat
 
 默认每6小时触发，内部12小时门禁使多余触发0网络退出，计划任务设置为已有实例时`IgnoreNew`。
 
-## 7. 正式来源输出
+## 8. 正式来源输出
 
 ```text
 data\resource_index\sixv_latest_100_urls.json
@@ -176,7 +216,7 @@ data\resource_index\meijumi_latest_100_feed.json
 
 数据库可通过`--db`复用原文件扩容；文件名中的旧数量不影响任务身份，因为任务以`source_id + target_count + snapshot_hash`隔离。迁移前建议使用SQLite backup API备份正式库。
 
-## 8. 手工严格聚合
+## 9. 手工严格聚合
 
 ```bat
 python -m magnet.resource_index.cli aggregate-media-feeds ^
@@ -203,7 +243,27 @@ python -m magnet.resource_index.cli aggregate-media-feeds ^
 - 同一来源同一内容只保留一份来源证据；
 - 保留跨品牌`source_variants`和全部互补资源。
 
-## 9. 迁移保护
+## 10. 数据质量与评分回写契约
+
+最终导出会统一清理类型和国家字段，解析资源级季集身份，并将与明确季不一致或无法证明季号的资源写入隔离清单。正式Feed的质量门禁要求：脏标签、跨季正式资源、丢失集数标题和空资源条目均为0。
+
+App Bundle只保留客户端支持的`magnet/cloud`资源；完整审计Feed仍保留其他公开资源证据。若前100候选中存在App不支持的资源类型，Bundle构建器会从更大的合格候选池顺序补位，仍严格输出100条。
+
+schema 0008预留以下评分字段：
+
+```text
+rotten_tomatoes_rating
+rotten_tomatoes_rating_text
+rotten_tomatoes_url
+bangumi_rating
+bangumi_rating_text
+bangumi_subject_id
+bangumi_url
+```
+
+当前字段全部为空，由独立评分工具后续回写。爬虫详情更新采用非空覆盖规则，评分工具已经写入的值不会被下一轮空值抓取清除。烂番茄按0—100百分制，Bangumi按0—10分制。
+
+## 11. 迁移保护
 
 生产迁移必须满足：
 
@@ -213,9 +273,9 @@ python -m magnet.resource_index.cli aggregate-media-feeds ^
 - 已知早期0007 IMDb开发变体只在精确checksum且结构指纹完整时归档，再执行正式0007品牌迁移；
 - 任何部分结构、伪造checksum或索引不一致仍立即失败。
 
-## 10. 当前边界
+## 12. 当前边界
 
-- App目前仍使用SixV离线电影Bundle；电影100/电视剧100正式Feed已就绪，App展示接入属于独立产品批次；
+- App预构建已使用电影100和电视剧100两份完整离线Bundle，正常运行不依赖资源站封面域名；
 - EZTV、YTS、蜜柑、动漫花园等仍在候选池，未完成正式适配与门禁前不自动抓取；
 - 页面未公开的资源不会推导或绕过；
 - SQLite为单机单写，不支持多机同时写共享数据库。

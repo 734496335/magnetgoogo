@@ -5,7 +5,10 @@ import { getVisibleMovieRatings } from '../core/movieRatings';
 import type { MovieFeedItem } from '../core/resourceFeedProtocol';
 
 interface MovieTagRowProps {
-  item: Pick<MovieFeedItem, 'imdb_rating' | 'douban_rating'>;
+  item: Pick<
+    MovieFeedItem,
+    'imdb_rating' | 'douban_rating' | 'rotten_tomatoes_rating' | 'bangumi_rating'
+  >;
   colors: Colors;
   qualityTags?: string[];
   compact?: boolean;
@@ -56,7 +59,7 @@ export const MovieTagRow = memo(function MovieTagRow({
                 { color },
               ]}
             >
-              {rating.source} {rating.value.toFixed(1)}
+              {rating.source} {rating.displayValue}
             </Text>
           </View>
         );

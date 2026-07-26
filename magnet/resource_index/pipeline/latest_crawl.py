@@ -126,6 +126,145 @@ class LatestCrawlPaths:
         )
 
 
+def select_best_latest_database(
+    candidate_paths: list[str | Path],
+    *,
+    source_id: str,
+    target_count: int,
+) -> dict[str, Any]:
+    candidates: list[dict[str, Any]] = []
+    seen: set[Path] = set()
+    resolved_paths: list[Path] = []
+    for raw_path in candidate_paths:
+        path = Path(raw_path).expanduser().resolve()
+        if path not in seen:
+            seen.add(path)
+            resolved_paths.append(path)
+    if not resolved_paths:
+        raise ResourceIndexError(
+            CONFIG_ERROR,
+            "at least one database candidate is required",
+            {"source_id": source_id, "target_count": target_count},
+        )
+
+    active_locks: list[str] = []
+    for index, path in enumerate(resolved_paths):
+        evidence: dict[str, Any] = {
+            "path": str(path),
+            "exists": path.exists(),
+            "healthy": False,
+            "complete": False,
+            "covered_count": 0,
+            "movie_count": 0,
+            "job_status": None,
+            "active_lock": False,
+            "error": None,
+            "candidate_order": index,
+        }
+        lock_path = path.with_name(f"{path.stem}.lock")
+        if lock_path.exists():
+            try:
+                metadata = json.loads(lock_path.read_text(encoding="utf-8"))
+                pid = int(metadata.get("pid") or 0)
+                evidence["active_lock"] = _pid_is_alive(pid)
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                evidence["active_lock"] = False
+            if evidence["active_lock"]:
+                active_locks.append(str(lock_path))
+        if not path.exists():
+            candidates.append(evidence)
+            continue
+        connection = None
+        try:
+            connection = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+            connection.row_factory = sqlite3.Row
+            quick_check = connection.execute("PRAGMA quick_check").fetchone()
+            if quick_check is None or str(quick_check[0]).lower() != "ok":
+                raise sqlite3.DatabaseError(f"quick_check={quick_check[0] if quick_check else None}")
+            tables = {
+                str(row[0])
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                )
+            }
+            if "movie_items" in tables:
+                evidence["movie_count"] = int(
+                    connection.execute(
+                        "SELECT COUNT(*) FROM movie_items WHERE source_id = ?",
+                        (source_id,),
+                    ).fetchone()[0]
+                )
+            if {"latest_crawl_jobs", "latest_crawl_items"} <= tables:
+                job = connection.execute(
+                    """
+                    SELECT job_id, status
+                    FROM latest_crawl_jobs
+                    WHERE source_id = ? AND target_count = ?
+                    ORDER BY created_at DESC, job_id DESC
+                    LIMIT 1
+                    """,
+                    (source_id, target_count),
+                ).fetchone()
+                if job is not None:
+                    evidence["job_status"] = str(job["status"])
+                    evidence["covered_count"] = int(
+                        connection.execute(
+                            """
+                            SELECT COUNT(*)
+                            FROM latest_crawl_items
+                            WHERE job_id = ? AND status = 'success'
+                            """,
+                            (job["job_id"],),
+                        ).fetchone()[0]
+                    )
+                    evidence["complete"] = (
+                        evidence["job_status"] == "success"
+                        and evidence["covered_count"] >= target_count
+                    )
+            evidence["healthy"] = True
+        except (sqlite3.Error, OSError) as exc:
+            evidence["error"] = f"{type(exc).__name__}: {exc}"
+        finally:
+            if connection is not None:
+                connection.close()
+        candidates.append(evidence)
+
+    if active_locks:
+        raise ResourceIndexError(
+            CONFIG_ERROR,
+            "a database candidate is already in use",
+            {"active_locks": active_locks, "source_id": source_id},
+        )
+
+    healthy = [candidate for candidate in candidates if candidate["exists"] and candidate["healthy"]]
+    if healthy:
+        selected = max(
+            healthy,
+            key=lambda candidate: (
+                int(candidate["complete"]),
+                min(int(candidate["covered_count"]), target_count),
+                min(int(candidate["movie_count"]), target_count),
+                -int(candidate["candidate_order"]),
+            ),
+        )
+    elif any(candidate["exists"] for candidate in candidates):
+        raise ResourceIndexError(
+            CONFIG_ERROR,
+            "no healthy existing database candidate is available",
+            {"source_id": source_id, "target_count": target_count, "candidates": candidates},
+        )
+    else:
+        selected = candidates[0]
+
+    return {
+        "source_id": source_id,
+        "target_count": target_count,
+        "selected_path": selected["path"],
+        "selected_existing": bool(selected["exists"]),
+        "candidates": candidates,
+    }
+
+
 class PortableRunLock:
     def __init__(
         self,

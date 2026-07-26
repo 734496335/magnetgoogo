@@ -15,12 +15,39 @@ from magnet.resource_index.pipeline.latest_crawl import (
     LatestCrawlPaths,
     _canonical_snapshot_bytes,
     read_latest_status,
+    select_best_latest_database,
 )
 from magnet.resource_index.pipeline.movie_latest import MovieLatestRunner
 from magnet.resource_index.store.movie_source_state import MovieSourceStateStore
 from magnet.resource_index.store.sqlite_repository import SqliteResourceRepository
 
 Clock = Callable[[], datetime]
+
+_LEGACY_EXPANDED_DB_COUNTS = {
+    ("sixv", 100): 50,
+    ("dytt8899", 50): 25,
+    ("meijumi", 100): 50,
+}
+
+
+def _runtime_db_path(
+    *,
+    output_dir: str | Path,
+    source_id: str,
+    target_count: int,
+) -> Path:
+    root = Path(output_dir).expanduser().resolve()
+    exact = root / f"{source_id}_latest_{target_count}.db"
+    candidates = [exact]
+    legacy_count = _LEGACY_EXPANDED_DB_COUNTS.get((source_id, target_count))
+    if legacy_count is not None:
+        candidates.append(root / f"{source_id}_latest_{legacy_count}.db")
+    selected = select_best_latest_database(
+        candidates,
+        source_id=source_id,
+        target_count=target_count,
+    )
+    return Path(str(selected["selected_path"]))
 
 
 def _utc_now() -> datetime:
@@ -67,6 +94,11 @@ def run_safe_movie_source(
         output_dir,
         source_id=source_id,
         target_count=count,
+        db_path=_runtime_db_path(
+            output_dir=output_dir,
+            source_id=source_id,
+            target_count=count,
+        ),
     )
     repo = SqliteResourceRepository(paths.db_path)
     try:
@@ -176,6 +208,11 @@ def safe_movie_source_status(
         output_dir,
         source_id=source_id,
         target_count=count,
+        db_path=_runtime_db_path(
+            output_dir=output_dir,
+            source_id=source_id,
+            target_count=count,
+        ),
     )
     repo = SqliteResourceRepository(paths.db_path)
     try:

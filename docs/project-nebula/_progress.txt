@@ -1,24 +1,25 @@
-Current phase: MEDIA FEED P0 DATA QUALITY HARDENING / NOT RELEASED 2026-07-26
+Current phase: MEDIA FEED P0 + NO-LLM ONE-CLICK EXACT-COMMIT PASS / NOT RELEASED 2026-07-26
 
-## App baseline completed
-- Primary channels: 电影 / 美剧 / 英剧 / 国产剧 / 韩剧 / 日剧.
-- Large channel cards, compact spacing and dynamic genre capsules are complete.
-- App keeps temporary genre/country cleanup and remote-cover fallback only as defensive display behavior.
-- App v0.2.1 remains development-only; do not tag, publish or deploy.
+## Completed
+- Formal sources: SixV movie100, DYTT movie50, SixV series50, Meijumi series100.
+- One-click Windows entry installs runtime, resumes sources, aggregates, downloads covers and audits without LLM.
+- Database selection uses durable completion evidence, not filename priority.
+- Genre/country anomalies are normalized before formal export; quality anomaly count is 0.
+- Resource episode identity supports SxxExx, ranges, Chinese episodes, magnet dn and filenames.
+- Cross-season/unknown-season resources are quarantined: mismatch1469, unknown686, total2155.
+- 21 candidates without reliable resources are dropped; movie146 and series109 remain available.
+- Formal output is movie100 + series100; App bundles contain 100 + 100 verified local covers.
+- Movie bundle: 352 resources / 4,139,597 cover bytes; series: 1331 / 5,064,591.
+- App only receives magnet/cloud resources and fills unsupported candidates from the larger pool.
+- Schema 0008 adds nullable Rotten Tomatoes and Bangumi fields for a separate rating writer.
+- All 200 items contain the rating fields; current non-null count is 0; crawler null updates preserve backfills.
 
-## Crawler baseline integrated
-- Formal source pools: SixV movie 100, DYTT movie 50, SixV series 50 and Meijumi series 100.
-- Durable snapshots, per-source locks, request budgets, resume and completed-task zero replay are available.
-- Strict 100-movie / 100-series aggregation, mirror failover and migration collision guards are available.
+## Verification
+- Exact-commit Resource Index 178 passed; all magnet non-integration 241 passed / 2 deselected.
+- Exact-commit App resource Feed PASS; adversarial 36/36; TypeScript and Expo prebuild PASS.
+- PowerShell 8/8; formal DB doctor 4/4, integrity=ok, schema=0008.
+- Real one-click run PASS; all four source invocations and repeated cover builds used 0 HTTP.
 
-## Current P0 work
-- Download and validate local cover assets for all 100 series records.
-- Preserve episode identity in resource titles and structured resource fields.
-- Prevent explicit season entries from receiving resources from another parsed season.
-- Normalize genres/countries at parser/export root and enforce zero-anomaly Feed gates.
-- Provide one-click Windows execution with no LLM or manual decision in the runtime path.
-
-## Verification pending
-- P0 permanent counterexamples and Resource Index full suite.
-- Real movie/series Feed regeneration and data audit.
-- Exact-commit clean-worktree verification.
+## Remaining
+- P1 Japanese-series source and evidence-backed ranking remain open.
+- App v0.2.1 is not released; do not tag, publish or deploy.

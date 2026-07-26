@@ -39,6 +39,10 @@ def _item(
     episode: int | None = None,
     resource: str,
 ) -> dict:
+    resource_url = resource
+    info_hash = resource.rsplit(":", 1)[-1].split("&", 1)[0]
+    if kind == "series" and season is not None and "&dn=" not in resource_url:
+        resource_url += f"&dn=Fixture.S{season:02d}E{(episode or 1):02d}.1080p"
     return {
         "rank": 1,
         "movie_id": f"movie:{source_id}",
@@ -78,8 +82,8 @@ def _item(
             {
                 "resource_type": "magnet",
                 "provider": "magnet",
-                "url": resource,
-                "info_hash": resource.rsplit(":", 1)[-1],
+                "url": resource_url,
+                "info_hash": info_hash,
                 "display_title": title,
                 "extraction_code": None,
                 "quality_tags": [],
@@ -194,7 +198,8 @@ def test_aggregate_series_strips_season_suffix_and_does_not_require_imdb_on_both
     assert merged["season_number"] == 19
     assert merged["episode_number"] == 10
     assert merged["source_count"] == 2
-    assert len(merged["resources"]) == 2
+    assert len(merged["resources"]) == 1
+    assert result["summary"]["quarantine_reason_counts"]["season_unknown"] == 1
 
 
 def test_aggregate_enforces_independent_movie_and_series_quotas(tmp_path: Path) -> None:
@@ -345,6 +350,100 @@ def test_aggregate_missing_season_is_order_independent_when_multiple_seasons_exi
     assert {item["media_identity"] for item in forward["items"]} == {
         item["media_identity"] for item in reverse["items"]
     }
+
+
+def test_xmen_explicit_second_season_filters_first_and_unknown_resources(tmp_path: Path) -> None:
+    feed = tmp_path / "xmen.json"
+    xmen = _item(
+        source_id="meijumi",
+        brand_id="meijumi",
+        title="X战警97 第一季",
+        year=2026,
+        kind="series",
+        season=2,
+        episode=6,
+        resource=(
+            "magnet:?xt=urn:btih:S02"
+            "&dn=X-Men%2097%20S02E03%20Rise%20of%20Apocalypse%201080p"
+        ),
+    )
+    xmen["series_title"] = "X战警97 第一至二季"
+    xmen["resources"].extend(
+        [
+            {
+                "resource_type": "magnet",
+                "provider": "magnet",
+                "url": "magnet:?xt=urn:btih:S01&dn=X-Men%2097%20S01E04%201080p",
+                "info_hash": "S01",
+                "display_title": "1080P",
+                "extraction_code": None,
+                "quality_tags": ["1080p"],
+            },
+            {
+                "resource_type": "cloud",
+                "provider": "quark",
+                "url": "https://pan.quark.cn/s/unknown-season",
+                "info_hash": None,
+                "display_title": "夸克盘",
+                "extraction_code": None,
+                "quality_tags": [],
+            },
+        ]
+    )
+    _write_feed(feed, "meijumi", [xmen])
+
+    quarantine_path = tmp_path / "quarantine.json"
+    quality_path = tmp_path / "quality.json"
+    result = aggregate_media_feeds(
+        [feed],
+        quarantine_output_path=quarantine_path,
+        quality_output_path=quality_path,
+    )
+
+    assert result["summary"]["record_count"] == 1
+    item = result["items"][0]
+    assert item["title"] == "X战警97 第二季"
+    assert item["series_title"] == "X战警97"
+    assert item["season_number"] == 2
+    assert [resource["episode_label"] for resource in item["resources"]] == ["S02E03"]
+    assert item["resources"][0]["display_title"] == "S02E03 · 1080P"
+    assert result["quality"]["accepted_cross_season_count"] == 0
+    assert result["quality"]["weak_episode_title_count"] == 0
+    quarantine = json.loads(quarantine_path.read_text(encoding="utf-8"))
+    assert quarantine["reason_counts"] == {"season_mismatch": 1, "season_unknown": 1}
+    assert json.loads(quality_path.read_text(encoding="utf-8"))["status"] == "pass"
+
+
+def test_unscoped_multiseason_page_splits_into_season_entries(tmp_path: Path) -> None:
+    feed = tmp_path / "multi-season.json"
+    item = _item(
+        source_id="source",
+        brand_id="source",
+        title="同一剧集",
+        year=2026,
+        kind="series",
+        season=None,
+        episode=None,
+        resource="magnet:?xt=urn:btih:S01&dn=Show%20S01E01%201080p",
+    )
+    item["resources"].append(
+        {
+            "resource_type": "magnet",
+            "provider": "magnet",
+            "url": "magnet:?xt=urn:btih:S02&dn=Show%20S02E01%201080p",
+            "info_hash": "S02",
+            "display_title": "1080P",
+            "extraction_code": None,
+            "quality_tags": ["1080p"],
+        }
+    )
+    _write_feed(feed, "source", [item])
+
+    result = aggregate_media_feeds([feed])
+    assert result["summary"]["record_count"] == 2
+    assert {entry["season_number"] for entry in result["items"]} == {1, 2}
+    assert {entry["title"] for entry in result["items"]} == {"同一剧集 第一季", "同一剧集 第二季"}
+    assert all(len(entry["resources"]) == 1 for entry in result["items"])
 
 
 def test_unknown_season_cannot_bridge_conflicting_title_and_imdb_candidates(tmp_path: Path) -> None:

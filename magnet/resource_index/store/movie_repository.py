@@ -58,6 +58,9 @@ class MovieRepository:
                     release_date, duration_minutes, countries_json, genres_json,
                     languages_json, directors_json, actors_json, imdb_id,
                     douban_rating, douban_rating_text, douban_url,
+                    rotten_tomatoes_rating, rotten_tomatoes_rating_text,
+                    rotten_tomatoes_url, bangumi_rating, bangumi_rating_text,
+                    bangumi_subject_id, bangumi_url,
                     cover_source_url, synopsis, recommended,
                     highlight_labels_json, quality_tags_json, parser_version,
                     raw_document_hash, first_seen_at, last_seen_at,
@@ -65,7 +68,7 @@ class MovieRepository:
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
                 ON CONFLICT(movie_id) DO UPDATE SET
                     detail_url = excluded.detail_url,
@@ -108,6 +111,28 @@ class MovieRepository:
                     douban_rating = COALESCE(excluded.douban_rating, movie_items.douban_rating),
                     douban_rating_text = COALESCE(excluded.douban_rating_text, movie_items.douban_rating_text),
                     douban_url = COALESCE(excluded.douban_url, movie_items.douban_url),
+                    rotten_tomatoes_rating = COALESCE(
+                        excluded.rotten_tomatoes_rating,
+                        movie_items.rotten_tomatoes_rating
+                    ),
+                    rotten_tomatoes_rating_text = COALESCE(
+                        excluded.rotten_tomatoes_rating_text,
+                        movie_items.rotten_tomatoes_rating_text
+                    ),
+                    rotten_tomatoes_url = COALESCE(
+                        excluded.rotten_tomatoes_url,
+                        movie_items.rotten_tomatoes_url
+                    ),
+                    bangumi_rating = COALESCE(excluded.bangumi_rating, movie_items.bangumi_rating),
+                    bangumi_rating_text = COALESCE(
+                        excluded.bangumi_rating_text,
+                        movie_items.bangumi_rating_text
+                    ),
+                    bangumi_subject_id = COALESCE(
+                        excluded.bangumi_subject_id,
+                        movie_items.bangumi_subject_id
+                    ),
+                    bangumi_url = COALESCE(excluded.bangumi_url, movie_items.bangumi_url),
                     cover_source_url = COALESCE(excluded.cover_source_url, movie_items.cover_source_url),
                     synopsis = COALESCE(excluded.synopsis, movie_items.synopsis),
                     recommended = excluded.recommended,
@@ -150,6 +175,13 @@ class MovieRepository:
                     movie.douban_rating,
                     movie.douban_rating_text,
                     movie.douban_url,
+                    movie.rotten_tomatoes_rating,
+                    movie.rotten_tomatoes_rating_text,
+                    movie.rotten_tomatoes_url,
+                    movie.bangumi_rating,
+                    movie.bangumi_rating_text,
+                    movie.bangumi_subject_id,
+                    movie.bangumi_url,
                     movie.cover_source_url,
                     movie.synopsis,
                     int(movie.recommended),
@@ -501,6 +533,13 @@ class MovieRepository:
             "douban_rating": row["douban_rating"],
             "douban_rating_text": row["douban_rating_text"],
             "douban_url": row["douban_url"],
+            "rotten_tomatoes_rating": row["rotten_tomatoes_rating"],
+            "rotten_tomatoes_rating_text": row["rotten_tomatoes_rating_text"],
+            "rotten_tomatoes_url": row["rotten_tomatoes_url"],
+            "bangumi_rating": row["bangumi_rating"],
+            "bangumi_rating_text": row["bangumi_rating_text"],
+            "bangumi_subject_id": row["bangumi_subject_id"],
+            "bangumi_url": row["bangumi_url"],
             "cover_source_url": row["cover_source_url"],
             "synopsis": row["synopsis"],
             "recommended": bool(row["recommended"]),

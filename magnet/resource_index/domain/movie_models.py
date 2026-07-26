@@ -76,3 +76,10 @@ class MovieDetail:
     update_status: str | None = None
     brand_id: str | None = None
     endpoint_origin: str | None = None
+    rotten_tomatoes_rating: float | None = None
+    rotten_tomatoes_rating_text: str | None = None
+    rotten_tomatoes_url: str | None = None
+    bangumi_rating: float | None = None
+    bangumi_rating_text: str | None = None
+    bangumi_subject_id: str | None = None
+    bangumi_url: str | None = None

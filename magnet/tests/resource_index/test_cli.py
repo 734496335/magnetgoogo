@@ -21,7 +21,7 @@ def test_cli_demo_loop(tmp_path: Path):
         check=False,
     )
     assert r.returncode == 0
-    assert "schema_version=0007" in r.stdout
+    assert "schema_version=0008" in r.stdout
     assert "status=ready" in r.stdout
 
     r = subprocess.run(
@@ -149,7 +149,7 @@ def test_cli_doctor_and_latest_policy_gate(tmp_path: Path):
     assert doctor.returncode == 0, doctor.stderr + doctor.stdout
     report = json.loads(doctor.stdout)
     assert report["status"] == "pass"
-    assert report["checks"]["sqlite"]["schema_version"] == "0007"
+    assert report["checks"]["sqlite"]["schema_version"] == "0008"
 
     gated = subprocess.run(
         [
@@ -302,3 +302,35 @@ def test_cli_strict_media_quota_and_duplicate_source_count_fail_cleanly(tmp_path
     assert duplicate.returncode == 1
     assert "duplicate per-source count override" in duplicate.stderr
     assert "Traceback" not in duplicate.stderr
+
+
+def test_cli_select_latest_database_path_only_prefers_first_missing_candidate(tmp_path: Path) -> None:
+    py = sys.executable
+    root = str(Path(__file__).resolve().parents[3])
+    exact = tmp_path / "sixv_latest_100.db"
+    legacy = tmp_path / "sixv_latest_50.db"
+    result = subprocess.run(
+        [
+            py,
+            "-B",
+            "-m",
+            "magnet.resource_index.cli",
+            "select-latest-database",
+            "--source",
+            "sixv",
+            "--count",
+            "100",
+            "--candidate",
+            str(exact),
+            "--candidate",
+            str(legacy),
+            "--path-only",
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert result.stdout.strip() == str(exact.resolve())
+    assert result.stderr == ""

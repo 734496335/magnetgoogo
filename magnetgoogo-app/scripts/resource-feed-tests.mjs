@@ -16,20 +16,11 @@ import {
 import { resourceDisplayTitle } from '../src/core/mediaResourceTitle.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const bundleDir = path.resolve(here, '..', '..', 'data', 'resource_index', 'sixv_app_bundle');
-const localFeedPath = path.join(bundleDir, 'feed.json');
-
-const EXPECTED_RECOMMENDED = [
-  '寒战1994',
-  '穿普拉达的女王2',
-  '宇宙巨人：希曼崛起',
-  '揭秘日',
-  '惊声尖笑6',
-  '星球大战：曼达洛人与古古',
-  '末日逃生2：迁移',
-  '10间敢死队',
-  '后室',
-];
+const dataRoot = process.env.RESOURCE_INDEX_DATA_ROOT
+  ? path.resolve(process.env.RESOURCE_INDEX_DATA_ROOT)
+  : path.resolve(here, '..', '..', 'data', 'resource_index');
+const movieBundleDir = path.join(dataRoot, 'movie_app_bundle');
+const seriesBundleDir = path.join(dataRoot, 'series_app_bundle');
 
 function sampleResource(provider = 'magnet') {
   return {
@@ -70,6 +61,13 @@ function sampleItem(rank, title = `Movie ${rank}`, recommended = false) {
     douban_rating: 8.1,
     douban_rating_text: '8.1/10',
     douban_url: null,
+    rotten_tomatoes_rating: null,
+    rotten_tomatoes_rating_text: null,
+    rotten_tomatoes_url: null,
+    bangumi_rating: null,
+    bangumi_rating_text: null,
+    bangumi_subject_id: null,
+    bangumi_url: null,
     cover_source_url: 'https://www.66tutup.com/test.jpg',
     cover_asset_path: `covers/${String(rank).padStart(64, '0')}.jpg`,
     cover_width: 720,
@@ -114,9 +112,9 @@ function sampleSeriesFeed() {
     episode_number: 8,
     episode_label: '更新08',
     update_status: '更新08',
-    cover_asset_path: null,
-    cover_width: null,
-    cover_height: null,
+    cover_asset_path: 'covers/series-test.jpg',
+    cover_width: 720,
+    cover_height: 1080,
     recommended: false,
   };
   return {
@@ -135,7 +133,7 @@ function sampleSeriesFeed() {
       snapshot_http_requests: 0,
       detail_http_requests: 0,
       database_movie_count: 1,
-      cover_count: 0,
+      cover_count: 1,
       offline_ready: true,
     },
   };
@@ -171,28 +169,55 @@ console.log('PASS  M4  legacy adult-feed fields are rejected');
 assert.equal(FEATURED_SCORE_THRESHOLD, 6.0);
 assert.equal(HIGH_SCORE_THRESHOLD, 8.0);
 assert.deepEqual(
-  getVisibleMovieRatings({ imdb_rating: 0, douban_rating: null }),
+  getVisibleMovieRatings({
+    imdb_rating: 0,
+    douban_rating: null,
+    rotten_tomatoes_rating: null,
+    bangumi_rating: null,
+  }),
   [],
 );
 assert.deepEqual(
-  getVisibleMovieRatings({ imdb_rating: 6.9, douban_rating: 6.0 }).map(({ source, value, tier }) => ({ source, value, tier })),
+  getVisibleMovieRatings({
+    imdb_rating: 6.9,
+    douban_rating: 6.0,
+    rotten_tomatoes_rating: 85,
+    bangumi_rating: 7.2,
+  }).map(({ source, value, displayValue, tier }) => ({ source, value, displayValue, tier })),
   [
-    { source: '豆瓣', value: 6.0, tier: 'featured' },
-    { source: 'IMDb', value: 6.9, tier: 'featured' },
+    { source: '豆瓣', value: 6.0, displayValue: '6.0', tier: 'featured' },
+    { source: 'IMDb', value: 6.9, displayValue: '6.9', tier: 'featured' },
+    { source: '烂番茄', value: 85, displayValue: '85%', tier: 'high' },
+    { source: 'Bangumi', value: 7.2, displayValue: '7.2', tier: 'featured' },
   ],
 );
-assert.equal(getMovieScoreTier({ imdb_rating: 7.9, douban_rating: 5.9 }), 'featured');
-assert.equal(getMovieScoreTier({ imdb_rating: 8.0, douban_rating: 7.9 }), 'high');
-assert.equal(getMovieScoreTier({ imdb_rating: 5.9, douban_rating: null }), null);
-console.log('PASS  M5  zero is hidden, 6.0+ is featured and 8.0+ is high score');
+assert.equal(getMovieScoreTier({
+  imdb_rating: 7.9,
+  douban_rating: 5.9,
+  rotten_tomatoes_rating: null,
+  bangumi_rating: null,
+}), 'featured');
+assert.equal(getMovieScoreTier({
+  imdb_rating: 8.0,
+  douban_rating: 7.9,
+  rotten_tomatoes_rating: null,
+  bangumi_rating: null,
+}), 'high');
+assert.equal(getMovieScoreTier({
+  imdb_rating: 5.9,
+  douban_rating: null,
+  rotten_tomatoes_rating: null,
+  bangumi_rating: null,
+}), null);
+console.log('PASS  M5  IMDb/Douban/Bangumi use 10-point tiers and Rotten Tomatoes uses percent tiers');
 
 const series = parseResourceFeed(sampleSeriesFeed());
 assert.equal(series.content_kind, 'series');
 assert.equal(series.items[0].content_kind, 'series');
 assert.equal(series.items[0].update_status, '更新08');
-assert.equal(series.items[0].cover_asset_path, null);
+assert.equal(series.items[0].cover_asset_path, 'covers/series-test.jpg');
 assert.equal(resourceFeedItemKey(series.items[0]).startsWith('series:'), true);
-console.log('PASS  M6  bundled series feed supports cached cover fallback and offline text/resources');
+console.log('PASS  M6  bundled series feed requires a local offline cover');
 
 const episodeResource = {
   ...sampleResource(),
@@ -214,19 +239,16 @@ assert.equal(
 );
 console.log('PASS  M7  generic quality-only resource titles recover episode identity from magnet dn');
 
-if (fs.existsSync(localFeedPath)) {
-  const local = parseResourceFeed(JSON.parse(fs.readFileSync(localFeedPath, 'utf8')));
-  assert.equal(local.items.length, 50);
-  assert.equal(local.summary.record_count, 50);
-  assert.equal(local.summary.cover_count, 50);
-  assert.equal(local.summary.recommended_count, 9);
-  assert.equal(local.summary.resource_count, 134);
+function verifyLocalBundle(bundleDir, expectedKind) {
+  const feedPath = path.join(bundleDir, 'feed.json');
+  if (!fs.existsSync(feedPath)) return false;
+  const local = parseResourceFeed(JSON.parse(fs.readFileSync(feedPath, 'utf8')));
+  assert.equal(local.content_kind, expectedKind);
+  assert.equal(local.items.length, 100);
+  assert.equal(local.summary.record_count, 100);
+  assert.equal(local.summary.cover_count, 100);
   assert.equal(local.summary.offline_ready, true);
-  assert.deepEqual(
-    local.items.filter((item) => item.recommended).map((item) => item.title),
-    EXPECTED_RECOMMENDED,
-  );
-  assert.equal(new Set(local.items.map(resourceFeedItemKey)).size, 50);
+  assert.equal(new Set(local.items.map(resourceFeedItemKey)).size, 100);
   for (const item of local.items) {
     assert.equal('content_code' in item, false);
     assert.equal('adult' in item, false);
@@ -236,15 +258,21 @@ if (fs.existsSync(localFeedPath)) {
     assert.ok(coverPath.startsWith(bundleDir + path.sep));
     assert.ok(fs.existsSync(coverPath), `missing cover: ${item.cover_asset_path}`);
     assert.ok(fs.statSync(coverPath).size > 0, `empty cover: ${item.cover_asset_path}`);
+    if (expectedKind === 'series' && Number.isInteger(item.season_number)) {
+      for (const resource of item.resources) {
+        assert.equal(resource.season_number, item.season_number);
+      }
+    }
   }
-  const providers = new Set(local.items.flatMap((item) => item.resources.map((resource) => resource.provider)));
-  assert.ok(providers.has('magnet'));
-  assert.ok(providers.has('xunlei'));
-  assert.ok(providers.has('quark'));
-  assert.ok(providers.has('baidu'));
-  console.log('PASS  M8  SixV bundle is 50 movies / 9 recommendations / 134 resources / 50 offline covers');
-} else {
-  console.log('SKIP  M8  local untracked SixV App bundle is not present');
+  return true;
 }
 
-console.log('=== Movie resource feed tests passed ===');
+const movieReady = verifyLocalBundle(movieBundleDir, 'movie');
+const seriesReady = verifyLocalBundle(seriesBundleDir, 'series');
+if (movieReady && seriesReady) {
+  console.log('PASS  M8  local movie100 and series100 bundles have 200 verified offline covers');
+} else {
+  console.log('SKIP  M8  complete local movie/series App bundles are not present');
+}
+
+console.log('=== Media resource feed tests passed ===');
