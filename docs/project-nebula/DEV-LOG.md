@@ -1,5 +1,32 @@
 ---
 Date/Time: 2026-07-26 (UTC+8)
+Version: app-v0.2.1-primary-channel-genre-filter
+Scope: Strengthen the highest-level media navigation, tighten Feed spacing and add real genre filtering with data-quality fallback
+Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,src/core/resourceCopy.ts,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{影视离线Feed数据质量问题-交接爬虫AI.md,APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
+
+### Product changes
+- Removed the redundant `电视剧` channel; primary order is now `电影 / 美剧 / 英剧 / 国产剧 / 韩剧 / 日剧`.
+- Replaced the weak category pills with 102×66dp section cards. The active channel uses a blue gradient, white 20px extra-bold title, compact English channel code, elevation and shadow.
+- Tightened the gap between `近期好片/追更速递` and `最近更新`: spotlight bottom spacing changed from 26 to 10 and the latest heading no longer adds a 20px top gap.
+- Added a secondary full-capsule genre strip under `最近更新`. Options are generated and frequency-sorted from the active channel Feed, so unavailable genres are never fabricated.
+- Selecting `喜剧/惊悚/恐怖/动画…` filters the same in-memory list without another network or Feed load.
+- Added App-side normalization for genre/country display values, merging variants such as `: 剧情`, `惊悚 片\"> 惊悚`, `纪录 片` and `: 美国` before rendering.
+- Renamed and expanded the crawler handoff to `影视离线Feed数据质量问题-交接爬虫AI.md`; P0-4 now requires root-level parser/export normalization and zero-anomaly gates for both movie and series Feeds.
+
+### Verification
+- TypeScript PASS; App adversarial 36/36; resource Feed tests PASS; fluency 17/17.
+- `npm run android:k30s` completed with `BUILD SUCCESSFUL` and installation `Success`.
+- K30S showed `电影 / 美剧 / 英剧 / 国产剧` in the initial viewport; the remaining `韩剧 / 日剧` are available by horizontal swipe.
+- K30S showed clean genre capsules `全部 / 剧情 / 惊悚 / 喜剧 / 纪录片 / 悬疑`; UI-tree scan found `BAD_UI_VALUES=0` for leading colons, HTML tails and spaced `片` variants.
+- Selecting `喜剧` changed its accessibility state to selected and the visible recent rows contained `喜剧` metadata.
+- Source audit still found 25 malformed movie genre values and 14 malformed movie country values; these remain explicit crawler/data P0 debt rather than being hidden as completed.
+
+### Release state
+- v0.2.1 remains development-only. No tag, formal APK release or remote deployment.
+---
+
+---
+Date/Time: 2026-07-26 (UTC+8)
 Version: app-v0.2.1-series-channel-feed
 Scope: Redesign series discovery as regional channels, restore poster visibility and recover episode identity from magnet metadata
 Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/core/resourceFeed.ts,src/core/resourceCopy.ts,src/core/mediaResourceTitle.ts,plugins/with-resource-feed.js,scripts/resource-feed-tests.mjs,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{电视剧离线Feed数据质量问题-交接爬虫AI.md,APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}

@@ -12,6 +12,7 @@ export interface ResourceCopy {
   mediaJapaneseSeries: string;
   mediaChineseSeries: string;
   mediaUkSeries: string;
+  genreAll: string;
   recommendedTitle: string;
   latestTitle: string;
   seriesUpdatingTitle: string;
@@ -65,6 +66,7 @@ const EN: ResourceCopy = {
   mediaJapaneseSeries: 'Japanese',
   mediaChineseSeries: 'Chinese',
   mediaUkSeries: 'UK',
+  genreAll: 'All',
   recommendedTitle: 'Recommended',
   latestTitle: 'Recently added',
   seriesUpdatingTitle: 'Now updating',
@@ -118,6 +120,7 @@ const ZH: ResourceCopy = {
   mediaJapaneseSeries: '日剧',
   mediaChineseSeries: '国产剧',
   mediaUkSeries: '英剧',
+  genreAll: '全部',
   recommendedTitle: '近期好片',
   latestTitle: '最近更新',
   seriesUpdatingTitle: '追更速递',

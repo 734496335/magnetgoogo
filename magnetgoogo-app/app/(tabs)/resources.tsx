@@ -32,9 +32,18 @@ const SPOTLIGHT_COVER_HEIGHT = 224;
 const ROW_COVER_WIDTH = 86;
 const ROW_COVER_HEIGHT = 122;
 
-type MediaChannel = 'movie' | 'series' | 'us' | 'korea' | 'japan' | 'china' | 'uk';
+type MediaChannel = 'movie' | 'us' | 'uk' | 'china' | 'korea' | 'japan';
 
-const CHANNELS: MediaChannel[] = ['movie', 'series', 'us', 'korea', 'japan', 'china', 'uk'];
+const CHANNELS: MediaChannel[] = ['movie', 'us', 'uk', 'china', 'korea', 'japan'];
+
+const CHANNEL_CODES: Record<MediaChannel, string> = {
+  movie: 'MOVIE',
+  us: 'US',
+  uk: 'UK',
+  china: 'CN',
+  korea: 'KR',
+  japan: 'JP',
+};
 
 function channelKind(channel: MediaChannel): MediaKind {
   return channel === 'movie' ? 'movie' : 'series';
@@ -45,11 +54,31 @@ function isCompletedSeries(item: MovieFeedItem): boolean {
   return /全集|完结|(?:^|\s)全$|季全$/.test(status);
 }
 
+function normalizeGenreLabel(value: string): string {
+  const htmlTail = value.includes('>') ? value.split('>').at(-1) ?? value : value;
+  return htmlTail
+    .replace(/^[\s:：·|/]+/, '')
+    .replace(/\s+片$/, '片')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizedGenres(item: MovieFeedItem): string[] {
+  return [...new Set(item.genres.map(normalizeGenreLabel).filter(Boolean))];
+}
+
+function normalizeCountryLabel(value: string): string {
+  return value.replace(/^[\s:：·|/]+/, '').replace(/\s+/g, ' ').trim();
+}
+
+function normalizedCountries(item: MovieFeedItem): string[] {
+  return [...new Set(item.countries.map(normalizeCountryLabel).filter(Boolean))];
+}
+
 function matchesChannel(item: MovieFeedItem, channel: MediaChannel): boolean {
   if (channel === 'movie') return item.content_kind === 'movie';
   if (item.content_kind !== 'series') return false;
-  if (channel === 'series') return true;
-  const countries = new Set(item.countries);
+  const countries = new Set(normalizedCountries(item));
   if (channel === 'us') return countries.has('美国');
   if (channel === 'korea') return countries.has('韩国');
   if (channel === 'japan') return countries.has('日本');
@@ -136,7 +165,7 @@ const SpotlightCard = memo(function SpotlightCard({ item, colors, badgeText, onO
         {item.title}
       </Text>
       <Text style={[styles.spotlightMeta, { color: colors.textTertiary }]} numberOfLines={1}>
-        {[item.year, item.countries[0], item.genres[0]].filter(Boolean).join(' · ')}
+        {[item.year, normalizedCountries(item)[0], normalizedGenres(item)[0]].filter(Boolean).join(' · ')}
       </Text>
       <MovieTagRow
         item={item}
@@ -171,8 +200,8 @@ const MediaRow = memo(function MediaRow({
       : null;
   const metadata = [
     item.year,
-    item.countries[0],
-    item.genres.slice(0, 2).join(' · '),
+    normalizedCountries(item)[0],
+    normalizedGenres(item).slice(0, 2).join(' · '),
     status,
   ].filter(Boolean).join(' · ');
   const visibleTags = item.quality_tags.slice(0, 3);
@@ -224,6 +253,7 @@ export default function ResourcesScreen() {
   const { colors } = useTheme();
   const copy = getResourceCopy(lang);
   const [activeChannel, setActiveChannel] = useState<MediaChannel>('movie');
+  const [activeGenre, setActiveGenre] = useState<string | null>(null);
   const [feeds, setFeeds] = useState<Partial<Record<MediaKind, MovieFeed>>>({});
   const [loadingKind, setLoadingKind] = useState<MediaKind | null>('movie');
   const [refreshingKind, setRefreshingKind] = useState<MediaKind | null>(null);
@@ -266,6 +296,10 @@ export default function ResourcesScreen() {
     }
   }, [activeKind, feeds, load, loadingKind]);
 
+  useEffect(() => {
+    setActiveGenre(null);
+  }, [activeChannel]);
+
   const openMedia = useCallback((item: MovieFeedItem) => {
     router.push({
       pathname: '/movie/[movieId]',
@@ -294,6 +328,27 @@ export default function ResourcesScreen() {
     return withoutSpotlight.length > 0 ? withoutSpotlight : filteredItems;
   }, [activeKind, filteredItems, spotlightIds]);
 
+  const genreOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    recent.forEach((item) => {
+      item.genres.forEach((genre) => {
+        const normalized = normalizeGenreLabel(genre);
+        if (!normalized) return;
+        counts.set(normalized, (counts.get(normalized) ?? 0) + 1);
+      });
+    });
+    return [...counts.entries()]
+      .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], 'zh-CN'))
+      .map(([genre]) => genre);
+  }, [recent]);
+
+  const visibleRecent = useMemo(
+    () => activeGenre
+      ? recent.filter((item) => normalizedGenres(item).includes(activeGenre))
+      : recent,
+    [activeGenre, recent],
+  );
+
   const renderSpotlight = useCallback((item: MovieFeedItem) => (
     <SpotlightCard
       key={resourceFeedItemKey(item)}
@@ -316,7 +371,6 @@ export default function ResourcesScreen() {
 
   const channelLabel = useCallback((channel: MediaChannel) => {
     if (channel === 'movie') return copy.mediaMovies;
-    if (channel === 'series') return copy.mediaSeries;
     if (channel === 'us') return copy.mediaUsSeries;
     if (channel === 'korea') return copy.mediaKoreanSeries;
     if (channel === 'japan') return copy.mediaJapaneseSeries;
@@ -336,30 +390,33 @@ export default function ResourcesScreen() {
           return (
             <TouchableOpacity
               key={channel}
-              style={[
-                styles.channelButton,
-                active && {
-                  backgroundColor: colors.card,
-                  borderColor: colors.accent,
-                  shadowColor: colors.shadow,
-                },
-              ]}
-              activeOpacity={0.82}
+              style={[styles.channelButton, active && { shadowColor: colors.accent }]}
+              activeOpacity={0.84}
               onPress={() => setActiveChannel(channel)}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
               accessibilityLabel={channelLabel(channel)}
             >
-              <Text
+              <LinearGradient
+                colors={active ? ['#4e8aff', '#2c63f4'] : [colors.card, colors.chipBg]}
                 style={[
-                  styles.channelText,
-                  { color: active ? colors.text : colors.textTertiary },
-                  active && styles.channelTextActive,
+                  styles.channelFill,
+                  { borderColor: active ? 'transparent' : colors.border },
                 ]}
               >
-                {channelLabel(channel)}
-              </Text>
-              <View style={[styles.channelIndicator, active && { backgroundColor: colors.accent }]} />
+                <Text style={[styles.channelCode, { color: active ? '#dbeafe' : colors.textTertiary }]}>
+                  {CHANNEL_CODES[channel]}
+                </Text>
+                <Text
+                  style={[
+                    styles.channelText,
+                    { color: active ? '#fff' : colors.text },
+                    active && styles.channelTextActive,
+                  ]}
+                >
+                  {channelLabel(channel)}
+                </Text>
+              </LinearGradient>
             </TouchableOpacity>
           );
         })}
@@ -392,6 +449,38 @@ export default function ResourcesScreen() {
       <Text style={[styles.sectionTitle, styles.latestTitle, { color: colors.text }]}>
         {activeKind === 'movie' ? copy.latestTitle : copy.seriesLatestTitle}
       </Text>
+
+      {genreOptions.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.genreContent}
+        >
+          {[null, ...genreOptions].map((genre) => {
+            const active = activeGenre === genre;
+            return (
+              <TouchableOpacity
+                key={genre ?? 'all'}
+                style={[
+                  styles.genreChip,
+                  {
+                    backgroundColor: active ? colors.accent : colors.chipBg,
+                    borderColor: active ? colors.accent : colors.border,
+                  },
+                ]}
+                activeOpacity={0.8}
+                onPress={() => setActiveGenre(genre)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.genreText, { color: active ? '#fff' : colors.textSecondary }]}>
+                  {genre ?? copy.genreAll}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
     </View>
   ), [
     activeKind,
@@ -402,6 +491,13 @@ export default function ResourcesScreen() {
     copy.recommendedTitle,
     copy.seriesLatestTitle,
     copy.seriesUpdatingTitle,
+    activeGenre,
+    colors.accent,
+    colors.border,
+    colors.chipBg,
+    colors.textSecondary,
+    copy.genreAll,
+    genreOptions,
     renderSpotlight,
     spotlight,
   ]);
@@ -444,7 +540,7 @@ export default function ResourcesScreen() {
       ) : (
         <FlatList
           key={activeChannel}
-          data={recent}
+          data={visibleRecent}
           renderItem={renderItem}
           keyExtractor={resourceFeedItemKey}
           ListHeaderComponent={listHeader}
@@ -478,28 +574,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 36,
   },
   loadingText: { marginTop: 14, fontSize: 14 },
-  listContent: { paddingBottom: 28 },
+  listContent: { paddingBottom: 24 },
   channelShell: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingTop: 10,
-    paddingBottom: 12,
+    paddingTop: 8,
+    paddingBottom: 9,
   },
-  channelContent: { paddingHorizontal: 16, paddingRight: 8 },
+  channelContent: { paddingHorizontal: 14, paddingRight: 6 },
   channelButton: {
-    minWidth: 88,
-    height: 54,
+    width: 102,
+    height: 66,
     marginRight: 10,
-    paddingHorizontal: 18,
-    borderRadius: 17,
-    borderWidth: 1.2,
-    borderColor: 'transparent',
+    borderRadius: 19,
+    shadowOpacity: 0.24,
+    shadowOffset: { width: 0, height: 7 },
+    shadowRadius: 14,
+    elevation: 5,
+  },
+  channelFill: {
+    flex: 1,
+    borderRadius: 19,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  channelText: { fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
+  channelCode: { fontSize: 9, fontWeight: '900', letterSpacing: 1.2, marginBottom: 2 },
+  channelText: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
   channelTextActive: { fontSize: 20, fontWeight: '900' },
-  channelIndicator: { width: 24, height: 3, marginTop: 6, borderRadius: 999, backgroundColor: 'transparent' },
-  spotlightSection: { marginTop: 22, marginBottom: 26 },
+  spotlightSection: { marginTop: 14, marginBottom: 10 },
   sectionHeadingRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   sectionTitle: {
     paddingHorizontal: 20,
@@ -508,8 +610,19 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   sectionHint: { paddingRight: 20, fontSize: 11, fontWeight: '600' },
-  latestTitle: { marginTop: 20, marginBottom: 4 },
-  spotlightContent: { paddingHorizontal: 20, paddingTop: 13, paddingRight: 8 },
+  latestTitle: { marginTop: 0, marginBottom: 0 },
+  spotlightContent: { paddingHorizontal: 20, paddingTop: 10, paddingRight: 8 },
+  genreContent: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 3, paddingRight: 8 },
+  genreChip: {
+    height: 34,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  genreText: { fontSize: 13, fontWeight: '800' },
   spotlightCard: { width: SPOTLIGHT_WIDTH, marginRight: 13 },
   spotlightPosterWrap: { position: 'relative' },
   posterShell: { borderRadius: 14, overflow: 'hidden' },

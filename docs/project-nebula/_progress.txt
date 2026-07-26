@@ -1,29 +1,28 @@
-Current phase: App v0.2.1 SERIES CHANNEL FEED PASS / NOT RELEASED 2026-07-26
+Current phase: App v0.2.1 PRIMARY CHANNEL + GENRE FILTER PASS / NOT RELEASED 2026-07-26
 
 ## Completed
-- Removed the redundant “影视” page title.
-- Replaced the small movie/series switch with large channel cards: 电影 / 电视剧 / 美剧 / 韩剧 / 日剧 / 国产剧 / 英剧.
-- Active channels use larger 20px bold text, a bordered section card and an accent indicator.
-- Only one FlatList remains mounted; movie and series Feeds are loaded lazily and cached in memory.
-- Series channels filter the existing Feed by real country/region fields.
-- Series discovery now uses “追更速递 + 最近更新”; no unsupported ranking or popularity claims are shown.
-- Series cards surface cover, update status, region, genre, quality tags and magnet count.
-- Missing local series covers temporarily use cached `cover_source_url`; failure falls back to a local gradient poster.
-- Generic resource titles recover episode labels from magnet `dn`, e.g. `S01E04 · 1080P`.
-- Added `电视剧离线Feed数据质量问题-交接爬虫AI.md` for local covers, lost episode titles, cross-season mixing, missing Japanese samples and ranking evidence.
+- Removed redundant “电视剧” from the primary channel row.
+- Primary order is fixed: 电影 / 美剧 / 英剧 / 国产剧 / 韩剧 / 日剧.
+- Primary channels are now 102×66dp section cards with code labels, gradient active state, shadow and 20px extra-bold title.
+- Only one FlatList remains mounted; movie/series Feeds are lazy-loaded and cached.
+- Tightened spotlight-to-latest spacing: 26→10 bottom gap and 20→0 latest-title top gap.
+- Added dynamic full-capsule genre filters below “最近更新”.
+- Genre options are frequency-sorted from the active channel’s real Feed; “全部” is always first.
+- Selecting a genre filters the in-memory recent list without another Feed/network load.
+- Added display fallback cleanup for genre/country leading colons, HTML tails and spacing variants.
+- Renamed the crawler handoff to `影视离线Feed数据质量问题-交接爬虫AI.md`.
+- Added crawler P0-4: 25 malformed movie genres and 14 malformed movie countries must be fixed at parser/export root with zero-anomaly gates.
 
 ## Verification
 - TypeScript -> PASS.
 - App adversarial tests -> 36/36 PASS.
-- Resource Feed tests -> PASS including episode-title recovery.
+- Resource Feed tests -> PASS.
 - Fluency suite -> 17/17 PASS.
 - `npm run android:k30s` -> BUILD SUCCESSFUL / install Success.
-- K30S showed no “影视”; channel cards measured about 242–245×148px.
-- K30S US and Korean channels showed only matching country metadata.
-- K30S series poster crop had 159,938 unique colors, confirming a real image rather than the local placeholder.
-- X战警97 detail showed `S01E01 · 1080P`, `S01E04 · 1080P` and exposed upstream S02 cross-season contamination.
-- No AndroidRuntime fatal or React Native unhandled error observed; system animation scales restored to 1.
+- K30S showed large channel cards and clean genre capsules: 全部 / 剧情 / 惊悚 / 喜剧 / 纪录片 / 悬疑.
+- Selecting 喜剧 marked it selected and visible rows carried 喜剧 metadata.
+- K30S UI-tree scan: BAD_UI_VALUES=0 for leading colons, HTML tails and spaced “片”.
 
 ## Remaining before release
-- Data AI must provide compressed local series covers and fix resource title/season ownership per the independent issue MD.
+- Data AI must implement all P0 items in the unified影视 Feed issue MD; App cleanup remains fallback only.
 - Run final signed v0.2.1 release acceptance; do not tag, publish or deploy yet.
