@@ -55,6 +55,7 @@ interface MagnetResourceCardProps {
   openLabel: string;
   onCopy: (resource: MovieResource) => void;
   onOpen: (resource: MovieResource) => void;
+  isLast: boolean;
 }
 
 const MagnetResourceCard = memo(function MagnetResourceCard({
@@ -67,60 +68,63 @@ const MagnetResourceCard = memo(function MagnetResourceCard({
   openLabel,
   onCopy,
   onOpen,
+  isLast,
 }: MagnetResourceCardProps) {
   const copyResource = useCallback(() => onCopy(resource), [onCopy, resource]);
   const openResource = useCallback(() => onOpen(resource), [onOpen, resource]);
-  const visibleTags = resource.quality_tags.slice(0, 5);
+  const displayTitle = resourceDisplayTitle(resource, seasonNumber);
+  const normalizedTitle = displayTitle.toLocaleLowerCase();
+  const visibleTags = resource.quality_tags
+    .filter((tag) => !normalizedTitle.includes(tag.trim().toLocaleLowerCase()))
+    .slice(0, 3);
 
   return (
     <View
       style={[
         styles.resourceCard,
-        {
-          backgroundColor: colors.card,
-          borderColor: colors.accent,
-          shadowColor: colors.shadow,
-        },
+        !isLast && { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth },
       ]}
     >
-      <Text style={[styles.resourceTitle, { color: colors.text }]} numberOfLines={3}>
-        {resourceDisplayTitle(resource, seasonNumber)}
-      </Text>
+      <View style={styles.resourceMain}>
+        <Text style={[styles.resourceTitle, { color: colors.text }]} numberOfLines={2}>
+          {displayTitle}
+        </Text>
 
-      {visibleTags.length > 0 && (
-        <View style={styles.resourceTags}>
-          {visibleTags.map((tag) => (
-            <View key={tag} style={[styles.resourceTag, { backgroundColor: colors.tagBg }]}>
-              <Text style={[styles.resourceTagText, { color: colors.tagText }]}>{tag}</Text>
-            </View>
-          ))}
-        </View>
-      )}
+        {visibleTags.length > 0 && (
+          <View style={styles.resourceTags}>
+            {visibleTags.map((tag) => (
+              <View key={tag} style={[styles.resourceTag, { backgroundColor: colors.tagBg }]}>
+                <Text style={[styles.resourceTagText, { color: colors.tagText }]}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
 
-      <View style={[styles.resourceActions, { borderTopColor: colors.border }]}>
+      <View style={styles.resourceActions}>
         <TouchableOpacity
-          style={styles.actionTouch}
-          activeOpacity={0.8}
+          style={[styles.actionButton, { backgroundColor: colors.tagBg, borderColor: colors.accent }]}
+          activeOpacity={0.76}
           onPress={copyResource}
           accessibilityRole="button"
           accessibilityLabel={copyLabel}
         >
-          <LinearGradient colors={['#4e8aff', '#2c63f4']} style={styles.actionButton}>
-            <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={15} color="#fff" />
-            <Text style={styles.actionButtonText}>{copied ? copiedLabel : copyLabel}</Text>
-          </LinearGradient>
+          <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={13} color={colors.accent} />
+          <Text style={[styles.actionButtonText, { color: colors.accent }]} numberOfLines={1}>
+            {copied ? copiedLabel : copyLabel}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.actionTouch}
-          activeOpacity={0.8}
+          style={[styles.actionButton, { backgroundColor: colors.tagBg, borderColor: '#f97316' }]}
+          activeOpacity={0.76}
           onPress={openResource}
           accessibilityRole="button"
           accessibilityLabel={openLabel}
         >
-          <LinearGradient colors={['#ff8a4c', '#f06529']} style={styles.actionButton}>
-            <Ionicons name="open-outline" size={15} color="#fff" />
-            <Text style={styles.actionButtonText}>{openLabel}</Text>
-          </LinearGradient>
+          <Ionicons name="open-outline" size={13} color="#f97316" />
+          <Text style={[styles.actionButtonText, { color: '#f97316' }]} numberOfLines={1}>
+            {openLabel}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -496,20 +500,23 @@ export default function MovieDetailScreen() {
                 {copy.resourceCount(magnetResources.length)}
               </Text>
             </View>
-            {visibleMagnetResources.map((resource) => (
-              <MagnetResourceCard
-                key={resource.url}
-                resource={resource}
-                seasonNumber={resourceSeasonNumber}
-                colors={colors}
-                copied={copiedResourceUrl === resource.url}
-                copyLabel={t.copyMagnet}
-                copiedLabel={t.copied}
-                openLabel={t.openMagnet}
-                onCopy={copyResource}
-                onOpen={openResource}
-              />
-            ))}
+            <View style={[styles.resourceList, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {visibleMagnetResources.map((resource, index) => (
+                <MagnetResourceCard
+                  key={resource.url}
+                  resource={resource}
+                  seasonNumber={resourceSeasonNumber}
+                  colors={colors}
+                  copied={copiedResourceUrl === resource.url}
+                  copyLabel={t.copyMagnet}
+                  copiedLabel={t.copied}
+                  openLabel={t.openMagnet}
+                  onCopy={copyResource}
+                  onOpen={openResource}
+                  isLast={index === visibleMagnetResources.length - 1}
+                />
+              ))}
+            </View>
           </View>
         )}
 
@@ -634,43 +641,42 @@ const styles = StyleSheet.create({
   infoRow: { flexDirection: 'row', alignItems: 'flex-start', paddingTop: 13 },
   infoLabel: { width: 72, fontSize: 12, lineHeight: 20 },
   infoValue: { flex: 1, fontSize: 13, lineHeight: 20 },
-  resourceCard: {
-    marginTop: 14,
-    borderWidth: 1.25,
-    borderRadius: 20,
-    padding: 15,
-    shadowOpacity: 0.16,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 18,
-    elevation: 5,
-  },
-  resourceTitle: { fontSize: 14, lineHeight: 21, fontWeight: '700' },
-  resourceTags: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 12 },
-  resourceTag: {
-    borderRadius: 10,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    marginRight: 6,
-    marginBottom: 6,
-  },
-  resourceTagText: { fontSize: 10, fontWeight: '700' },
-  resourceActions: {
-    flexDirection: 'row',
+  resourceList: {
     marginTop: 10,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    gap: 9,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
-  actionTouch: { flex: 1 },
+  resourceCard: {
+    minHeight: 76,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  resourceMain: { flex: 1, minWidth: 0, paddingRight: 10 },
+  resourceTitle: { fontSize: 13, lineHeight: 18, fontWeight: '700' },
+  resourceTags: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 5 },
+  resourceTag: {
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    marginRight: 5,
+    marginBottom: 2,
+  },
+  resourceTagText: { fontSize: 9, lineHeight: 12, fontWeight: '700' },
+  resourceActions: { width: 76, gap: 6 },
   actionButton: {
-    height: 40,
-    borderRadius: 12,
+    height: 31,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 7,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 4,
   },
-  actionButtonText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  actionButtonText: { flexShrink: 1, fontSize: 10, fontWeight: '800' },
   footerActions: {
     marginTop: 30,
     flexDirection: 'row',

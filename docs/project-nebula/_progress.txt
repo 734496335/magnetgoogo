@@ -1,30 +1,27 @@
-Current phase: App v0.2.1 SERIES RESOURCE ORDER + BATCH COPY PASS / NOT RELEASED 2026-07-26
+Current phase: App v0.2.1 SEGMENTED CHANNEL + COMPACT RESOURCE LIST PASS / NOT RELEASED 2026-07-26
 
 ## Completed
-- Series magnets derive season/episode identity from titles and magnet `dn`.
-- Explicit title season overrides conflicting `season_number`; contradictory update status is hidden.
-- Series resources sort by season, episode start/end and quality; season packs follow episodes and unknowns stay last.
-- Detail initially renders 12, auto-loads 20 near the end and has no “再显示 N 个资源” button.
-- Added series footer capsules: “复制全部磁力 / 搜索更多资源”.
-- Batch copy deduplicates magnets and writes one URI per CRLF-delimited line for downloader bulk paste.
-- “追更速递” update badges now use prominent orange-red gradient, 13px extra-bold text and stronger shadow.
-- Added `npm run audit:series-resources` and expanded the unified crawler issue MD with P0-5.
-
-## Full audit
-- 100 series / 2,105 magnets / 2,105 unique magnets.
-- 1,992 episode resources / 59 season packs / 54 unknown identities.
-- 1,019 generic titles; 1,003 recoverable from magnet `dn`; 16 remain unrecovered.
-- 38 series out of order; 19 title/season-field conflicts.
-- 22 series cross-season; 880 resources conflict with title season.
-- 17 series have no episode-level resources; 268 same episode+quality variant groups lack metadata.
+- Primary channel rail: 电影 / 美剧 / 英剧 / 国产剧 / 韩剧 / 日剧.
+- Removed English channel codes, detached cards and clipped shadows.
+- First viewport shows four full channels plus about half of 韩剧 as a horizontal-scroll cue.
+- Renamed “近期好片” to “精品推荐”.
+- Spotlight update badge stays orange-red at the poster lower-left.
+- Recent-list status uses `更新至第N集` or original completed text such as `第1-2季全`.
+- Status is regular dark text; lighter `X个资源` shares the same row.
+- Detail magnet cards are compact 76–84dp horizontal rows.
+- Resource title is limited to two lines and three quality tags.
+- Copy/open actions are right-side `56×32dp` capsules instead of a full action row.
+- Existing natural sorting, scroll auto-load and copy-all behavior remain unchanged.
+- Current series snapshot: 100 titles / 1239 unique magnets.
+- Updated unified crawler issue MD with refreshed audit and remaining defects.
 
 ## Verification
 - TypeScript PASS; App adversarial 36/36; Feed tests PASS; fluency 17/17.
-- K30S standalone build/install PASS.
-- X战警97 showed S01E01→S01E02…→S02E06 with automatic loading and no show-more button.
-- Batch footer showed two capsules; tap changed to “已复制 63 条”.
-- US-series spotlight showed prominent “更新至1集 / 更新至5集”.
+- Series audit: 0 duplicate, 0 cross-season, 0 generic titles, 1 unknown identity.
+- `npm run android:k30s` -> BUILD SUCCESSFUL / install Success.
+- K30S showed 精品推荐 and partially visible 韩剧.
+- K30S 69-resource detail showed about nine compact entries per viewport.
 
 ## Remaining before release
-- Data AI must close all P0 items in `影视离线Feed数据质量问题-交接爬虫AI.md`; App fallbacks are not source fixes.
-- Final signed v0.2.1 acceptance only; do not tag, publish or deploy yet.
+- Data AI must resolve the remaining unknown package, false episode ranges and same-episode variant ambiguity.
+- Run final signed v0.2.1 acceptance; do not tag, publish or deploy yet.

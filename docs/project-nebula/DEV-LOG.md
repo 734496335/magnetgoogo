@@ -1,5 +1,34 @@
 ---
 Date/Time: 2026-07-26 (UTC+8)
+Version: app-v0.2.1-segmented-tabs-compact-resources
+Scope: Redesign the primary media navigation, update-state hierarchy and high-density detail resource list
+Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/core/resourceCopy.ts,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{影视离线Feed数据质量问题-交接爬虫AI.md,APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
+
+### Product changes
+- Replaced six detached category cards with one continuous segmented rail. Removed `MOVIE / US / UK / CN / KR / JP`, card gaps and clipped shadows.
+- The first viewport shows 电影 / 美剧 / 英剧 / 国产剧 and approximately half of 韩剧, making horizontal continuation obvious without adding arrows or tutorial text.
+- Renamed the movie section from `近期好片` to `精品推荐`.
+- Moved `更新至 N 集` to the lower-left of spotlight posters and removed external shadows from the orange-red badge.
+- The recent list no longer overlays update text on the poster. Updating items display `更新至第N集`; completed values retain `第1-2季全 / 全集`. Status uses regular dark text and shares one row with a lighter right-aligned `X个资源`.
+- Reworked detail magnets into 76–84dp horizontal rows. Titles use at most two lines, quality tags at most three, and the right side holds two fixed `56×32dp` copy/open capsules.
+- Removed resource-card shadows, thick accent borders and full-width action rows. A K30S viewport now exposes about nine resource entries.
+- Re-audited the refreshed series Feed: 100 titles / 1239 unique magnets; cross-season and generic-title defects are closed, while one unknown package, three source-order issues and 242 indistinguishable same-episode variants remain documented for the data AI.
+
+### Verification
+- TypeScript PASS; App adversarial suite 36/36; resource Feed tests PASS; fluency suite 17/17.
+- `npm run audit:series-resources`: 100 series / 1239 unique magnets / 0 cross-season / 0 generic titles / 1 unknown identity.
+- `npm run android:k30s` completed with `BUILD SUCCESSFUL` and install `Success`.
+- K30S tab bounds: 电影 `[56,132][271,275]`, 美剧 `[271,132][485,275]`, 英剧 `[487,132][702,275]`, 国产剧 `[702,132][916,275]`, 韩剧 partially visible `[918,132][1040,275]`.
+- K30S showed `精品推荐`; no English channel codes were present.
+- Spotlight labels remained at the poster lower-left. A completed recent item displayed `第1-2季全` and `13个资源` on the same line.
+- In a 69-resource detail, K30S showed roughly nine compact entries per viewport; each copy/open control measured approximately `56×32dp`.
+
+### Release state
+- v0.2.1 remains development-only. No tag, formal APK release or remote deployment.
+---
+
+---
+Date/Time: 2026-07-26 (UTC+8)
 Version: app-v0.2.1-series-resource-order-batch-copy
 Scope: Natural-sort series resources, auto-load on scroll, add Xunlei-friendly batch copy and audit all bundled series magnets
 Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/core/mediaResourceTitle.ts,src/core/resourceCopy.ts,scripts/resource-feed-tests.mjs,scripts/app-adversarial-tests.mjs,scripts/series-resource-audit.mjs,package.json}, docs/project-nebula/{影视离线Feed数据质量问题-交接爬虫AI.md,APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}

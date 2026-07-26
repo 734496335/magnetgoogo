@@ -37,15 +37,6 @@ type MediaChannel = 'movie' | 'us' | 'uk' | 'china' | 'korea' | 'japan';
 
 const CHANNELS: MediaChannel[] = ['movie', 'us', 'uk', 'china', 'korea', 'japan'];
 
-const CHANNEL_CODES: Record<MediaChannel, string> = {
-  movie: 'MOVIE',
-  us: 'US',
-  uk: 'UK',
-  china: 'CN',
-  korea: 'KR',
-  japan: 'JP',
-};
-
 function channelKind(channel: MediaChannel): MediaKind {
   return channel === 'movie' ? 'movie' : 'series';
 }
@@ -55,19 +46,40 @@ function isCompletedSeries(item: MovieFeedItem): boolean {
   return /全集|完结|(?:^|\s)全$|季全$/.test(status);
 }
 
-function prominentUpdateLabel(item: MovieFeedItem): string | null {
-  const raw = seriesStatusForDisplay(
+function rawSeriesStatus(item: MovieFeedItem): string | null {
+  return seriesStatusForDisplay(
     item.title,
     item.season_number,
     item.update_status || item.episode_label,
   );
+}
+
+function latestEpisodeNumber(raw: string): number | null {
+  const values: number[] = [];
+  for (const match of raw.matchAll(/(?:更新\s*(?:至|到)?\s*第?|第|无字第)\s*0*(\d+)\s*集?/g)) {
+    const value = Number(match[1]);
+    if (Number.isFinite(value) && value > 0) values.push(value);
+  }
+  return values.length > 0 ? Math.max(...values) : null;
+}
+
+function prominentUpdateLabel(item: MovieFeedItem): string | null {
+  const raw = rawSeriesStatus(item);
   if (!raw) return null;
-  const updating = raw.match(/更新\s*(?:至)?\s*(\d+)\s*集?/);
-  if (updating) return `更新至${updating[1]}集`;
-  const episode = raw.match(/第\s*(\d+)\s*集/);
-  if (episode) return `更新至${episode[1]}集`;
-  if (/全集|完结|季全/.test(raw)) return '已完结';
+  if (/全集|完结|季全|全\s*\d+\s*集/.test(raw)) return '已完结';
+  const episode = latestEpisodeNumber(raw);
+  if (episode !== null) return `更新至${episode}集`;
   return raw;
+}
+
+function listUpdateLabel(item: MovieFeedItem): string | null {
+  const raw = rawSeriesStatus(item);
+  if (!raw) return null;
+  if (/全集|完结|季全|全\s*\d+\s*集/.test(raw)) return raw;
+  const episode = latestEpisodeNumber(raw);
+  if (episode === null) return raw.replace(/^更新\s*(?:至|到)?\s*/, '').trim() || null;
+  const season = raw.match(/第[一二三四五六七八九十百0-9-]+季/)?.[0];
+  return season ? `${season} · 更新至第${episode}集` : `更新至第${episode}集`;
 }
 
 function normalizeGenreLabel(value: string): string {
@@ -209,16 +221,15 @@ const MediaRow = memo(function MediaRow({
   onOpen,
 }: MediaRowProps) {
   const open = useCallback(() => onOpen(item), [item, onOpen]);
-  const status = item.content_kind === 'series'
-    ? item.update_status || item.episode_label
-    : item.duration_minutes
-      ? minutesLabel(item.duration_minutes)
-      : null;
+  const seriesStatus = item.content_kind === 'series' ? listUpdateLabel(item) : null;
+  const duration = item.content_kind === 'movie' && item.duration_minutes
+    ? minutesLabel(item.duration_minutes)
+    : null;
   const metadata = [
     item.year,
     normalizedCountries(item)[0],
     normalizedGenres(item).slice(0, 2).join(' · '),
-    status,
+    duration,
   ].filter(Boolean).join(' · ');
   const visibleTags = item.quality_tags.slice(0, 3);
   const magnetCount = item.resources.filter((resource) => resource.resource_type === 'magnet').length;
@@ -234,7 +245,6 @@ const MediaRow = memo(function MediaRow({
       <MediaPoster
         item={item}
         colors={colors}
-        overlayLabel={item.content_kind === 'series' ? status : null}
         style={{ width: ROW_COVER_WIDTH, height: ROW_COVER_HEIGHT }}
       />
       <View style={styles.mediaInfo}>
@@ -251,7 +261,11 @@ const MediaRow = memo(function MediaRow({
         )}
         <MovieTagRow item={item} colors={colors} qualityTags={visibleTags} />
         <View style={styles.rowFooter}>
-          <Ionicons name="link-outline" size={12} color={colors.textTertiary} />
+          {!!seriesStatus && (
+            <Text style={[styles.mediaStatus, { color: colors.text }]} numberOfLines={1}>
+              {seriesStatus}
+            </Text>
+          )}
           <Text style={[styles.resourceText, { color: colors.textTertiary }]}>
             {resourceLabel(magnetCount)}
           </Text>
@@ -395,48 +409,53 @@ export default function ResourcesScreen() {
   }, [copy]);
 
   const channelBar = (
-    <View style={[styles.channelShell, { borderBottomColor: colors.border, backgroundColor: colors.bg }]}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.channelContent}
-      >
-        {CHANNELS.map((channel) => {
-          const active = activeChannel === channel;
-          return (
-            <TouchableOpacity
-              key={channel}
-              style={[styles.channelButton, active && { shadowColor: colors.accent }]}
-              activeOpacity={0.84}
-              onPress={() => setActiveChannel(channel)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: active }}
-              accessibilityLabel={channelLabel(channel)}
-            >
-              <LinearGradient
-                colors={active ? ['#4e8aff', '#2c63f4'] : [colors.card, colors.chipBg]}
-                style={[
-                  styles.channelFill,
-                  { borderColor: active ? 'transparent' : colors.border },
-                ]}
-              >
-                <Text style={[styles.channelCode, { color: active ? '#dbeafe' : colors.textTertiary }]}>
-                  {CHANNEL_CODES[channel]}
-                </Text>
-                <Text
-                  style={[
-                    styles.channelText,
-                    { color: active ? '#fff' : colors.text },
-                    active && styles.channelTextActive,
-                  ]}
+    <View style={[styles.channelShell, { backgroundColor: colors.bg }]}>
+      <View style={[styles.channelViewport, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.channelContent}
+        >
+          {CHANNELS.map((channel, index) => {
+            const active = activeChannel === channel;
+            return (
+              <React.Fragment key={channel}>
+                <TouchableOpacity
+                  style={styles.channelButton}
+                  activeOpacity={0.82}
+                  onPress={() => setActiveChannel(channel)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={channelLabel(channel)}
                 >
-                  {channelLabel(channel)}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+                  {active ? (
+                    <LinearGradient
+                      colors={['#3867f5', '#2753d7']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.channelSegment}
+                    >
+                      <Text style={[styles.channelText, styles.channelTextActive]}>
+                        {channelLabel(channel)}
+                      </Text>
+                      <View style={styles.channelActiveMark} />
+                    </LinearGradient>
+                  ) : (
+                    <View style={styles.channelSegment}>
+                      <Text style={[styles.channelText, { color: colors.textSecondary }]}>
+                        {channelLabel(channel)}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+                {index < CHANNELS.length - 1 && (
+                  <View style={[styles.channelDivider, { backgroundColor: colors.border }]} />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </ScrollView>
+      </View>
     </View>
   );
 
@@ -592,31 +611,39 @@ const styles = StyleSheet.create({
   loadingText: { marginTop: 14, fontSize: 14 },
   listContent: { paddingBottom: 24 },
   channelShell: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingTop: 8,
-    paddingBottom: 9,
+    paddingTop: 10,
+    paddingBottom: 8,
   },
-  channelContent: { paddingHorizontal: 14, paddingRight: 6 },
-  channelButton: {
-    width: 102,
-    height: 66,
-    marginRight: 10,
-    borderRadius: 19,
-    shadowOpacity: 0.24,
-    shadowOffset: { width: 0, height: 7 },
-    shadowRadius: 14,
-    elevation: 5,
-  },
-  channelFill: {
-    flex: 1,
-    borderRadius: 19,
+  channelViewport: {
+    marginHorizontal: 14,
+    height: 62,
+    borderRadius: 20,
     borderWidth: 1,
+    overflow: 'hidden',
+  },
+  channelContent: { paddingHorizontal: 5, paddingVertical: 5, alignItems: 'center' },
+  channelButton: {
+    minWidth: 78,
+    height: 52,
+  },
+  channelSegment: {
+    flex: 1,
+    borderRadius: 16,
+    paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  channelCode: { fontSize: 9, fontWeight: '900', letterSpacing: 1.2, marginBottom: 2 },
-  channelText: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
-  channelTextActive: { fontSize: 20, fontWeight: '900' },
+  channelDivider: { width: StyleSheet.hairlineWidth, height: 24, opacity: 0.72 },
+  channelText: { fontSize: 16, fontWeight: '800', letterSpacing: -0.25 },
+  channelTextActive: { color: '#fff', fontSize: 18, fontWeight: '900' },
+  channelActiveMark: {
+    position: 'absolute',
+    bottom: 6,
+    width: 18,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+  },
   spotlightSection: { marginTop: 14, marginBottom: 10 },
   sectionHeadingRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   sectionTitle: {
@@ -642,7 +669,15 @@ const styles = StyleSheet.create({
   spotlightCard: { width: SPOTLIGHT_WIDTH, marginRight: 13 },
   spotlightPosterWrap: { position: 'relative' },
   posterShell: { borderRadius: 14, overflow: 'hidden' },
-  posterImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  posterImage: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+  },
   posterFallback: {
     flex: 1,
     alignItems: 'center',
@@ -652,20 +687,17 @@ const styles = StyleSheet.create({
   posterFallbackText: { marginTop: 8, fontSize: 10, lineHeight: 14, fontWeight: '700', textAlign: 'center' },
   updateOverlay: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    left: 8,
+    bottom: 8,
     minHeight: 32,
-    maxWidth: '90%',
-    borderRadius: 10,
-    paddingHorizontal: 10,
+    maxWidth: '88%',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.38)',
+    paddingHorizontal: 12,
     paddingVertical: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#7f1d1d',
-    shadowOpacity: 0.34,
-    shadowOffset: { width: 0, height: 5 },
-    shadowRadius: 10,
-    elevation: 7,
   },
   updateOverlayText: { color: '#fff', fontSize: 13, lineHeight: 18, fontWeight: '900' },
   recommendBadge: {
@@ -691,8 +723,16 @@ const styles = StyleSheet.create({
   mediaInfo: { flex: 1, alignSelf: 'stretch', marginLeft: 13, paddingVertical: 2 },
   mediaTitle: { fontSize: 16, lineHeight: 22, fontWeight: '700' },
   mediaMeta: { marginTop: 6, fontSize: 11, lineHeight: 16 },
-  rowFooter: { marginTop: 'auto', flexDirection: 'row', alignItems: 'center', gap: 4 },
-  resourceText: { fontSize: 10 },
+  mediaStatus: { flex: 1, fontSize: 13, lineHeight: 18, fontWeight: '400' },
+  rowFooter: {
+    marginTop: 'auto',
+    minHeight: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  resourceText: { flexShrink: 0, fontSize: 10, fontWeight: '500' },
   emptyIcon: {
     width: 72,
     height: 72,

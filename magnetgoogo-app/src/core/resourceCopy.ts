@@ -30,6 +30,9 @@ export interface ResourceCopy {
   viewResources: (value: number) => string;
   copyAllMagnets: string;
   copiedAllMagnets: (value: number) => string;
+  copyAction: string;
+  copiedAction: string;
+  openAction: string;
   recommendation: string;
   detailSynopsis: string;
   detailInfo: string;
@@ -85,6 +88,9 @@ const EN: ResourceCopy = {
   viewResources: (value) => `View resources (${value})`,
   copyAllMagnets: 'Copy all magnets',
   copiedAllMagnets: (value) => `Copied ${value}`,
+  copyAction: 'Copy',
+  copiedAction: 'Copied',
+  openAction: 'Open',
   recommendation: 'Pick',
   detailSynopsis: 'Story',
   detailInfo: 'Details',
@@ -123,7 +129,7 @@ const ZH: ResourceCopy = {
   mediaChineseSeries: '国产剧',
   mediaUkSeries: '英剧',
   genreAll: '全部',
-  recommendedTitle: '近期好片',
+  recommendedTitle: '精品推荐',
   latestTitle: '最近更新',
   seriesUpdatingTitle: '追更速递',
   seriesLatestTitle: '最近更新',
@@ -140,6 +146,9 @@ const ZH: ResourceCopy = {
   viewResources: (value) => `查看资源（${value}）`,
   copyAllMagnets: '复制全部磁力',
   copiedAllMagnets: (value) => `已复制 ${value} 条`,
+  copyAction: '复制',
+  copiedAction: '已复制',
+  openAction: '打开',
   recommendation: '推荐',
   detailSynopsis: '剧情简介',
   detailInfo: '影片信息',
