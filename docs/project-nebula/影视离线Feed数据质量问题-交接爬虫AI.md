@@ -175,6 +175,87 @@ normalize_country_label(raw)
 - 对电影和电视剧 Feed 同时运行质量门禁，异常数量必须为 0；
 - 增加包含上述真实反例的自动测试，防止解析器升级后回归。
 
+## P0-5：电视剧资源顺序、季集身份和版本可区分性不满足消费契约
+
+### 全量审计证据
+
+审计命令：
+
+```text
+cd magnetgoogo-app
+npm run audit:series-resources
+```
+
+审计范围：100 部电视剧、2105 条磁力资源。当前结果：
+
+```text
+唯一磁力：2105
+重复 info_hash：0
+可识别单集/集数范围：1992
+整季包：59
+无法识别季集：54
+原始标题只有清晰度：1019
+可从 magnet dn 恢复集数：1003
+仍无法恢复的清晰度标题：16
+原始资源顺序错误的剧集：38
+标题季号与 season_number 冲突的剧集：19
+没有任何单集身份的剧集：17
+存在跨季资源的剧集：22
+与标题所示季号不一致的资源：880
+集数+清晰度相同的重复展示标题组：268
+```
+
+典型问题包括：
+
+- 原始顺序为 `S01E04 / S01E03 / S01E01 / S01E02`，不能直接供 App 展示；
+- 第一季条目混入第二、第三季资源；
+- 19 部剧的标题季号与结构化 `season_number` 冲突，例如“第一季”却写入 `season_number=2`；
+- 条目字段 `season_number` 与标题季数、资源季数互相冲突；
+- `display_title` 只有 `1080P/720P`，集数只存在于 magnet `dn`；
+- 17 部剧只有整季包或无法解析季集的资源，不能形成正常剧集序列；
+- 同一集存在多个发布版本时，只提供相同的“集数 + 清晰度”，没有编码、来源、发布组、大小等可区分信息。
+
+### 根因要求
+
+数据生产侧必须在最终聚合和导出前建立资源级标准结构：
+
+```text
+season_number
+episode_start
+episode_end
+episode_label
+resource_scope        # episode / episode_range / season_pack / series_pack / unknown
+release_group
+video_source          # WEB-DL / WEBRip / BluRay 等
+video_codec           # H264 / H265 / AV1 等
+resolution
+file_size_bytes
+variant_label
+```
+
+处理顺序必须为：
+
+1. 从源站资源标题提取季集；
+2. 源站标题不足时解析 magnet `dn`；
+3. 再尝试真实文件名；
+4. 按媒体条目的季号校验资源归属；
+5. 跨季资源必须拆分到对应季，不能静默混入；
+6. 对同季资源按 `season_number / episode_start / episode_end / 版本质量` 生成稳定顺序；
+7. 无法确认季集的资源进入 `unknown` 审计集合，不得伪造成普通单集；
+8. 最终 `display_title` 必须让用户直接看出集数或“整季包”，不得只剩清晰度。
+
+### 验收
+
+- `S01E01 < S01E02 < S01E03 < S02E01`；
+- `items_out_of_source_order == 0`；
+- `items_with_title_field_season_conflict == 0`；
+- 明确季条目的 `cross_season_resource_count == 0`；
+- magnet `dn` 可识别集数时，`display_title` 不得只显示 `1080P/720P/4K`；
+- `unknown_identity_count` 必须有明确原因和待审计输出，不能静默丢失；
+- 同一集多个资源必须通过 `variant_label` 或版本字段可区分；
+- 增加真实反例测试：X战警97、犯罪心理、末日地堡、谜探休格、瑞克和莫蒂；
+- 数据侧修复后重新运行 `npm run audit:series-resources`，并将结果绑定到 Feed 生成提交。
+
 ## P1-1：日本频道当前没有可用样本
 
 ### 现状证据
@@ -238,3 +319,6 @@ ranking_generated_at
 3. App 只做展示层补救，无法可靠修正跨季资源混入；跨季归属必须由数据生产侧修复。
 4. App 临时清理类型和国家字段中的前导冒号、HTML 尾片及空白变体，并合并同义分类，避免脏数据直接污染频道和类型胶囊。
 5. 上述展示清洗不是验收终点；数据侧修复后，Feed 原始规范字段本身必须通过 P0-4 的零异常门禁。
+6. App 会按解析出的季号、集号自然排序，并将整季包和无法识别季集的资源放在单集资源之后。
+7. App 详情页会从 magnet `dn` 恢复可证明的集数标题，但不会自行改写跨季归属或伪造未知集数。
+8. App 对同集多版本只展示现有质量标签；版本级可区分字段仍必须由数据侧按 P0-5 补齐。

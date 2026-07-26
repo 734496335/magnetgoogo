@@ -443,6 +443,11 @@ await test('U3', 'movie and regional series channels form one lightweight discov
   assert.match(screen, /countries\.has\('日本'\)/);
   assert.match(screen, /seriesUpdatingTitle/);
   assert.match(screen, /isCompletedSeries/);
+  assert.match(screen, /function prominentUpdateLabel/);
+  assert.match(screen, /seriesStatusForDisplay/);
+  assert.match(screen, /更新至\$\{updating\[1\]\}集/);
+  assert.match(screen, /colors=\{\['#ff7a3d', '#ef3f24'\]\}/);
+  assert.match(screen, /updateOverlayText: \{ color: '#fff', fontSize: 13[\s\S]*?fontWeight: '900'/);
   assert.doesNotMatch(screen, /排行榜|热播榜|榜第\s*\d/);
   assert.match(screen, /loadResourceFeed\(kind, forceRefresh\)/);
   assert.match(screen, /key=\{activeChannel\}/);
@@ -499,7 +504,9 @@ await test('U3', 'movie and regional series channels form one lightweight discov
   assert.match(detail, /loadMediaById\(requestedKind, movieId\)/);
   assert.match(detail, /loadMediaByIdAcrossFeeds\(movieId\)/);
   assert.match(detail, /movie\.content_kind === 'series'/);
-  assert.match(detail, /resourceDisplayTitle\(resource\)/);
+  assert.match(detail, /inferSeriesSeason\(movie\.title, movie\.season_number\)/);
+  assert.match(detail, /seriesStatusForDisplay/);
+  assert.match(detail, /resourceDisplayTitle\(resource, seasonNumber\)/);
 });
 
 await test('U4', 'movie detail exposes only prominent magnet cards with search-equivalent actions', () => {
@@ -526,10 +533,20 @@ await test('U4', 'movie detail exposes only prominent magnet cards with search-e
   assert.match(detail, /right: 64/);
   assert.match(detail, /visibleResourceLimit/);
   assert.match(detail, /magnetResources\.slice\(0, visibleResourceLimit\)/);
-  assert.match(detail, /setVisibleResourceLimit\(\(current\) => current \+ 20\)/);
-  assert.match(copy, /showMoreResources: \(value\) => `再显示 \$\{value\} 个资源`/);
-  assert.match(detail, /searchButton: \{[\s\S]*?borderRadius: 999/);
-  assert.match(detail, /searchButton: \{[\s\S]*?minWidth: 220/);
+  assert.match(detail, /AUTO_LOAD_THRESHOLD = 360/);
+  assert.match(detail, /viewportBottom >= contentSize\.height - AUTO_LOAD_THRESHOLD/);
+  assert.match(detail, /current \+ RESOURCE_BATCH_SIZE/);
+  assert.doesNotMatch(detail, /showMoreResources|moreResourcesButton|再显示/);
+  assert.match(detail, /sortMediaResources/);
+  assert.match(detail, /uniqueMagnetResources/);
+  assert.match(detail, /magnetBatchText\(magnetResources\)/);
+  assert.match(detail, /Clipboard\.setStringAsync\(batchText\)/);
+  assert.match(detail, /stage: 'copy_all_magnets'/);
+  assert.match(copy, /copyAllMagnets: '复制全部磁力'/);
+  assert.match(copy, /copiedAllMagnets: \(value\) => `已复制 \$\{value\} 条`/);
+  assert.match(detail, /footerActions: \{[\s\S]*?flexDirection: 'row'/);
+  assert.match(detail, /footerButton: \{[\s\S]*?borderRadius: 999/);
+  assert.match(detail, /movie\.content_kind === 'series' && magnetResources\.length > 1/);
   assert.ok(detail.indexOf('copy.detailSynopsis') < detail.indexOf('copy.detailResources'));
   assert.ok(detail.indexOf('copy.detailInfo') < detail.indexOf('copy.detailResources'));
   assert.ok(detail.indexOf('copy.detailCast') < detail.indexOf('copy.detailResources'));

@@ -1,28 +1,30 @@
-Current phase: App v0.2.1 PRIMARY CHANNEL + GENRE FILTER PASS / NOT RELEASED 2026-07-26
+Current phase: App v0.2.1 SERIES RESOURCE ORDER + BATCH COPY PASS / NOT RELEASED 2026-07-26
 
 ## Completed
-- Removed redundant “电视剧” from the primary channel row.
-- Primary order is fixed: 电影 / 美剧 / 英剧 / 国产剧 / 韩剧 / 日剧.
-- Primary channels are now 102×66dp section cards with code labels, gradient active state, shadow and 20px extra-bold title.
-- Only one FlatList remains mounted; movie/series Feeds are lazy-loaded and cached.
-- Tightened spotlight-to-latest spacing: 26→10 bottom gap and 20→0 latest-title top gap.
-- Added dynamic full-capsule genre filters below “最近更新”.
-- Genre options are frequency-sorted from the active channel’s real Feed; “全部” is always first.
-- Selecting a genre filters the in-memory recent list without another Feed/network load.
-- Added display fallback cleanup for genre/country leading colons, HTML tails and spacing variants.
-- Renamed the crawler handoff to `影视离线Feed数据质量问题-交接爬虫AI.md`.
-- Added crawler P0-4: 25 malformed movie genres and 14 malformed movie countries must be fixed at parser/export root with zero-anomaly gates.
+- Series magnets derive season/episode identity from titles and magnet `dn`.
+- Explicit title season overrides conflicting `season_number`; contradictory update status is hidden.
+- Series resources sort by season, episode start/end and quality; season packs follow episodes and unknowns stay last.
+- Detail initially renders 12, auto-loads 20 near the end and has no “再显示 N 个资源” button.
+- Added series footer capsules: “复制全部磁力 / 搜索更多资源”.
+- Batch copy deduplicates magnets and writes one URI per CRLF-delimited line for downloader bulk paste.
+- “追更速递” update badges now use prominent orange-red gradient, 13px extra-bold text and stronger shadow.
+- Added `npm run audit:series-resources` and expanded the unified crawler issue MD with P0-5.
+
+## Full audit
+- 100 series / 2,105 magnets / 2,105 unique magnets.
+- 1,992 episode resources / 59 season packs / 54 unknown identities.
+- 1,019 generic titles; 1,003 recoverable from magnet `dn`; 16 remain unrecovered.
+- 38 series out of order; 19 title/season-field conflicts.
+- 22 series cross-season; 880 resources conflict with title season.
+- 17 series have no episode-level resources; 268 same episode+quality variant groups lack metadata.
 
 ## Verification
-- TypeScript -> PASS.
-- App adversarial tests -> 36/36 PASS.
-- Resource Feed tests -> PASS.
-- Fluency suite -> 17/17 PASS.
-- `npm run android:k30s` -> BUILD SUCCESSFUL / install Success.
-- K30S showed large channel cards and clean genre capsules: 全部 / 剧情 / 惊悚 / 喜剧 / 纪录片 / 悬疑.
-- Selecting 喜剧 marked it selected and visible rows carried 喜剧 metadata.
-- K30S UI-tree scan: BAD_UI_VALUES=0 for leading colons, HTML tails and spaced “片”.
+- TypeScript PASS; App adversarial 36/36; Feed tests PASS; fluency 17/17.
+- K30S standalone build/install PASS.
+- X战警97 showed S01E01→S01E02…→S02E06 with automatic loading and no show-more button.
+- Batch footer showed two capsules; tap changed to “已复制 63 条”.
+- US-series spotlight showed prominent “更新至1集 / 更新至5集”.
 
 ## Remaining before release
-- Data AI must implement all P0 items in the unified影视 Feed issue MD; App cleanup remains fallback only.
-- Run final signed v0.2.1 release acceptance; do not tag, publish or deploy yet.
+- Data AI must close all P0 items in `影视离线Feed数据质量问题-交接爬虫AI.md`; App fallbacks are not source fixes.
+- Final signed v0.2.1 acceptance only; do not tag, publish or deploy yet.

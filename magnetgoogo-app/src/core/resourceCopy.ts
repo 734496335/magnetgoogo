@@ -28,7 +28,8 @@ export interface ResourceCopy {
   rating: (value: number) => string;
   resourceCount: (value: number) => string;
   viewResources: (value: number) => string;
-  showMoreResources: (value: number) => string;
+  copyAllMagnets: string;
+  copiedAllMagnets: (value: number) => string;
   recommendation: string;
   detailSynopsis: string;
   detailInfo: string;
@@ -82,7 +83,8 @@ const EN: ResourceCopy = {
   rating: (value) => `${value.toFixed(1)}`,
   resourceCount: (value) => `${value} links`,
   viewResources: (value) => `View resources (${value})`,
-  showMoreResources: (value) => `Show ${value} more`,
+  copyAllMagnets: 'Copy all magnets',
+  copiedAllMagnets: (value) => `Copied ${value}`,
   recommendation: 'Pick',
   detailSynopsis: 'Story',
   detailInfo: 'Details',
@@ -136,7 +138,8 @@ const ZH: ResourceCopy = {
   rating: (value) => `${value.toFixed(1)}`,
   resourceCount: (value) => `${value} 个资源`,
   viewResources: (value) => `查看资源（${value}）`,
-  showMoreResources: (value) => `再显示 ${value} 个资源`,
+  copyAllMagnets: '复制全部磁力',
+  copiedAllMagnets: (value) => `已复制 ${value} 条`,
   recommendation: '推荐',
   detailSynopsis: '剧情简介',
   detailInfo: '影片信息',

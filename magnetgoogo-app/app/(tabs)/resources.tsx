@@ -18,6 +18,7 @@ import { useLang } from '../../src/core/LangContext';
 import { useTheme, type Colors } from '../../src/core/ThemeContext';
 import { MovieTagRow } from '../../src/components/MovieTagRow';
 import { getMovieScoreTier } from '../../src/core/movieRatings';
+import { seriesStatusForDisplay } from '../../src/core/mediaResourceTitle';
 import { getResourceCopy } from '../../src/core/resourceCopy';
 import { loadResourceFeed, movieCoverUri } from '../../src/core/resourceFeed';
 import {
@@ -52,6 +53,21 @@ function channelKind(channel: MediaChannel): MediaKind {
 function isCompletedSeries(item: MovieFeedItem): boolean {
   const status = `${item.update_status ?? ''} ${item.episode_label ?? ''}`.trim();
   return /全集|完结|(?:^|\s)全$|季全$/.test(status);
+}
+
+function prominentUpdateLabel(item: MovieFeedItem): string | null {
+  const raw = seriesStatusForDisplay(
+    item.title,
+    item.season_number,
+    item.update_status || item.episode_label,
+  );
+  if (!raw) return null;
+  const updating = raw.match(/更新\s*(?:至)?\s*(\d+)\s*集?/);
+  if (updating) return `更新至${updating[1]}集`;
+  const episode = raw.match(/第\s*(\d+)\s*集/);
+  if (episode) return `更新至${episode[1]}集`;
+  if (/全集|完结|季全/.test(raw)) return '已完结';
+  return raw;
 }
 
 function normalizeGenreLabel(value: string): string {
@@ -119,9 +135,9 @@ const MediaPoster = memo(function MediaPoster({ item, style, colors, overlayLabe
         />
       )}
       {!!overlayLabel && (
-        <View style={styles.updateOverlay}>
+        <LinearGradient colors={['#ff7a3d', '#ef3f24']} style={styles.updateOverlay}>
           <Text style={styles.updateOverlayText} numberOfLines={1}>{overlayLabel}</Text>
-        </View>
+        </LinearGradient>
       )}
     </View>
   );
@@ -149,7 +165,7 @@ const SpotlightCard = memo(function SpotlightCard({ item, colors, badgeText, onO
         <MediaPoster
           item={item}
           colors={colors}
-          overlayLabel={item.content_kind === 'series' ? item.update_status || item.episode_label : null}
+          overlayLabel={item.content_kind === 'series' ? prominentUpdateLabel(item) : null}
           style={{ width: SPOTLIGHT_WIDTH, height: SPOTLIGHT_COVER_HEIGHT }}
         />
         {item.content_kind === 'movie' && (
@@ -636,15 +652,22 @@ const styles = StyleSheet.create({
   posterFallbackText: { marginTop: 8, fontSize: 10, lineHeight: 14, fontWeight: '700', textAlign: 'center' },
   updateOverlay: {
     position: 'absolute',
-    right: 6,
-    bottom: 6,
-    maxWidth: '84%',
-    borderRadius: 7,
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    backgroundColor: 'rgba(0,0,0,0.72)',
+    top: 8,
+    right: 8,
+    minHeight: 32,
+    maxWidth: '90%',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#7f1d1d',
+    shadowOpacity: 0.34,
+    shadowOffset: { width: 0, height: 5 },
+    shadowRadius: 10,
+    elevation: 7,
   },
-  updateOverlayText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  updateOverlayText: { color: '#fff', fontSize: 13, lineHeight: 18, fontWeight: '900' },
   recommendBadge: {
     position: 'absolute',
     top: 8,

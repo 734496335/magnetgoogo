@@ -23,7 +23,14 @@ import { MovieTagRow } from '../../src/components/MovieTagRow';
 import { useLang } from '../../src/core/LangContext';
 import { useTheme, type Colors } from '../../src/core/ThemeContext';
 import { getMovieScoreTier } from '../../src/core/movieRatings';
-import { resourceDisplayTitle } from '../../src/core/mediaResourceTitle';
+import {
+  inferSeriesSeason,
+  magnetBatchText,
+  resourceDisplayTitle,
+  seriesStatusForDisplay,
+  sortMediaResources,
+  uniqueMagnetResources,
+} from '../../src/core/mediaResourceTitle';
 import { getResourceCopy } from '../../src/core/resourceCopy';
 import { addHistory } from '../../src/core/searchHistory';
 import { trackCopy, trackOpen } from '../../src/core/analytics';
@@ -34,8 +41,13 @@ import {
 } from '../../src/core/resourceFeed';
 import type { MediaKind, MovieFeedItem, MovieResource } from '../../src/core/resourceFeedProtocol';
 
+const INITIAL_RESOURCE_LIMIT = 12;
+const RESOURCE_BATCH_SIZE = 20;
+const AUTO_LOAD_THRESHOLD = 360;
+
 interface MagnetResourceCardProps {
   resource: MovieResource;
+  seasonNumber?: number;
   colors: Colors;
   copied: boolean;
   copyLabel: string;
@@ -47,6 +59,7 @@ interface MagnetResourceCardProps {
 
 const MagnetResourceCard = memo(function MagnetResourceCard({
   resource,
+  seasonNumber,
   colors,
   copied,
   copyLabel,
@@ -71,7 +84,7 @@ const MagnetResourceCard = memo(function MagnetResourceCard({
       ]}
     >
       <Text style={[styles.resourceTitle, { color: colors.text }]} numberOfLines={3}>
-        {resourceDisplayTitle(resource)}
+        {resourceDisplayTitle(resource, seasonNumber)}
       </Text>
 
       {visibleTags.length > 0 && (
@@ -144,9 +157,10 @@ export default function MovieDetailScreen() {
   const [failed, setFailed] = useState(false);
   const [posterFailed, setPosterFailed] = useState(false);
   const [copiedResourceUrl, setCopiedResourceUrl] = useState<string | null>(null);
+  const [copiedAllMagnets, setCopiedAllMagnets] = useState(false);
   const [resourceSectionLayout, setResourceSectionLayout] = useState<{ y: number; height: number } | null>(null);
   const [resourceSectionVisible, setResourceSectionVisible] = useState(false);
-  const [visibleResourceLimit, setVisibleResourceLimit] = useState(12);
+  const [visibleResourceLimit, setVisibleResourceLimit] = useState(INITIAL_RESOURCE_LIMIT);
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -187,7 +201,8 @@ export default function MovieDetailScreen() {
   }, [movieId, requestedKind]);
 
   useEffect(() => {
-    setVisibleResourceLimit(12);
+    setVisibleResourceLimit(INITIAL_RESOURCE_LIMIT);
+    setCopiedAllMagnets(false);
     setPosterFailed(false);
     setResourceSectionLayout(null);
     setResourceSectionVisible(false);
@@ -199,29 +214,50 @@ export default function MovieDetailScreen() {
     return () => clearTimeout(timer);
   }, [copiedResourceUrl]);
 
+  useEffect(() => {
+    if (!copiedAllMagnets) return undefined;
+    const timer = setTimeout(() => setCopiedAllMagnets(false), 2400);
+    return () => clearTimeout(timer);
+  }, [copiedAllMagnets]);
+
   const metadata = useMemo(() => {
     if (!movie) return '';
     return [
       movie.year,
       movie.genres.slice(0, 2).join(' · '),
       movie.content_kind === 'series'
-        ? movie.update_status || movie.episode_label
+        ? seriesStatusForDisplay(
+            movie.title,
+            movie.season_number,
+            movie.update_status || movie.episode_label,
+          )
         : movie.duration_minutes
           ? copy.minutes(movie.duration_minutes)
           : null,
     ].filter(Boolean).join(' · ');
   }, [copy, movie]);
 
-  const magnetResources = useMemo(
-    () => movie?.resources.filter((resource) => resource.resource_type === 'magnet') ?? [],
+  const resourceSeasonNumber = useMemo(
+    () => movie?.content_kind === 'series'
+      ? inferSeriesSeason(movie.title, movie.season_number)
+      : undefined,
     [movie],
   );
+
+  const magnetResources = useMemo(() => {
+    const resources = movie?.resources.filter((resource) => resource.resource_type === 'magnet') ?? [];
+    if (movie?.content_kind !== 'series') return resources;
+    return sortMediaResources(
+      uniqueMagnetResources(resources),
+      resourceSeasonNumber ?? 1,
+    );
+  }, [movie, resourceSeasonNumber]);
 
   const visibleMagnetResources = useMemo(
     () => magnetResources.slice(0, visibleResourceLimit),
     [magnetResources, visibleResourceLimit],
   );
-  const remainingResourceCount = Math.max(0, magnetResources.length - visibleMagnetResources.length);
+  const hasMoreResources = visibleMagnetResources.length < magnetResources.length;
 
   const synopsis = movie?.synopsis?.trim() ?? '';
 
@@ -244,17 +280,26 @@ export default function MovieDetailScreen() {
   }, [copy, movie]);
 
   const handleDetailScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+    const viewportTop = contentOffset.y;
+    const viewportBottom = viewportTop + layoutMeasurement.height;
+
+    if (hasMoreResources && viewportBottom >= contentSize.height - AUTO_LOAD_THRESHOLD) {
+      setVisibleResourceLimit((current) => Math.min(
+        magnetResources.length,
+        current + RESOURCE_BATCH_SIZE,
+      ));
+    }
+
     if (!resourceSectionLayout) {
       setResourceSectionVisible(false);
       return;
     }
-    const viewportTop = event.nativeEvent.contentOffset.y;
-    const viewportBottom = viewportTop + event.nativeEvent.layoutMeasurement.height;
     const sectionTop = resourceSectionLayout.y;
     const sectionBottom = sectionTop + resourceSectionLayout.height;
     const overlaps = viewportBottom > sectionTop + 24 && viewportTop < sectionBottom - 24;
     setResourceSectionVisible((current) => current === overlaps ? current : overlaps);
-  }, [resourceSectionLayout]);
+  }, [hasMoreResources, magnetResources.length, resourceSectionLayout]);
 
   const scrollToResources = useCallback(() => {
     if (!resourceSectionLayout) return;
@@ -265,9 +310,6 @@ export default function MovieDetailScreen() {
   }, [insets.top, resourceSectionLayout]);
 
   const showResourceShortcut = magnetResources.length > 0 && !resourceSectionVisible;
-  const showMoreResources = useCallback(() => {
-    setVisibleResourceLimit((current) => current + 20);
-  }, []);
 
   const copyResource = useCallback(async (resource: MovieResource) => {
     try {
@@ -286,6 +328,26 @@ export default function MovieDetailScreen() {
       Alert.alert(t.copyFailed);
     }
   }, [movie?.movie_id, t.copyFailed]);
+
+  const copyAllResources = useCallback(async () => {
+    const batchText = magnetBatchText(magnetResources);
+    if (!batchText) return;
+    try {
+      await Clipboard.setStringAsync(batchText);
+      trackCopy();
+      Vibration.vibrate(Platform.OS === 'android' ? 35 : 10);
+      setCopiedAllMagnets(true);
+    } catch (error) {
+      console.warn('[MovieDetail]', {
+        stage: 'copy_all_magnets',
+        error_code: 'MOVIE_MAGNET_BATCH_COPY_FAILED',
+        movie_id: movie?.movie_id,
+        resource_count: magnetResources.length,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      Alert.alert(t.copyFailed);
+    }
+  }, [magnetResources, movie?.movie_id, t.copyFailed]);
 
   const openResource = useCallback((resource: MovieResource) => {
     trackOpen();
@@ -438,6 +500,7 @@ export default function MovieDetailScreen() {
               <MagnetResourceCard
                 key={resource.url}
                 resource={resource}
+                seasonNumber={resourceSeasonNumber}
                 colors={colors}
                 copied={copiedResourceUrl === resource.url}
                 copyLabel={t.copyMagnet}
@@ -447,30 +510,51 @@ export default function MovieDetailScreen() {
                 onOpen={openResource}
               />
             ))}
-            {remainingResourceCount > 0 && (
-              <TouchableOpacity
-                style={[styles.moreResourcesButton, { backgroundColor: colors.chipBg }]}
-                activeOpacity={0.8}
-                onPress={showMoreResources}
-                accessibilityRole="button"
-                accessibilityLabel={copy.showMoreResources(remainingResourceCount)}
-              >
-                <Text style={[styles.moreResourcesText, { color: colors.accent }]}>
-                  {copy.showMoreResources(remainingResourceCount)}
-                </Text>
-              </TouchableOpacity>
-            )}
           </View>
         )}
 
-        <TouchableOpacity
-          style={[styles.searchButton, { backgroundColor: colors.accent }]}
-          activeOpacity={0.8}
-          onPress={() => void searchMore()}
-        >
-          <Ionicons name="search" size={18} color="#fff" />
-          <Text style={styles.searchButtonText}>{copy.searchMore}</Text>
-        </TouchableOpacity>
+        <View style={styles.footerActions}>
+          {movie.content_kind === 'series' && magnetResources.length > 1 && (
+            <TouchableOpacity
+              style={[
+                styles.footerButton,
+                styles.batchCopyButton,
+                { backgroundColor: colors.card, borderColor: colors.accent },
+              ]}
+              activeOpacity={0.8}
+              onPress={() => void copyAllResources()}
+              accessibilityRole="button"
+              accessibilityLabel={copy.copyAllMagnets}
+            >
+              <Ionicons
+                name={copiedAllMagnets ? 'checkmark' : 'copy-outline'}
+                size={17}
+                color={colors.accent}
+              />
+              <Text style={[styles.batchCopyText, { color: colors.accent }]} numberOfLines={1}>
+                {copiedAllMagnets
+                  ? copy.copiedAllMagnets(magnetResources.length)
+                  : copy.copyAllMagnets}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={[
+              styles.footerButton,
+              styles.searchButton,
+              { backgroundColor: colors.accent },
+              movie.content_kind !== 'series' && styles.singleFooterButton,
+            ]}
+            activeOpacity={0.8}
+            onPress={() => void searchMore()}
+            accessibilityRole="button"
+            accessibilityLabel={copy.searchMore}
+          >
+            <Ionicons name="search" size={18} color="#fff" />
+            <Text style={styles.searchButtonText}>{copy.searchMore}</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       <TouchableOpacity
@@ -587,29 +671,27 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   actionButtonText: { color: '#fff', fontSize: 12, fontWeight: '800' },
-  moreResourcesButton: {
-    alignSelf: 'center',
-    minWidth: 190,
-    height: 42,
-    borderRadius: 999,
-    marginTop: 16,
-    paddingHorizontal: 22,
+  footerActions: {
+    marginTop: 30,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 10,
   },
-  moreResourcesText: { fontSize: 12, fontWeight: '800' },
-  searchButton: {
-    alignSelf: 'center',
-    minWidth: 220,
+  footerButton: {
+    flex: 1,
     height: 48,
     borderRadius: 999,
-    marginTop: 30,
-    paddingHorizontal: 28,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  searchButtonText: { marginLeft: 8, color: '#fff', fontSize: 15, fontWeight: '800' },
+  batchCopyButton: { borderWidth: 1.2 },
+  batchCopyText: { marginLeft: 7, fontSize: 13, fontWeight: '800' },
+  searchButton: {},
+  singleFooterButton: { maxWidth: 240 },
+  searchButtonText: { marginLeft: 8, color: '#fff', fontSize: 14, fontWeight: '800' },
   resourceShortcut: {
     position: 'absolute',
     left: 64,

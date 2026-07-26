@@ -1,5 +1,40 @@
 ---
 Date/Time: 2026-07-26 (UTC+8)
+Version: app-v0.2.1-series-resource-order-batch-copy
+Scope: Natural-sort series resources, auto-load on scroll, add Xunlei-friendly batch copy and audit all bundled series magnets
+Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/core/mediaResourceTitle.ts,src/core/resourceCopy.ts,scripts/resource-feed-tests.mjs,scripts/app-adversarial-tests.mjs,scripts/series-resource-audit.mjs,package.json}, docs/project-nebula/{影视离线Feed数据质量问题-交接爬虫AI.md,APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
+
+### Product changes
+- Series resources now derive season/episode identity from source title and magnet `dn`, then sort by season, episode range and quality: `S01E01 → S01E02 → S02E01`.
+- An explicit season in the media title overrides a conflicting `season_number` field; contradictory update status is suppressed rather than shown as fact.
+- Season packs appear after the season’s episode resources; unknown-identity resources remain visible at the end.
+- Removed the `再显示 N 个资源` action. Details render 12 initially and automatically append 20 when the viewport approaches the content end.
+- Added a two-capsule footer for series: `复制全部磁力` and `搜索更多资源`. Batch copy deduplicates by info-hash/URL and writes plain magnet URIs separated by CRLF, one link per line.
+- Enlarged the series spotlight update badge to a 13px extra-bold orange-red gradient label such as `更新至10集`, with stronger size, position, shadow and contrast.
+- Added `npm run audit:series-resources` and expanded the unified crawler issue MD with structured season/episode/version requirements.
+
+### Full Feed audit
+- Audited 100 series and 2,105 magnets; all 2,105 info-hashes/URLs were unique.
+- 1,992 resources expose episode identity; 59 are season packs; 54 remain unknown.
+- 1,019 raw titles were generic quality-only values; 1,003 can be recovered from magnet `dn`, leaving 16 unrecovered.
+- 38 series have non-natural source order; 19 have title/`season_number` conflicts.
+- 22 series contain cross-season resources; 880 resources conflict with the season explicitly named by the title.
+- 17 series expose no episode-level resource and 268 episode+quality display groups still lack variant metadata.
+
+### Verification
+- TypeScript PASS; App adversarial 36/36; resource Feed tests PASS; fluency 17/17.
+- `npm run android:k30s` completed with `BUILD SUCCESSFUL` and installation `Success`.
+- K30S X战警97 detail started with S01E01 variants, advanced automatically through S01E02 and later S02E06, and showed no `再显示` button.
+- K30S bottom actions measured `[55,1927][530,2059]` and `[557,1927][1025,2059]`; tapping batch copy changed the label to `已复制 63 条`.
+- K30S US-series spotlight displayed prominent `更新至1集` / `更新至5集` badges with about 50px UI-tree height.
+- No AndroidRuntime fatal or React Native unhandled error was observed.
+
+### Release state
+- v0.2.1 remains development-only. No tag, formal APK release or remote deployment.
+---
+
+---
+Date/Time: 2026-07-26 (UTC+8)
 Version: app-v0.2.1-primary-channel-genre-filter
 Scope: Strengthen the highest-level media navigation, tighten Feed spacing and add real genre filtering with data-quality fallback
 Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,src/core/resourceCopy.ts,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{影视离线Feed数据质量问题-交接爬虫AI.md,APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}

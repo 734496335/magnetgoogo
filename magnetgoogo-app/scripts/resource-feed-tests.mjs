@@ -13,7 +13,14 @@ import {
   getMovieScoreTier,
   getVisibleMovieRatings,
 } from '../src/core/movieRatings.ts';
-import { resourceDisplayTitle } from '../src/core/mediaResourceTitle.ts';
+import {
+  inferSeriesSeason,
+  magnetBatchText,
+  resourceDisplayTitle,
+  resourceEpisodeIdentity,
+  seriesStatusForDisplay,
+  sortMediaResources,
+} from '../src/core/mediaResourceTitle.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const bundleDir = path.resolve(here, '..', '..', 'data', 'resource_index', 'sixv_app_bundle');
@@ -199,20 +206,63 @@ const episodeResource = {
   display_title: '1080P',
   url: 'magnet:?xt=urn:btih:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&dn=X-Men%2097%20S01E04%20Motendo%201080p',
 };
-assert.equal(resourceDisplayTitle(episodeResource), 'S01E04 · 1080P');
+assert.equal(resourceDisplayTitle(episodeResource, 1), 'S01E04 · 1080p · HD');
 assert.equal(
   resourceDisplayTitle({
     ...sampleResource(),
     display_title: 'HD',
+    quality_tags: ['HD'],
     url: 'magnet:?xt=urn:btih:cccccccccccccccccccccccccccccccccccccccc&dn=%E7%AC%AC1-2%E9%9B%86%20720p',
-  }),
-  '第1-2集 · HD',
+  }, 1),
+  'S01E01-E02 · HD',
 );
 assert.equal(
   resourceDisplayTitle({ ...sampleResource(), display_title: '完整文件名.mkv' }),
   '完整文件名.mkv',
 );
-console.log('PASS  M7  generic quality-only resource titles recover episode identity from magnet dn');
+assert.equal(inferSeriesSeason('X战警97 第一季', 2), 1);
+assert.equal(inferSeriesSeason('犯罪心理：演变 第十八季', 19), 18);
+assert.equal(inferSeriesSeason('Show Season 4', null), 4);
+assert.equal(seriesStatusForDisplay('X战警97 第一季', 2, '第二季 第6集'), null);
+assert.equal(seriesStatusForDisplay('X战警97 第一季', 2, '更新10'), '更新10');
+assert.equal(seriesStatusForDisplay('Show', 3, 'S02E06'), null);
+
+const unorderedResources = [
+  {
+    ...sampleResource(),
+    info_hash: '2'.repeat(40),
+    display_title: '1080P',
+    url: `magnet:?xt=urn:btih:${'2'.repeat(40)}&dn=Show.S02E01.1080p`,
+  },
+  {
+    ...sampleResource(),
+    info_hash: '1'.repeat(40),
+    display_title: '1080P',
+    url: `magnet:?xt=urn:btih:${'1'.repeat(40)}&dn=Show.S01E02.1080p`,
+  },
+  {
+    ...sampleResource(),
+    info_hash: '0'.repeat(40),
+    display_title: '1080P',
+    url: `magnet:?xt=urn:btih:${'0'.repeat(40)}&dn=Show.S01E01.1080p`,
+  },
+  {
+    ...sampleResource(),
+    info_hash: '3'.repeat(40),
+    display_title: '第一季.全集打包.1080p',
+    url: `magnet:?xt=urn:btih:${'3'.repeat(40)}&dn=Show.S01.COMPLETE.1080p`,
+  },
+];
+const sortedResources = sortMediaResources(unorderedResources, 1);
+assert.deepEqual(
+  sortedResources.map((resource) => resourceEpisodeIdentity(resource, 1)?.label),
+  ['S01E01', 'S01E02', 'S01 全季', 'S02E01'],
+);
+assert.equal(
+  magnetBatchText([...sortedResources, sortedResources[0]]),
+  sortedResources.map((resource) => resource.url).join('\r\n'),
+);
+console.log('PASS  M7  series titles recover episode identity, sort naturally and batch-copy one magnet per line');
 
 if (fs.existsSync(localFeedPath)) {
   const local = parseResourceFeed(JSON.parse(fs.readFileSync(localFeedPath, 'utf8')));
