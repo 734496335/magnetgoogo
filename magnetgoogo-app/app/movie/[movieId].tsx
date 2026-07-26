@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -7,6 +7,8 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Text,
   TouchableOpacity,
   Vibration,
@@ -17,7 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MovieRatingStrip } from '../../src/components/MovieRatingStrip';
+import { MovieTagRow } from '../../src/components/MovieTagRow';
 import { useLang } from '../../src/core/LangContext';
 import { useTheme, type Colors } from '../../src/core/ThemeContext';
 import { getResourceCopy } from '../../src/core/resourceCopy';
@@ -129,6 +131,9 @@ export default function MovieDetailScreen() {
   const [failed, setFailed] = useState(false);
   const [posterFailed, setPosterFailed] = useState(false);
   const [copiedResourceUrl, setCopiedResourceUrl] = useState<string | null>(null);
+  const [resourceSectionLayout, setResourceSectionLayout] = useState<{ y: number; height: number } | null>(null);
+  const [resourceSectionVisible, setResourceSectionVisible] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     let active = true;
@@ -182,6 +187,49 @@ export default function MovieDetailScreen() {
     () => movie?.resources.filter((resource) => resource.resource_type === 'magnet') ?? [],
     [movie],
   );
+
+  const synopsis = movie?.synopsis?.trim() ?? '';
+
+  const detailInfoRows = useMemo(() => {
+    if (!movie) return [];
+    return [
+      { label: copy.detailRelease, value: (movie.release_date || movie.update_date || '').trim() },
+      { label: copy.detailCountry, value: movie.countries.map((value) => value.trim()).filter(Boolean).join('、') },
+      { label: copy.detailLanguage, value: movie.languages.map((value) => value.trim()).filter(Boolean).join('、') },
+      { label: 'IMDb', value: (movie.imdb_id || '').trim() },
+    ].filter((row) => row.value.length > 0);
+  }, [copy, movie]);
+
+  const castRows = useMemo(() => {
+    if (!movie) return [];
+    return [
+      { label: copy.detailDirector, value: movie.directors.map((value) => value.trim()).filter(Boolean).join('、') },
+      { label: copy.detailActors, value: movie.actors.slice(0, 12).map((value) => value.trim()).filter(Boolean).join('、') },
+    ].filter((row) => row.value.length > 0);
+  }, [copy, movie]);
+
+  const handleDetailScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!resourceSectionLayout) {
+      setResourceSectionVisible(false);
+      return;
+    }
+    const viewportTop = event.nativeEvent.contentOffset.y;
+    const viewportBottom = viewportTop + event.nativeEvent.layoutMeasurement.height;
+    const sectionTop = resourceSectionLayout.y;
+    const sectionBottom = sectionTop + resourceSectionLayout.height;
+    const overlaps = viewportBottom > sectionTop + 24 && viewportTop < sectionBottom - 24;
+    setResourceSectionVisible((current) => current === overlaps ? current : overlaps);
+  }, [resourceSectionLayout]);
+
+  const scrollToResources = useCallback(() => {
+    if (!resourceSectionLayout) return;
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, resourceSectionLayout.y - insets.top - 12),
+      animated: true,
+    });
+  }, [insets.top, resourceSectionLayout]);
+
+  const showResourceShortcut = magnetResources.length > 0 && !resourceSectionVisible;
 
   const copyResource = useCallback(async (resource: MovieResource) => {
     try {
@@ -252,7 +300,16 @@ export default function MovieDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: magnetResources.length > 0 ? insets.bottom + 108 : insets.bottom + 44 },
+        ]}
+        onScroll={handleDetailScroll}
+        scrollEventThrottle={32}
+      >
         <View style={{ height: insets.top + 54 }} />
         <View style={[styles.poster, { backgroundColor: colors.chipBg, shadowColor: colors.shadow }]}>
           {posterFailed ? (
@@ -275,67 +332,70 @@ export default function MovieDetailScreen() {
         )}
         <Text style={[styles.metadata, { color: colors.textSecondary }]}>{metadata}</Text>
 
-        <MovieRatingStrip
+        <MovieTagRow
           item={movie}
           colors={colors}
+          qualityTags={movie.quality_tags.slice(0, 5)}
           centered
-          style={styles.detailRatings}
+          style={styles.detailTags}
         />
 
-        <View style={styles.highlightRow}>
-          {movie.quality_tags.slice(0, 5).map((tag) => (
-            <View key={tag} style={[styles.tag, { backgroundColor: colors.tagBg }]}>
-              <Text style={[styles.tagText, { color: colors.tagText }]}>{tag}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>{copy.detailSynopsis}</Text>
-          <Text style={[styles.synopsis, { color: colors.textSecondary }]}>
-            {movie.synopsis || copy.noSynopsis}
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>{copy.detailInfo}</Text>
-          <InfoRow label={copy.detailRelease} value={movie.release_date || movie.update_date || ''} colors={colors} />
-          <InfoRow label={copy.detailCountry} value={movie.countries.join('、')} colors={colors} />
-          <InfoRow label={copy.detailLanguage} value={movie.languages.join('、')} colors={colors} />
-          <InfoRow label="IMDb" value={movie.imdb_id || ''} colors={colors} />
-        </View>
-
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>{copy.detailCast}</Text>
-          <InfoRow label={copy.detailDirector} value={movie.directors.join('、')} colors={colors} />
-          <InfoRow label={copy.detailActors} value={movie.actors.slice(0, 12).join('、')} colors={colors} />
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionTitleRow}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>{copy.detailResources}</Text>
-            <Text style={[styles.sectionCount, { color: colors.textTertiary }]}>
-              {copy.resourceCount(magnetResources.length)}
+        {synopsis.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>{copy.detailSynopsis}</Text>
+            <Text style={[styles.synopsis, { color: colors.textSecondary }]}>
+              {synopsis}
             </Text>
           </View>
-          {magnetResources.length === 0 ? (
-            <Text style={[styles.noResources, { color: colors.textTertiary }]}>
-              {copy.noMagnetResources}
-            </Text>
-          ) : magnetResources.map((resource) => (
-            <MagnetResourceCard
-              key={resource.url}
-              resource={resource}
-              colors={colors}
-              copied={copiedResourceUrl === resource.url}
-              copyLabel={t.copyMagnet}
-              copiedLabel={t.copied}
-              openLabel={t.openMagnet}
-              onCopy={copyResource}
-              onOpen={openResource}
-            />
-          ))}
-        </View>
+        )}
+
+        {detailInfoRows.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>{copy.detailInfo}</Text>
+            {detailInfoRows.map((row) => (
+              <InfoRow key={row.label} label={row.label} value={row.value} colors={colors} />
+            ))}
+          </View>
+        )}
+
+        {castRows.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>{copy.detailCast}</Text>
+            {castRows.map((row) => (
+              <InfoRow key={row.label} label={row.label} value={row.value} colors={colors} />
+            ))}
+          </View>
+        )}
+
+        {magnetResources.length > 0 && (
+          <View
+            style={styles.section}
+            onLayout={(event) => {
+              const { y, height } = event.nativeEvent.layout;
+              setResourceSectionLayout({ y, height });
+            }}
+          >
+            <View style={styles.sectionTitleRow}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>{copy.detailResources}</Text>
+              <Text style={[styles.sectionCount, { color: colors.textTertiary }]}>
+                {copy.resourceCount(magnetResources.length)}
+              </Text>
+            </View>
+            {magnetResources.map((resource) => (
+              <MagnetResourceCard
+                key={resource.url}
+                resource={resource}
+                colors={colors}
+                copied={copiedResourceUrl === resource.url}
+                copyLabel={t.copyMagnet}
+                copiedLabel={t.copied}
+                openLabel={t.openMagnet}
+                onCopy={copyResource}
+                onOpen={openResource}
+              />
+            ))}
+          </View>
+        )}
 
         <TouchableOpacity
           style={[styles.searchButton, { backgroundColor: colors.accent }]}
@@ -355,13 +415,32 @@ export default function MovieDetailScreen() {
       >
         <Ionicons name="chevron-back" size={23} color={colors.text} />
       </TouchableOpacity>
+
+      {showResourceShortcut && (
+        <TouchableOpacity
+          style={[
+            styles.resourceShortcut,
+            { bottom: Math.max(insets.bottom, 12), shadowColor: colors.shadow },
+          ]}
+          activeOpacity={0.88}
+          onPress={scrollToResources}
+          accessibilityRole="button"
+          accessibilityLabel={copy.viewResources(magnetResources.length)}
+        >
+          <LinearGradient colors={['#4e8aff', '#2c63f4']} style={styles.resourceShortcutGradient}>
+            <Text style={styles.resourceShortcutText}>
+              {copy.viewResources(magnetResources.length)}
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingBottom: 44 },
+  content: { paddingHorizontal: 20 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   notFound: { marginTop: 14, fontSize: 18, fontWeight: '800' },
   backTextButton: { marginTop: 18, padding: 10 },
@@ -395,10 +474,7 @@ const styles = StyleSheet.create({
   title: { marginTop: 22, fontSize: 25, lineHeight: 32, fontWeight: '800', textAlign: 'center', letterSpacing: -0.5 },
   originalTitle: { marginTop: 7, fontSize: 13, lineHeight: 18, textAlign: 'center' },
   metadata: { marginTop: 10, fontSize: 13, textAlign: 'center' },
-  detailRatings: { marginTop: 16 },
-  highlightRow: { marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
-  tag: { borderRadius: 7, paddingHorizontal: 8, paddingVertical: 6, marginRight: 6, marginBottom: 6 },
-  tagText: { fontSize: 10, fontWeight: '700' },
+  detailTags: { marginTop: 16 },
   section: { marginTop: 30 },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { fontSize: 18, fontWeight: '800', letterSpacing: -0.2 },
@@ -444,7 +520,6 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   actionButtonText: { color: '#fff', fontSize: 12, fontWeight: '800' },
-  noResources: { marginTop: 14, fontSize: 13, lineHeight: 20 },
   searchButton: {
     height: 50,
     borderRadius: 15,
@@ -454,4 +529,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   searchButtonText: { marginLeft: 8, color: '#fff', fontSize: 15, fontWeight: '800' },
+  resourceShortcut: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    height: 52,
+    borderRadius: 16,
+    shadowOpacity: 0.24,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 18,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  resourceShortcutGradient: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resourceShortcutText: { color: '#fff', fontSize: 15, fontWeight: '800' },
 });

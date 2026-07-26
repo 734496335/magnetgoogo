@@ -1,26 +1,27 @@
-Current phase: App v0.2.1 SEARCH CENTERING + SHARED MOVIE RATINGS PASS / NOT RELEASED 2026-07-26
+Current phase: App v0.2.1 MOVIE TAG ROW + RESOURCE SHORTCUT PASS / NOT RELEASED 2026-07-26
 
 ## Completed
-- Search home no longer uses a fixed `SCREEN_H * 0.18` top spacer.
-- Main search hero is centered inside the actual Tab-screen area.
-- Tab-bar height is compensated so the hero remains centered against the physical screen.
-- Search-history and favorites height is measured at runtime and included in the centering compensation.
-- History/favorites therefore no longer push the logo, search box and search button upward.
-- Added one shared `MovieRatingStrip` component for movie lists and movie details.
-- Ratings render only as `IMDb x.x` and `豆瓣 x.x` with a middle separator when both exist.
-- Removed visible “精品” and “高分” labels from all movie cards and detail screens.
+- Replaced the separate rating strip with one shared movie tag row.
+- Tag order is always Douban, IMDb, then quality tags such as 4K and HD.
+- Recommended cards, recent-list rows and movie details use the same tag component.
 - Missing, zero, non-finite and out-of-range ratings remain hidden.
-- Internal 6.0 / 8.0 tiers remain only for restrained color and font-weight emphasis.
+- Internal 6.0 / 8.0 tiers only control restrained color and font weight.
+- Detail content order remains synopsis, movie information, cast, then resources.
+- Empty synopsis, movie-information, cast and resource sections are entirely omitted.
+- Added a fixed “查看资源（N）” shortcut at the bottom of movie details.
+- The shortcut scrolls smoothly to the resource section.
+- The shortcut automatically hides while the resource section is visible and returns outside it.
+- Removed obsolete empty-state copy and the old MovieRatingStrip component.
 
 ## Verification
 - TypeScript -> PASS.
 - App adversarial tests -> 36/36 PASS.
 - Movie feed tests -> PASS; fluency suite -> 17/17 PASS.
 - `npm run android:k30s` -> BUILD SUCCESSFUL / install Success.
-- K30S home hero saturated visual bounds were y=895..1566; center≈1231px vs screen center=1200px.
-- K30S list showed `豆瓣 7.1`, `豆瓣 6.6`, `豆瓣 5.8`, `豆瓣 6.4` and no tier words.
-- K30S 寒战1994 detail showed `豆瓣 7.1` through the same shared component.
-- Current feed has no IMDb numeric ratings; when `imdb_rating` is supplied, both list and detail render it automatically.
+- K30S list showed `豆瓣 7.1` before `4K` and `HD`.
+- K30S detail showed `豆瓣 7.1`, then `4K / HD`, plus fixed `查看资源（3）`.
+- Tapping the shortcut scrolled to `资源 / 3 个资源` and three magnet cards.
+- The shortcut was absent once the resource section entered the viewport.
 - No AndroidRuntime fatal or React Native unhandled error observed.
 
 ## Remaining before release

@@ -139,8 +139,8 @@ assert.deepEqual(
 assert.deepEqual(
   getVisibleMovieRatings({ imdb_rating: 6.9, douban_rating: 6.0 }).map(({ source, value, tier }) => ({ source, value, tier })),
   [
-    { source: 'IMDb', value: 6.9, tier: 'featured' },
     { source: '豆瓣', value: 6.0, tier: 'featured' },
+    { source: 'IMDb', value: 6.9, tier: 'featured' },
   ],
 );
 assert.equal(getMovieScoreTier({ imdb_rating: 7.9, douban_rating: 5.9 }), 'featured');

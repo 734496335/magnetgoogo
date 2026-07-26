@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLang } from '../../src/core/LangContext';
 import { useTheme, type Colors } from '../../src/core/ThemeContext';
-import { MovieRatingStrip } from '../../src/components/MovieRatingStrip';
+import { MovieTagRow } from '../../src/components/MovieTagRow';
 import { getResourceCopy } from '../../src/core/resourceCopy';
 import { loadResourceFeed, movieCoverUri } from '../../src/core/resourceFeed';
 import {
@@ -94,7 +94,12 @@ const RecommendedCard = memo(function RecommendedCard({
       <Text style={[styles.recommendedMeta, { color: colors.textTertiary }]} numberOfLines={1}>
         {[item.year, item.genres.slice(0, 2).join(' · ')].filter(Boolean).join(' · ')}
       </Text>
-      <MovieRatingStrip item={item} colors={colors} compact />
+      <MovieTagRow
+        item={item}
+        colors={colors}
+        qualityTags={item.quality_tags.slice(0, 2)}
+        compact
+      />
     </TouchableOpacity>
   );
 });
@@ -144,14 +149,7 @@ const MovieRow = memo(function MovieRow({
             {metadata}
           </Text>
         )}
-        <MovieRatingStrip item={item} colors={colors} />
-        <View style={styles.tagRow}>
-          {visibleTags.map((tag) => (
-            <View key={tag} style={[styles.qualityTag, { backgroundColor: colors.tagBg }]}>
-              <Text style={[styles.qualityTagText, { color: colors.tagText }]}>{tag}</Text>
-            </View>
-          ))}
-        </View>
+        <MovieTagRow item={item} colors={colors} qualityTags={visibleTags} />
         <View style={styles.rowFooter}>
           <Text style={[styles.resourceText, { color: colors.textTertiary }]}>
             {resourceLabel(magnetCount)}
@@ -365,9 +363,6 @@ const styles = StyleSheet.create({
   movieInfo: { flex: 1, alignSelf: 'stretch', marginLeft: 13, paddingVertical: 2 },
   movieTitle: { fontSize: 16, lineHeight: 22, fontWeight: '700' },
   movieMeta: { marginTop: 6, fontSize: 11 },
-  tagRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 9 },
-  qualityTag: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3, marginRight: 5, marginBottom: 4 },
-  qualityTagText: { fontSize: 9, fontWeight: '700' },
   rowFooter: { marginTop: 'auto', flexDirection: 'row', alignItems: 'center' },
   resourceText: { fontSize: 10 },
   emptyIcon: {

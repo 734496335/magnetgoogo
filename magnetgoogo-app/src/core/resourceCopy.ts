@@ -14,12 +14,12 @@ export interface ResourceCopy {
   minutes: (value: number) => string;
   rating: (value: number) => string;
   resourceCount: (value: number) => string;
+  viewResources: (value: number) => string;
   recommendation: string;
   detailSynopsis: string;
   detailInfo: string;
   detailCast: string;
   detailResources: string;
-  noMagnetResources: string;
   detailDirector: string;
   detailActors: string;
   detailCountry: string;
@@ -32,7 +32,6 @@ export interface ResourceCopy {
   extractionCodeCopied: string;
   magnetCopied: string;
   movieNotFound: string;
-  noSynopsis: string;
   back: string;
   openFailed: string;
   providerMagnet: string;
@@ -55,12 +54,12 @@ const EN: ResourceCopy = {
   minutes: (value) => `${value} min`,
   rating: (value) => `${value.toFixed(1)}`,
   resourceCount: (value) => `${value} links`,
+  viewResources: (value) => `View resources (${value})`,
   recommendation: 'Pick',
   detailSynopsis: 'Story',
   detailInfo: 'Details',
   detailCast: 'Cast & crew',
   detailResources: 'Resources',
-  noMagnetResources: 'No magnet resources are available for this movie.',
   detailDirector: 'Director',
   detailActors: 'Cast',
   detailCountry: 'Country',
@@ -73,7 +72,6 @@ const EN: ResourceCopy = {
   extractionCodeCopied: 'Access code copied',
   magnetCopied: 'Magnet link copied',
   movieNotFound: 'Movie not found',
-  noSynopsis: 'No synopsis available',
   back: 'Back',
   openFailed: 'Unable to open this link',
   providerMagnet: 'Magnet',
@@ -96,12 +94,12 @@ const ZH: ResourceCopy = {
   minutes: (value) => `${value} 分钟`,
   rating: (value) => `${value.toFixed(1)}`,
   resourceCount: (value) => `${value} 个资源`,
+  viewResources: (value) => `查看资源（${value}）`,
   recommendation: '推荐',
   detailSynopsis: '剧情简介',
   detailInfo: '影片信息',
   detailCast: '主创阵容',
   detailResources: '资源',
-  noMagnetResources: '该影片暂时没有磁力资源',
   detailDirector: '导演',
   detailActors: '主演',
   detailCountry: '国家地区',
@@ -114,7 +112,6 @@ const ZH: ResourceCopy = {
   extractionCodeCopied: '提取码已复制',
   magnetCopied: '磁力链接已复制',
   movieNotFound: '影片不存在',
-  noSynopsis: '暂无简介',
   back: '返回',
   openFailed: '无法打开该链接',
   providerMagnet: '磁力',

@@ -28,8 +28,8 @@ export function getVisibleMovieRatings(
     if (value >= FEATURED_SCORE_THRESHOLD) return 'featured';
     return null;
   };
-  if (imdb !== null) ratings.push({ source: 'IMDb', value: imdb, tier: tierFor(imdb) });
   if (douban !== null) ratings.push({ source: '豆瓣', value: douban, tier: tierFor(douban) });
+  if (imdb !== null) ratings.push({ source: 'IMDb', value: imdb, tier: tierFor(imdb) });
   return ratings;
 }
 

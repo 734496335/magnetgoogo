@@ -1,5 +1,32 @@
 ---
 Date/Time: 2026-07-26 (UTC+8)
+Version: app-v0.2.1-movie-tags-resource-shortcut
+Scope: Merge ratings into the quality-tag row, hide empty detail sections and expose resources without reordering the page
+Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/components/MovieTagRow.tsx,src/core/movieRatings.ts,src/core/resourceCopy.ts,scripts/resource-feed-tests.mjs,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
+
+### Product changes
+- Replaced the standalone rating row with one shared movie tag row used by recommended cards, recent-list rows and details.
+- Ratings now render first as `豆瓣 x.x` and `IMDb x.x`, followed by 4K, HD and other quality tags in the same wrapping row.
+- Preserved the detail reading order instead of moving the resource module upward.
+- Added a fixed high-contrast `查看资源（N）` shortcut; it scrolls to the resource section and automatically hides while that section is visible.
+- Entire synopsis, movie-information, cast and resource sections are omitted when they contain no meaningful values.
+- Removed obsolete no-content copy and the superseded `MovieRatingStrip` component.
+
+### Verification
+- TypeScript PASS; App adversarial 36/36; movie feed PASS; fluency 17/17.
+- `npm run android:k30s` completed with `BUILD SUCCESSFUL` and installation `Success`.
+- K30S list UI order showed `豆瓣 7.1` before `4K` and `HD`.
+- K30S detail initial UI showed `豆瓣 7.1`, `4K`, `HD` and fixed `查看资源（3）`.
+- Tapping the shortcut scrolled to `资源 / 3 个资源`, exposed all copy/open actions and removed the shortcut from the visible UI tree.
+- The local 50-movie feed contains titles without cast data, and the new cast-section guard covers that real input shape.
+- No AndroidRuntime fatal or React Native unhandled error was observed.
+
+### Release state
+- v0.2.1 remains development-only. No tag, formal APK release or remote deployment.
+---
+
+---
+Date/Time: 2026-07-26 (UTC+8)
 Version: app-v0.2.1-search-centering-shared-ratings
 Scope: Re-center the search hero after adding Tabs and unify list/detail movie rating presentation
 Modules: magnetgoogo-app/{app/(tabs)/index.tsx,app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/components/MovieRatingStrip.tsx,src/core/resourceCopy.ts,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
