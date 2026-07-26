@@ -1,0 +1,189 @@
+package __PACKAGE__
+
+import android.animation.ValueAnimator
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.util.TypedValue
+import android.view.Gravity
+import android.view.View
+import android.view.animation.LinearInterpolator
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.TextView
+import kotlin.math.abs
+import kotlin.math.min
+
+internal class StartupOverlayView(context: Context) : FrameLayout(context) {
+  private val loader = DotMatrixCircularView(context)
+
+  init {
+    layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+    setBackgroundColor(Color.parseColor("#FFFDFB"))
+    isClickable = true
+    isFocusable = true
+    alpha = 1f
+
+    val center = LinearLayout(context).apply {
+      orientation = LinearLayout.VERTICAL
+      gravity = Gravity.CENTER_HORIZONTAL
+      layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.CENTER)
+    }
+
+    center.addView(
+      loader,
+      LinearLayout.LayoutParams(dp(88), dp(88)),
+    )
+    center.addView(
+      TextView(context).apply {
+        text = "Loading"
+        setTextColor(Color.parseColor("#262B35"))
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        gravity = Gravity.CENTER
+        letterSpacing = 0.02f
+      },
+      LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.WRAP_CONTENT,
+        LinearLayout.LayoutParams.WRAP_CONTENT,
+      ).apply {
+        topMargin = dp(16)
+      },
+    )
+    addView(center)
+  }
+
+  fun startAnimation() {
+    loader.startAnimation()
+  }
+
+  fun stopAnimation() {
+    loader.stopAnimation()
+  }
+
+  override fun onDetachedFromWindow() {
+    loader.stopAnimation()
+    super.onDetachedFromWindow()
+  }
+
+  private fun dp(value: Int): Int = TypedValue.applyDimension(
+    TypedValue.COMPLEX_UNIT_DIP,
+    value.toFloat(),
+    resources.displayMetrics,
+  ).toInt()
+}
+
+private class DotMatrixCircularView(context: Context) : View(context) {
+  private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+  private val ringLookup = IntArray(GRID_SIZE * GRID_SIZE) { -1 }
+  private var phase = 0f
+  private var animator: ValueAnimator? = null
+
+  init {
+    setLayerType(LAYER_TYPE_SOFTWARE, null)
+    RING_INDICES.forEachIndexed { ringIndex, cellIndex ->
+      ringLookup[cellIndex] = ringIndex
+    }
+  }
+
+  fun startAnimation() {
+    if (animator?.isRunning == true) return
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && !ValueAnimator.areAnimatorsEnabled()) {
+      phase = 0f
+      invalidate()
+      return
+    }
+    animator = ValueAnimator.ofFloat(0f, RING_INDICES.size.toFloat()).apply {
+      duration = 1_200L
+      repeatCount = ValueAnimator.INFINITE
+      interpolator = LinearInterpolator()
+      addUpdateListener {
+        phase = it.animatedValue as Float
+        postInvalidateOnAnimation()
+      }
+      start()
+    }
+  }
+
+  fun stopAnimation() {
+    animator?.cancel()
+    animator = null
+  }
+
+  override fun onDraw(canvas: Canvas) {
+    super.onDraw(canvas)
+    val dotDiameter = dpF(8f)
+    val radius = dotDiameter / 2f
+    val gap = dpF(7f)
+    val span = GRID_SIZE * dotDiameter + (GRID_SIZE - 1) * gap
+    val startX = (width - span) / 2f + radius
+    val startY = (height - span) / 2f + radius
+
+    for (row in 0 until GRID_SIZE) {
+      for (column in 0 until GRID_SIZE) {
+        val cellIndex = row * GRID_SIZE + column
+        val ringIndex = ringLookup[cellIndex]
+        val x = startX + column * (dotDiameter + gap)
+        val y = startY + row * (dotDiameter + gap)
+        if (ringIndex < 0) {
+          paint.clearShadowLayer()
+          paint.color = Color.parseColor("#BFEDE0")
+          paint.alpha = (255f * 0.18f).toInt()
+        } else {
+          val distance = circularDistance(phase, ringIndex.toFloat(), RING_INDICES.size.toFloat())
+          val opacity = when {
+            distance < 0.55f -> 0.98f
+            distance < 1.55f -> 0.68f
+            distance < 2.55f -> 0.40f
+            else -> 0.16f
+          }
+          paint.color = RING_COLORS[ringIndex % RING_COLORS.size]
+          paint.alpha = (255f * opacity).toInt()
+          if (opacity >= 0.68f) {
+            paint.setShadowLayer(dpF(if (opacity > 0.9f) 7f else 4f), 0f, 0f, paint.color)
+          } else {
+            paint.clearShadowLayer()
+          }
+        }
+        canvas.drawCircle(x, y, radius, paint)
+      }
+    }
+    paint.clearShadowLayer()
+  }
+
+  override fun onDetachedFromWindow() {
+    stopAnimation()
+    super.onDetachedFromWindow()
+  }
+
+  private fun circularDistance(current: Float, target: Float, count: Float): Float {
+    val direct = abs(current - target) % count
+    return min(direct, count - direct)
+  }
+
+  private fun dpF(value: Float): Float = TypedValue.applyDimension(
+    TypedValue.COMPLEX_UNIT_DIP,
+    value,
+    resources.displayMetrics,
+  )
+
+  companion object {
+    private const val GRID_SIZE = 5
+    private val RING_INDICES = intArrayOf(
+      1, 2, 3,
+      9, 14, 19,
+      23, 22, 21,
+      15, 10, 5,
+    )
+    private val RING_COLORS = intArrayOf(
+      Color.parseColor("#14B8A6"),
+      Color.parseColor("#20C997"),
+      Color.parseColor("#34D399"),
+      Color.parseColor("#5EE0B5"),
+      Color.parseColor("#6EE7B7"),
+      Color.parseColor("#34D399"),
+    )
+  }
+}

@@ -50,6 +50,7 @@
       "expo-secure-store",
       "expo-font",
       "./plugins/with-search-background",
+      "./plugins/with-startup-overlay",
       "./plugins/with-resource-feed",
       [
         "expo-build-properties",

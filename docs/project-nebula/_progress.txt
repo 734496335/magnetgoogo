@@ -1,23 +1,27 @@
-Current phase: App v0.2.1 MOVIE RATING LABELS PASS / NOT RELEASED 2026-07-26
+Current phase: App v0.2.1 K30S STANDALONE STARTUP + DOT MATRIX LOADER PASS / NOT RELEASED 2026-07-26
 
 ## Completed
-- App work only; no crawler, SQLite schema or data re-fetch changes are included.
-- Movie list cards now show IMDb and Douban ratings as separate values.
-- Missing, non-finite, zero and out-of-range ratings are hidden.
-- Any available rating from 6.0 to 7.9 marks the movie as “精品”.
-- Any available rating at 8.0 or above upgrades the movie to “高分”.
-- “精品” uses a restrained warm emphasis; “高分” uses red extra-bold emphasis.
-- Recommended cards and recent-list cards share the same rating logic.
-- Feed parsing remains backward-compatible when imdb_rating fields are absent.
+- Root cause confirmed: the installed Debug build depended on Metro and stayed on the native startup overlay when port 8081 was unavailable.
+- Added `standaloneDebug`; it embeds the JS bundle and disables developer support only for that build.
+- Added `npm run android:k30s` for prebuild, arm64 standalone Debug build and K30S installation.
+- Added a tracked Expo config plugin that regenerates the startup native module after prebuild.
+- Replaced the old sweep line with a native 5x5 mint dot-matrix circular animation and `Loading` label.
+- Active ring dots use phased opacity, aurora-mint tones and selective bloom; inner dots stay muted.
+- Native animation starts/stops with view attachment and is cancelled on overlay removal/activity destroy.
+- Added a 12-second native watchdog so startup can never remain permanently blocked by the overlay.
+- Startup overlay now hides after the React root mounts; remote config and source sync no longer gate App opening.
+- Startup overlay bridge failures now emit structured diagnostics instead of silent catch.
 
 ## Verification
-- TypeScript -> PASS.
-- Movie feed tests -> PASS, including 0 / 5.9 / 6.0 / 7.9 / 8.0 boundaries.
-- App adversarial tests -> 35/35 PASS.
-- Existing local bundle remains 50 movies / 9 recommendations / 134 resources / 50 covers.
-- Existing bundle currently has 8 movies in the 6.0–7.9 “精品” tier and no 8.0+ item.
-- Android arm64 debug -> BUILD SUCCESSFUL; K30S install -> Success.
+- Expo prebuild -> PASS; generated StartupOverlay package and standalone Gradle wiring.
+- TypeScript -> PASS; App adversarial tests -> 36/36 PASS.
+- Movie feed tests -> PASS; fluency suite -> 17/17 PASS.
+- `npm run android:k30s` -> BUILD SUCCESSFUL / install Success.
+- K30S ran without Metro or adb reverse; no WebSocket reconnect or missing-script error.
+- Initial 5 cold starts and final 3 cold starts all returned Status=ok and PROCESS_ALIVE.
+- Final Activity first-draw wait: 737ms / 723ms / 900ms; overlay hid by `js_ready` at about 1.7s.
+- Startup screenshot center contained 4,374 strong mint pixels and 1,848 dark Loading-text pixels.
+- No AndroidRuntime fatal or React Native unhandled error observed.
 
 ## Remaining before release
-- IMDb numeric ratings depend on the separate crawler/data pipeline providing imdb_rating.
 - Run final signed v0.2.1 release acceptance; do not tag, publish or deploy yet.

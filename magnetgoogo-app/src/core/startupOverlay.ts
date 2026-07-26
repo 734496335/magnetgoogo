@@ -13,5 +13,11 @@ export async function hideStartupOverlay(): Promise<void> {
   if (!nativeModule?.hide) return;
   try {
     await nativeModule.hide();
-  } catch {}
+  } catch (error) {
+    console.warn('[StartupOverlay]', {
+      stage: 'hide_native_overlay',
+      error_code: 'STARTUP_OVERLAY_HIDE_FAILED',
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }

@@ -1,0 +1,23 @@
+package __PACKAGE__
+
+import com.facebook.react.bridge.Promise
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReactContextBaseJavaModule
+import com.facebook.react.bridge.ReactMethod
+
+class StartupOverlayModule(
+  private val reactContext: ReactApplicationContext,
+) : ReactContextBaseJavaModule(reactContext) {
+  override fun getName(): String = "StartupOverlay"
+
+  @ReactMethod
+  fun hide(promise: Promise) {
+    val activity = reactContext.currentActivity
+    if (activity !is MainActivity) {
+      promise.resolve(false)
+      return
+    }
+    activity.hideStartupOverlay()
+    promise.resolve(true)
+  }
+}

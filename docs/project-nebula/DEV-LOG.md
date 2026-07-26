@@ -1,5 +1,37 @@
 ---
 Date/Time: 2026-07-26 (UTC+8)
+Version: app-v0.2.1-k30s-standalone-startup
+Scope: Fix K30S startup without Metro and replace the native startup overlay with a dot-matrix loader
+Modules: magnetgoogo-app/{app.json,package.json,app/_layout.tsx,src/core/startupOverlay.ts,plugins/with-startup-overlay.js,plugins/startup-overlay/*.template,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
+
+### Root cause and startup fix
+- Reproduced the non-opening K30S state: the installed Debug variant had developer support enabled and repeatedly attempted `localhost:8081`; JavaScript never started when Metro was absent.
+- Added a Gradle `standaloneDebug` switch that bundles JavaScript and disables developer support only for standalone device builds, leaving normal Metro development unchanged.
+- Added `npm run android:k30s` to prebuild, produce an arm64 standalone Debug APK and install it on the connected K30S.
+- Removed remote-config and source-sync completion from the startup-overlay release condition; the overlay now leaves as soon as the React root is mounted.
+- Replaced silent startup bridge failure handling with structured `STARTUP_OVERLAY_HIDE_FAILED` diagnostics.
+
+### Loading experience
+- Replaced the old horizontal sweep line with a native 5x5 circular dot matrix inspired by the supplied DotmCircular3 reference.
+- Twelve perimeter dots animate clockwise using staged opacity, aurora/mint tones and selective bloom; inner cells remain softly muted.
+- The only caption is `Loading`, centered below the matrix.
+- Animation is stopped on overlay removal, view detachment and Activity destruction; a 12-second watchdog prevents a permanently blocking overlay.
+- Added a tracked Expo config plugin so all Kotlin sources and standalone Gradle wiring survive future prebuilds.
+
+### Verification
+- Expo prebuild PASS; TypeScript PASS; movie feed PASS; App adversarial 36/36; fluency 17/17.
+- `npm run android:k30s` completed with `BUILD SUCCESSFUL` and `Success` installation.
+- With no Metro and no adb reverse, 5 initial plus 3 final cold starts all returned `Status: ok` and `PROCESS_ALIVE`.
+- Final first-draw wait was 737ms / 723ms / 900ms; the overlay logged `shown` then `hide reason=js_ready` at roughly 1.7 seconds.
+- Startup screenshot analysis found 4,374 strong mint pixels and 1,848 dark caption pixels in the center region.
+- No WebSocket reconnect, missing-script error, AndroidRuntime fatal or React Native unhandled error was observed.
+
+### Release state
+- v0.2.1 remains development-only. No tag, formal APK release or remote deployment.
+---
+
+---
+Date/Time: 2026-07-26 (UTC+8)
 Version: app-v0.2.1-movie-rating-labels
 Scope: Add separate IMDb/Douban ratings and two-tier quality labels to movie list cards
 Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,src/core/movieRatings.ts,src/core/resourceFeedProtocol.ts,src/core/resourceCopy.ts,scripts/resource-feed-tests.mjs,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}

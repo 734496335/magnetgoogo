@@ -1,0 +1,107 @@
+package __PACKAGE__
+
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
+import android.view.ViewGroup
+
+import com.facebook.react.ReactActivity
+import com.facebook.react.ReactActivityDelegate
+import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
+import com.facebook.react.defaults.DefaultReactActivityDelegate
+
+import expo.modules.ReactActivityDelegateWrapper
+
+class MainActivity : ReactActivity() {
+  private val startupHandler = Handler(Looper.getMainLooper())
+  private var startupOverlay: StartupOverlayView? = null
+  private val startupWatchdog = Runnable {
+    Log.w(STARTUP_TAG, "watchdog_timeout")
+    hideStartupOverlayInternal("watchdog_timeout")
+  }
+
+  override fun onCreate(savedInstanceState: Bundle?) {
+    setTheme(R.style.AppTheme)
+    super.onCreate(null)
+    showStartupOverlay()
+  }
+
+  override fun getMainComponentName(): String = "main"
+
+  override fun createReactActivityDelegate(): ReactActivityDelegate {
+    return ReactActivityDelegateWrapper(
+      this,
+      BuildConfig.IS_NEW_ARCHITECTURE_ENABLED,
+      object : DefaultReactActivityDelegate(
+        this,
+        mainComponentName,
+        fabricEnabled,
+      ) {},
+    )
+  }
+
+  override fun invokeDefaultOnBackPressed() {
+    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) {
+      if (!moveTaskToBack(false)) {
+        super.invokeDefaultOnBackPressed()
+      }
+      return
+    }
+    super.invokeDefaultOnBackPressed()
+  }
+
+  fun hideStartupOverlay() {
+    hideStartupOverlayInternal("js_ready")
+  }
+
+  private fun hideStartupOverlayInternal(reason: String) {
+    runOnUiThread {
+      startupHandler.removeCallbacks(startupWatchdog)
+      val overlay = startupOverlay ?: return@runOnUiThread
+      if (overlay.alpha == 0f) return@runOnUiThread
+      overlay.stopAnimation()
+      Log.i(STARTUP_TAG, "hide reason=$reason")
+      overlay.animate()
+        .alpha(0f)
+        .setDuration(180L)
+        .setListener(object : AnimatorListenerAdapter() {
+          override fun onAnimationEnd(animation: Animator) {
+            (overlay.parent as? ViewGroup)?.removeView(overlay)
+            if (startupOverlay === overlay) {
+              startupOverlay = null
+            }
+          }
+        })
+        .start()
+    }
+  }
+
+  private fun showStartupOverlay() {
+    window.decorView.post {
+      if (startupOverlay != null || isFinishing || isDestroyed) return@post
+      val root = findViewById<ViewGroup>(android.R.id.content) ?: return@post
+      val overlay = StartupOverlayView(this)
+      root.addView(overlay)
+      startupOverlay = overlay
+      overlay.startAnimation()
+      startupHandler.postDelayed(startupWatchdog, STARTUP_WATCHDOG_MS)
+      Log.i(STARTUP_TAG, "shown")
+    }
+  }
+
+  override fun onDestroy() {
+    startupHandler.removeCallbacks(startupWatchdog)
+    startupOverlay?.stopAnimation()
+    startupOverlay = null
+    super.onDestroy()
+  }
+
+  companion object {
+    private const val STARTUP_TAG = "StartupOverlay"
+    private const val STARTUP_WATCHDOG_MS = 12_000L
+  }
+}

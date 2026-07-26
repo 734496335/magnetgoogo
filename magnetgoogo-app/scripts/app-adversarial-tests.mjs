@@ -372,6 +372,33 @@ await test('U1', 'home gradient animation stops on unmount', () => {
   assert.match(code, /return \(\) => animation\.stop\(\)/);
 });
 
+await test('U1S', 'startup overlay is native, lifecycle-safe and standalone-debug capable', () => {
+  const appConfig = read('app.json');
+  const rootLayout = read('app/_layout.tsx');
+  const plugin = read('plugins/with-startup-overlay.js');
+  const activity = read('plugins/startup-overlay/MainActivity.kt.template');
+  const overlay = read('plugins/startup-overlay/StartupOverlayView.kt.template');
+  const bridge = read('src/core/startupOverlay.ts');
+  const packageJson = read('package.json');
+  assert.match(appConfig, /\.\/plugins\/with-startup-overlay/);
+  assert.match(plugin, /debuggableVariants = standaloneDebug \? \[\] : \["debug"\]/);
+  assert.match(plugin, /BuildConfig\.DEBUG && !BuildConfig\.STANDALONE_DEBUG/);
+  assert.match(plugin, /buildConfigField "boolean", "STANDALONE_DEBUG"/);
+  assert.match(packageJson, /android:k30s/);
+  assert.match(packageJson, /-PstandaloneDebug=true/);
+  assert.match(activity, /STARTUP_WATCHDOG_MS = 12_000L/);
+  assert.match(activity, /hideStartupOverlayInternal\("js_ready"\)/);
+  assert.match(activity, /override fun onDestroy\(\)/);
+  assert.match(overlay, /private const val GRID_SIZE = 5/);
+  assert.match(overlay, /RING_INDICES = intArrayOf/);
+  assert.match(overlay, /ValueAnimator\.ofFloat/);
+  assert.match(overlay, /text = "Loading"/);
+  assert.match(overlay, /override fun onDetachedFromWindow\(\)/);
+  assert.doesNotMatch(rootLayout, /sourcesLoading \|\| !configChecked/);
+  assert.match(rootLayout, /hideStartupOverlay\(\)/);
+  assert.match(bridge, /STARTUP_OVERLAY_HIDE_FAILED/);
+});
+
 await test('U2', 'bottom navigation exposes three tabs and lets Android reserve system navigation space', () => {
   const layout = read('app/(tabs)/_layout.tsx');
   const appConfig = read('app.json');

@@ -23,7 +23,6 @@ installCrashReporter();
 
 export default function RootLayout() {
   const [configResult, setConfigResult] = useState<ConfigCheckResult | null>(null);
-  const [configChecked, setConfigChecked] = useState(false);
 
   useEffect(() => {
     loadPersistedCookies();
@@ -41,9 +40,12 @@ export default function RootLayout() {
           }
           setConfigResult(result);
         })
-        .catch(() => {})
-        .finally(() => {
-          setConfigChecked(true);
+        .catch((error) => {
+          console.warn('[Layout]', {
+            stage: 'check_remote_config',
+            error_code: 'REMOTE_CONFIG_CHECK_FAILED',
+            error: error instanceof Error ? error.message : String(error),
+          });
         });
     }, 300);
     return () => clearTimeout(deferred);
@@ -53,7 +55,7 @@ export default function RootLayout() {
     <ThemeProvider>
       <LangProvider>
         <SourceProvider>
-          <ThemedApp configResult={configResult} configChecked={configChecked} />
+          <ThemedApp configResult={configResult} />
         </SourceProvider>
       </LangProvider>
     </ThemeProvider>
@@ -131,13 +133,10 @@ const toastStyles = StyleSheet.create({
 
 function ThemedApp({
   configResult,
-  configChecked,
 }: {
   configResult: ConfigCheckResult | null;
-  configChecked: boolean;
 }) {
   const { colors } = useTheme();
-  const { loading: sourcesLoading } = useSources();
   const [showOptionalUpdate, setShowOptionalUpdate] = useState(
     () => !!(configResult?.updateAvailable && !configResult?.forceUpdate),
   );
@@ -149,12 +148,11 @@ function ThemedApp({
   }, [configResult]);
 
   useEffect(() => {
-    if (sourcesLoading || !configChecked) return;
     const timer = setTimeout(() => {
       void hideStartupOverlay();
-    }, 80);
+    }, 120);
     return () => clearTimeout(timer);
-  }, [configChecked, sourcesLoading]);
+  }, []);
 
   return (
     <>
