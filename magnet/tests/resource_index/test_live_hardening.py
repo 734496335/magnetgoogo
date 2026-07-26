@@ -21,6 +21,7 @@ from magnet.resource_index.errors import (
     LIVE_FETCH_DISABLED,
     LIVE_HTTP_ERROR,
     LIVE_RATE_LIMITED,
+    LIVE_REQUEST_BUDGET_EXHAUSTED,
     LIVE_URL_REJECTED,
     LivePolicyError,
     ResourceIndexError,
@@ -133,7 +134,7 @@ def test_page_budget_counts_session_requests():
     crawler = JavBusLiveCrawler(policy=_allowed_policy(max_pages=1), client=client)  # type: ignore[arg-type]
     with pytest.raises(LivePolicyError) as exc:
         crawler.ensure_session()
-    assert exc.value.error_code == LIVE_RATE_LIMITED
+    assert exc.value.error_code == LIVE_REQUEST_BUDGET_EXHAUSTED
     assert len(client.calls) == 1
 
 

@@ -7,9 +7,9 @@ Current phase: MEDIA FEED P0 DATA QUALITY HARDENING / NOT RELEASED 2026-07-26
 - App v0.2.1 remains development-only; do not tag, publish or deploy.
 
 ## Crawler baseline integrated
-- Safe formal sources: SixV movie, DYTT movie, SixV series and Meijumi series.
+- Formal source pools: SixV movie 100, DYTT movie 50, SixV series 50 and Meijumi series 100.
 - Durable snapshots, per-source locks, request budgets, resume and completed-task zero replay are available.
-- Brand mirror registry, series fields and cross-brand media aggregation are available.
+- Strict 100-movie / 100-series aggregation, mirror failover and migration collision guards are available.
 
 ## Current P0 work
 - Download and validate local cover assets for all 100 series records.

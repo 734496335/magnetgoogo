@@ -1,5 +1,48 @@
 ---
 日期/时间：2026-07-26（UTC+8）
+本次版本：resource-index-media-latest100-hardening
+本次范围：重新审阅影视多源内核，关闭100条规模缺口并正式产出电影100/电视剧100
+涉及模块：magnet/resource_index/{acquisition/policy,adapters/movie_registry,pipeline/{movie_latest,media_aggregate},store/migrations,cli,errors} / deploy/resource-index / tests / docs
+关键改动摘要（可检索）：
+  - 正式抓取池扩展为SixV电影100、DYTT电影50、SixV电视剧50、美剧迷100。
+  - 聚合器新增电影/电视剧独立配额、严格不足门禁和分类型输出，避免全局limit造成某一类型不足。
+  - 磁力按info_hash去重，其他资源按类型+提供方+URL去重；来源证据按稳定来源键去重。
+  - 剧集去重改为两阶段归并，未知季只有所有别名指向唯一明确季时才合并，关闭传递桥接误并。
+  - pending/partial统一返回退出码2；严格配额和重复source-count输出稳定错误，不泄露traceback。
+  - 新增LIVE_REQUEST_BUDGET_EXHAUSTED，区分本地预算耗尽与HTTP 403/429限流；批次增加有限重试余量。
+  - 100条快照验证稳定内容键、路径、品牌、内容类型和标题；大快照镜像预算支持主站失败后完整切换。
+  - 发现并修复历史0007迁移碰撞：精确checksum+结构指纹归档IMDb开发变体，再执行正式品牌0007。
+实测数据：
+  - SixV电影100/100，352资源；DYTT电影50/50，85资源；美剧迷100/100，3227资源；SixV电视剧50/50，417资源。
+  - 旧库直接复用SixV 50、DYTT 25、美剧迷50，首次冻结详情请求均为0。
+  - 去重后可用电影147、电视剧131；严格输出电影100、电视剧100、合并200、跨来源22、资源2865。
+  - 两份100条Feed均空标题/封面/简介/资源=0，重复身份=0，条目内重复资源=0。
+  - SixV、DYTT、美剧迷完成后重复运行invocation_http_requests均为0。
+关键发现：
+  - 迁移checksum一致不等于版本语义一致，分支并行开发必须同时检查版本唯一性和结构指纹。
+  - 本地请求预算与站点限流必须使用不同错误码，否则偶发重试会制造假退避。
+  - 电视剧“全集/更新09/四季全”不能无依据推断为第一季或具体总集数。
+修改文件清单（新增/修改/删除）：
+  - `~ magnet/resource_index/pipeline/{media_aggregate.py,movie_latest.py}`
+  - `~ magnet/resource_index/store/migrations.py`
+  - `~ magnet/resource_index/{cli.py,errors.py,acquisition/policy.py,adapters/movie_registry.py}`
+  - `~ deploy/resource-index/{README.md,run-latest.ps1,run-movies-safe.ps1}`
+  - `~ magnet/tests/resource_index/test_{cli,latest_crawl_runner,live_hardening,media_aggregate,movie_mirror_failover,r6_hardening}.py`
+  - `+ docs/project-nebula/RESOURCE-INDEX-MEDIA-LATEST100-2026-07-26.md`
+关键契约变更：
+  - 默认来源数量：sixv=100、dytt8899=50、sixv-series=50、meijumi=100。
+  - 新增错误码LIVE_REQUEST_BUDGET_EXHAUSTED；aggregate-media-feeds新增分类型配额和严格门禁参数。
+风险与未决事项：
+  - 最新100指正式来源冻结快照的最近记录，不代表全互联网绝对最新。
+  - App尚未接入电影100/电视剧100Feed；SQLite仍为单机单写。
+验证方式：
+  - Resource Index 158 passed；全magnet非集成221 passed / 2 deselected；compileall PASS；枚举241/241。
+  - PowerShell 7/7；正式库doctor 4/4，integrity=ok，schema=0007；三来源完成后0 HTTP重放。
+证据文档：`docs/project-nebula/RESOURCE-INDEX-MEDIA-LATEST100-2026-07-26.md`
+---
+
+---
+日期/时间：2026-07-26（UTC+8）
 本次版本：resource-index-brand-family-media
 本次范围：建立影视品牌/镜像体系，新增两路电视剧源并生成跨品牌去重统一Feed
 涉及模块：magnet/resource_index/{config/movie_source_brands.json,adapters/{movie_brand_registry,meijumi,sixv/series_*},pipeline/{movie_latest,movie_brand_probe,media_aggregate},store/schema0007,cli} / deploy/resource-index / tests / docs

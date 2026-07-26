@@ -18,6 +18,7 @@ from magnet.resource_index.errors import (
     INGEST_CANCELLED,
     LIVE_HTTP_ERROR,
     LIVE_RATE_LIMITED,
+    LIVE_REQUEST_BUDGET_EXHAUSTED,
     LIVE_URL_REJECTED,
     STALE_INGEST_RECOVERED,
     LivePolicyError,
@@ -107,7 +108,7 @@ def test_physical_request_budget_counts_retries() -> None:
     with pytest.raises(LivePolicyError) as exc:
         client.get("https://www.javbus.com/")
 
-    assert exc.value.error_code == LIVE_RATE_LIMITED
+    assert exc.value.error_code == LIVE_REQUEST_BUDGET_EXHAUSTED
     assert session.calls == 1
     assert budget.used == 1
 
@@ -626,6 +627,7 @@ def test_ingest_run_persists_physical_request_count(monkeypatch, tmp_path: Path)
 def test_crawl_exit_codes_distinguish_partial_and_cancelled() -> None:
     assert _crawl_exit_code("success") == 0
     assert _crawl_exit_code("failed") == 1
+    assert _crawl_exit_code("pending") == 2
     assert _crawl_exit_code("partial") == 2
     assert _crawl_exit_code("cancelled") == 130
 

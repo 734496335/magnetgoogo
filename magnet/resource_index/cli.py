@@ -46,7 +46,7 @@ def _print_json(data: Any, pretty: bool) -> None:
 def _crawl_exit_code(status: str) -> int:
     if status == "success":
         return 0
-    if status == "partial":
+    if status in {"pending", "partial"}:
         return 2
     if status == "cancelled":
         return 130
@@ -59,6 +59,35 @@ def _latest_count(source_id: str, value: int | None) -> int:
     if source_id in list_movie_sources():
         return get_movie_source(source_id).default_count
     return 100
+
+
+def _source_count_arg(value: str) -> tuple[str, int]:
+    source_id, separator, raw_count = value.partition("=")
+    source_id = source_id.strip()
+    if not separator or not source_id:
+        raise argparse.ArgumentTypeError("source count must use SOURCE=COUNT")
+    try:
+        count = int(raw_count)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("source count must be an integer") from exc
+    if count <= 0:
+        raise argparse.ArgumentTypeError("source count must be positive")
+    if source_id not in list_movie_sources():
+        raise argparse.ArgumentTypeError(f"unknown movie source: {source_id}")
+    return source_id, count
+
+
+def _source_count_map(values: list[tuple[str, int]] | None) -> dict[str, int]:
+    result: dict[str, int] = {}
+    for source_id, count in values or []:
+        if source_id in result:
+            raise ResourceIndexError(
+                "CONFIG_ERROR",
+                "duplicate per-source count override",
+                {"source_id": source_id},
+            )
+        result[source_id] = count
+    return result
 
 
 def cmd_init_db(args: argparse.Namespace) -> int:
@@ -227,11 +256,23 @@ def cmd_probe_movie_brands(args: argparse.Namespace) -> int:
 
 
 def cmd_aggregate_media_feeds(args: argparse.Namespace) -> int:
-    payload = aggregate_media_feeds(
-        args.feed,
-        output_path=args.output,
-        limit=args.limit,
-    )
+    try:
+        payload = aggregate_media_feeds(
+            args.feed,
+            output_path=args.output,
+            movie_output_path=args.movie_output,
+            series_output_path=args.series_output,
+            limit=args.limit,
+            movie_limit=args.movie_limit,
+            series_limit=args.series_limit,
+            strict_kind_limits=args.strict_kind_limits,
+        )
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        if exc.context:
+            print(f"context={json.dumps(exc.context, ensure_ascii=False, sort_keys=True)}", file=sys.stderr)
+        return 1
     _print_json(payload["summary"], pretty=True)
     return 0
 
@@ -415,6 +456,17 @@ def cmd_crawl_movies_safe(args: argparse.Namespace) -> int:
         print("message=pass --yes to acknowledge safe movie-source checks", file=sys.stderr)
         return 1
     source_ids = args.source or ["sixv", "dytt8899", "sixv-series", "meijumi"]
+    try:
+        source_counts = _source_count_map(getattr(args, "source_count", None))
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        return 1
+    unexpected = sorted(set(source_counts) - set(source_ids))
+    if unexpected:
+        print("error_code=CONFIG_ERROR", file=sys.stderr)
+        print(f"message=source-count overrides are not selected: {unexpected}", file=sys.stderr)
+        return 1
     logger = setup_logging(args.log, append=True)
     results = []
     had_error = False
@@ -423,7 +475,7 @@ def cmd_crawl_movies_safe(args: argparse.Namespace) -> int:
             result = run_safe_movie_source(
                 source_id=source_id,
                 output_dir=args.output_dir,
-                target_count=args.count,
+                target_count=source_counts.get(source_id, args.count),
                 logger=logger,
             )
             results.append(result.__dict__)
@@ -449,6 +501,17 @@ def cmd_crawl_movies_safe(args: argparse.Namespace) -> int:
 
 def cmd_movie_sources_status(args: argparse.Namespace) -> int:
     source_ids = args.source or ["sixv", "dytt8899", "sixv-series", "meijumi"]
+    try:
+        source_counts = _source_count_map(getattr(args, "source_count", None))
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        return 1
+    unexpected = sorted(set(source_counts) - set(source_ids))
+    if unexpected:
+        print("error_code=CONFIG_ERROR", file=sys.stderr)
+        print(f"message=source-count overrides are not selected: {unexpected}", file=sys.stderr)
+        return 1
     status: dict[str, object] = {}
     had_error = False
     for source_id in source_ids:
@@ -456,7 +519,7 @@ def cmd_movie_sources_status(args: argparse.Namespace) -> int:
             status[source_id] = safe_movie_source_status(
                 source_id=source_id,
                 output_dir=args.output_dir,
-                target_count=args.count,
+                target_count=source_counts.get(source_id, args.count),
             )
         except (ResourceIndexError, RuntimeError, ValueError) as exc:
             had_error = True
@@ -609,11 +672,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser(
         "aggregate-media-feeds",
-        help="Merge independent movie/series feeds into one deduplicated media feed",
+        help="Merge independent movie/series feeds into deterministic per-kind catalogs",
     )
     s.add_argument("--feed", action="append", required=True)
     s.add_argument("--output", required=True)
+    s.add_argument("--movie-output", default=None)
+    s.add_argument("--series-output", default=None)
     s.add_argument("--limit", type=int, default=200)
+    s.add_argument("--movie-limit", type=int, default=None)
+    s.add_argument("--series-limit", type=int, default=None)
+    s.add_argument("--strict-kind-limits", action="store_true")
     s.set_defaults(func=cmd_aggregate_media_feeds)
 
     s = sub.add_parser(
@@ -696,6 +764,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     s.add_argument("--source", action="append", default=None)
     s.add_argument("--count", type=int, default=None)
+    s.add_argument("--source-count", action="append", type=_source_count_arg, default=None)
     s.add_argument("--output-dir", default="data/resource_index")
     s.add_argument("--yes", action="store_true")
     s.add_argument("--log", default=None)
@@ -707,6 +776,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     s.add_argument("--source", action="append", default=None)
     s.add_argument("--count", type=int, default=None)
+    s.add_argument("--source-count", action="append", type=_source_count_arg, default=None)
     s.add_argument("--output-dir", default="data/resource_index")
     s.set_defaults(func=cmd_movie_sources_status)
 

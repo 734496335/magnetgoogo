@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 import pytest
 
 from magnet.resource_index.domain.models import ContentCandidate
-from magnet.resource_index.errors import CONFIG_ERROR, ResourceIndexError
+from magnet.resource_index.errors import CONFIG_ERROR, ResourceIndexError, StorageError
 from magnet.resource_index.pipeline.ingest import IngestResult
 from magnet.resource_index.pipeline.latest_crawl import (
     LatestCrawlPaths,
@@ -653,6 +653,75 @@ def test_schema_0007_contains_latest_job_tables(tmp_path: Path) -> None:
         )
     }
     assert {"latest_crawl_jobs", "latest_crawl_items"} <= tables
+    repo.close()
+
+
+def _create_schema_through_0006(db: Path) -> None:
+    sql_dir = Path(__file__).resolve().parents[2] / "resource_index" / "store" / "sql"
+    connection = sqlite3.connect(db)
+    for version in range(1, 7):
+        path = next(sql_dir.glob(f"{version:04d}_*.sql"))
+        connection.executescript(path.read_text(encoding="utf-8"))
+        connection.execute(
+            "INSERT OR REPLACE INTO schema_migrations(version, applied_at, checksum) VALUES (?, ?, ?)",
+            (f"{version:04d}", "2026-07-25T00:00:00Z", file_checksum(path)),
+        )
+    connection.commit()
+    connection.close()
+
+
+def test_legacy_0007_imdb_collision_is_structurally_verified_and_reconciled(tmp_path: Path) -> None:
+    db = tmp_path / "legacy-imdb-0007.db"
+    _create_schema_through_0006(db)
+    connection = sqlite3.connect(db)
+    connection.execute("ALTER TABLE movie_items ADD COLUMN imdb_rating REAL")
+    connection.execute("ALTER TABLE movie_items ADD COLUMN imdb_rating_text TEXT")
+    connection.execute(
+        "INSERT INTO schema_migrations(version, applied_at, checksum) VALUES (?, ?, ?)",
+        (
+            "0007",
+            "2026-07-26T00:00:00Z",
+            "9316572ec726f5910e4ad3bae98aebd40d9c5e5dc1b72bb4d0c63bb2013c8fa9",
+        ),
+    )
+    connection.commit()
+    connection.close()
+
+    repo = SqliteResourceRepository(db)
+    assert repo.init_schema() == "0007"
+    movie_columns = {row[1] for row in repo.conn.execute("PRAGMA table_xinfo(movie_items)")}
+    latest_columns = {row[1] for row in repo.conn.execute("PRAGMA table_xinfo(latest_crawl_items)")}
+    indexes = {
+        row[0]
+        for row in repo.conn.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
+    }
+    assert {"imdb_rating", "imdb_rating_text", "content_kind", "brand_id", "season_number"} <= movie_columns
+    assert "source_item_key" in latest_columns
+    assert {"idx_movie_items_kind_update", "idx_latest_crawl_items_source_key"} <= indexes
+    versions = {row[0] for row in repo.conn.execute("SELECT version FROM schema_migrations")}
+    assert {"0007", "0007_legacy_imdb_rating_9316572e"} <= versions
+    assert repo.init_schema() == "0007"
+    repo.close()
+
+
+def test_legacy_0007_checksum_without_approved_structure_is_rejected(tmp_path: Path) -> None:
+    db = tmp_path / "invalid-legacy-0007.db"
+    _create_schema_through_0006(db)
+    connection = sqlite3.connect(db)
+    connection.execute(
+        "INSERT INTO schema_migrations(version, applied_at, checksum) VALUES (?, ?, ?)",
+        (
+            "0007",
+            "2026-07-26T00:00:00Z",
+            "9316572ec726f5910e4ad3bae98aebd40d9c5e5dc1b72bb4d0c63bb2013c8fa9",
+        ),
+    )
+    connection.commit()
+    connection.close()
+
+    repo = SqliteResourceRepository(db)
+    with pytest.raises(StorageError, match="approved fingerprint"):
+        repo.init_schema()
     repo.close()
 
 

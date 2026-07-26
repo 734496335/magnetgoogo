@@ -1,4 +1,4 @@
-"""Aggregate independent movie and series feeds into one deduplicated media feed."""
+"""Aggregate independent movie and series feeds into deterministic media catalogs."""
 
 from __future__ import annotations
 
@@ -10,14 +10,16 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from magnet.resource_index.errors import CONFIG_ERROR, ResourceIndexError
-from magnet.resource_index.pipeline.latest_crawl import _atomic_write_json
 from magnet.resource_index.normalize.text import normalize_whitespace
+from magnet.resource_index.pipeline.latest_crawl import _atomic_write_json
+
+_SERIES_KINDS = {"series", "anime", "documentary", "variety"}
+_CHINESE_NUMBER = "零〇一二两三四五六七八九十百"
 
 
 def _normalized_title(value: object) -> str:
     text = normalize_whitespace(str(value or "")).casefold()
-    text = re.sub(r"[\s·•:：,，.。!！?？'\"《》()（）\[\]【】\-_/\\]+", "", text)
-    return text
+    return re.sub(r"[\s·•:：,，.。!！?？'\"《》()（）\[\]【】\-_/\\]+", "", text)
 
 
 def _integer(value: object) -> int | None:
@@ -28,9 +30,6 @@ def _integer(value: object) -> int | None:
     if isinstance(value, str) and value.isdigit():
         return int(value)
     return None
-
-
-_CHINESE_NUMBER = "零〇一二两三四五六七八九十百"
 
 
 def _series_base_title(value: object) -> str:
@@ -48,18 +47,15 @@ def _series_base_title(value: object) -> str:
 
 def _identity_parts(item: dict[str, Any]) -> tuple[str, str, int]:
     kind = str(item.get("content_kind") or "movie")
-    if kind in {"series", "anime", "documentary", "variety"}:
+    if kind in _SERIES_KINDS:
         title = _series_base_title(item.get("series_title") or item.get("title"))
         return "series", title, _integer(item.get("season_number")) or 0
-    title = _normalized_title(item.get("title"))
-    return "movie", title, _integer(item.get("year")) or 0
+    return "movie", _normalized_title(item.get("title")), _integer(item.get("year")) or 0
 
 
 def media_identity(item: dict[str, Any]) -> str:
     kind, title, number = _identity_parts(item)
-    if kind == "series":
-        return f"series:{title}:s{number}"
-    return f"movie:{title}:{number}"
+    return f"series:{title}:s{number}" if kind == "series" else f"movie:{title}:{number}"
 
 
 def _date_key(value: object) -> str:
@@ -112,17 +108,92 @@ def _merge_unique(left: list[Any], right: Iterable[Any]) -> list[Any]:
     return output
 
 
+def _resource_key(resource: dict[str, Any]) -> tuple[str, str, str]:
+    info_hash = str(resource.get("info_hash") or "").strip().casefold()
+    if info_hash:
+        return "magnet", "info_hash", info_hash
+    resource_type = str(resource.get("resource_type") or "").strip().casefold()
+    provider = str(resource.get("provider") or "").strip().casefold()
+    url = str(resource.get("url") or resource.get("resource_url") or "").strip()
+    return resource_type, provider, url
+
+
+def _merge_resources(*collections: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for collection in collections:
+        for raw in collection:
+            resource = deepcopy(raw)
+            key = _resource_key(resource)
+            existing = merged.get(key)
+            if existing is None:
+                merged[key] = resource
+                continue
+            for field in ("url", "resource_url", "info_hash", "display_title", "extraction_code"):
+                if not existing.get(field) and resource.get(field):
+                    existing[field] = resource[field]
+            existing["quality_tags"] = _merge_unique(
+                existing.get("quality_tags") or [],
+                resource.get("quality_tags") or [],
+            )
+    output = list(merged.values())
+    output.sort(
+        key=lambda item: (
+            str(item.get("resource_type") or ""),
+            str(item.get("provider") or ""),
+            str(item.get("display_title") or ""),
+            str(item.get("url") or item.get("resource_url") or ""),
+        )
+    )
+    return output
+
+
+def _variant_key(variant: dict[str, Any]) -> tuple[str, str]:
+    source_id = str(variant.get("source_id") or "")
+    source_key = str(variant.get("source_item_key") or variant.get("detail_url") or "")
+    return source_id, source_key
+
+
+def _merge_variants(*collections: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: dict[tuple[str, str], dict[str, Any]] = {}
+    for collection in collections:
+        for raw in collection:
+            variant = deepcopy(raw)
+            key = _variant_key(variant)
+            current = merged.get(key)
+            candidate_order = (
+                _date_key(variant.get("update_date")),
+                -int(variant.get("rank") or 999999),
+            )
+            current_order = (
+                _date_key(current.get("update_date")),
+                -int(current.get("rank") or 999999),
+            ) if current else None
+            if current is None or candidate_order > current_order:
+                merged[key] = variant
+    output = list(merged.values())
+    output.sort(
+        key=lambda item: (
+            _date_key(item.get("update_date")),
+            -int(item.get("rank") or 999999),
+            str(item.get("source_id") or ""),
+        ),
+        reverse=True,
+    )
+    return output
+
+
 def _merge_item(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
     existing_freshness = (_date_key(existing.get("update_date")), _integer(existing.get("episode_number")) or 0)
     incoming_freshness = (_date_key(incoming.get("update_date")), _integer(incoming.get("episode_number")) or 0)
-    preferred = incoming if (
+    incoming_is_preferred = (
         incoming_freshness > existing_freshness
         or (
             incoming_freshness == existing_freshness
             and _completeness(incoming) > _completeness(existing)
         )
-    ) else existing
-    secondary = existing if preferred is incoming else incoming
+    )
+    preferred = incoming if incoming_is_preferred else existing
+    secondary = existing if incoming_is_preferred else incoming
     merged = deepcopy(preferred)
     for field in (
         "original_title",
@@ -145,44 +216,217 @@ def _merge_item(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[str,
             merged[field] = secondary[field]
     for field in ("countries", "genres", "languages", "directors", "actors", "quality_tags", "highlight_labels"):
         merged[field] = _merge_unique(merged.get(field) or [], secondary.get(field) or [])
-    resources = _merge_unique(existing.get("resources") or [], incoming.get("resources") or [])
-    resources.sort(key=lambda item: (
-        str(item.get("resource_type") or ""),
-        str(item.get("provider") or ""),
-        str(item.get("display_title") or ""),
-        str(item.get("url") or ""),
-    ))
-    merged["resources"] = resources
-    variants = _merge_unique(
+    merged["resources"] = _merge_resources(
+        existing.get("resources") or [],
+        incoming.get("resources") or [],
+    )
+    variants = _merge_variants(
         existing.get("source_variants") or [_source_variant(existing)],
         incoming.get("source_variants") or [_source_variant(incoming)],
     )
-    variants.sort(key=lambda item: (
-        _date_key(item.get("update_date")),
-        -int(item.get("rank") or 999999),
-    ), reverse=True)
     merged["source_variants"] = variants
     merged["source_count"] = len({item.get("source_id") for item in variants if item.get("source_id")})
-    merged["brand_count"] = len({item.get("brand_id") or item.get("source_id") for item in variants})
+    merged["brand_count"] = len(
+        {item.get("brand_id") or item.get("source_id") for item in variants if item.get("brand_id") or item.get("source_id")}
+    )
     merged["recommended"] = bool(existing.get("recommended") or incoming.get("recommended"))
     merged["media_identity"] = media_identity(merged)
     return merged
+
+
+class _DisjointSet:
+    def __init__(self, size: int) -> None:
+        self.parent = list(range(size))
+
+    def find(self, value: int) -> int:
+        while self.parent[value] != value:
+            self.parent[value] = self.parent[self.parent[value]]
+            value = self.parent[value]
+        return value
+
+    def union(self, left: int, right: int) -> None:
+        left_root = self.find(left)
+        right_root = self.find(right)
+        if left_root != right_root:
+            self.parent[max(left_root, right_root)] = min(left_root, right_root)
+
+
+def _deduplicate_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    disjoint = _DisjointSet(len(items))
+    kinds: list[str] = []
+    titles: list[str] = []
+    numbers: list[int] = []
+    imdb_ids: list[str] = []
+    exact_index: dict[tuple[str, str, int], list[int]] = {}
+    title_index: dict[tuple[str, str], list[int]] = {}
+    imdb_index: dict[tuple[str, str], list[int]] = {}
+    known_imdb_index: dict[tuple[str, str, int], list[int]] = {}
+
+    for index, item in enumerate(items):
+        kind, title, number = _identity_parts(item)
+        imdb_id = str(item.get("imdb_id") or "").strip().casefold()
+        kinds.append(kind)
+        titles.append(title)
+        numbers.append(number)
+        imdb_ids.append(imdb_id)
+        exact_index.setdefault((kind, title, number), []).append(index)
+        title_index.setdefault((kind, title), []).append(index)
+        if imdb_id:
+            imdb_index.setdefault((kind, imdb_id), []).append(index)
+            if number:
+                known_imdb_index.setdefault((kind, imdb_id, number), []).append(index)
+
+    # Phase 1: only strong identities. A known season/year never crosses another
+    # known number, even through an unknown record that shares a second alias.
+    for indices in exact_index.values():
+        for index in indices[1:]:
+            disjoint.union(indices[0], index)
+    for indices in known_imdb_index.values():
+        for index in indices[1:]:
+            disjoint.union(indices[0], index)
+
+    # Phase 2: connect unknown-number records to each other by title/IMDb, then
+    # attach the whole unknown component only when all aliases resolve to one
+    # already-known group. Conflicting candidates remain conservative standalone.
+    unknown_indices = [index for index, number in enumerate(numbers) if number == 0]
+    for index in unknown_indices:
+        for candidate in title_index.get((kinds[index], titles[index]), []):
+            if numbers[candidate] == 0:
+                disjoint.union(index, candidate)
+        if imdb_ids[index]:
+            for candidate in imdb_index.get((kinds[index], imdb_ids[index]), []):
+                if numbers[candidate] == 0:
+                    disjoint.union(index, candidate)
+
+    unknown_components: dict[int, list[int]] = {}
+    for index in unknown_indices:
+        unknown_components.setdefault(disjoint.find(index), []).append(index)
+    for members in unknown_components.values():
+        known_candidates: set[int] = set()
+        for index in members:
+            for candidate in title_index.get((kinds[index], titles[index]), []):
+                if numbers[candidate] != 0:
+                    known_candidates.add(disjoint.find(candidate))
+            if imdb_ids[index]:
+                for candidate in imdb_index.get((kinds[index], imdb_ids[index]), []):
+                    if numbers[candidate] != 0:
+                        known_candidates.add(disjoint.find(candidate))
+        if len(known_candidates) == 1:
+            disjoint.union(members[0], next(iter(known_candidates)))
+
+    groups: dict[int, list[dict[str, Any]]] = {}
+    for index, item in enumerate(items):
+        groups.setdefault(disjoint.find(index), []).append(item)
+
+    output: list[dict[str, Any]] = []
+    for members in groups.values():
+        members.sort(
+            key=lambda item: (
+                str(item.get("source_id") or ""),
+                str(item.get("source_item_key") or ""),
+                str(item.get("detail_url") or ""),
+            )
+        )
+        merged = members[0]
+        for member in members[1:]:
+            merged = _merge_item(merged, member)
+        merged["resources"] = _merge_resources(merged.get("resources") or [])
+        merged["source_variants"] = _merge_variants(
+            merged.get("source_variants") or [_source_variant(merged)]
+        )
+        merged["source_count"] = len(
+            {item.get("source_id") for item in merged["source_variants"] if item.get("source_id")}
+        )
+        merged["brand_count"] = len(
+            {
+                item.get("brand_id") or item.get("source_id")
+                for item in merged["source_variants"]
+                if item.get("brand_id") or item.get("source_id")
+            }
+        )
+        merged["media_identity"] = media_identity(merged)
+        output.append(merged)
+    return output
+
+
+def _item_sort_key(item: dict[str, Any]) -> tuple[str, int, bool, int, str]:
+    return (
+        _date_key(item.get("update_date")),
+        _integer(item.get("episode_number")) or 0,
+        bool(item.get("recommended")),
+        _completeness(item),
+        media_identity(item),
+    )
+
+
+def _summary(
+    *,
+    items: list[dict[str, Any]],
+    source_count: int,
+    available_movie_count: int,
+    available_series_count: int,
+    movie_limit: int | None,
+    series_limit: int | None,
+) -> dict[str, Any]:
+    return {
+        "source_count": source_count,
+        "record_count": len(items),
+        "movie_count": sum(1 for item in items if _identity_parts(item)[0] == "movie"),
+        "series_count": sum(1 for item in items if _identity_parts(item)[0] == "series"),
+        "available_movie_count": available_movie_count,
+        "available_series_count": available_series_count,
+        "requested_movie_count": movie_limit,
+        "requested_series_count": series_limit,
+        "multi_source_count": sum(1 for item in items if int(item.get("source_count") or 0) > 1),
+        "resource_count": sum(len(item.get("resources") or []) for item in items),
+    }
+
+
+def _kind_payload(payload: dict[str, Any], kind: str) -> dict[str, Any]:
+    items = [item for item in payload["items"] if _identity_parts(item)[0] == kind]
+    used_sources = {
+        variant.get("source_id")
+        for item in items
+        for variant in item.get("source_variants") or []
+        if variant.get("source_id")
+    }
+    sources = [source for source in payload["sources"] if source.get("source_id") in used_sources]
+    return {
+        "schema_version": payload["schema_version"],
+        "generated_at": payload["generated_at"],
+        "content_kind_filter": kind,
+        "sources": sources,
+        "items": items,
+        "summary": _summary(
+            items=items,
+            source_count=len(sources),
+            available_movie_count=payload["summary"]["available_movie_count"],
+            available_series_count=payload["summary"]["available_series_count"],
+            movie_limit=payload["summary"]["requested_movie_count"] if kind == "movie" else None,
+            series_limit=payload["summary"]["requested_series_count"] if kind == "series" else None,
+        ),
+    }
 
 
 def aggregate_media_feeds(
     feed_paths: Iterable[str | Path],
     *,
     output_path: str | Path | None = None,
+    movie_output_path: str | Path | None = None,
+    series_output_path: str | Path | None = None,
     limit: int = 200,
+    movie_limit: int | None = None,
+    series_limit: int | None = None,
+    strict_kind_limits: bool = False,
     generated_at: datetime | None = None,
 ) -> dict[str, Any]:
     if limit <= 0:
         raise ResourceIndexError(CONFIG_ERROR, "aggregate media feed limit must be positive", {})
-    groups: dict[int, dict[str, Any]] = {}
-    identity_index: dict[str, int] = {}
-    imdb_index: dict[str, int] = {}
-    series_index: dict[str, set[int]] = {}
-    next_group_id = 1
+    for label, value in (("movie_limit", movie_limit), ("series_limit", series_limit)):
+        if value is not None and value <= 0:
+            raise ResourceIndexError(CONFIG_ERROR, f"{label} must be positive", {label: value})
+
+    raw_items: list[dict[str, Any]] = []
     sources: list[dict[str, Any]] = []
     for value in feed_paths:
         path = Path(value)
@@ -191,11 +435,7 @@ def aggregate_media_feeds(
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            raise ResourceIndexError(
-                CONFIG_ERROR,
-                "unable to read media source feed",
-                {"path": str(path)},
-            ) from exc
+            raise ResourceIndexError(CONFIG_ERROR, "unable to read media source feed", {"path": str(path)}) from exc
         if payload.get("schema_version") != "movie-feed/1" or not isinstance(payload.get("items"), list):
             raise ResourceIndexError(
                 CONFIG_ERROR,
@@ -211,90 +451,57 @@ def aggregate_media_feeds(
             }
         )
         for raw_item in payload["items"]:
+            if not isinstance(raw_item, dict):
+                raise ResourceIndexError(CONFIG_ERROR, "media feed item must be an object", {"path": str(path)})
             item = deepcopy(raw_item)
             item["content_kind"] = str(item.get("content_kind") or "movie")
-            identity = media_identity(item)
-            kind, base_title, season_or_year = _identity_parts(item)
-            item["media_identity"] = identity
             item["source_variants"] = [_source_variant(item)]
             item["source_count"] = 1
             item["brand_count"] = 1
+            item["media_identity"] = media_identity(item)
+            raw_items.append(item)
 
-            group_id = identity_index.get(identity)
-            imdb_id = str(item.get("imdb_id") or "").strip().casefold()
-            if group_id is None and imdb_id:
-                imdb_group = imdb_index.get(imdb_id)
-                if imdb_group is not None:
-                    existing = groups[imdb_group]
-                    existing_kind, _, existing_number = _identity_parts(existing)
-                    if kind == "movie" or (
-                        existing_kind == "series"
-                        and (
-                            season_or_year == 0
-                            or existing_number == 0
-                            or season_or_year == existing_number
-                        )
-                    ):
-                        group_id = imdb_group
-            if group_id is None and kind == "series":
-                candidates = series_index.get(base_title, set())
-                compatible = [
-                    candidate_id
-                    for candidate_id in candidates
-                    if (
-                        season_or_year == 0
-                        or _identity_parts(groups[candidate_id])[2] == 0
-                        or _identity_parts(groups[candidate_id])[2] == season_or_year
-                    )
-                ]
-                if len(compatible) == 1:
-                    group_id = compatible[0]
+    deduplicated = _deduplicate_items(raw_items)
+    deduplicated.sort(key=_item_sort_key, reverse=True)
+    movie_items = [item for item in deduplicated if _identity_parts(item)[0] == "movie"]
+    series_items = [item for item in deduplicated if _identity_parts(item)[0] == "series"]
+    available_movie_count = len(movie_items)
+    available_series_count = len(series_items)
 
-            if group_id is None:
-                group_id = next_group_id
-                next_group_id += 1
-                groups[group_id] = item
-            else:
-                groups[group_id] = _merge_item(groups[group_id], item)
+    if strict_kind_limits:
+        shortages = {}
+        if movie_limit is not None and available_movie_count < movie_limit:
+            shortages["movie"] = {"requested": movie_limit, "available": available_movie_count}
+        if series_limit is not None and available_series_count < series_limit:
+            shortages["series"] = {"requested": series_limit, "available": available_series_count}
+        if shortages:
+            raise ResourceIndexError(CONFIG_ERROR, "media feed does not satisfy strict kind limits", shortages)
 
-            merged = groups[group_id]
-            merged_identity = media_identity(merged)
-            merged["media_identity"] = merged_identity
-            identity_index[identity] = group_id
-            identity_index[merged_identity] = group_id
-            merged_kind, merged_base, _ = _identity_parts(merged)
-            if merged_kind == "series":
-                series_index.setdefault(merged_base, set()).add(group_id)
-            for candidate in (item, merged):
-                candidate_imdb = str(candidate.get("imdb_id") or "").strip().casefold()
-                if candidate_imdb:
-                    imdb_index[candidate_imdb] = group_id
-    items = list(groups.values())
-    items.sort(
-        key=lambda item: (
-            _date_key(item.get("update_date")),
-            _integer(item.get("episode_number")) or 0,
-            bool(item.get("recommended")),
-            _completeness(item),
-        ),
-        reverse=True,
-    )
-    items = items[:limit]
+    if movie_limit is not None or series_limit is not None:
+        selected = movie_items[: movie_limit or len(movie_items)] + series_items[: series_limit or len(series_items)]
+        selected.sort(key=_item_sort_key, reverse=True)
+    else:
+        selected = deduplicated[:limit]
+
     timestamp = generated_at or datetime.now().astimezone()
     payload = {
         "schema_version": "media-feed/1",
         "generated_at": timestamp.isoformat(),
         "sources": sources,
-        "items": items,
-        "summary": {
-            "source_count": len(sources),
-            "record_count": len(items),
-            "movie_count": sum(1 for item in items if item.get("content_kind", "movie") == "movie"),
-            "series_count": sum(1 for item in items if item.get("content_kind") == "series"),
-            "multi_source_count": sum(1 for item in items if int(item.get("source_count") or 0) > 1),
-            "resource_count": sum(len(item.get("resources") or []) for item in items),
-        },
+        "items": selected,
+        "summary": _summary(
+            items=selected,
+            source_count=len(sources),
+            available_movie_count=available_movie_count,
+            available_series_count=available_series_count,
+            movie_limit=movie_limit,
+            series_limit=series_limit,
+        ),
     }
     if output_path is not None:
         _atomic_write_json(Path(output_path), payload)
+    if movie_output_path is not None:
+        _atomic_write_json(Path(movie_output_path), _kind_payload(payload, "movie"))
+    if series_output_path is not None:
+        _atomic_write_json(Path(series_output_path), _kind_payload(payload, "series"))
     return payload

@@ -42,13 +42,13 @@ $env:PYTHONDONTWRITEBYTECODE = "1"
 $EffectiveCount = if ($Count -gt 0) {
     $Count
 } elseif ($Source -eq "sixv") {
-    50
+    100
 } elseif ($Source -eq "dytt8899") {
-    25
+    50
 } elseif ($Source -eq "sixv-series") {
     50
 } elseif ($Source -eq "meijumi") {
-    50
+    100
 } else {
     100
 }

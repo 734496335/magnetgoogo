@@ -9,6 +9,7 @@ from magnet.resource_index.errors import (
     LIVE_FETCH_DISABLED,
     LIVE_POLICY_NOT_ACKNOWLEDGED,
     LIVE_RATE_LIMITED,
+    LIVE_REQUEST_BUDGET_EXHAUSTED,
     LivePolicyError,
 )
 
@@ -27,7 +28,7 @@ class PhysicalRequestBudget:
     def assert_available(self, *, url_host: str | None = None) -> None:
         if self.limit <= 0 or self.used >= self.limit:
             raise LivePolicyError(
-                LIVE_RATE_LIMITED,
+                LIVE_REQUEST_BUDGET_EXHAUSTED,
                 f"physical request budget exhausted ({self.limit})",
                 {"max_pages": self.limit, "used": self.used, "url_host": url_host},
             )

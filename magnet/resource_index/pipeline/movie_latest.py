@@ -19,11 +19,13 @@ from magnet.resource_index.adapters.movie_brand_registry import (
 )
 from magnet.resource_index.adapters.movie_registry import MovieCrawler, get_movie_source
 from magnet.resource_index.domain.movie_models import MovieListingCandidate
+from magnet.resource_index.normalize.text import normalize_whitespace
 from magnet.resource_index.errors import (
     ACCESS_CHALLENGE,
     CONFIG_ERROR,
     INGEST_CANCELLED,
     LIVE_RATE_LIMITED,
+    LIVE_REQUEST_BUDGET_EXHAUSTED,
     LIVE_URL_REJECTED,
     ResourceIndexError,
 )
@@ -229,6 +231,7 @@ class MovieLatestRunner:
                 {"source_id": self.source_id, "expected": self.target_count, "found": len(candidates)},
             )
         seen_urls: set[str] = set()
+        seen_source_keys: set[str] = set()
         for expected_rank, candidate in enumerate(candidates, start=1):
             parsed = urlparse(candidate.detail_url)
             try:
@@ -263,16 +266,59 @@ class MovieLatestRunner:
                     "movie candidate URLs must be unique",
                     {"source_id": self.source_id, "detail_url": candidate.detail_url},
                 )
-            if not candidate.source_item_key or not candidate.source_item_key.startswith("/"):
+            source_key = str(candidate.source_item_key or "")
+            source_key_parts = urlparse(source_key)
+            if (
+                not source_key.startswith("/")
+                or source_key_parts.scheme
+                or source_key_parts.netloc
+                or source_key_parts.query
+                or source_key_parts.fragment
+                or source_key != parsed.path
+            ):
                 raise ResourceIndexError(
                     CONFIG_ERROR,
-                    "movie candidate source key must be a stable absolute source path",
+                    "movie candidate source key must equal the canonical detail path",
                     {
                         "source_id": self.source_id,
                         "source_item_key": candidate.source_item_key,
+                        "detail_path": parsed.path,
+                    },
+                )
+            if source_key in seen_source_keys:
+                raise ResourceIndexError(
+                    CONFIG_ERROR,
+                    "movie candidate source keys must be unique",
+                    {"source_id": self.source_id, "source_item_key": source_key},
+                )
+            if not normalize_whitespace(candidate.listing_title):
+                raise ResourceIndexError(
+                    CONFIG_ERROR,
+                    "movie candidate title must not be empty",
+                    {"source_id": self.source_id, "rank": candidate.rank},
+                )
+            if candidate.content_kind != self.content_kind:
+                raise ResourceIndexError(
+                    CONFIG_ERROR,
+                    "movie candidate content kind does not match the source contract",
+                    {
+                        "source_id": self.source_id,
+                        "expected": self.content_kind,
+                        "actual": candidate.content_kind,
+                    },
+                )
+            if self.brand_id and candidate.brand_id != self.brand_id:
+                raise ResourceIndexError(
+                    CONFIG_ERROR,
+                    "movie candidate brand does not match the source contract",
+                    {
+                        "source_id": self.source_id,
+                        "expected": self.brand_id,
+                        "actual": candidate.brand_id,
                     },
                 )
             seen_urls.add(candidate.detail_url)
+            seen_source_keys.add(source_key)
 
     def _snapshot_payload(
         self,
@@ -433,6 +479,15 @@ class MovieLatestRunner:
                 "movie latest snapshot ranks or URLs are invalid",
                 {"path": str(self.paths.snapshot_path)},
             )
+        try:
+            candidates = [self._candidate(item) for item in snapshot["items"]]
+            self._validate_candidates(candidates)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ResourceIndexError(
+                CONFIG_ERROR,
+                "movie latest snapshot items are malformed",
+                {"path": str(self.paths.snapshot_path)},
+            ) from exc
         return snapshot
 
     def _candidate(self, item: dict[str, Any]) -> MovieListingCandidate:
@@ -763,6 +818,7 @@ class MovieLatestRunner:
                 resources_updated = 0
                 cancelled = False
                 hard_stop = False
+                budget_stop = False
                 self._log("movie batch started", source_id=self.source_id, job_id=job_id, run_id=run_id, ranks=ranks)
                 try:
                     for rank in ranks:
@@ -794,6 +850,9 @@ class MovieLatestRunner:
                             errors[rank] = exc.error_code
                             if exc.error_code in {LIVE_RATE_LIMITED, ACCESS_CHALLENGE}:
                                 hard_stop = True
+                                break
+                            if exc.error_code == LIVE_REQUEST_BUDGET_EXHAUSTED:
+                                budget_stop = True
                                 break
                         except Exception as exc:
                             errors[rank] = type(exc).__name__
@@ -838,6 +897,8 @@ class MovieLatestRunner:
                     raise KeyboardInterrupt
                 if hard_stop:
                     stopped_by_policy = True
+                    break
+                if budget_stop:
                     break
 
             summary = self.job_store.summary(job_id)

@@ -5,7 +5,12 @@ param(
     [string]$VenvPath = "",
     [string]$OutputDir = "",
     [string]$Log = "",
-    [string]$AggregateOutput = ""
+    [string]$AggregateOutput = "",
+    [string]$FormalAggregateOutput = "",
+    [string]$MovieOutput = "",
+    [string]$SeriesOutput = "",
+    [int]$MovieLimit = 100,
+    [int]$SeriesLimit = 100
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,6 +28,9 @@ $VenvPath = Resolve-RepoPath $VenvPath ".venv-resource-index"
 $OutputDir = Resolve-RepoPath $OutputDir "data\resource_index"
 $Log = Resolve-RepoPath $Log "data\resource_index\movie_sources_safe.log"
 $AggregateOutput = Resolve-RepoPath $AggregateOutput "data\resource_index\media_latest_feed.json"
+$FormalAggregateOutput = Resolve-RepoPath $FormalAggregateOutput "data\resource_index\media_latest_200_feed.json"
+$MovieOutput = Resolve-RepoPath $MovieOutput "data\resource_index\movies_latest_100_feed.json"
+$SeriesOutput = Resolve-RepoPath $SeriesOutput "data\resource_index\series_latest_100_feed.json"
 $PythonExe = Join-Path $VenvPath "Scripts\python.exe"
 if (-not (Test-Path $PythonExe)) {
     throw "Runtime is not installed. Run deploy\resource-index\setup.bat first."
@@ -35,15 +43,25 @@ $Arguments = @(
     "--yes"
 )
 $SourceList = @()
+$DefaultCounts = @{
+    "sixv" = 100
+    "dytt8899" = 50
+    "sixv-series" = 50
+    "meijumi" = 100
+}
 foreach ($Source in ($Sources -split ",")) {
     $Trimmed = $Source.Trim()
     if (-not [string]::IsNullOrWhiteSpace($Trimmed)) {
         $SourceList += $Trimmed
-        $Arguments += @("--source", $Trimmed)
+        $EffectiveSourceCount = if ($Count -gt 0) {
+            $Count
+        } elseif ($DefaultCounts.ContainsKey($Trimmed)) {
+            $DefaultCounts[$Trimmed]
+        } else {
+            50
+        }
+        $Arguments += @("--source", $Trimmed, "--source-count", ("{0}={1}" -f $Trimmed, $EffectiveSourceCount))
     }
-}
-if ($Count -gt 0) {
-    $Arguments += @("--count", $Count)
 }
 
 $env:PYTHONUTF8 = "1"
@@ -53,41 +71,56 @@ try {
     & $PythonExe @Arguments
     $Code = $LASTEXITCODE
 
-    $AggregateArguments = @(
-        "-B", "-m", "magnet.resource_index.cli", "aggregate-media-feeds",
-        "--output", $AggregateOutput,
-        "--limit", "300"
-    )
+    $FeedArguments = @()
     $FeedCount = 0
     $AggregateSources = @("sixv", "dytt8899", "sixv-series", "meijumi")
     foreach ($Source in $AggregateSources) {
         $EffectiveCount = if ($Count -gt 0) {
             $Count
-        } elseif ($Source -eq "sixv") {
-            50
-        } elseif ($Source -eq "dytt8899") {
-            25
-        } elseif ($Source -eq "sixv-series") {
-            50
-        } elseif ($Source -eq "meijumi") {
-            50
+        } elseif ($DefaultCounts.ContainsKey($Source)) {
+            $DefaultCounts[$Source]
         } else {
             50
         }
         $FeedPath = Join-Path $OutputDir ("{0}_latest_{1}_feed.json" -f $Source, $EffectiveCount)
         if (Test-Path $FeedPath) {
-            $AggregateArguments += @("--feed", $FeedPath)
+            $FeedArguments += @("--feed", $FeedPath)
             $FeedCount += 1
         }
     }
     if ($FeedCount -gt 0) {
-        & $PythonExe @AggregateArguments
-        $AggregateCode = $LASTEXITCODE
-        if ($Code -eq 0 -and $AggregateCode -ne 0) {
-            $Code = $AggregateCode
+        $PartialArguments = @(
+            "-B", "-m", "magnet.resource_index.cli", "aggregate-media-feeds",
+            "--output", $AggregateOutput,
+            "--limit", "300"
+        ) + $FeedArguments
+        & $PythonExe @PartialArguments
+        $PartialCode = $LASTEXITCODE
+        if ($Code -eq 0 -and $PartialCode -ne 0) {
+            $Code = $PartialCode
         }
-        if ($AggregateCode -eq 0) {
-            Write-Host "Aggregated media feed ready: $AggregateOutput"
+        if ($PartialCode -eq 0) {
+            Write-Host "Partial-compatible media feed ready: $AggregateOutput"
+        }
+
+        $StrictArguments = @(
+            "-B", "-m", "magnet.resource_index.cli", "aggregate-media-feeds",
+            "--output", $FormalAggregateOutput,
+            "--movie-output", $MovieOutput,
+            "--series-output", $SeriesOutput,
+            "--movie-limit", $MovieLimit,
+            "--series-limit", $SeriesLimit,
+            "--strict-kind-limits",
+            "--limit", ($MovieLimit + $SeriesLimit)
+        ) + $FeedArguments
+        & $PythonExe @StrictArguments
+        $StrictCode = $LASTEXITCODE
+        if ($StrictCode -eq 0) {
+            Write-Host "Formal media feed ready: $FormalAggregateOutput"
+            Write-Host "Movie catalog ready: $MovieOutput"
+            Write-Host "Series catalog ready: $SeriesOutput"
+        } else {
+            Write-Warning "Formal movie/series quotas are not satisfied; previous complete catalogs were not overwritten."
         }
     }
 } finally {
