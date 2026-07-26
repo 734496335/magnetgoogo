@@ -1,5 +1,27 @@
 ---
 Date/Time: 2026-07-26 (UTC+8)
+Version: app-v0.2.1-recommendation-copy-prominent-titles
+Scope: Improve recommendation naming, high-score title visibility and the fixed resource CTA shape
+Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/core/resourceCopy.ts,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
+
+### Product changes
+- Changed the Chinese resource-page section title from “值得一看” to “近期好片”.
+- When either Douban or IMDb is at least 6.0, the movie title is red in recommended cards, recent rows and details.
+- Converted the fixed `查看资源（N）` action from a wide rounded rectangle to a narrower full-capsule button.
+- Recommendation data, ordering and interaction remain unchanged.
+
+### Verification
+- TypeScript PASS; App adversarial tests 36/36 PASS.
+- `npm run android:k30s` completed with `BUILD SUCCESSFUL` and installation `Success`.
+- K30S showed the `近期好片` heading; the 7.1-rated list title contained 1,937 red pixels and the detail title contained 9,860 red pixels in their measured bounds.
+- The fixed resource CTA bounds changed to `[176,2191][904,2266]`, confirming a narrower centered capsule rather than a near-full-width rounded rectangle.
+
+### Release state
+- v0.2.1 remains development-only. No tag, formal APK release or remote deployment.
+---
+
+---
+Date/Time: 2026-07-26 (UTC+8)
 Version: app-v0.2.1-movie-tags-resource-shortcut
 Scope: Merge ratings into the quality-tag row, hide empty detail sections and expose resources without reordering the page
 Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/components/MovieTagRow.tsx,src/core/movieRatings.ts,src/core/resourceCopy.ts,scripts/resource-feed-tests.mjs,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}

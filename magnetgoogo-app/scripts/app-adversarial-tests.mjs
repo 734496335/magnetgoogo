@@ -440,6 +440,11 @@ await test('U3', 'movie discovery preserves ranking and opens a dedicated detail
   assert.ok(tagRow.indexOf('ratings.map') < tagRow.indexOf('tags.map'));
   assert.doesNotMatch(tagRow, /tierLabel|精品|高分/);
   assert.doesNotMatch(copy, /featuredScore|highScore|精品|高分/);
+  assert.match(copy, /recommendedTitle: '近期好片'/);
+  assert.match(screen, /getMovieScoreTier/);
+  assert.match(screen, /hasProminentScore \? '#dc2626' : colors\.text/);
+  assert.match(detail, /getMovieScoreTier/);
+  assert.match(detail, /hasProminentScore \? '#dc2626' : colors\.text/);
   assert.match(ratings, /FEATURED_SCORE_THRESHOLD = 6\.0/);
   assert.match(ratings, /HIGH_SCORE_THRESHOLD = 8\.0/);
   assert.match(ratings, /value > 0 && value <= 10/);
@@ -474,6 +479,9 @@ await test('U4', 'movie detail exposes only prominent magnet cards with search-e
   assert.match(detail, /onLayout=\{\(event\) =>/);
   assert.match(detail, /showResourceShortcut/);
   assert.match(detail, /copy\.viewResources\(magnetResources\.length\)/);
+  assert.match(detail, /borderRadius: 999/);
+  assert.match(detail, /left: 64/);
+  assert.match(detail, /right: 64/);
   assert.ok(detail.indexOf('copy.detailSynopsis') < detail.indexOf('copy.detailResources'));
   assert.ok(detail.indexOf('copy.detailInfo') < detail.indexOf('copy.detailResources'));
   assert.ok(detail.indexOf('copy.detailCast') < detail.indexOf('copy.detailResources'));

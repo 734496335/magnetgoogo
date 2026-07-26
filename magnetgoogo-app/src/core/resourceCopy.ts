@@ -85,7 +85,7 @@ const ZH: ResourceCopy = {
   tabResources: '资源',
   tabSettings: '设置',
   title: '影视',
-  recommendedTitle: '值得一看',
+  recommendedTitle: '近期好片',
   latestTitle: '最近更新',
   loading: '正在加载影视…',
   emptyTitle: '暂无影视内容',

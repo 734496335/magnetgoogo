@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MovieTagRow } from '../../src/components/MovieTagRow';
 import { useLang } from '../../src/core/LangContext';
 import { useTheme, type Colors } from '../../src/core/ThemeContext';
+import { getMovieScoreTier } from '../../src/core/movieRatings';
 import { getResourceCopy } from '../../src/core/resourceCopy';
 import { addHistory } from '../../src/core/searchHistory';
 import { trackCopy, trackOpen } from '../../src/core/analytics';
@@ -298,6 +299,8 @@ export default function MovieDetailScreen() {
     );
   }
 
+  const hasProminentScore = getMovieScoreTier(movie) !== null;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
       <ScrollView
@@ -326,7 +329,9 @@ export default function MovieDetailScreen() {
           )}
         </View>
 
-        <Text style={[styles.title, { color: colors.text }]}>{movie.title}</Text>
+        <Text style={[styles.title, { color: hasProminentScore ? '#dc2626' : colors.text }]}>
+          {movie.title}
+        </Text>
         {!!movie.original_title && movie.original_title !== movie.title && (
           <Text style={[styles.originalTitle, { color: colors.textTertiary }]}>{movie.original_title}</Text>
         )}
@@ -531,10 +536,10 @@ const styles = StyleSheet.create({
   searchButtonText: { marginLeft: 8, color: '#fff', fontSize: 15, fontWeight: '800' },
   resourceShortcut: {
     position: 'absolute',
-    left: 20,
-    right: 20,
-    height: 52,
-    borderRadius: 16,
+    left: 64,
+    right: 64,
+    height: 48,
+    borderRadius: 999,
     shadowOpacity: 0.24,
     shadowOffset: { width: 0, height: 8 },
     shadowRadius: 18,
@@ -543,6 +548,7 @@ const styles = StyleSheet.create({
   },
   resourceShortcutGradient: {
     flex: 1,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },

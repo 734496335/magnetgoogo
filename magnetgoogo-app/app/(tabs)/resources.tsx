@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLang } from '../../src/core/LangContext';
 import { useTheme, type Colors } from '../../src/core/ThemeContext';
 import { MovieTagRow } from '../../src/components/MovieTagRow';
+import { getMovieScoreTier } from '../../src/core/movieRatings';
 import { getResourceCopy } from '../../src/core/resourceCopy';
 import { loadResourceFeed, movieCoverUri } from '../../src/core/resourceFeed';
 import {
@@ -70,6 +71,7 @@ const RecommendedCard = memo(function RecommendedCard({
   onOpen,
 }: RecommendedCardProps) {
   const open = useCallback(() => onOpen(item.movie_id), [item.movie_id, onOpen]);
+  const hasProminentScore = getMovieScoreTier(item) !== null;
   return (
     <TouchableOpacity
       style={styles.recommendedCard}
@@ -88,7 +90,10 @@ const RecommendedCard = memo(function RecommendedCard({
           <Text style={styles.recommendBadgeText}>{recommendation}</Text>
         </View>
       </View>
-      <Text style={[styles.recommendedTitle, { color: colors.text }]} numberOfLines={2}>
+      <Text
+        style={[styles.recommendedTitle, { color: hasProminentScore ? '#dc2626' : colors.text }]}
+        numberOfLines={2}
+      >
         {item.title}
       </Text>
       <Text style={[styles.recommendedMeta, { color: colors.textTertiary }]} numberOfLines={1}>
@@ -127,6 +132,7 @@ const MovieRow = memo(function MovieRow({
   ].filter(Boolean).join(' · ');
   const visibleTags = item.quality_tags.slice(0, 3);
   const magnetCount = item.resources.filter((resource) => resource.resource_type === 'magnet').length;
+  const hasProminentScore = getMovieScoreTier(item) !== null;
   return (
     <TouchableOpacity
       style={[styles.movieRow, { borderBottomColor: colors.border }]}
@@ -141,7 +147,10 @@ const MovieRow = memo(function MovieRow({
         style={{ width: ROW_COVER_WIDTH, height: ROW_COVER_HEIGHT }}
       />
       <View style={styles.movieInfo}>
-        <Text style={[styles.movieTitle, { color: colors.text }]} numberOfLines={2}>
+        <Text
+          style={[styles.movieTitle, { color: hasProminentScore ? '#dc2626' : colors.text }]}
+          numberOfLines={2}
+        >
           {item.title}
         </Text>
         {!!metadata && (

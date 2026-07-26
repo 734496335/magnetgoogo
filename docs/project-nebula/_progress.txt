@@ -1,4 +1,4 @@
-Current phase: App v0.2.1 MOVIE TAG ROW + RESOURCE SHORTCUT PASS / NOT RELEASED 2026-07-26
+Current phase: App v0.2.1 MOVIE COPY POLISH PASS / NOT RELEASED 2026-07-26
 
 ## Completed
 - Replaced the separate rating strip with one shared movie tag row.
@@ -8,10 +8,11 @@ Current phase: App v0.2.1 MOVIE TAG ROW + RESOURCE SHORTCUT PASS / NOT RELEASED 
 - Internal 6.0 / 8.0 tiers only control restrained color and font weight.
 - Detail content order remains synopsis, movie information, cast, then resources.
 - Empty synopsis, movie-information, cast and resource sections are entirely omitted.
-- Added a fixed “查看资源（N）” shortcut at the bottom of movie details.
-- The shortcut scrolls smoothly to the resource section.
-- The shortcut automatically hides while the resource section is visible and returns outside it.
+- Added a fixed “查看资源（N）” shortcut that scrolls to resources and automatically hides while the section is visible.
 - Removed obsolete empty-state copy and the old MovieRatingStrip component.
+- Renamed the recommendation section from “值得一看” to “近期好片”.
+- Movie titles turn red in recommended cards, recent rows and details when Douban or IMDb is at least 6.0.
+- The fixed “查看资源（N）” action now uses a true capsule shape with narrower horizontal bounds.
 
 ## Verification
 - TypeScript -> PASS.
@@ -19,7 +20,7 @@ Current phase: App v0.2.1 MOVIE TAG ROW + RESOURCE SHORTCUT PASS / NOT RELEASED 
 - Movie feed tests -> PASS; fluency suite -> 17/17 PASS.
 - `npm run android:k30s` -> BUILD SUCCESSFUL / install Success.
 - K30S list showed `豆瓣 7.1` before `4K` and `HD`.
-- K30S detail showed `豆瓣 7.1`, then `4K / HD`, plus fixed `查看资源（3）`.
+- K30S detail showed a red 7.1-rated title, `豆瓣 7.1 / 4K / HD`, plus the centered capsule `查看资源（3）`.
 - Tapping the shortcut scrolled to `资源 / 3 个资源` and three magnet cards.
 - The shortcut was absent once the resource section entered the viewport.
 - No AndroidRuntime fatal or React Native unhandled error observed.
