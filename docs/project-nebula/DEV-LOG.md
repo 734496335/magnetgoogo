@@ -1,5 +1,30 @@
 ---
 Date/Time: 2026-07-26 (UTC+8)
+Version: media-feed-distribution-architecture-freeze
+Scope: Freeze the local-crawl, static-publish and App incremental-consumption architecture for movie/series resources
+Modules: docs/project-nebula/{计划-20260726-影视资源本地爬取与静态分发架构-冻结契约.md,_progress.txt,DEV-LOG.md}
+
+### Architecture decision
+- Kept all crawler compute on the local Windows machine; cloud infrastructure stores and serves immutable static artifacts only.
+- Reused the encrypted-source six-endpoint concept only for a small signed `current.json` control plane. Full media bundles must not be raced and duplicated through all six endpoints.
+- Selected a dedicated Cloudflare R2 bucket/custom domain as the primary data plane and the existing Aliyun Nginx path as the required China mirror.
+- Limited GitHub Raw, jsDelivr, CF Pages and the existing Worker Gateway to pointer/manifest fallback roles. The Worker must not proxy covers, details or resource objects.
+- Split the existing monolithic Feed into channel card indexes, detail objects, encrypted optional resource shards and content-addressed covers.
+- Defined immutable upload, SHA-256 verification, Ed25519 signatures, highest-`pointer_revision` endpoint arbitration, atomic `current.json` promotion and pointer-based rollback.
+- Defined publisher abstraction boundaries so future source adapters, R2, Aliyun Nginx and later OSS/CDN remain independent.
+- Identified a pre-implementation blocker: project rules/Gateway/App reference `mg-data`, while local admin publishing uses `maggoogo-sources`.
+
+### Evidence
+- Measured current movie bundle at about 2.23 MiB and series bundle at about 6.48 MiB, versus roughly 40 KiB for the encrypted source payload.
+- Current full media delivery is about 8.70 MiB/user; card/detail/resource separation can reduce first resource-page delivery to roughly 1 MiB.
+- Reviewed current official Cloudflare constraints: R2 free tier includes 10 GB storage, 10 million Class B reads/month and free egress; Workers Free includes 100,000 requests/day.
+
+### Release state
+- Architecture only. No R2 bucket, custom domain, Publisher implementation, App network Feed, remote upload, push, tag or production deployment was performed.
+---
+
+---
+Date/Time: 2026-07-26 (UTC+8)
 Version: app-v0.2.1-title-copy-toast-correction
 Scope: Replace title-text mutation with a non-blocking capsule Toast after copy
 Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,app/movie/[movieId].tsx,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}

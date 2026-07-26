@@ -1,29 +1,27 @@
-Current phase: App v0.2.1 SEGMENTED CHANNEL + COMPACT RESOURCE LIST PASS / NOT RELEASED 2026-07-26
+Current phase: MEDIA FEED DISTRIBUTION ARCHITECTURE FROZEN / IMPLEMENTATION NOT STARTED 2026-07-26
 
-## Completed
-- Primary channel rail: 电影 / 美剧 / 英剧 / 国产剧 / 韩剧 / 日剧.
-- Removed English channel codes, detached cards and clipped shadows.
-- First viewport shows four full channels plus about half of 韩剧 as a horizontal-scroll cue.
-- Renamed “近期好片” to “精品推荐”.
-- Spotlight update badge stays orange-red at the poster lower-left.
-- Recent-list status uses `更新至第N集` or original completed text such as `第1-2季全`.
-- Status is regular dark text; lighter `X个资源` shares the same row.
-- Detail magnets form one continuous rounded list with about 72dp rows and hairline separators.
-- Resource title is limited to two lines; duplicated quality tags are suppressed.
-- Copy/open actions are same-line `55×32dp` capsules labelled 复制 / 打开.
-- Resource-page and detail titles copy on tap while always retaining the original title; an independent capsule “已复制” Toast disappears after about 2 seconds.
-- Existing natural sorting, scroll auto-load and copy-all behavior remain unchanged.
-- Current series snapshot: 100 titles / 1239 unique magnets.
-- Updated unified crawler issue MD with refreshed audit and remaining defects.
+## Architecture decision
+- Local Windows crawler remains the only compute/data-production node; no crawler runs on the server.
+- Reuse the encrypted-source multi-endpoint pattern only for the small signed `current.json` control plane.
+- Do not distribute the full movie/series bundle through six raced endpoints.
+- Use Cloudflare R2 + `media.magnetgoogo.com` as the primary immutable object store.
+- Use existing Aliyun Nginx as the required China mirror; migrate the same publisher interface to OSS/CDN later if traffic grows.
+- GitHub Raw/jsDelivr/CF Pages/Worker carry only current pointers and manifests as fallbacks.
+- Worker must not proxy covers, details or resource objects; its free daily request quota would become the first bottleneck.
+- Split payloads into channel cards, media details, resource sets and content-addressed covers.
+- App fetches the highest signed `pointer_revision`, compares SHA-256 hashes and downloads only changed objects.
+- Keep bundled seed + encrypted 72h disk cache + stale-while-revalidate network sync.
+- Publish immutable objects first and update `current.json` last; rollback publishes a newer pointer revision to an older release.
+- Sign pointer/manifest with Ed25519; optionally encrypt only magnet resource shards, not metadata/covers.
+- Current full bundle is about 8.70 MiB; split loading can reduce first resource-page traffic to about 1 MiB.
+- Existing control-plane naming drift (`mg-data` vs `maggoogo-sources`) is a pre-implementation blocker.
 
-## Verification
-- TypeScript PASS; App adversarial 36/36; Feed tests PASS; fluency 17/17.
-- Series audit: 0 duplicate, 0 cross-season, 0 generic titles, 1 unknown identity.
-- `npm run android:k30s` -> BUILD SUCCESSFUL / install Success.
-- K30S showed 精品推荐 and partially visible 韩剧.
-- K30S 69-resource detail showed about ten compact entries per viewport.
-- K30S list/detail title-copy tests retained 寒战1994 while showing an independent 已复制 Toast; the Toast was absent after 2.2 seconds.
+## Evidence
+- Current movie bundle: about 2.23 MiB; series bundle: about 6.48 MiB.
+- Current encrypted source payload: about 40 KiB, proving the two workloads need different data-plane designs.
+- Official 2026 R2 limits reviewed: 10 GB free storage, 10 million free Class B reads/month, free egress.
+- Official Workers free limit reviewed: 100,000 requests/day.
 
-## Remaining before release
-- Data AI must resolve the remaining unknown package, false episode ranges and same-episode variant ambiguity.
-- Run final signed v0.2.1 acceptance; do not tag, publish or deploy yet.
+## Next implementation batch
+- M1: define `media-current/1` + `media-manifest/1`, split existing Feed into immutable objects and build local staging/quality gates.
+- No R2 bucket, endpoint change, App network Feed, push, tag or production deployment has been performed yet.
