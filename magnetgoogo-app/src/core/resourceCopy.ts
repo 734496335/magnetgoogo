@@ -7,8 +7,18 @@ export interface ResourceCopy {
   title: string;
   mediaMovies: string;
   mediaSeries: string;
+  mediaUsSeries: string;
+  mediaKoreanSeries: string;
+  mediaJapaneseSeries: string;
+  mediaChineseSeries: string;
+  mediaUkSeries: string;
   recommendedTitle: string;
   latestTitle: string;
+  seriesUpdatingTitle: string;
+  seriesLatestTitle: string;
+  offlineUpdated: string;
+  channelEmptyTitle: string;
+  channelEmptyBody: string;
   loading: string;
   emptyTitle: string;
   emptyBody: string;
@@ -50,8 +60,18 @@ const EN: ResourceCopy = {
   title: 'Movies & series',
   mediaMovies: 'Movies',
   mediaSeries: 'Series',
+  mediaUsSeries: 'US',
+  mediaKoreanSeries: 'Korean',
+  mediaJapaneseSeries: 'Japanese',
+  mediaChineseSeries: 'Chinese',
+  mediaUkSeries: 'UK',
   recommendedTitle: 'Recommended',
   latestTitle: 'Recently added',
+  seriesUpdatingTitle: 'Now updating',
+  seriesLatestTitle: 'Latest series',
+  offlineUpdated: 'Offline snapshot',
+  channelEmptyTitle: 'No titles in this channel',
+  channelEmptyBody: 'Try another channel. The offline snapshot may not contain this region yet.',
   loading: 'Loading movies…',
   emptyTitle: 'No movies available',
   emptyBody: 'The movie snapshot is unavailable. Rebuild the App bundle and try again.',
@@ -93,8 +113,18 @@ const ZH: ResourceCopy = {
   title: '影视',
   mediaMovies: '电影',
   mediaSeries: '电视剧',
+  mediaUsSeries: '美剧',
+  mediaKoreanSeries: '韩剧',
+  mediaJapaneseSeries: '日剧',
+  mediaChineseSeries: '国产剧',
+  mediaUkSeries: '英剧',
   recommendedTitle: '近期好片',
   latestTitle: '最近更新',
+  seriesUpdatingTitle: '追更速递',
+  seriesLatestTitle: '最近更新',
+  offlineUpdated: '离线更新',
+  channelEmptyTitle: '这个频道暂时没有内容',
+  channelEmptyBody: '可以切换其他频道，等待下一次离线内容更新。',
   loading: '正在加载影视…',
   emptyTitle: '暂无影视内容',
   emptyBody: '本地影视数据未准备完成，请重新构建 App 后再试。',

@@ -293,7 +293,7 @@ module.exports = function withResourceFeed(config) {
         const seriesPayload = normalizeSeriesFeed(seriesSourcePath);
         fs.writeFileSync(path.join(seriesTargetDir, 'feed.json'), JSON.stringify(seriesPayload), 'utf8');
         console.log(
-          `[with-resource-feed] bundled ${seriesPayload.items.length} offline series entries and ${seriesPayload.summary.resource_count} magnet resources; poster placeholders require no runtime image traffic`,
+          `[with-resource-feed] bundled ${seriesPayload.items.length} series entries and ${seriesPayload.summary.resource_count} magnet resources; remote covers use App cache until local cover assets are supplied`,
         );
       } else {
         fs.writeFileSync(path.join(seriesTargetDir, 'feed.json'), JSON.stringify(EMPTY_SERIES_FEED), 'utf8');

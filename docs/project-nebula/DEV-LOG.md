@@ -1,5 +1,33 @@
 ---
 Date/Time: 2026-07-26 (UTC+8)
+Version: app-v0.2.1-series-channel-feed
+Scope: Redesign series discovery as regional channels, restore poster visibility and recover episode identity from magnet metadata
+Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/core/resourceFeed.ts,src/core/resourceCopy.ts,src/core/mediaResourceTitle.ts,plugins/with-resource-feed.js,scripts/resource-feed-tests.mjs,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{电视剧离线Feed数据质量问题-交接爬虫AI.md,APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
+
+### Product changes
+- Removed the redundant `影视` heading and replaced the small two-option switch with large channel cards: `电影 / 电视剧 / 美剧 / 韩剧 / 日剧 / 国产剧 / 英剧`.
+- Active channels use 20px extra-bold type, a bordered section card and an accent indicator; the horizontal channel strip keeps the page compact.
+- Rebuilt the series Feed into `追更速递 + 最近更新`, using only verifiable update state, country, genre, ratings and resource counts. No unsupported ranking is shown.
+- Regional channels filter the existing bundled series Feed by country fields while preserving one mounted FlatList and lazy in-memory Feed loading.
+- Series covers now use `cover_source_url` as a cached temporary fallback and retain the local gradient poster when loading fails; local bundled covers remain a data-side P0 requirement.
+- Added display-only episode recovery: generic `1080P / 4K / HD` resource names derive `SxxExx` or Chinese episode labels from magnet `dn`.
+- Created a dedicated crawler handoff MD covering missing local covers, lost episode titles, first/second-season contamination, absent Japanese samples and missing ranking evidence.
+
+### Verification
+- TypeScript PASS; App adversarial 36/36; resource Feed tests PASS; fluency 17/17.
+- `npm run android:k30s` completed with `BUILD SUCCESSFUL` and installation `Success`.
+- K30S showed no `影视`; visible channel cards measured about 242–245×148px and the tail exposed `日剧 / 国产剧 / 英剧` after horizontal swipe.
+- US and Korean channels showed matching `美国` and `韩国` metadata only.
+- The first series poster crop contained 159,938 unique colors with RGB entropy sum 23.47, confirming a real loaded image instead of the gradient placeholder.
+- X战警97 detail showed `S01E01 · 1080P` and `S01E04 · 1080P`; it also visibly exposed `S02Exx` entries, confirming the upstream cross-season bug documented for the crawler AI.
+- No AndroidRuntime fatal or React Native unhandled error was observed; K30S animation scales were restored to 1.
+
+### Release state
+- v0.2.1 remains development-only. No tag, formal APK release or remote deployment.
+---
+
+---
+Date/Time: 2026-07-26 (UTC+8)
 Version: app-v0.2.1-offline-series-segment
 Scope: Add offline TV-series discovery with a lightweight movie/series switch and capsule search CTA
 Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/core/resourceFeed.ts,src/core/resourceFeedProtocol.ts,src/core/resourceCopy.ts,plugins/with-resource-feed.js,scripts/resource-feed-tests.mjs,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}

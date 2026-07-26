@@ -98,12 +98,14 @@ export async function loadMediaByIdAcrossFeeds(mediaId: string): Promise<MovieFe
 }
 
 export function movieCoverUri(item: MovieFeedItem): string | null {
-  if (!item.cover_asset_path) return null;
-  return new File(
-    Paths.bundle,
-    ...BUNDLE_ROOTS[item.content_kind],
-    ...safeAssetParts(item.cover_asset_path),
-  ).uri;
+  if (item.cover_asset_path) {
+    return new File(
+      Paths.bundle,
+      ...BUNDLE_ROOTS[item.content_kind],
+      ...safeAssetParts(item.cover_asset_path),
+    ).uri;
+  }
+  return item.cover_source_url;
 }
 
 export function clearResourceFeedMemoryCache(kind?: MediaKind) {

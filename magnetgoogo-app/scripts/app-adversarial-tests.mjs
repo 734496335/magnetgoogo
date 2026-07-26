@@ -419,7 +419,7 @@ await test('U2', 'bottom navigation and search hero respect the usable screen ar
   assert.doesNotMatch(home, /SCREEN_H \* 0\.18/);
 });
 
-await test('U3', 'offline movie and series discovery share one lightweight segmented experience', () => {
+await test('U3', 'movie and regional series channels form one lightweight discovery experience', () => {
   const screen = read('app/(tabs)/resources.tsx');
   const detail = read('app/movie/[movieId].tsx');
   const ratings = read('src/core/movieRatings.ts');
@@ -429,15 +429,28 @@ await test('U3', 'offline movie and series discovery share one lightweight segme
   assert.match(screen, /item\.recommended/);
   assert.match(screen, /pathname: '\/movie\/\[movieId\]'/);
   assert.match(screen, /params: \{ movieId: item\.movie_id, kind: item\.content_kind \}/);
-  assert.match(screen, /useState<MediaKind>\('movie'\)/);
-  assert.match(screen, /\(\['movie', 'series'\] as const\)/);
+  assert.match(screen, /useState<MediaChannel>\('movie'\)/);
+  assert.match(screen, /const CHANNELS: MediaChannel\[\] = \['movie', 'series', 'us', 'korea', 'japan', 'china', 'uk'\]/);
   assert.match(screen, /copy\.mediaMovies/);
   assert.match(screen, /copy\.mediaSeries/);
+  assert.match(screen, /copy\.mediaUsSeries/);
+  assert.match(screen, /copy\.mediaKoreanSeries/);
+  assert.match(screen, /copy\.mediaJapaneseSeries/);
+  assert.match(screen, /copy\.mediaChineseSeries/);
+  assert.match(screen, /matchesChannel/);
+  assert.match(screen, /countries\.has\('美国'\)/);
+  assert.match(screen, /countries\.has\('韩国'\)/);
+  assert.match(screen, /countries\.has\('日本'\)/);
+  assert.match(screen, /seriesUpdatingTitle/);
+  assert.match(screen, /isCompletedSeries/);
+  assert.doesNotMatch(screen, /排行榜|热播榜|榜第\s*\d/);
   assert.match(screen, /loadResourceFeed\(kind, forceRefresh\)/);
-  assert.match(screen, /key=\{activeKind\}/);
+  assert.match(screen, /key=\{activeChannel\}/);
   assert.equal((screen.match(/<FlatList/g) || []).length, 1);
   assert.match(screen, /item\.update_status \|\| item\.episode_label/);
-  assert.match(screen, /showPlaceholder = failed \|\| !coverUri/);
+  assert.match(screen, /cache: 'force-cache'/);
+  assert.doesNotMatch(screen, /\{copy\.title\}/);
+  assert.match(screen, /channelTextActive: \{ fontSize: 20, fontWeight: '900' \}/);
   assert.match(screen, /resource\.resource_type === 'magnet'/);
   assert.doesNotMatch(screen, /copy\.subtitle|copy\.updatedAt|generatedAt/);
   assert.doesNotMatch(screen, /content_code|MY-1065|javbus/i);
@@ -471,6 +484,7 @@ await test('U3', 'offline movie and series discovery share one lightweight segme
   assert.match(detail, /loadMediaById\(requestedKind, movieId\)/);
   assert.match(detail, /loadMediaByIdAcrossFeeds\(movieId\)/);
   assert.match(detail, /movie\.content_kind === 'series'/);
+  assert.match(detail, /resourceDisplayTitle\(resource\)/);
 });
 
 await test('U4', 'movie detail exposes only prominent magnet cards with search-equivalent actions', () => {
@@ -517,7 +531,8 @@ await test('U5', 'movie and series bundles are offline-first and exclude the leg
   assert.match(loader, /resource-index', 'sixv'/);
   assert.match(loader, /resource-index', 'series'/);
   assert.match(loader, /movieCoverUri/);
-  assert.match(loader, /if \(!item\.cover_asset_path\) return null/);
+  assert.match(loader, /if \(item\.cover_asset_path\)/);
+  assert.match(loader, /return item\.cover_source_url/);
   assert.match(protocol, /movie-app-feed\/1/);
   assert.match(protocol, /media-app-feed\/1/);
   assert.match(protocol, /content_kind: MediaKind/);
@@ -526,7 +541,9 @@ await test('U5', 'movie and series bundles are offline-first and exclude the leg
   assert.match(plugin, /series_latest_100_feed\.json/);
   assert.match(plugin, /normalizeSeriesFeed/);
   assert.match(plugin, /resource\.resource_type !== 'magnet'/);
-  assert.match(plugin, /poster placeholders require no runtime image traffic/);
+  assert.match(plugin, /remote covers use App cache until local cover assets are supplied/);
+  assert.match(read('src/core/mediaResourceTitle.ts'), /S\(\\d\{1,2\}\)E\(\\d\{1,3\}\)/);
+  assert.match(read('src/core/mediaResourceTitle.ts'), /decodeMagnetDisplayName/);
   assert.match(plugin, /rmSync\(legacyAdultFeed/);
   assert.doesNotMatch(plugin, /javbus_latest_100\.db/);
 });

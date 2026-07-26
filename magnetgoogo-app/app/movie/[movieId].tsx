@@ -23,6 +23,7 @@ import { MovieTagRow } from '../../src/components/MovieTagRow';
 import { useLang } from '../../src/core/LangContext';
 import { useTheme, type Colors } from '../../src/core/ThemeContext';
 import { getMovieScoreTier } from '../../src/core/movieRatings';
+import { resourceDisplayTitle } from '../../src/core/mediaResourceTitle';
 import { getResourceCopy } from '../../src/core/resourceCopy';
 import { addHistory } from '../../src/core/searchHistory';
 import { trackCopy, trackOpen } from '../../src/core/analytics';
@@ -70,7 +71,7 @@ const MagnetResourceCard = memo(function MagnetResourceCard({
       ]}
     >
       <Text style={[styles.resourceTitle, { color: colors.text }]} numberOfLines={3}>
-        {resource.display_title}
+        {resourceDisplayTitle(resource)}
       </Text>
 
       {visibleTags.length > 0 && (
@@ -368,7 +369,7 @@ export default function MovieDetailScreen() {
             </LinearGradient>
           ) : (
             <Image
-              source={{ uri: detailCoverUri }}
+              source={{ uri: detailCoverUri, cache: 'force-cache' }}
               style={styles.posterImage}
               resizeMode="cover"
               onError={() => setPosterFailed(true)}

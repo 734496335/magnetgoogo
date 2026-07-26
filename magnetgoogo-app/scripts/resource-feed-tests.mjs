@@ -13,6 +13,7 @@ import {
   getMovieScoreTier,
   getVisibleMovieRatings,
 } from '../src/core/movieRatings.ts';
+import { resourceDisplayTitle } from '../src/core/mediaResourceTitle.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const bundleDir = path.resolve(here, '..', '..', 'data', 'resource_index', 'sixv_app_bundle');
@@ -191,7 +192,27 @@ assert.equal(series.items[0].content_kind, 'series');
 assert.equal(series.items[0].update_status, '更新08');
 assert.equal(series.items[0].cover_asset_path, null);
 assert.equal(resourceFeedItemKey(series.items[0]).startsWith('series:'), true);
-console.log('PASS  M6  bundled series feed supports offline text/resources with zero runtime poster traffic');
+console.log('PASS  M6  bundled series feed supports cached cover fallback and offline text/resources');
+
+const episodeResource = {
+  ...sampleResource(),
+  display_title: '1080P',
+  url: 'magnet:?xt=urn:btih:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&dn=X-Men%2097%20S01E04%20Motendo%201080p',
+};
+assert.equal(resourceDisplayTitle(episodeResource), 'S01E04 · 1080P');
+assert.equal(
+  resourceDisplayTitle({
+    ...sampleResource(),
+    display_title: 'HD',
+    url: 'magnet:?xt=urn:btih:cccccccccccccccccccccccccccccccccccccccc&dn=%E7%AC%AC1-2%E9%9B%86%20720p',
+  }),
+  '第1-2集 · HD',
+);
+assert.equal(
+  resourceDisplayTitle({ ...sampleResource(), display_title: '完整文件名.mkv' }),
+  '完整文件名.mkv',
+);
+console.log('PASS  M7  generic quality-only resource titles recover episode identity from magnet dn');
 
 if (fs.existsSync(localFeedPath)) {
   const local = parseResourceFeed(JSON.parse(fs.readFileSync(localFeedPath, 'utf8')));
@@ -221,9 +242,9 @@ if (fs.existsSync(localFeedPath)) {
   assert.ok(providers.has('xunlei'));
   assert.ok(providers.has('quark'));
   assert.ok(providers.has('baidu'));
-  console.log('PASS  M7  SixV bundle is 50 movies / 9 recommendations / 134 resources / 50 offline covers');
+  console.log('PASS  M8  SixV bundle is 50 movies / 9 recommendations / 134 resources / 50 offline covers');
 } else {
-  console.log('SKIP  M7  local untracked SixV App bundle is not present');
+  console.log('SKIP  M8  local untracked SixV App bundle is not present');
 }
 
 console.log('=== Movie resource feed tests passed ===');

@@ -27,91 +27,116 @@ import {
   type MovieFeedItem,
 } from '../../src/core/resourceFeedProtocol';
 
-const RECOMMENDED_WIDTH = 158;
-const RECOMMENDED_COVER_HEIGHT = 224;
+const SPOTLIGHT_WIDTH = 158;
+const SPOTLIGHT_COVER_HEIGHT = 224;
 const ROW_COVER_WIDTH = 86;
 const ROW_COVER_HEIGHT = 122;
+
+type MediaChannel = 'movie' | 'series' | 'us' | 'korea' | 'japan' | 'china' | 'uk';
+
+const CHANNELS: MediaChannel[] = ['movie', 'series', 'us', 'korea', 'japan', 'china', 'uk'];
+
+function channelKind(channel: MediaChannel): MediaKind {
+  return channel === 'movie' ? 'movie' : 'series';
+}
+
+function isCompletedSeries(item: MovieFeedItem): boolean {
+  const status = `${item.update_status ?? ''} ${item.episode_label ?? ''}`.trim();
+  return /全集|完结|(?:^|\s)全$|季全$/.test(status);
+}
+
+function matchesChannel(item: MovieFeedItem, channel: MediaChannel): boolean {
+  if (channel === 'movie') return item.content_kind === 'movie';
+  if (item.content_kind !== 'series') return false;
+  if (channel === 'series') return true;
+  const countries = new Set(item.countries);
+  if (channel === 'us') return countries.has('美国');
+  if (channel === 'korea') return countries.has('韩国');
+  if (channel === 'japan') return countries.has('日本');
+  if (channel === 'uk') return countries.has('英国');
+  return ['中国', '大陆', '香港', '台湾'].some((country) => countries.has(country));
+}
 
 interface PosterProps {
   item: MovieFeedItem;
   style: object;
   colors: Colors;
+  overlayLabel?: string | null;
 }
 
-const MoviePoster = memo(function MoviePoster({ item, style, colors }: PosterProps) {
+const MediaPoster = memo(function MediaPoster({ item, style, colors, overlayLabel }: PosterProps) {
   const [failed, setFailed] = useState(false);
   const coverUri = movieCoverUri(item);
-  const showPlaceholder = failed || !coverUri;
   return (
     <View style={[style, styles.posterShell, { backgroundColor: colors.chipBg }]}>
-      {showPlaceholder ? (
-        <LinearGradient
-          colors={[colors.tagBg, colors.chipBg]}
-          style={styles.posterFallback}
-        >
-          <Ionicons
-            name={item.content_kind === 'series' ? 'tv-outline' : 'film-outline'}
-            size={30}
-            color={colors.textTertiary}
-          />
-          <Text style={[styles.posterFallbackText, { color: colors.textSecondary }]} numberOfLines={2}>
-            {item.title}
-          </Text>
-        </LinearGradient>
-      ) : (
+      <LinearGradient colors={[colors.tagBg, colors.chipBg]} style={styles.posterFallback}>
+        <Ionicons
+          name={item.content_kind === 'series' ? 'tv-outline' : 'film-outline'}
+          size={30}
+          color={colors.textTertiary}
+        />
+        <Text style={[styles.posterFallbackText, { color: colors.textSecondary }]} numberOfLines={2}>
+          {item.title}
+        </Text>
+      </LinearGradient>
+      {!!coverUri && !failed && (
         <Image
-          source={{ uri: coverUri }}
+          source={{ uri: coverUri, cache: 'force-cache' }}
           style={styles.posterImage}
           resizeMode="cover"
-          fadeDuration={120}
+          fadeDuration={160}
+          progressiveRenderingEnabled
           onError={() => setFailed(true)}
         />
+      )}
+      {!!overlayLabel && (
+        <View style={styles.updateOverlay}>
+          <Text style={styles.updateOverlayText} numberOfLines={1}>{overlayLabel}</Text>
+        </View>
       )}
     </View>
   );
 });
 
-interface RecommendedCardProps {
+interface SpotlightCardProps {
   item: MovieFeedItem;
   colors: Colors;
-  recommendation: string;
+  badgeText: string;
   onOpen: (item: MovieFeedItem) => void;
 }
 
-const RecommendedCard = memo(function RecommendedCard({
-  item,
-  colors,
-  recommendation,
-  onOpen,
-}: RecommendedCardProps) {
+const SpotlightCard = memo(function SpotlightCard({ item, colors, badgeText, onOpen }: SpotlightCardProps) {
   const open = useCallback(() => onOpen(item), [item, onOpen]);
   const hasProminentScore = getMovieScoreTier(item) !== null;
   return (
     <TouchableOpacity
-      style={styles.recommendedCard}
+      style={styles.spotlightCard}
       activeOpacity={0.86}
       onPress={open}
       accessibilityRole="button"
       accessibilityLabel={item.title}
     >
-      <View style={styles.recommendedPosterWrap}>
-        <MoviePoster
+      <View style={styles.spotlightPosterWrap}>
+        <MediaPoster
           item={item}
           colors={colors}
-          style={{ width: RECOMMENDED_WIDTH, height: RECOMMENDED_COVER_HEIGHT }}
+          overlayLabel={item.content_kind === 'series' ? item.update_status || item.episode_label : null}
+          style={{ width: SPOTLIGHT_WIDTH, height: SPOTLIGHT_COVER_HEIGHT }}
         />
-        <View style={styles.recommendBadge}>
-          <Text style={styles.recommendBadgeText}>{recommendation}</Text>
-        </View>
+        {item.content_kind === 'movie' && (
+          <View style={styles.recommendBadge}>
+            <Text style={styles.recommendBadgeText}>{badgeText}</Text>
+          </View>
+        )}
       </View>
       <Text
-        style={[styles.recommendedTitle, { color: hasProminentScore ? '#dc2626' : colors.text }]}
+        style={[styles.spotlightTitle, { color: hasProminentScore ? '#dc2626' : colors.text }]}
         numberOfLines={2}
       >
         {item.title}
       </Text>
-      <Text style={[styles.recommendedMeta, { color: colors.textTertiary }]} numberOfLines={1}>
-        {[item.year, item.genres.slice(0, 2).join(' · ')].filter(Boolean).join(' · ')}
+      <Text style={[styles.spotlightMeta, { color: colors.textTertiary }]} numberOfLines={1}>
+        {[item.year, item.countries[0], item.genres[0]].filter(Boolean).join(' · ')}
       </Text>
       <MovieTagRow
         item={item}
@@ -146,6 +171,7 @@ const MediaRow = memo(function MediaRow({
       : null;
   const metadata = [
     item.year,
+    item.countries[0],
     item.genres.slice(0, 2).join(' · '),
     status,
   ].filter(Boolean).join(' · ');
@@ -154,31 +180,33 @@ const MediaRow = memo(function MediaRow({
   const hasProminentScore = getMovieScoreTier(item) !== null;
   return (
     <TouchableOpacity
-      style={[styles.movieRow, { borderBottomColor: colors.border }]}
+      style={[styles.mediaRow, { borderBottomColor: colors.border }]}
       activeOpacity={0.72}
       onPress={open}
       accessibilityRole="button"
       accessibilityLabel={item.title}
     >
-      <MoviePoster
+      <MediaPoster
         item={item}
         colors={colors}
+        overlayLabel={item.content_kind === 'series' ? status : null}
         style={{ width: ROW_COVER_WIDTH, height: ROW_COVER_HEIGHT }}
       />
-      <View style={styles.movieInfo}>
+      <View style={styles.mediaInfo}>
         <Text
-          style={[styles.movieTitle, { color: hasProminentScore ? '#dc2626' : colors.text }]}
+          style={[styles.mediaTitle, { color: hasProminentScore ? '#dc2626' : colors.text }]}
           numberOfLines={2}
         >
           {item.title}
         </Text>
         {!!metadata && (
-          <Text style={[styles.movieMeta, { color: colors.textTertiary }]} numberOfLines={1}>
+          <Text style={[styles.mediaMeta, { color: colors.textTertiary }]} numberOfLines={2}>
             {metadata}
           </Text>
         )}
         <MovieTagRow item={item} colors={colors} qualityTags={visibleTags} />
         <View style={styles.rowFooter}>
+          <Ionicons name="link-outline" size={12} color={colors.textTertiary} />
           <Text style={[styles.resourceText, { color: colors.textTertiary }]}>
             {resourceLabel(magnetCount)}
           </Text>
@@ -195,12 +223,13 @@ export default function ResourcesScreen() {
   const { lang } = useLang();
   const { colors } = useTheme();
   const copy = getResourceCopy(lang);
-  const [activeKind, setActiveKind] = useState<MediaKind>('movie');
+  const [activeChannel, setActiveChannel] = useState<MediaChannel>('movie');
   const [feeds, setFeeds] = useState<Partial<Record<MediaKind, MovieFeed>>>({});
   const [loadingKind, setLoadingKind] = useState<MediaKind | null>('movie');
   const [refreshingKind, setRefreshingKind] = useState<MediaKind | null>(null);
   const [failedKinds, setFailedKinds] = useState<Partial<Record<MediaKind, boolean>>>({});
 
+  const activeKind = channelKind(activeChannel);
   const feed = feeds[activeKind] ?? null;
   const loading = loadingKind === activeKind;
   const refreshing = refreshingKind === activeKind;
@@ -228,18 +257,14 @@ export default function ResourcesScreen() {
   }, []);
 
   useEffect(() => {
+    void load('movie', false);
+  }, [load]);
+
+  useEffect(() => {
     if (!feeds[activeKind] && loadingKind !== activeKind) {
       void load(activeKind, false);
     }
   }, [activeKind, feeds, load, loadingKind]);
-
-  useEffect(() => {
-    void load('movie', false);
-  }, [load]);
-
-  const switchKind = useCallback((kind: MediaKind) => {
-    setActiveKind(kind);
-  }, []);
 
   const openMedia = useCallback((item: MovieFeedItem) => {
     router.push({
@@ -248,20 +273,33 @@ export default function ResourcesScreen() {
     });
   }, [router]);
 
-  const recommended = useMemo(
-    () => activeKind === 'movie' ? feed?.items.filter((item) => item.recommended) ?? [] : [],
-    [activeKind, feed?.items],
+  const filteredItems = useMemo(
+    () => feed?.items.filter((item) => matchesChannel(item, activeChannel)) ?? [],
+    [activeChannel, feed?.items],
   );
-  const recent = useMemo(
-    () => feed?.items.filter((item) => activeKind === 'series' || !item.recommended) ?? [],
-    [activeKind, feed?.items],
+
+  const spotlight = useMemo(() => {
+    if (activeKind === 'movie') return filteredItems.filter((item) => item.recommended);
+    return filteredItems.filter((item) => !isCompletedSeries(item)).slice(0, 10);
+  }, [activeKind, filteredItems]);
+
+  const spotlightIds = useMemo(
+    () => new Set(spotlight.map((item) => item.movie_id)),
+    [spotlight],
   );
-  const renderRecommended = useCallback((item: MovieFeedItem) => (
-    <RecommendedCard
+
+  const recent = useMemo(() => {
+    if (activeKind === 'movie') return filteredItems.filter((item) => !item.recommended);
+    const withoutSpotlight = filteredItems.filter((item) => !spotlightIds.has(item.movie_id));
+    return withoutSpotlight.length > 0 ? withoutSpotlight : filteredItems;
+  }, [activeKind, filteredItems, spotlightIds]);
+
+  const renderSpotlight = useCallback((item: MovieFeedItem) => (
+    <SpotlightCard
       key={resourceFeedItemKey(item)}
       item={item}
       colors={colors}
-      recommendation={copy.recommendation}
+      badgeText={copy.recommendation}
       onOpen={openMedia}
     />
   ), [colors, copy.recommendation, openMedia]);
@@ -276,56 +314,101 @@ export default function ResourcesScreen() {
     />
   ), [colors, copy.minutes, copy.resourceCount, openMedia]);
 
+  const channelLabel = useCallback((channel: MediaChannel) => {
+    if (channel === 'movie') return copy.mediaMovies;
+    if (channel === 'series') return copy.mediaSeries;
+    if (channel === 'us') return copy.mediaUsSeries;
+    if (channel === 'korea') return copy.mediaKoreanSeries;
+    if (channel === 'japan') return copy.mediaJapaneseSeries;
+    if (channel === 'china') return copy.mediaChineseSeries;
+    return copy.mediaUkSeries;
+  }, [copy]);
+
+  const channelBar = (
+    <View style={[styles.channelShell, { borderBottomColor: colors.border, backgroundColor: colors.bg }]}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.channelContent}
+      >
+        {CHANNELS.map((channel) => {
+          const active = activeChannel === channel;
+          return (
+            <TouchableOpacity
+              key={channel}
+              style={[
+                styles.channelButton,
+                active && {
+                  backgroundColor: colors.card,
+                  borderColor: colors.accent,
+                  shadowColor: colors.shadow,
+                },
+              ]}
+              activeOpacity={0.82}
+              onPress={() => setActiveChannel(channel)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={channelLabel(channel)}
+            >
+              <Text
+                style={[
+                  styles.channelText,
+                  { color: active ? colors.text : colors.textTertiary },
+                  active && styles.channelTextActive,
+                ]}
+              >
+                {channelLabel(channel)}
+              </Text>
+              <View style={[styles.channelIndicator, active && { backgroundColor: colors.accent }]} />
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+
   const listHeader = useMemo(() => (
     <View>
-      {recommended.length > 0 && (
-        <View style={styles.recommendedSection}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>{copy.recommendedTitle}</Text>
+      {spotlight.length > 0 && (
+        <View style={styles.spotlightSection}>
+          <View style={styles.sectionHeadingRow}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {activeKind === 'movie' ? copy.recommendedTitle : copy.seriesUpdatingTitle}
+            </Text>
+            {activeKind === 'series' && (
+              <Text style={[styles.sectionHint, { color: colors.textTertiary }]}>{copy.offlineUpdated}</Text>
+            )}
+          </View>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.recommendedContent}
+            contentContainerStyle={styles.spotlightContent}
           >
-            {recommended.map(renderRecommended)}
+            {spotlight.map(renderSpotlight)}
           </ScrollView>
         </View>
       )}
 
       <Text style={[styles.sectionTitle, styles.latestTitle, { color: colors.text }]}>
-        {copy.latestTitle}
+        {activeKind === 'movie' ? copy.latestTitle : copy.seriesLatestTitle}
       </Text>
     </View>
-  ), [colors.text, copy.latestTitle, copy.recommendedTitle, recommended, renderRecommended]);
-
-  const segment = (
-    <View style={[styles.segment, { backgroundColor: colors.chipBg }]}>
-      {(['movie', 'series'] as const).map((kind) => {
-        const active = activeKind === kind;
-        return (
-          <TouchableOpacity
-            key={kind}
-            style={[styles.segmentButton, active && { backgroundColor: colors.accent }]}
-            activeOpacity={0.8}
-            onPress={() => switchKind(kind)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: active }}
-            accessibilityLabel={kind === 'movie' ? copy.mediaMovies : copy.mediaSeries}
-          >
-            <Text style={[styles.segmentText, { color: active ? '#fff' : colors.textSecondary }]}>
-              {kind === 'movie' ? copy.mediaMovies : copy.mediaSeries}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
+  ), [
+    activeKind,
+    colors.text,
+    colors.textTertiary,
+    copy.latestTitle,
+    copy.offlineUpdated,
+    copy.recommendedTitle,
+    copy.seriesLatestTitle,
+    copy.seriesUpdatingTitle,
+    renderSpotlight,
+    spotlight,
+  ]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
-      <View style={styles.pageHeader}>
-        <Text style={[styles.pageTitle, { color: colors.text }]}>{copy.title}</Text>
-        {segment}
-      </View>
+      {channelBar}
 
       {loading && !feed ? (
         <View style={styles.center}>
@@ -350,9 +433,17 @@ export default function ResourcesScreen() {
             <Text style={styles.retryText}>{copy.retry}</Text>
           </TouchableOpacity>
         </View>
+      ) : filteredItems.length === 0 ? (
+        <View style={styles.center}>
+          <View style={[styles.emptyIcon, { backgroundColor: colors.chipBg }]}>
+            <Ionicons name="tv-outline" size={34} color={colors.textTertiary} />
+          </View>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>{copy.channelEmptyTitle}</Text>
+          <Text style={[styles.emptyBody, { color: colors.textTertiary }]}>{copy.channelEmptyBody}</Text>
+        </View>
       ) : (
         <FlatList
-          key={activeKind}
+          key={activeChannel}
           data={recent}
           renderItem={renderItem}
           keyExtractor={resourceFeedItemKey}
@@ -388,41 +479,41 @@ const styles = StyleSheet.create({
   },
   loadingText: { marginTop: 14, fontSize: 14 },
   listContent: { paddingBottom: 28 },
-  pageHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 18,
+  channelShell: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingTop: 10,
+    paddingBottom: 12,
   },
-  pageTitle: { fontSize: 31, fontWeight: '800', letterSpacing: -0.8 },
-  segment: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    marginTop: 16,
-    borderRadius: 999,
-    padding: 3,
-  },
-  segmentButton: {
-    minWidth: 82,
-    height: 34,
-    borderRadius: 999,
+  channelContent: { paddingHorizontal: 16, paddingRight: 8 },
+  channelButton: {
+    minWidth: 88,
+    height: 54,
+    marginRight: 10,
+    paddingHorizontal: 18,
+    borderRadius: 17,
+    borderWidth: 1.2,
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 18,
   },
-  segmentText: { fontSize: 13, fontWeight: '800' },
-  recommendedSection: { marginBottom: 24 },
+  channelText: { fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
+  channelTextActive: { fontSize: 20, fontWeight: '900' },
+  channelIndicator: { width: 24, height: 3, marginTop: 6, borderRadius: 999, backgroundColor: 'transparent' },
+  spotlightSection: { marginTop: 22, marginBottom: 26 },
+  sectionHeadingRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   sectionTitle: {
     paddingHorizontal: 20,
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: -0.2,
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: -0.3,
   },
-  latestTitle: { marginBottom: 4 },
-  recommendedContent: { paddingHorizontal: 20, paddingTop: 12, paddingRight: 8 },
-  recommendedCard: { width: RECOMMENDED_WIDTH, marginRight: 13 },
-  recommendedPosterWrap: { position: 'relative' },
-  posterShell: { borderRadius: 13, overflow: 'hidden' },
-  posterImage: { width: '100%', height: '100%' },
+  sectionHint: { paddingRight: 20, fontSize: 11, fontWeight: '600' },
+  latestTitle: { marginTop: 20, marginBottom: 4 },
+  spotlightContent: { paddingHorizontal: 20, paddingTop: 13, paddingRight: 8 },
+  spotlightCard: { width: SPOTLIGHT_WIDTH, marginRight: 13 },
+  spotlightPosterWrap: { position: 'relative' },
+  posterShell: { borderRadius: 14, overflow: 'hidden' },
+  posterImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
   posterFallback: {
     flex: 1,
     alignItems: 'center',
@@ -430,6 +521,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   posterFallbackText: { marginTop: 8, fontSize: 10, lineHeight: 14, fontWeight: '700', textAlign: 'center' },
+  updateOverlay: {
+    position: 'absolute',
+    right: 6,
+    bottom: 6,
+    maxWidth: '84%',
+    borderRadius: 7,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+  },
+  updateOverlayText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   recommendBadge: {
     position: 'absolute',
     top: 8,
@@ -440,9 +542,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#ef4444',
   },
   recommendBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
-  recommendedTitle: { marginTop: 9, fontSize: 14, lineHeight: 19, fontWeight: '700' },
-  recommendedMeta: { marginTop: 4, fontSize: 11 },
-  movieRow: {
+  spotlightTitle: { marginTop: 9, fontSize: 14, lineHeight: 19, fontWeight: '700' },
+  spotlightMeta: { marginTop: 4, fontSize: 11 },
+  mediaRow: {
     minHeight: 146,
     marginHorizontal: 20,
     paddingVertical: 12,
@@ -450,10 +552,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  movieInfo: { flex: 1, alignSelf: 'stretch', marginLeft: 13, paddingVertical: 2 },
-  movieTitle: { fontSize: 16, lineHeight: 22, fontWeight: '700' },
-  movieMeta: { marginTop: 6, fontSize: 11 },
-  rowFooter: { marginTop: 'auto', flexDirection: 'row', alignItems: 'center' },
+  mediaInfo: { flex: 1, alignSelf: 'stretch', marginLeft: 13, paddingVertical: 2 },
+  mediaTitle: { fontSize: 16, lineHeight: 22, fontWeight: '700' },
+  mediaMeta: { marginTop: 6, fontSize: 11, lineHeight: 16 },
+  rowFooter: { marginTop: 'auto', flexDirection: 'row', alignItems: 'center', gap: 4 },
   resourceText: { fontSize: 10 },
   emptyIcon: {
     width: 72,

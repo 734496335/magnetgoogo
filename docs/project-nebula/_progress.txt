@@ -1,30 +1,29 @@
-Current phase: App v0.2.1 OFFLINE MOVIE/SERIES SEGMENT PASS / NOT RELEASED 2026-07-26
+Current phase: App v0.2.1 SERIES CHANNEL FEED PASS / NOT RELEASED 2026-07-26
 
 ## Completed
-- Added a compact top segmented control: “电影 / 电视剧”.
-- Only one FlatList is mounted; movie opens by default and series loads lazily on first switch.
-- Movie tab keeps 50 bundled movies, 9 “近期好片” items and 50 offline covers.
-- Series tab bundles 100 offline records and 2,105 magnet resources from `series_latest_100_feed.json`.
-- Series reuses the movie card/detail style and surfaces update state such as “更新10 / 第1集 / 全集”.
-- Series details reuse the same synopsis, information, cast, resource cards and fixed resource shortcut.
-- Series posters never fetch remote URLs; missing local cover assets use a local gradient TV placeholder.
-- Detail routing carries `kind=movie|series` and retains backward-compatible cross-feed lookup.
-- Large resource sets render 12 cards first and add 20 per “再显示 N 个资源” action.
-- “搜索更多资源” now uses a centered full-capsule style.
+- Removed the redundant “影视” page title.
+- Replaced the small movie/series switch with large channel cards: 电影 / 电视剧 / 美剧 / 韩剧 / 日剧 / 国产剧 / 英剧.
+- Active channels use larger 20px bold text, a bordered section card and an accent indicator.
+- Only one FlatList remains mounted; movie and series Feeds are loaded lazily and cached in memory.
+- Series channels filter the existing Feed by real country/region fields.
+- Series discovery now uses “追更速递 + 最近更新”; no unsupported ranking or popularity claims are shown.
+- Series cards surface cover, update status, region, genre, quality tags and magnet count.
+- Missing local series covers temporarily use cached `cover_source_url`; failure falls back to a local gradient poster.
+- Generic resource titles recover episode labels from magnet `dn`, e.g. `S01E04 · 1080P`.
+- Added `电视剧离线Feed数据质量问题-交接爬虫AI.md` for local covers, lost episode titles, cross-season mixing, missing Japanese samples and ranking evidence.
 
 ## Verification
 - TypeScript -> PASS.
 - App adversarial tests -> 36/36 PASS.
-- Resource Feed tests -> PASS including `media-app-feed/1` series coverage.
+- Resource Feed tests -> PASS including episode-title recovery.
 - Fluency suite -> 17/17 PASS.
 - `npm run android:k30s` -> BUILD SUCCESSFUL / install Success.
-- Prebuild bundled 100 series entries and 2,105 magnet resources with no runtime poster traffic.
-- K30S showed “电影 / 电视剧”; series first row showed “更新10” and 4 resources.
-- K30S series detail showed fixed “查看资源（4）” and all copy/open actions.
-- A 233-resource series initially exposed “再显示 221 个资源”; one tap changed it to 201.
-- K30S “搜索更多资源” bounds were `[238,1927][843,2059]`, confirming a centered capsule.
-- No AndroidRuntime fatal or React Native unhandled error observed.
+- K30S showed no “影视”; channel cards measured about 242–245×148px.
+- K30S US and Korean channels showed only matching country metadata.
+- K30S series poster crop had 159,938 unique colors, confirming a real image rather than the local placeholder.
+- X战警97 detail showed `S01E01 · 1080P`, `S01E04 · 1080P` and exposed upstream S02 cross-season contamination.
+- No AndroidRuntime fatal or React Native unhandled error observed; system animation scales restored to 1.
 
 ## Remaining before release
-- Data side should export local series cover assets; App already avoids runtime remote cover downloads.
+- Data AI must provide compressed local series covers and fix resource title/season ownership per the independent issue MD.
 - Run final signed v0.2.1 release acceptance; do not tag, publish or deploy yet.
