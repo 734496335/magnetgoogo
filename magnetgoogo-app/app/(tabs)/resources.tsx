@@ -119,6 +119,7 @@ const MovieRow = memo(function MovieRow({ item, colors, minutesLabel, resourceLa
     item.duration_minutes ? minutesLabel(item.duration_minutes) : null,
   ].filter(Boolean).join(' · ');
   const visibleTags = item.quality_tags.slice(0, 3);
+  const magnetCount = item.resources.filter((resource) => resource.resource_type === 'magnet').length;
   return (
     <TouchableOpacity
       style={[styles.movieRow, { borderBottomColor: colors.border }]}
@@ -158,7 +159,7 @@ const MovieRow = memo(function MovieRow({ item, colors, minutesLabel, resourceLa
             </View>
           )}
           <Text style={[styles.resourceText, { color: colors.textTertiary }]}>
-            {resourceLabel(item.resources.length)}
+            {resourceLabel(magnetCount)}
           </Text>
         </View>
       </View>
@@ -217,16 +218,6 @@ export default function ResourcesScreen() {
     () => feed?.items.filter((item) => !item.recommended) ?? [],
     [feed?.items],
   );
-  const generatedAt = useMemo(() => {
-    if (!feed?.generated_at) return '';
-    const date = new Date(feed.generated_at);
-    if (Number.isNaN(date.getTime())) return '';
-    return date.toLocaleDateString(lang === 'zh' ? 'zh-CN' : lang, {
-      month: '2-digit',
-      day: '2-digit',
-    });
-  }, [feed?.generated_at, lang]);
-
   const renderRecommended = useCallback((item: MovieFeedItem) => (
     <RecommendedCard
       key={item.movie_id}
@@ -250,17 +241,7 @@ export default function ResourcesScreen() {
   const header = useMemo(() => (
     <View>
       <View style={styles.pageHeader}>
-        <View>
-          <Text style={[styles.pageTitle, { color: colors.text }]}>{copy.title}</Text>
-          <Text style={[styles.pageSubtitle, { color: colors.textTertiary }]}>
-            {copy.subtitle(feed?.items.length ?? 0)}
-          </Text>
-        </View>
-        {!!generatedAt && (
-          <Text style={[styles.updatedAt, { color: colors.textTertiary }]}>
-            {copy.updatedAt} {generatedAt}
-          </Text>
-        )}
+        <Text style={[styles.pageTitle, { color: colors.text }]}>{copy.title}</Text>
       </View>
 
       {recommended.length > 0 && (
@@ -280,7 +261,7 @@ export default function ResourcesScreen() {
         {copy.latestTitle}
       </Text>
     </View>
-  ), [colors, copy, feed?.items.length, generatedAt, recommended, renderRecommended]);
+  ), [colors, copy, recommended, renderRecommended]);
 
   if (loading && !feed) {
     return (
@@ -349,14 +330,9 @@ const styles = StyleSheet.create({
   pageHeader: {
     paddingHorizontal: 20,
     paddingTop: 14,
-    paddingBottom: 22,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
+    paddingBottom: 18,
   },
   pageTitle: { fontSize: 31, fontWeight: '800', letterSpacing: -0.8 },
-  pageSubtitle: { marginTop: 5, fontSize: 13 },
-  updatedAt: { fontSize: 11, marginBottom: 2 },
   recommendedSection: { marginBottom: 24 },
   sectionTitle: {
     paddingHorizontal: 20,

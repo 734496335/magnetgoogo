@@ -1,77 +1,117 @@
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  Vibration,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLang } from '../../src/core/LangContext';
 import { useTheme, type Colors } from '../../src/core/ThemeContext';
-import { getResourceCopy, type ResourceCopy } from '../../src/core/resourceCopy';
+import { getResourceCopy } from '../../src/core/resourceCopy';
 import { addHistory } from '../../src/core/searchHistory';
+import { trackCopy, trackOpen } from '../../src/core/analytics';
 import { loadMovieById, movieCoverUri } from '../../src/core/resourceFeed';
 import type { MovieFeedItem, MovieResource } from '../../src/core/resourceFeedProtocol';
 
-interface ResourceButtonProps {
+interface MagnetResourceCardProps {
   resource: MovieResource;
   colors: Colors;
-  copy: ResourceCopy;
+  copied: boolean;
+  copyLabel: string;
+  copiedLabel: string;
+  openLabel: string;
+  magnetLabel: string;
+  onCopy: (resource: MovieResource) => void;
   onOpen: (resource: MovieResource) => void;
 }
 
-function providerPresentation(provider: string, copy: ResourceCopy) {
-  switch (provider) {
-    case 'xunlei':
-      return { label: copy.providerXunlei, icon: 'flash-outline' as const };
-    case 'quark':
-      return { label: copy.providerQuark, icon: 'planet-outline' as const };
-    case 'baidu':
-      return { label: copy.providerBaidu, icon: 'cloud-outline' as const };
-    default:
-      return { label: copy.providerMagnet, icon: 'magnet-outline' as const };
-  }
-}
-
-const ResourceButton = memo(function ResourceButton({
+const MagnetResourceCard = memo(function MagnetResourceCard({
   resource,
   colors,
-  copy,
+  copied,
+  copyLabel,
+  copiedLabel,
+  openLabel,
+  magnetLabel,
+  onCopy,
   onOpen,
-}: ResourceButtonProps) {
-  const presentation = providerPresentation(resource.provider, copy);
-  const open = useCallback(() => onOpen(resource), [onOpen, resource]);
+}: MagnetResourceCardProps) {
+  const copyResource = useCallback(() => onCopy(resource), [onCopy, resource]);
+  const openResource = useCallback(() => onOpen(resource), [onOpen, resource]);
+  const visibleTags = resource.quality_tags.slice(0, 5);
+
   return (
-    <TouchableOpacity
-      style={[styles.resourceButton, { backgroundColor: colors.card, borderColor: colors.border }]}
-      activeOpacity={0.72}
-      onPress={open}
-      accessibilityRole="button"
-      accessibilityLabel={`${presentation.label} ${copy.openResource}`}
+    <View
+      style={[
+        styles.resourceCard,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.accent,
+          shadowColor: colors.shadow,
+        },
+      ]}
     >
-      <View style={[styles.providerIcon, { backgroundColor: colors.tagBg }]}>
-        <Ionicons name={presentation.icon} size={21} color={colors.tagText} />
-      </View>
-      <View style={styles.resourceInfo}>
-        <Text style={[styles.providerName, { color: colors.text }]}>{presentation.label}</Text>
-        <Text style={[styles.resourceTitle, { color: colors.textTertiary }]} numberOfLines={1}>
-          {resource.resource_type === 'magnet' ? resource.display_title : copy.cloudResourceHint}
-        </Text>
-        {!!resource.extraction_code && (
-          <Text style={[styles.extractionCode, { color: colors.textSecondary }]}>
-            {copy.extractionCode} {resource.extraction_code}
+      <View style={styles.resourceHeader}>
+        <LinearGradient colors={['#4e8aff', '#2c63f4']} style={styles.resourceIcon}>
+          <Ionicons name="magnet" size={22} color="#fff" />
+        </LinearGradient>
+        <View style={styles.resourceHeaderText}>
+          <Text style={[styles.resourceType, { color: colors.accent }]}>{magnetLabel}</Text>
+          <Text style={[styles.resourceTitle, { color: colors.text }]} numberOfLines={3}>
+            {resource.display_title}
           </Text>
-        )}
+        </View>
       </View>
-      <Ionicons name="open-outline" size={18} color={colors.textTertiary} />
-    </TouchableOpacity>
+
+      {visibleTags.length > 0 && (
+        <View style={styles.resourceTags}>
+          {visibleTags.map((tag) => (
+            <View key={tag} style={[styles.resourceTag, { backgroundColor: colors.tagBg }]}>
+              <Text style={[styles.resourceTagText, { color: colors.tagText }]}>{tag}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      <View style={[styles.resourceActions, { borderTopColor: colors.border }]}>
+        <TouchableOpacity
+          style={styles.actionTouch}
+          activeOpacity={0.8}
+          onPress={copyResource}
+          accessibilityRole="button"
+          accessibilityLabel={copyLabel}
+        >
+          <LinearGradient colors={['#4e8aff', '#2c63f4']} style={styles.actionButton}>
+            <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={15} color="#fff" />
+            <Text style={styles.actionButtonText}>{copied ? copiedLabel : copyLabel}</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionTouch}
+          activeOpacity={0.8}
+          onPress={openResource}
+          accessibilityRole="button"
+          accessibilityLabel={openLabel}
+        >
+          <LinearGradient colors={['#ff8a4c', '#f06529']} style={styles.actionButton}>
+            <Ionicons name="open-outline" size={15} color="#fff" />
+            <Text style={styles.actionButtonText}>{openLabel}</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 });
 
@@ -89,7 +129,7 @@ export default function MovieDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ movieId?: string | string[] }>();
-  const { lang } = useLang();
+  const { lang, t } = useLang();
   const { colors } = useTheme();
   const copy = getResourceCopy(lang);
   const movieId = Array.isArray(params.movieId) ? params.movieId[0] : params.movieId;
@@ -97,7 +137,7 @@ export default function MovieDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [posterFailed, setPosterFailed] = useState(false);
-  const [toast, setToast] = useState('');
+  const [copiedResourceUrl, setCopiedResourceUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -133,10 +173,10 @@ export default function MovieDetailScreen() {
   }, [movieId]);
 
   useEffect(() => {
-    if (!toast) return undefined;
-    const timer = setTimeout(() => setToast(''), 1800);
+    if (!copiedResourceUrl) return undefined;
+    const timer = setTimeout(() => setCopiedResourceUrl(null), 2000);
     return () => clearTimeout(timer);
-  }, [toast]);
+  }, [copiedResourceUrl]);
 
   const metadata = useMemo(() => {
     if (!movie) return '';
@@ -147,30 +187,42 @@ export default function MovieDetailScreen() {
     ].filter(Boolean).join(' · ');
   }, [copy, movie]);
 
-  const openResource = useCallback(async (resource: MovieResource) => {
+  const magnetResources = useMemo(
+    () => movie?.resources.filter((resource) => resource.resource_type === 'magnet') ?? [],
+    [movie],
+  );
+
+  const copyResource = useCallback(async (resource: MovieResource) => {
     try {
-      if (resource.extraction_code) {
-        await Clipboard.setStringAsync(resource.extraction_code);
-        setToast(copy.extractionCodeCopied);
-      }
-      const supported = await Linking.canOpenURL(resource.url);
-      if (supported) {
-        await Linking.openURL(resource.url);
-        return;
-      }
       await Clipboard.setStringAsync(resource.url);
-      setToast(resource.resource_type === 'magnet' ? copy.magnetCopied : copy.openFailed);
+      trackCopy();
+      Vibration.vibrate(Platform.OS === 'android' ? 30 : 10);
+      setCopiedResourceUrl(resource.url);
     } catch (error) {
       console.warn('[MovieDetail]', {
-        stage: 'open_resource',
-        error_code: 'MOVIE_RESOURCE_OPEN_FAILED',
-        provider: resource.provider,
+        stage: 'copy_magnet',
+        error_code: 'MOVIE_MAGNET_COPY_FAILED',
         movie_id: movie?.movie_id,
+        info_hash: resource.info_hash,
         error: error instanceof Error ? error.message : String(error),
       });
-      setToast(copy.openFailed);
+      Alert.alert(t.copyFailed);
     }
-  }, [copy.extractionCodeCopied, copy.magnetCopied, copy.openFailed, movie?.movie_id]);
+  }, [movie?.movie_id, t.copyFailed]);
+
+  const openResource = useCallback((resource: MovieResource) => {
+    trackOpen();
+    Linking.openURL(resource.url).catch((error) => {
+      console.warn('[MovieDetail]', {
+        stage: 'open_magnet',
+        error_code: 'MOVIE_MAGNET_OPEN_FAILED',
+        movie_id: movie?.movie_id,
+        info_hash: resource.info_hash,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      Alert.alert(t.cannotOpen, t.cannotOpenMsg);
+    });
+  }, [movie?.movie_id, t.cannotOpen, t.cannotOpenMsg]);
 
   const searchMore = useCallback(async () => {
     if (!movie) return;
@@ -272,15 +324,24 @@ export default function MovieDetailScreen() {
           <View style={styles.sectionTitleRow}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>{copy.detailResources}</Text>
             <Text style={[styles.sectionCount, { color: colors.textTertiary }]}>
-              {copy.resourceCount(movie.resources.length)}
+              {copy.resourceCount(magnetResources.length)}
             </Text>
           </View>
-          {movie.resources.map((resource) => (
-            <ResourceButton
-              key={`${resource.provider}:${resource.url}`}
+          {magnetResources.length === 0 ? (
+            <Text style={[styles.noResources, { color: colors.textTertiary }]}>
+              {copy.noMagnetResources}
+            </Text>
+          ) : magnetResources.map((resource) => (
+            <MagnetResourceCard
+              key={resource.url}
               resource={resource}
               colors={colors}
-              copy={copy}
+              copied={copiedResourceUrl === resource.url}
+              copyLabel={t.copyMagnet}
+              copiedLabel={t.copied}
+              openLabel={t.openMagnet}
+              magnetLabel={copy.providerMagnet}
+              onCopy={copyResource}
               onOpen={openResource}
             />
           ))}
@@ -304,12 +365,6 @@ export default function MovieDetailScreen() {
       >
         <Ionicons name="chevron-back" size={23} color={colors.text} />
       </TouchableOpacity>
-
-      {!!toast && (
-        <View style={[styles.toast, { bottom: insets.bottom + 22 }]} pointerEvents="none">
-          <Text style={styles.toastText}>{toast}</Text>
-        </View>
-      )}
     </View>
   );
 }
@@ -373,21 +428,54 @@ const styles = StyleSheet.create({
   infoRow: { flexDirection: 'row', alignItems: 'flex-start', paddingTop: 13 },
   infoLabel: { width: 72, fontSize: 12, lineHeight: 20 },
   infoValue: { flex: 1, fontSize: 13, lineHeight: 20 },
-  resourceButton: {
-    minHeight: 72,
-    marginTop: 10,
-    borderWidth: StyleSheet.hairlineWidth,
+  resourceCard: {
+    marginTop: 14,
+    borderWidth: 1.25,
+    borderRadius: 20,
+    padding: 15,
+    shadowOpacity: 0.16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 18,
+    elevation: 5,
+  },
+  resourceHeader: { flexDirection: 'row', alignItems: 'flex-start' },
+  resourceIcon: {
+    width: 46,
+    height: 46,
     borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resourceHeaderText: { flex: 1, marginLeft: 12 },
+  resourceType: { fontSize: 11, fontWeight: '800', marginBottom: 4 },
+  resourceTitle: { fontSize: 13, lineHeight: 19, fontWeight: '700' },
+  resourceTags: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 12 },
+  resourceTag: {
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    marginRight: 6,
+    marginBottom: 6,
+  },
+  resourceTagText: { fontSize: 10, fontWeight: '700' },
+  resourceActions: {
+    flexDirection: 'row',
+    marginTop: 10,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 9,
+  },
+  actionTouch: { flex: 1 },
+  actionButton: {
+    height: 40,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
-  providerIcon: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  resourceInfo: { flex: 1, marginHorizontal: 11 },
-  providerName: { fontSize: 14, fontWeight: '700' },
-  resourceTitle: { marginTop: 3, fontSize: 10 },
-  extractionCode: { marginTop: 4, fontSize: 10, fontWeight: '600' },
+  actionButtonText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  noResources: { marginTop: 14, fontSize: 13, lineHeight: 20 },
   searchButton: {
     height: 50,
     borderRadius: 15,
@@ -397,20 +485,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   searchButtonText: { marginLeft: 8, color: '#fff', fontSize: 15, fontWeight: '800' },
-  toast: {
-    position: 'absolute',
-    left: 50,
-    right: 50,
-    alignItems: 'center',
-  },
-  toastText: {
-    overflow: 'hidden',
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(15,23,42,0.9)',
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
 });

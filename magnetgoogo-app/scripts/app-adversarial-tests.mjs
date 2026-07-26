@@ -386,13 +386,33 @@ await test('U3', 'movie discovery preserves ranking and opens a dedicated detail
   assert.match(screen, /keyExtractor=\{resourceFeedItemKey\}/);
   assert.match(screen, /item\.recommended/);
   assert.match(screen, /pathname: '\/movie\/\[movieId\]'/);
+  assert.match(screen, /resource\.resource_type === 'magnet'/);
+  assert.doesNotMatch(screen, /copy\.subtitle|copy\.updatedAt|generatedAt/);
   assert.doesNotMatch(screen, /content_code|MY-1065|javbus/i);
   assert.match(detail, /copy\.detailSynopsis/);
   assert.match(detail, /copy\.detailResources/);
   assert.match(detail, /pathname: '\/search'/);
 });
 
-await test('U4', 'movie bundle is offline-first and excludes the legacy adult feed', () => {
+await test('U4', 'movie detail exposes only prominent magnet cards with search-equivalent actions', () => {
+  const detail = read('app/movie/[movieId].tsx');
+  const copy = read('src/core/resourceCopy.ts');
+  assert.match(detail, /filter\(\(resource\) => resource\.resource_type === 'magnet'\)/);
+  assert.match(detail, /MagnetResourceCard/);
+  assert.match(detail, /t\.copyMagnet/);
+  assert.match(detail, /t\.openMagnet/);
+  assert.match(detail, /trackCopy\(\)/);
+  assert.match(detail, /trackOpen\(\)/);
+  assert.match(detail, /colors=\{\['#4e8aff', '#2c63f4'\]\}/);
+  assert.match(detail, /colors=\{\['#ff8a4c', '#f06529'\]\}/);
+  assert.match(detail, /borderColor: colors\.accent/);
+  assert.match(copy, /detailResources: '资源'/);
+  assert.doesNotMatch(detail, /providerXunlei|providerQuark|providerBaidu|cloudResourceHint|extractionCode/);
+  assert.doesNotMatch(detail, /movie\.resources\.map|movie\.resources\.length/);
+});
+
+await test('U5', 'movie bundle is offline-first and excludes the legacy adult feed', () => {
+
   const loader = read('src/core/resourceFeed.ts');
   const protocol = read('src/core/resourceFeedProtocol.ts');
   const plugin = read('plugins/with-resource-feed.js');

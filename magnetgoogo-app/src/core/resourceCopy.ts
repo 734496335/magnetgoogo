@@ -5,10 +5,8 @@ export interface ResourceCopy {
   tabResources: string;
   tabSettings: string;
   title: string;
-  subtitle: (count: number) => string;
   recommendedTitle: string;
   latestTitle: string;
-  updatedAt: string;
   loading: string;
   emptyTitle: string;
   emptyBody: string;
@@ -21,6 +19,7 @@ export interface ResourceCopy {
   detailInfo: string;
   detailCast: string;
   detailResources: string;
+  noMagnetResources: string;
   detailDirector: string;
   detailActors: string;
   detailCountry: string;
@@ -47,10 +46,8 @@ const EN: ResourceCopy = {
   tabResources: 'Movies',
   tabSettings: 'Settings',
   title: 'Movies',
-  subtitle: (count) => `${count} recent releases`,
   recommendedTitle: 'Recommended',
   latestTitle: 'Recently added',
-  updatedAt: 'Updated',
   loading: 'Loading movies…',
   emptyTitle: 'No movies available',
   emptyBody: 'The movie snapshot is unavailable. Rebuild the App bundle and try again.',
@@ -62,7 +59,8 @@ const EN: ResourceCopy = {
   detailSynopsis: 'Story',
   detailInfo: 'Details',
   detailCast: 'Cast & crew',
-  detailResources: 'Available links',
+  detailResources: 'Resources',
+  noMagnetResources: 'No magnet resources are available for this movie.',
   detailDirector: 'Director',
   detailActors: 'Cast',
   detailCountry: 'Country',
@@ -89,10 +87,8 @@ const ZH: ResourceCopy = {
   tabResources: '资源',
   tabSettings: '设置',
   title: '影视',
-  subtitle: (count) => `最近更新 ${count} 部`,
   recommendedTitle: '值得一看',
   latestTitle: '最近更新',
-  updatedAt: '更新于',
   loading: '正在加载影视…',
   emptyTitle: '暂无影视内容',
   emptyBody: '本地影视数据未准备完成，请重新构建 App 后再试。',
@@ -104,7 +100,8 @@ const ZH: ResourceCopy = {
   detailSynopsis: '剧情简介',
   detailInfo: '影片信息',
   detailCast: '主创阵容',
-  detailResources: '播放与下载',
+  detailResources: '资源',
+  noMagnetResources: '该影片暂时没有磁力资源',
   detailDirector: '导演',
   detailActors: '主演',
   detailCountry: '国家地区',

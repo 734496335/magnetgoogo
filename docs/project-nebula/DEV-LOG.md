@@ -1,4 +1,28 @@
 ---
+Date/Time: 2026-07-26 (UTC+8)
+Version: app-v0.2.1-magnet-detail-ux
+Scope: Simplify movie discovery metadata and make detail resources magnet-only with prominent search-equivalent actions
+Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/core/resourceCopy.ts,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
+
+### Product changes
+- Removed the movie-count and update-date row from the Resources page; the page now moves directly from “影视” to “值得一看”.
+- Changed movie-list resource counts to magnet-only counts.
+- Renamed the detail section from “播放与下载” to “资源” and filtered all non-magnet providers from the UI.
+- Replaced pale link rows with prominent magnet cards using an accent border, shadow, icon, quality tags and separated actions.
+- Reused the search result labels and behavior for “复制磁力 / 立即打开”, including clipboard, vibration, analytics and magnet-protocol handling.
+
+### Verification
+- TypeScript PASS; App adversarial 35/35; movie feed PASS; fluency 17/17.
+- Gradle arm64 debug build PASS and K30S install PASS.
+- K30S Resources page showed “影视 / 值得一看” with no count/date row.
+- K30S 寒战1994 detail showed “资源 / 3 个资源”, three magnet cards and both actions on each card.
+- UI tree contained no Baidu, Quark, Xunlei or “播放与下载”; no fatal crash observed.
+
+### Release state
+- v0.2.1 remains development-only. No tag, formal APK release or remote deployment.
+---
+
+---
 Date/Time: 2026-07-25 (UTC+8)
 Version: app-v0.2.1-sixv-movie-discovery
 Scope: Replace the adult resource feed with an offline-first SixV movie discovery and detail experience
