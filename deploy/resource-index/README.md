@@ -195,7 +195,56 @@ deploy\resource-index\run-latest.bat -Source sixv -Count 50 -ReparseIncomplete
 130 用户中断，状态已安全保存
 ```
 
-## 9. App 接入
+## 9. 本地签名发布包（M1）
+
+电影和电视剧 Feed、封面同步完成后，执行：
+
+```bat
+deploy\resource-index\build-media-release.bat -PointerRevision 1
+```
+
+首次运行会在 Git 忽略的 `data\resource_index\.secrets` 中创建本地 Ed25519 密钥；后续运行会先校验密钥对，并在公钥缺失或与私钥不匹配时由私钥安全补建。私钥不得上传到对象存储、GitHub 或服务器，必须单独离线备份；未来 App 只内置对应公钥。然后生成：
+
+```text
+data\resource_index\media_releases\staging\releases\<release_id>\v1\releases\<release_id>\manifest.json
+data\resource_index\media_releases\staging\releases\<release_id>\v1\objects\catalog\*.json
+data\resource_index\media_releases\staging\releases\<release_id>\v1\objects\detail\*.json
+data\resource_index\media_releases\staging\releases\<release_id>\v1\objects\resources\*.json
+data\resource_index\media_releases\staging\releases\<release_id>\v1\covers\*
+data\resource_index\media_releases\staging\pointers\<pointer_revision>-<release_id>.json
+```
+
+不可变 release 与可变指针候选严格分离：相同内容复用同一 release；提高 `pointer_revision` 时只新增签名指针，不改写 Manifest 或对象。此命令只建立和验证本地 staging，不上传 R2、阿里云、GitHub、Pages 或 Worker。构建过程中会阻断：
+
+- 电影或电视剧数量低于门槛；
+- `media_id`、info-hash 或资源 URL 重复；
+- 显式跨季资源；
+- 类型或国家字段包含 HTML 残片；
+- 封面缺失或哈希不一致；
+- 单个对象异常过大；
+- 相比上一版异常缩减或未知季集资源增加。
+
+与上一版比较：
+
+```bat
+deploy\resource-index\build-media-release.bat ^
+  -PointerRevision 2 ^
+  -PreviousManifest "data\resource_index\media_releases\staging\releases\上一版本\v1\releases\上一版本\manifest.json"
+```
+
+只有明确的业务变更才能使用 `-AllowRegression "原因"`。原因会写入签名指针的 `release_gate`，不能静默绕过，也不会改变不可变数据 release。
+
+验证已有 staging：
+
+```bat
+deploy\resource-index\build-media-release.bat -VerifyOnly ^
+  -ReleaseDir "完整不可变发布目录" ^
+  -CurrentPath "对应的签名指针 JSON"
+```
+
+重复输入会复用同一 `release_id` 和同一指针候选，不会覆盖不同内容；同一个 `pointer_revision` 也不能重新指向另一配置。签名、Manifest 哈希或任一对象被篡改时，验证会失败。
+
+## 10. App 接入
 
 App 的“资源”模块只使用 6V 影视数据，不再接入 JavBus 成人 Feed。
 
@@ -208,7 +257,7 @@ data\resource_index\sixv_app_bundle\covers\*.jpg
 
 `feed.json` 保留来源列表排名，并包含 `recommended`、`highlight_labels`、类型、清晰度、字幕、豆瓣/IMDb、导演演员和磁力/网盘资源字段。封面由 SQLite 导出为本地图片，随 APK 打包，手机无需访问 6V 图片域名。
 
-## 10. 运维建议
+## 11. 运维建议
 
 - 每次升级代码后先执行 `doctor.bat`；
 - 停止抓取任务后，再对整个 `data\resource_index` 目录做一致性备份；

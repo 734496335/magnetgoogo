@@ -1,27 +1,24 @@
-Current phase: MEDIA FEED DISTRIBUTION ARCHITECTURE FROZEN / IMPLEMENTATION NOT STARTED 2026-07-26
+Current phase: MEDIA RELEASE M1 COMPLETE / M2 NOT STARTED 2026-07-26
 
-## Architecture decision
-- Local Windows crawler remains the only compute/data-production node; no crawler runs on the server.
-- Reuse the encrypted-source multi-endpoint pattern only for the small signed `current.json` control plane.
-- Do not distribute the full movie/series bundle through six raced endpoints.
-- Use Cloudflare R2 + `media.magnetgoogo.com` as the primary immutable object store.
-- Use existing Aliyun Nginx as the required China mirror; migrate the same publisher interface to OSS/CDN later if traffic grows.
-- GitHub Raw/jsDelivr/CF Pages/Worker carry only current pointers and manifests as fallbacks.
-- Worker must not proxy covers, details or resource objects; its free daily request quota would become the first bottleneck.
-- Split payloads into channel cards, media details, resource sets and content-addressed covers.
-- App fetches the highest signed `pointer_revision`, compares SHA-256 hashes and downloads only changed objects.
-- Keep bundled seed + encrypted 72h disk cache + stale-while-revalidate network sync.
-- Publish immutable objects first and update `current.json` last; rollback publishes a newer pointer revision to an older release.
-- Sign pointer/manifest with Ed25519; optionally encrypt only magnet resource shards, not metadata/covers.
-- Current full bundle is about 8.70 MiB; split loading can reduce first resource-page traffic to about 1 MiB.
-- Existing control-plane naming drift (`mg-data` vs `maggoogo-sources`) is a pre-implementation blocker.
+## M1 implemented
+- Added backend-independent `media-current/1` and `media-manifest/1` local release protocol.
+- Split 100 movies + 100 series into card, detail, resource and content-addressed cover objects.
+- Added deterministic canonical JSON, SHA-256 inventory and Ed25519 pointer/manifest signatures; key initialization is idempotent and can repair the public half from the private key.
+- Immutable releases live under `staging/releases/<release_id>`; mutable pointer candidates live separately under `staging/pointers`.
+- Same data reuses the exact release and pointer; a higher pointer revision reuses objects but creates a new signed pointer.
+- Pointer revisions are monotonic and cannot be reassigned; OS-backed locking rejects concurrent local publishers.
+- Added local one-click builder and independent verifier for the existing Windows portable runtime.
+- Existing crawler CLI remains usable when the signing dependency is absent; the release wrapper upgrades only its runtime when needed.
 
-## Evidence
-- Current movie bundle: about 2.23 MiB; series bundle: about 6.48 MiB.
-- Current encrypted source payload: about 40 KiB, proving the two workloads need different data-plane designs.
-- Official 2026 R2 limits reviewed: 10 GB free storage, 10 million free Class B reads/month, free egress.
-- Official Workers free limit reviewed: 100,000 requests/day.
+## Quality and evidence
+- Real build: 100 movies, 100 series, 1,682 unique resources, 200 covers, 200 details, 14 catalog objects.
+- Final release: `20260726T000000Z-b8c702d5`; Manifest SHA-256 `8891347a02646fe6d98279205b0614a6945238e5cb57d67188c722febd91f838`.
+- Independent verification passed all 614 referenced objects and typed card/detail/resource/cover reference closure.
+- Quality: 0 duplicate IDs/resources, 0 cross-season resources, 0 malformed country/genre values, complete covers.
+- Series identity: 52 collection/cloud resources, 142 title-inferred resources, 1 genuinely unknown resource.
+- Targeted release tests: 21 passed; complete resource-index suite: 143 passed.
 
-## Next implementation batch
-- M1: define `media-current/1` + `media-manifest/1`, split existing Feed into immutable objects and build local staging/quality gates.
-- No R2 bucket, endpoint change, App network Feed, push, tag or production deployment has been performed yet.
+## Boundaries / next batch
+- No R2 bucket, Aliyun upload, GitHub/Pages/Worker pointer update, App network Feed, push, tag or production deployment was performed.
+- `mg-data` versus `maggoogo-sources` remains a control-plane configuration drift to close before M5, not part of the data protocol.
+- Next: M2 implement `PublisherBackend` + R2 test bucket/custom-domain upload and remote hash verification without switching the App.

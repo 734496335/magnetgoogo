@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 from typing import Any
 
 from magnet.resource_index.acquisition.policy import LiveFetchPolicy
@@ -349,6 +350,85 @@ def cmd_export_movie_app_bundle(args: argparse.Namespace) -> int:
         repo.close()
 
 
+def _print_media_dependency_error(exc: ModuleNotFoundError) -> int:
+    print("error_code=CONFIG_ERROR", file=sys.stderr)
+    print(
+        "message=media release signing dependency is missing; run deploy\\resource-index\\setup.bat",
+        file=sys.stderr,
+    )
+    print(f"dependency={exc.name}", file=sys.stderr)
+    return 1
+
+
+def cmd_init_media_signing_key(args: argparse.Namespace) -> int:
+    try:
+        from magnet.resource_index.release.protocol import generate_ed25519_keypair
+
+        result = generate_ed25519_keypair(
+            args.private_key,
+            args.public_key,
+        )
+        _print_json({"status": result.get("key_state", "ready"), **result}, pretty=True)
+        return 0
+    except ModuleNotFoundError as exc:
+        return _print_media_dependency_error(exc)
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        return 1
+
+
+def cmd_build_media_release(args: argparse.Namespace) -> int:
+    try:
+        from magnet.resource_index.release.builder import MediaReleaseConfig, build_media_release
+
+        config = MediaReleaseConfig(
+            movie_feed_path=Path(args.movie_feed),
+            series_feed_path=Path(args.series_feed),
+            movie_cover_bundle=Path(args.movie_cover_bundle),
+            series_cover_bundle=Path(args.series_cover_bundle),
+            output_dir=Path(args.output_dir),
+            private_key_path=Path(args.private_key),
+            public_key_path=Path(args.public_key),
+            pointer_revision=args.pointer_revision,
+            min_app_version=args.min_app_version,
+            page_size=args.page_size,
+            min_movies=args.min_movies,
+            min_series=args.min_series,
+            max_object_bytes=args.max_object_bytes,
+            previous_manifest_path=Path(args.previous_manifest) if args.previous_manifest else None,
+            allow_regression_reason=args.allow_regression,
+        )
+        result = build_media_release(config)
+        _print_json(result.__dict__, pretty=True)
+        return 0
+    except ModuleNotFoundError as exc:
+        return _print_media_dependency_error(exc)
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        if exc.context:
+            print(f"context={json.dumps(exc.context, ensure_ascii=False, sort_keys=True)}", file=sys.stderr)
+        return 1
+
+
+def cmd_verify_media_release(args: argparse.Namespace) -> int:
+    try:
+        from magnet.resource_index.release.builder import verify_media_release
+
+        result = verify_media_release(args.release_dir, args.public_key, args.current)
+        _print_json(result, pretty=True)
+        return 0
+    except ModuleNotFoundError as exc:
+        return _print_media_dependency_error(exc)
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        if exc.context:
+            print(f"context={json.dumps(exc.context, ensure_ascii=False, sort_keys=True)}", file=sys.stderr)
+        return 1
+
+
 def cmd_crawl(args: argparse.Namespace) -> int:
     """Live crawl a source into the resource index DB."""
     if not args.yes:
@@ -538,6 +618,63 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--feed", required=True)
     s.add_argument("--output-dir", required=True)
     s.set_defaults(func=cmd_export_movie_app_bundle)
+
+    s = sub.add_parser(
+        "init-media-signing-key",
+        help="Create the local Ed25519 keypair used to sign media releases",
+    )
+    s.add_argument(
+        "--private-key",
+        default="data/resource_index/.secrets/media-ed25519-private.pem",
+    )
+    s.add_argument(
+        "--public-key",
+        default="data/resource_index/.secrets/media-ed25519-public.pem",
+    )
+    s.set_defaults(func=cmd_init_media_signing_key)
+
+    s = sub.add_parser(
+        "build-media-release",
+        help="Build and preflight a signed local media release without network publishing",
+    )
+    s.add_argument("--movie-feed", default="data/resource_index/movies_latest_100_feed.json")
+    s.add_argument("--series-feed", default="data/resource_index/series_latest_100_feed.json")
+    s.add_argument("--movie-cover-bundle", default="data/resource_index/movie_app_bundle")
+    s.add_argument("--series-cover-bundle", default="data/resource_index/series_app_bundle")
+    s.add_argument("--output-dir", default="data/resource_index/media_releases")
+    s.add_argument(
+        "--private-key",
+        default="data/resource_index/.secrets/media-ed25519-private.pem",
+    )
+    s.add_argument(
+        "--public-key",
+        default="data/resource_index/.secrets/media-ed25519-public.pem",
+    )
+    s.add_argument("--pointer-revision", type=int, default=1)
+    s.add_argument("--min-app-version", default="0.2.1")
+    s.add_argument("--page-size", type=int, default=50)
+    s.add_argument("--min-movies", type=int, default=100)
+    s.add_argument("--min-series", type=int, default=100)
+    s.add_argument("--max-object-bytes", type=int, default=524288)
+    s.add_argument("--previous-manifest", default=None)
+    s.add_argument(
+        "--allow-regression",
+        default=None,
+        help="Explicit reason for an intentional count/cover regression",
+    )
+    s.set_defaults(func=cmd_build_media_release)
+
+    s = sub.add_parser(
+        "verify-media-release",
+        help="Verify signatures, hashes, sizes and paths in a staged media release",
+    )
+    s.add_argument("--release-dir", required=True)
+    s.add_argument("--current", required=True, help="Signed current.json pointer candidate")
+    s.add_argument(
+        "--public-key",
+        default="data/resource_index/.secrets/media-ed25519-public.pem",
+    )
+    s.set_defaults(func=cmd_verify_media_release)
 
     s = sub.add_parser(
         "crawl",

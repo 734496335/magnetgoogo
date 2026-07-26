@@ -1,5 +1,33 @@
 ---
 Date/Time: 2026-07-26 (UTC+8)
+Version: media-release-m1-local-signed-staging
+Scope: Implement the backend-independent local media release protocol, quality gates and Windows staging workflow
+Modules: magnet/resource_index/{release,cli.py}, magnet/tests/resource_index/test_media_release.py, deploy/resource-index/{build-media-release.bat,build-media-release.ps1,README.md,requirements.txt}, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Implementation
+- Added deterministic `media-current/1`, `media-manifest/1`, `media-catalog/1`, `media-detail/1` and `media-resources/1` builders.
+- Split the current 100-movie and 100-series feeds into immutable card/detail/resource objects plus content-addressed covers.
+- Added canonical JSON, SHA-256 verification and Ed25519 signing; local private key material remains under the Git-ignored data directory, while idempotent initialization can recover or repair the public half from the private key.
+- Separated immutable releases from signed pointer candidates. Pointer revisions are monotonic, cannot be reassigned, and a higher revision can reuse the same release without changing its Manifest.
+- Kept regression comparison and explicit override reasons in the signed pointer `release_gate`, so publication decisions do not mutate content identity.
+- Added count, duplicate, cross-season, malformed-field, cover, object-size and previous-version regression blockers; the previous Manifest must itself pass Ed25519 verification.
+- Corrected series identity accounting: cloud/collection links are not episode defects, and ranges/season packs recoverable from titles are tracked separately.
+- Added a Windows one-click local builder/verifier that recognizes both supported virtual-environment layouts, upgrades only the release dependency when required and rejects concurrent builds through an OS-backed lock.
+- Kept signing imports lazy so an older crawler runtime without `cryptography` can still execute all existing crawl/status commands.
+
+### Verification
+- Real release `20260726T000000Z-b8c702d5`: 100 movies, 100 series, 1,682 resources, 200 covers, 200 details and 14 catalog objects.
+- Manifest SHA-256: `8891347a02646fe6d98279205b0614a6945238e5cb57d67188c722febd91f838`; independent verification passed all 614 objects plus typed card/detail/resource/cover reference closure.
+- Repeated pointer revision 1 reused both release and pointer; revision 2 reused the immutable release while creating only a new signed pointer.
+- Quality gates reported 0 duplicate IDs/resources, 0 cross-season resources, 0 malformed country/genre values, complete covers and 1 genuinely unknown series resource.
+- Targeted release tests 21/21; full resource-index tests 143/143; Python compile PASS.
+
+### Release state
+- Local M1 staging only. No R2 bucket, Aliyun upload, GitHub/Pages/Worker update, App network Feed, remote push, tag or production deployment.
+---
+
+---
+Date/Time: 2026-07-26 (UTC+8)
 Version: media-feed-distribution-architecture-freeze
 Scope: Freeze the local-crawl, static-publish and App incremental-consumption architecture for movie/series resources
 Modules: docs/project-nebula/{计划-20260726-影视资源本地爬取与静态分发架构-冻结契约.md,_progress.txt,DEV-LOG.md}
