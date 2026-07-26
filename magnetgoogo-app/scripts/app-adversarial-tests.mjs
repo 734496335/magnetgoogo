@@ -526,6 +526,22 @@ await test('U3', 'movie and regional series channels form one lightweight discov
   assert.match(detail, /inferSeriesSeason\(movie\.title, movie\.season_number\)/);
   assert.match(detail, /seriesStatusForDisplay/);
   assert.match(detail, /resourceDisplayTitle\(resource, seasonNumber\)/);
+  assert.match(screen, /import \* as Clipboard from 'expo-clipboard'/);
+  assert.match(screen, /const TITLE_COPY_FEEDBACK_MS = 3000/);
+  assert.match(detail, /const TITLE_COPY_FEEDBACK_MS = 3000/);
+  assert.match(screen, /const CopyableMediaTitle = memo/);
+  assert.match(screen, /event\.stopPropagation\(\)/);
+  assert.match(screen, /Clipboard\.setStringAsync\(title\)/);
+  assert.match(screen, /copied \? copiedLabel : title/);
+  assert.equal((screen.match(/<CopyableMediaTitle/g) || []).length, 2);
+  assert.match(screen, /<View style=\{styles\.spotlightCard\}>/);
+  assert.match(screen, /<View style=\{\[styles\.mediaRow/);
+  assert.match(screen, /mediaDetailTouch/);
+  assert.match(screen, /mediaChevronTouch/);
+  assert.match(detail, /const \[copiedTitle, setCopiedTitle\] = useState\(false\)/);
+  assert.match(detail, /Clipboard\.setStringAsync\(movie\.title\)/);
+  assert.match(detail, /stage: 'copy_media_title'/);
+  assert.match(detail, /copiedTitle \? copy\.copiedAction : movie\.title/);
 });
 
 await test('U4', 'movie detail exposes only prominent magnet cards with search-equivalent actions', () => {
@@ -541,11 +557,11 @@ await test('U4', 'movie detail exposes only prominent magnet cards with search-e
   assert.match(detail, /isLast=\{index === visibleMagnetResources\.length - 1\}/);
   assert.match(detail, /borderBottomWidth: StyleSheet\.hairlineWidth/);
   assert.match(detail, /resourceList: \{[\s\S]*?marginTop: 10[\s\S]*?borderRadius: 16[\s\S]*?overflow: 'hidden'/);
-  assert.match(detail, /resourceCard: \{[\s\S]*?minHeight: 76[\s\S]*?paddingVertical: 9[\s\S]*?flexDirection: 'row'/);
+  assert.match(detail, /resourceCard: \{[\s\S]*?minHeight: 72[\s\S]*?paddingVertical: 8[\s\S]*?flexDirection: 'row'/);
   assert.match(detail, /resourceMain: \{ flex: 1, minWidth: 0, paddingRight: 10 \}/);
   assert.match(detail, /resourceTitle: \{ fontSize: 13, lineHeight: 18/);
-  assert.match(detail, /resourceActions: \{ width: 76, gap: 6 \}/);
-  assert.match(detail, /actionButton: \{[\s\S]*?height: 31[\s\S]*?borderRadius: 999[\s\S]*?borderWidth: 1/);
+  assert.match(detail, /resourceActions: \{[\s\S]*?width: 116[\s\S]*?flexDirection: 'row'[\s\S]*?gap: 6/);
+  assert.match(detail, /actionButton: \{[\s\S]*?width: 55[\s\S]*?height: 32[\s\S]*?borderRadius: 999[\s\S]*?borderWidth: 1/);
   assert.match(detail, /filter\(\(tag\) => !normalizedTitle\.includes/);
   assert.doesNotMatch(detail, /actionTouch|\['#ff8a4c', '#f06529'\]/);
   const compactCardStyle = detail.match(/resourceCard: \{[\s\S]*?\n  \},\n  resourceMain:/)?.[0] ?? '';
@@ -573,6 +589,11 @@ await test('U4', 'movie detail exposes only prominent magnet cards with search-e
   assert.match(detail, /stage: 'copy_all_magnets'/);
   assert.match(copy, /copyAllMagnets: '复制全部磁力'/);
   assert.match(copy, /copiedAllMagnets: \(value\) => `已复制 \$\{value\} 条`/);
+  assert.match(copy, /copyAction: '复制'/);
+  assert.match(copy, /copiedAction: '已复制'/);
+  assert.match(copy, /openAction: '打开'/);
+  assert.match(detail, /copyActionLabel=\{copy\.copyAction\}/);
+  assert.match(detail, /openActionLabel=\{copy\.openAction\}/);
   assert.match(detail, /footerActions: \{[\s\S]*?flexDirection: 'row'/);
   assert.match(detail, /footerButton: \{[\s\S]*?borderRadius: 999/);
   assert.match(detail, /movie\.content_kind === 'series' && magnetResources\.length > 1/);

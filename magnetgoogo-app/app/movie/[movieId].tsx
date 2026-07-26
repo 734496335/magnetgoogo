@@ -44,6 +44,7 @@ import type { MediaKind, MovieFeedItem, MovieResource } from '../../src/core/res
 const INITIAL_RESOURCE_LIMIT = 12;
 const RESOURCE_BATCH_SIZE = 20;
 const AUTO_LOAD_THRESHOLD = 360;
+const TITLE_COPY_FEEDBACK_MS = 3000;
 
 interface MagnetResourceCardProps {
   resource: MovieResource;
@@ -53,6 +54,9 @@ interface MagnetResourceCardProps {
   copyLabel: string;
   copiedLabel: string;
   openLabel: string;
+  copyActionLabel: string;
+  copiedActionLabel: string;
+  openActionLabel: string;
   onCopy: (resource: MovieResource) => void;
   onOpen: (resource: MovieResource) => void;
   isLast: boolean;
@@ -66,6 +70,9 @@ const MagnetResourceCard = memo(function MagnetResourceCard({
   copyLabel,
   copiedLabel,
   openLabel,
+  copyActionLabel,
+  copiedActionLabel,
+  openActionLabel,
   onCopy,
   onOpen,
   isLast,
@@ -107,11 +114,11 @@ const MagnetResourceCard = memo(function MagnetResourceCard({
           activeOpacity={0.76}
           onPress={copyResource}
           accessibilityRole="button"
-          accessibilityLabel={copyLabel}
+          accessibilityLabel={copied ? copiedLabel : copyLabel}
         >
           <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={13} color={colors.accent} />
           <Text style={[styles.actionButtonText, { color: colors.accent }]} numberOfLines={1}>
-            {copied ? copiedLabel : copyLabel}
+            {copied ? copiedActionLabel : copyActionLabel}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -123,7 +130,7 @@ const MagnetResourceCard = memo(function MagnetResourceCard({
         >
           <Ionicons name="open-outline" size={13} color="#f97316" />
           <Text style={[styles.actionButtonText, { color: '#f97316' }]} numberOfLines={1}>
-            {openLabel}
+            {openActionLabel}
           </Text>
         </TouchableOpacity>
       </View>
@@ -160,6 +167,7 @@ export default function MovieDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [posterFailed, setPosterFailed] = useState(false);
+  const [copiedTitle, setCopiedTitle] = useState(false);
   const [copiedResourceUrl, setCopiedResourceUrl] = useState<string | null>(null);
   const [copiedAllMagnets, setCopiedAllMagnets] = useState(false);
   const [resourceSectionLayout, setResourceSectionLayout] = useState<{ y: number; height: number } | null>(null);
@@ -206,11 +214,18 @@ export default function MovieDetailScreen() {
 
   useEffect(() => {
     setVisibleResourceLimit(INITIAL_RESOURCE_LIMIT);
+    setCopiedTitle(false);
     setCopiedAllMagnets(false);
     setPosterFailed(false);
     setResourceSectionLayout(null);
     setResourceSectionVisible(false);
   }, [movieId]);
+
+  useEffect(() => {
+    if (!copiedTitle) return undefined;
+    const timer = setTimeout(() => setCopiedTitle(false), TITLE_COPY_FEEDBACK_MS);
+    return () => clearTimeout(timer);
+  }, [copiedTitle]);
 
   useEffect(() => {
     if (!copiedResourceUrl) return undefined;
@@ -314,6 +329,23 @@ export default function MovieDetailScreen() {
   }, [insets.top, resourceSectionLayout]);
 
   const showResourceShortcut = magnetResources.length > 0 && !resourceSectionVisible;
+
+  const copyMovieTitle = useCallback(async () => {
+    if (!movie) return;
+    try {
+      await Clipboard.setStringAsync(movie.title);
+      Vibration.vibrate(Platform.OS === 'android' ? 20 : 8);
+      setCopiedTitle(true);
+    } catch (error) {
+      console.warn('[MovieDetail]', {
+        stage: 'copy_media_title',
+        error_code: 'MEDIA_TITLE_COPY_FAILED',
+        movie_id: movie.movie_id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      Alert.alert(t.copyFailed);
+    }
+  }, [movie, t.copyFailed]);
 
   const copyResource = useCallback(async (resource: MovieResource) => {
     try {
@@ -443,9 +475,17 @@ export default function MovieDetailScreen() {
           )}
         </View>
 
-        <Text style={[styles.title, { color: hasProminentScore ? '#dc2626' : colors.text }]}>
-          {movie.title}
-        </Text>
+        <TouchableOpacity
+          style={styles.titleTouch}
+          activeOpacity={0.62}
+          onPress={() => void copyMovieTitle()}
+          accessibilityRole="button"
+          accessibilityLabel={movie.title}
+        >
+          <Text style={[styles.title, { color: hasProminentScore ? '#dc2626' : colors.text }]}>
+            {copiedTitle ? copy.copiedAction : movie.title}
+          </Text>
+        </TouchableOpacity>
         {!!movie.original_title && movie.original_title !== movie.title && (
           <Text style={[styles.originalTitle, { color: colors.textTertiary }]}>{movie.original_title}</Text>
         )}
@@ -511,6 +551,9 @@ export default function MovieDetailScreen() {
                   copyLabel={t.copyMagnet}
                   copiedLabel={t.copied}
                   openLabel={t.openMagnet}
+                  copyActionLabel={copy.copyAction}
+                  copiedActionLabel={copy.copiedAction}
+                  openActionLabel={copy.openAction}
                   onCopy={copyResource}
                   onOpen={openResource}
                   isLast={index === visibleMagnetResources.length - 1}
@@ -629,6 +672,7 @@ const styles = StyleSheet.create({
   posterImage: { width: '100%', height: '100%' },
   posterFallback: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
   posterFallbackTitle: { marginTop: 12, fontSize: 13, lineHeight: 19, fontWeight: '700', textAlign: 'center' },
+  titleTouch: { alignSelf: 'stretch' },
   title: { marginTop: 22, fontSize: 25, lineHeight: 32, fontWeight: '800', textAlign: 'center', letterSpacing: -0.5 },
   originalTitle: { marginTop: 7, fontSize: 13, lineHeight: 18, textAlign: 'center' },
   metadata: { marginTop: 10, fontSize: 13, textAlign: 'center' },
@@ -648,9 +692,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   resourceCard: {
-    minHeight: 76,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    minHeight: 72,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -665,9 +709,16 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   resourceTagText: { fontSize: 9, lineHeight: 12, fontWeight: '700' },
-  resourceActions: { width: 76, gap: 6 },
+  resourceActions: {
+    width: 116,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 6,
+  },
   actionButton: {
-    height: 31,
+    width: 55,
+    height: 32,
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 7,

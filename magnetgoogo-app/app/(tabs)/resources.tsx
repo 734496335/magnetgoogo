@@ -9,8 +9,12 @@ import {
   Text,
   TouchableOpacity,
   View,
+  type GestureResponderEvent,
+  type StyleProp,
+  type TextStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,8 +36,59 @@ const SPOTLIGHT_WIDTH = 158;
 const SPOTLIGHT_COVER_HEIGHT = 224;
 const ROW_COVER_WIDTH = 86;
 const ROW_COVER_HEIGHT = 122;
+const TITLE_COPY_FEEDBACK_MS = 3000;
 
 type MediaChannel = 'movie' | 'us' | 'uk' | 'china' | 'korea' | 'japan';
+
+interface CopyableMediaTitleProps {
+  title: string;
+  copiedLabel: string;
+  style: StyleProp<TextStyle>;
+  numberOfLines?: number;
+}
+
+const CopyableMediaTitle = memo(function CopyableMediaTitle({
+  title,
+  copiedLabel,
+  style,
+  numberOfLines,
+}: CopyableMediaTitleProps) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return undefined;
+    const timer = setTimeout(() => setCopied(false), TITLE_COPY_FEEDBACK_MS);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  const copyTitle = useCallback(async (event: GestureResponderEvent) => {
+    event.stopPropagation();
+    try {
+      await Clipboard.setStringAsync(title);
+      setCopied(true);
+    } catch (error) {
+      console.warn('[ResourcesScreen]', {
+        stage: 'copy_media_title',
+        error_code: 'MEDIA_TITLE_COPY_FAILED',
+        title,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }, [title]);
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.62}
+      onPress={(event) => void copyTitle(event)}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+    >
+      <Text style={style} numberOfLines={numberOfLines}>
+        {copied ? copiedLabel : title}
+      </Text>
+    </TouchableOpacity>
+  );
+});
 
 const CHANNELS: MediaChannel[] = ['movie', 'us', 'uk', 'china', 'korea', 'japan'];
 
@@ -159,49 +214,58 @@ interface SpotlightCardProps {
   item: MovieFeedItem;
   colors: Colors;
   badgeText: string;
+  copiedLabel: string;
   onOpen: (item: MovieFeedItem) => void;
 }
 
-const SpotlightCard = memo(function SpotlightCard({ item, colors, badgeText, onOpen }: SpotlightCardProps) {
+const SpotlightCard = memo(function SpotlightCard({ item, colors, badgeText, copiedLabel, onOpen }: SpotlightCardProps) {
   const open = useCallback(() => onOpen(item), [item, onOpen]);
   const hasProminentScore = getMovieScoreTier(item) !== null;
   return (
-    <TouchableOpacity
-      style={styles.spotlightCard}
-      activeOpacity={0.86}
-      onPress={open}
-      accessibilityRole="button"
-      accessibilityLabel={item.title}
-    >
-      <View style={styles.spotlightPosterWrap}>
-        <MediaPoster
-          item={item}
-          colors={colors}
-          overlayLabel={item.content_kind === 'series' ? prominentUpdateLabel(item) : null}
-          style={{ width: SPOTLIGHT_WIDTH, height: SPOTLIGHT_COVER_HEIGHT }}
-        />
-        {item.content_kind === 'movie' && (
-          <View style={styles.recommendBadge}>
-            <Text style={styles.recommendBadgeText}>{badgeText}</Text>
-          </View>
-        )}
-      </View>
-      <Text
+    <View style={styles.spotlightCard}>
+      <TouchableOpacity
+        activeOpacity={0.86}
+        onPress={open}
+        accessibilityRole="button"
+        accessibilityLabel={item.title}
+      >
+        <View style={styles.spotlightPosterWrap}>
+          <MediaPoster
+            item={item}
+            colors={colors}
+            overlayLabel={item.content_kind === 'series' ? prominentUpdateLabel(item) : null}
+            style={{ width: SPOTLIGHT_WIDTH, height: SPOTLIGHT_COVER_HEIGHT }}
+          />
+          {item.content_kind === 'movie' && (
+            <View style={styles.recommendBadge}>
+              <Text style={styles.recommendBadgeText}>{badgeText}</Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+      <CopyableMediaTitle
+        title={item.title}
+        copiedLabel={copiedLabel}
         style={[styles.spotlightTitle, { color: hasProminentScore ? '#dc2626' : colors.text }]}
         numberOfLines={2}
-      >
-        {item.title}
-      </Text>
-      <Text style={[styles.spotlightMeta, { color: colors.textTertiary }]} numberOfLines={1}>
-        {[item.year, normalizedCountries(item)[0], normalizedGenres(item)[0]].filter(Boolean).join(' · ')}
-      </Text>
-      <MovieTagRow
-        item={item}
-        colors={colors}
-        qualityTags={item.quality_tags.slice(0, 2)}
-        compact
       />
-    </TouchableOpacity>
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={open}
+        accessibilityRole="button"
+        accessibilityLabel={item.title}
+      >
+        <Text style={[styles.spotlightMeta, { color: colors.textTertiary }]} numberOfLines={1}>
+          {[item.year, normalizedCountries(item)[0], normalizedGenres(item)[0]].filter(Boolean).join(' · ')}
+        </Text>
+        <MovieTagRow
+          item={item}
+          colors={colors}
+          qualityTags={item.quality_tags.slice(0, 2)}
+          compact
+        />
+      </TouchableOpacity>
+    </View>
   );
 });
 
@@ -210,6 +274,7 @@ interface MediaRowProps {
   colors: Colors;
   minutesLabel: (value: number) => string;
   resourceLabel: (value: number) => string;
+  copiedLabel: string;
   onOpen: (item: MovieFeedItem) => void;
 }
 
@@ -218,6 +283,7 @@ const MediaRow = memo(function MediaRow({
   colors,
   minutesLabel,
   resourceLabel,
+  copiedLabel,
   onOpen,
 }: MediaRowProps) {
   const open = useCallback(() => onOpen(item), [item, onOpen]);
@@ -235,44 +301,61 @@ const MediaRow = memo(function MediaRow({
   const magnetCount = item.resources.filter((resource) => resource.resource_type === 'magnet').length;
   const hasProminentScore = getMovieScoreTier(item) !== null;
   return (
-    <TouchableOpacity
-      style={[styles.mediaRow, { borderBottomColor: colors.border }]}
-      activeOpacity={0.72}
-      onPress={open}
-      accessibilityRole="button"
-      accessibilityLabel={item.title}
-    >
-      <MediaPoster
-        item={item}
-        colors={colors}
-        style={{ width: ROW_COVER_WIDTH, height: ROW_COVER_HEIGHT }}
-      />
+    <View style={[styles.mediaRow, { borderBottomColor: colors.border }]}>
+      <TouchableOpacity
+        activeOpacity={0.76}
+        onPress={open}
+        accessibilityRole="button"
+        accessibilityLabel={item.title}
+      >
+        <MediaPoster
+          item={item}
+          colors={colors}
+          style={{ width: ROW_COVER_WIDTH, height: ROW_COVER_HEIGHT }}
+        />
+      </TouchableOpacity>
       <View style={styles.mediaInfo}>
-        <Text
+        <CopyableMediaTitle
+          title={item.title}
+          copiedLabel={copiedLabel}
           style={[styles.mediaTitle, { color: hasProminentScore ? '#dc2626' : colors.text }]}
           numberOfLines={2}
+        />
+        <TouchableOpacity
+          style={styles.mediaDetailTouch}
+          activeOpacity={0.7}
+          onPress={open}
+          accessibilityRole="button"
+          accessibilityLabel={item.title}
         >
-          {item.title}
-        </Text>
-        {!!metadata && (
-          <Text style={[styles.mediaMeta, { color: colors.textTertiary }]} numberOfLines={2}>
-            {metadata}
-          </Text>
-        )}
-        <MovieTagRow item={item} colors={colors} qualityTags={visibleTags} />
-        <View style={styles.rowFooter}>
-          {!!seriesStatus && (
-            <Text style={[styles.mediaStatus, { color: colors.text }]} numberOfLines={1}>
-              {seriesStatus}
+          {!!metadata && (
+            <Text style={[styles.mediaMeta, { color: colors.textTertiary }]} numberOfLines={2}>
+              {metadata}
             </Text>
           )}
-          <Text style={[styles.resourceText, { color: colors.textTertiary }]}>
-            {resourceLabel(magnetCount)}
-          </Text>
-        </View>
+          <MovieTagRow item={item} colors={colors} qualityTags={visibleTags} />
+          <View style={styles.rowFooter}>
+            {!!seriesStatus && (
+              <Text style={[styles.mediaStatus, { color: colors.text }]} numberOfLines={1}>
+                {seriesStatus}
+              </Text>
+            )}
+            <Text style={[styles.resourceText, { color: colors.textTertiary }]}>
+              {resourceLabel(magnetCount)}
+            </Text>
+          </View>
+        </TouchableOpacity>
       </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-    </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.mediaChevronTouch}
+        activeOpacity={0.7}
+        onPress={open}
+        accessibilityRole="button"
+        accessibilityLabel={item.title}
+      >
+        <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+      </TouchableOpacity>
+    </View>
   );
 });
 
@@ -385,9 +468,10 @@ export default function ResourcesScreen() {
       item={item}
       colors={colors}
       badgeText={copy.recommendation}
+      copiedLabel={copy.copiedAction}
       onOpen={openMedia}
     />
-  ), [colors, copy.recommendation, openMedia]);
+  ), [colors, copy.copiedAction, copy.recommendation, openMedia]);
 
   const renderItem = useCallback(({ item }: { item: MovieFeedItem }) => (
     <MediaRow
@@ -395,9 +479,10 @@ export default function ResourcesScreen() {
       colors={colors}
       minutesLabel={copy.minutes}
       resourceLabel={copy.resourceCount}
+      copiedLabel={copy.copiedAction}
       onOpen={openMedia}
     />
-  ), [colors, copy.minutes, copy.resourceCount, openMedia]);
+  ), [colors, copy.copiedAction, copy.minutes, copy.resourceCount, openMedia]);
 
   const channelLabel = useCallback((channel: MediaChannel) => {
     if (channel === 'movie') return copy.mediaMovies;
@@ -722,6 +807,13 @@ const styles = StyleSheet.create({
   },
   mediaInfo: { flex: 1, alignSelf: 'stretch', marginLeft: 13, paddingVertical: 2 },
   mediaTitle: { fontSize: 16, lineHeight: 22, fontWeight: '700' },
+  mediaDetailTouch: { flex: 1 },
+  mediaChevronTouch: {
+    width: 34,
+    alignSelf: 'stretch',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
   mediaMeta: { marginTop: 6, fontSize: 11, lineHeight: 16 },
   mediaStatus: { flex: 1, fontSize: 13, lineHeight: 18, fontWeight: '400' },
   rowFooter: {

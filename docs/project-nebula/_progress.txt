@@ -8,9 +8,10 @@ Current phase: App v0.2.1 SEGMENTED CHANNEL + COMPACT RESOURCE LIST PASS / NOT R
 - Spotlight update badge stays orange-red at the poster lower-left.
 - Recent-list status uses `更新至第N集` or original completed text such as `第1-2季全`.
 - Status is regular dark text; lighter `X个资源` shares the same row.
-- Detail magnet cards are compact 76–84dp horizontal rows.
-- Resource title is limited to two lines and three quality tags.
-- Copy/open actions are right-side `56×32dp` capsules instead of a full action row.
+- Detail magnets form one continuous rounded list with about 72dp rows and hairline separators.
+- Resource title is limited to two lines; duplicated quality tags are suppressed.
+- Copy/open actions are same-line `55×32dp` capsules labelled 复制 / 打开.
+- Resource-page and detail titles copy on tap and show 已复制 for 3 seconds without triggering navigation.
 - Existing natural sorting, scroll auto-load and copy-all behavior remain unchanged.
 - Current series snapshot: 100 titles / 1239 unique magnets.
 - Updated unified crawler issue MD with refreshed audit and remaining defects.
@@ -20,7 +21,8 @@ Current phase: App v0.2.1 SEGMENTED CHANNEL + COMPACT RESOURCE LIST PASS / NOT R
 - Series audit: 0 duplicate, 0 cross-season, 0 generic titles, 1 unknown identity.
 - `npm run android:k30s` -> BUILD SUCCESSFUL / install Success.
 - K30S showed 精品推荐 and partially visible 韩剧.
-- K30S 69-resource detail showed about nine compact entries per viewport.
+- K30S 69-resource detail showed about ten compact entries per viewport.
+- K30S title-copy tests stayed on the current page and exposed 已复制 in both list and detail.
 
 ## Remaining before release
 - Data AI must resolve the remaining unknown package, false episode ranges and same-episode variant ambiguity.
