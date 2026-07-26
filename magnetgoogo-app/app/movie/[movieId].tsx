@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MovieRatingStrip } from '../../src/components/MovieRatingStrip';
 import { useLang } from '../../src/core/LangContext';
 import { useTheme, type Colors } from '../../src/core/ThemeContext';
 import { getResourceCopy } from '../../src/core/resourceCopy';
@@ -274,14 +275,14 @@ export default function MovieDetailScreen() {
         )}
         <Text style={[styles.metadata, { color: colors.textSecondary }]}>{metadata}</Text>
 
+        <MovieRatingStrip
+          item={movie}
+          colors={colors}
+          centered
+          style={styles.detailRatings}
+        />
+
         <View style={styles.highlightRow}>
-          {movie.douban_rating !== null && (
-            <View style={[styles.scorePill, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Ionicons name="star" size={14} color="#f59e0b" />
-              <Text style={[styles.score, { color: colors.text }]}>{movie.douban_rating.toFixed(1)}</Text>
-              <Text style={[styles.scoreSource, { color: colors.textTertiary }]}>豆瓣</Text>
-            </View>
-          )}
           {movie.quality_tags.slice(0, 5).map((tag) => (
             <View key={tag} style={[styles.tag, { backgroundColor: colors.tagBg }]}>
               <Text style={[styles.tagText, { color: colors.tagText }]}>{tag}</Text>
@@ -394,19 +395,8 @@ const styles = StyleSheet.create({
   title: { marginTop: 22, fontSize: 25, lineHeight: 32, fontWeight: '800', textAlign: 'center', letterSpacing: -0.5 },
   originalTitle: { marginTop: 7, fontSize: 13, lineHeight: 18, textAlign: 'center' },
   metadata: { marginTop: 10, fontSize: 13, textAlign: 'center' },
-  highlightRow: { marginTop: 16, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
-  scorePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 9,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    marginRight: 6,
-    marginBottom: 6,
-  },
-  score: { marginLeft: 4, fontSize: 12, fontWeight: '800' },
-  scoreSource: { marginLeft: 4, fontSize: 9 },
+  detailRatings: { marginTop: 16 },
+  highlightRow: { marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
   tag: { borderRadius: 7, paddingHorizontal: 8, paddingVertical: 6, marginRight: 6, marginBottom: 6 },
   tagText: { fontSize: 10, fontWeight: '700' },
   section: { marginTop: 30 },

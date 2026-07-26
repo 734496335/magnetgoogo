@@ -1,5 +1,32 @@
 ---
 Date/Time: 2026-07-26 (UTC+8)
+Version: app-v0.2.1-search-centering-shared-ratings
+Scope: Re-center the search hero after adding Tabs and unify list/detail movie rating presentation
+Modules: magnetgoogo-app/{app/(tabs)/index.tsx,app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/components/MovieRatingStrip.tsx,src/core/resourceCopy.ts,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
+
+### Product changes
+- Removed the fixed `SCREEN_H * 0.18` search-page spacer and centered the hero in the actual Tab-screen area.
+- Added physical-screen compensation from the real bottom Tab height.
+- Measured search-history and favorites height at runtime and included it in the hero offset, so secondary content cannot push the logo/search controls upward.
+- Extracted one shared `MovieRatingStrip` used by recommended cards, recent-list rows and movie details.
+- Rating text is now only `IMDb x.x` and `豆瓣 x.x`; removed visible “精品/高分” labels and the old detail star pill.
+- Kept 6.0 and 8.0 tiers internally only for restrained warm/red emphasis; zero and missing ratings remain hidden.
+
+### Verification
+- TypeScript PASS; App adversarial 36/36; movie feed PASS; fluency 17/17.
+- `npm run android:k30s` completed with `BUILD SUCCESSFUL` and installation `Success`.
+- K30S home hero visual bounds were y=895..1566, giving center≈1231px against the 1200px physical center.
+- K30S Resources UI tree showed `豆瓣 7.1`, `豆瓣 6.6`, `豆瓣 5.8`, `豆瓣 6.4` and no tier-label text.
+- K30S 寒战1994 detail showed the same shared `豆瓣 7.1` presentation.
+- Current offline Feed contains no IMDb numeric rating; shared rendering is verified statically and will appear in both locations when supplied.
+- No AndroidRuntime fatal or React Native unhandled error was observed.
+
+### Release state
+- v0.2.1 remains development-only. No tag, formal APK release or remote deployment.
+---
+
+---
+Date/Time: 2026-07-26 (UTC+8)
 Version: app-v0.2.1-k30s-standalone-startup
 Scope: Fix K30S startup without Metro and replace the native startup overlay with a dot-matrix loader
 Modules: magnetgoogo-app/{app.json,package.json,app/_layout.tsx,src/core/startupOverlay.ts,plugins/with-startup-overlay.js,plugins/startup-overlay/*.template,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}

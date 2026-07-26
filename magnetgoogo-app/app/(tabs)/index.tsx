@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from 'expo-router';
 import {
   View,
@@ -28,7 +29,7 @@ import FeedbackFAB from '../../src/components/FeedbackFAB';
 import { COMPLIANCE_MODE, WEBSITE_URL } from '../../src/core/complianceConfig';
 import { getLatestReport, printReport } from '../../src/core/searchDebugLogger';
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+const { width: SCREEN_W } = Dimensions.get('window');
 const BTN_W = SCREEN_W * 0.78;
 
 // ── Glass gradient button (CSS GlassButton faithful port) ────────────
@@ -48,18 +49,21 @@ function FlowingGradientButton({
 }) {
   const flow = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.timing(flow, {
-        toValue: 1,
-        duration: 3000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [flow]);
+  useFocusEffect(
+    useCallback(() => {
+      flow.setValue(0);
+      const animation = Animated.loop(
+        Animated.timing(flow, {
+          toValue: 1,
+          duration: 3000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+      );
+      animation.start();
+      return () => animation.stop();
+    }, [flow]),
+  );
 
   const translateX = flow.interpolate({
     inputRange: [0, 1],
@@ -156,8 +160,10 @@ export default function HomeScreen() {
   const [toast, setToast] = useState('');
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+  const [secondaryHeight, setSecondaryHeight] = useState(0);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const { t } = useLang();
   const { colors } = useTheme();
   const hideToast = useCallback(() => setToast(''), []);
@@ -222,6 +228,11 @@ export default function HomeScreen() {
     setHistory([]);
   };
 
+  const handleSecondaryLayout = useCallback((height: number) => {
+    const rounded = Math.round(height);
+    setSecondaryHeight((current) => current === rounded ? current : rounded);
+  }, []);
+
   return (
     <KeyboardAvoidingView
       style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.bg }]}
@@ -230,117 +241,120 @@ export default function HomeScreen() {
       {/* Toast */}
       <TopToast message={toast} visible={!!toast} onHide={hideToast} />
 
-      {/* Push content below the status bar while keeping room for the tab bar. */}
-      <View style={{ height: SCREEN_H * 0.18 }} />
+      {/* Center the search experience in the full physical screen, compensating for the Tab bar. */}
+      <View style={[styles.heroStage, { paddingTop: tabBarHeight + secondaryHeight }]}>
+        {/* Brand block: magnet icon + text logo + slogan */}
+        <View style={styles.brandRow}>
+          <Image
+            source={require('../../assets/icon.png')}
+            style={styles.magnetIcon}
+            resizeMode="contain"
+          />
+          <Image
+            source={require('../../assets/logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
+        <Text style={[styles.subtitle, { color: colors.textTertiary }]}>
+          {t.sloganPrefix}
+          <Text style={{ color: colors.accent, fontWeight: '600' }}>{t.sloganBrand}</Text>
+        </Text>
 
-      {/* Brand block: magnet icon + text logo + slogan */}
-      <View style={styles.brandRow}>
-        <Image
-          source={require('../../assets/icon.png')}
-          style={styles.magnetIcon}
-          resizeMode="contain"
-        />
-        <Image
-          source={require('../../assets/logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-      </View>
-      <Text style={[styles.subtitle, { color: colors.textTertiary }]}>
-        {t.sloganPrefix}
-        <Text style={{ color: colors.accent, fontWeight: '600' }}>{t.sloganBrand}</Text>
-      </Text>
+        {/* Interaction block: search + button */}
+        <View style={[styles.searchField, { backgroundColor: colors.inputBg, shadowColor: colors.shadow, borderColor: colors.border }]}>
+          <Ionicons name="search" size={20} color="#858da0" style={{ marginRight: 12 }} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder={COMPLIANCE_MODE ? t.complianceSearchPlaceholder : t.searchPlaceholder}
+            placeholderTextColor={colors.textTertiary}
+            value={query}
+            onChangeText={setQuery}
+            onSubmitEditing={handleSearch}
+            returnKeyType="search"
+            maxLength={100}
+          />
+          {query.length > 0 && (
+            <TouchableOpacity onPress={() => setQuery('')}>
+              <Ionicons name="close-circle" size={20} color="#c0c6d0" />
+            </TouchableOpacity>
+          )}
+        </View>
 
-      {/* Interaction block: search + button */}
-      <View style={[styles.searchField, { backgroundColor: colors.inputBg, shadowColor: colors.shadow, borderColor: colors.border }]}>
-        <Ionicons name="search" size={20} color="#858da0" style={{ marginRight: 12 }} />
-        <TextInput
-          style={[styles.searchInput, { color: colors.text }]}
-          placeholder={COMPLIANCE_MODE ? t.complianceSearchPlaceholder : t.searchPlaceholder}
-          placeholderTextColor={colors.textTertiary}
-          value={query}
-          onChangeText={setQuery}
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
-          maxLength={100}
-        />
-        {query.length > 0 && (
-          <TouchableOpacity onPress={() => setQuery('')}>
-            <Ionicons name="close-circle" size={20} color="#c0c6d0" />
+        <FlowingGradientButton onPress={handleSearch} label={t.searchButton} />
+
+        {/* Compliance banner */}
+        {COMPLIANCE_MODE && (
+          <TouchableOpacity
+            style={styles.complianceBanner}
+            onPress={() => Linking.openURL(WEBSITE_URL)}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#f0fdf4', '#ecfdf5', '#f0fdf4']}
+              style={styles.complianceBannerBg}
+            >
+              <View style={styles.complianceBadge}>
+                <Ionicons name="shield-checkmark" size={18} color="#fff" />
+              </View>
+              <Text style={styles.complianceLine1}>
+                {t.complianceBannerLine1}
+              </Text>
+              <View style={styles.complianceLinkRow}>
+                <Text style={styles.complianceLinkText}>{t.complianceBannerLink}</Text>
+                <Ionicons name="chevron-forward" size={14} color="#6366f1" />
+              </View>
+            </LinearGradient>
           </TouchableOpacity>
         )}
       </View>
 
-      <FlowingGradientButton onPress={handleSearch} label={t.searchButton} />
-
-      {/* Compliance banner */}
-      {COMPLIANCE_MODE && (
-        <TouchableOpacity
-          style={styles.complianceBanner}
-          onPress={() => Linking.openURL(WEBSITE_URL)}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={['#f0fdf4', '#ecfdf5', '#f0fdf4']}
-            style={styles.complianceBannerBg}
-          >
-            <View style={styles.complianceBadge}>
-              <Ionicons name="shield-checkmark" size={18} color="#fff" />
-            </View>
-            <Text style={styles.complianceLine1}>
-              {t.complianceBannerLine1}
-            </Text>
-            <View style={styles.complianceLinkRow}>
-              <Text style={styles.complianceLinkText}>{t.complianceBannerLink}</Text>
-              <Ionicons name="chevron-forward" size={14} color="#6366f1" />
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-      )}
-
-      {/* Search history */}
-      {history.length > 0 && (
-        <View style={styles.historyWrap}>
-          <View style={styles.historyHeader}>
-            <Text style={[styles.historyTitle, { color: colors.textTertiary }]}>{t.historyTitle || '搜索历史'}</Text>
-            <TouchableOpacity onPress={handleClearHistory}>
-              <Text style={styles.historyClear}>{t.historyClear || '清空'}</Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.historyScroll}
-          >
-            {history.slice(0, 20).map((h) => (
-              <TouchableOpacity
-                key={h.query}
-                style={[styles.historyChip, { backgroundColor: colors.chipBg }]}
-                onPress={() => handleHistoryTap(h.query)}
-                onLongPress={() => handleRemoveHistory(h.query)}
-              >
-                <Text style={[styles.historyChipText, { color: colors.textSecondary }]} numberOfLines={1}>{h.query}</Text>
+      <View
+        style={styles.secondaryArea}
+        onLayout={(event) => handleSecondaryLayout(event.nativeEvent.layout.height)}
+      >
+        {/* Search history */}
+        {history.length > 0 && (
+          <View style={styles.historyWrap}>
+            <View style={styles.historyHeader}>
+              <Text style={[styles.historyTitle, { color: colors.textTertiary }]}>{t.historyTitle || '搜索历史'}</Text>
+              <TouchableOpacity onPress={handleClearHistory}>
+                <Text style={styles.historyClear}>{t.historyClear || '清空'}</Text>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.historyScroll}
+            >
+              {history.slice(0, 20).map((h) => (
+                <TouchableOpacity
+                  key={h.query}
+                  style={[styles.historyChip, { backgroundColor: colors.chipBg }]}
+                  onPress={() => handleHistoryTap(h.query)}
+                  onLongPress={() => handleRemoveHistory(h.query)}
+                >
+                  <Text style={[styles.historyChipText, { color: colors.textSecondary }]} numberOfLines={1}>{h.query}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
-      {/* Favorites entry (only if non-empty) */}
-      {favorites.length > 0 && (
-        <TouchableOpacity
-          style={[styles.favEntry, { backgroundColor: colors.chipBg }]}
-          onPress={() => router.push('/favorites')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="bookmark" size={16} color="#6366f1" />
-          <Text style={[styles.favEntryText, { color: colors.text }]}>{t.favoritesTitle}</Text>
-          <Text style={[styles.favEntryCount, { color: colors.textTertiary }]}>{favorites.length}</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
-        </TouchableOpacity>
-      )}
-
-      <View style={{ flex: 1 }} />
+        {/* Favorites entry (only if non-empty) */}
+        {favorites.length > 0 && (
+          <TouchableOpacity
+            style={[styles.favEntry, { backgroundColor: colors.chipBg }]}
+            onPress={() => router.push('/favorites')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="bookmark" size={16} color="#6366f1" />
+            <Text style={[styles.favEntryText, { color: colors.text }]}>{t.favoritesTitle}</Text>
+            <Text style={[styles.favEntryCount, { color: colors.textTertiary }]}>{favorites.length}</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+          </TouchableOpacity>
+        )}
+      </View>
 
       <FeedbackFAB />
     </KeyboardAvoidingView>
@@ -353,6 +367,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#fffdfb',
     alignItems: 'center',
     paddingHorizontal: 32,
+  },
+  heroStage: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 12,
   },
   brandRow: {
     flexDirection: 'row',
@@ -482,6 +503,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#92400e',
   },
+  secondaryArea: { width: '100%' },
   historyWrap: {
     width: '100%',
     marginTop: 20,

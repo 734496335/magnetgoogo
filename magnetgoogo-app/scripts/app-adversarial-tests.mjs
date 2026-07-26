@@ -367,8 +367,10 @@ await test('B10', 'foreground-service start/stop races cannot crash the app', ()
   assert.doesNotMatch(service, /\bstopSelf\(\)/);
 });
 
-await test('U1', 'home gradient animation stops on unmount', () => {
+await test('U1', 'home gradient animation stops whenever the Search tab loses focus', () => {
   const code = read('app/(tabs)/index.tsx');
+  assert.match(code, /useFocusEffect\(/);
+  assert.match(code, /flow\.setValue\(0\)/);
   assert.match(code, /return \(\) => animation\.stop\(\)/);
 });
 
@@ -399,8 +401,9 @@ await test('U1S', 'startup overlay is native, lifecycle-safe and standalone-debu
   assert.match(bridge, /STARTUP_OVERLAY_HIDE_FAILED/);
 });
 
-await test('U2', 'bottom navigation exposes three tabs and lets Android reserve system navigation space', () => {
+await test('U2', 'bottom navigation and search hero respect the usable screen area', () => {
   const layout = read('app/(tabs)/_layout.tsx');
+  const home = read('app/(tabs)/index.tsx');
   const appConfig = read('app.json');
   assert.match(layout, /name="index"/);
   assert.match(layout, /name="resources"/);
@@ -409,27 +412,38 @@ await test('U2', 'bottom navigation exposes three tabs and lets Android reserve 
   assert.match(appConfig, /"edgeToEdgeEnabled": false/);
   assert.doesNotMatch(layout, /AdaptiveTabBar|ANDROID_NAVIGATION_FALLBACK_INSET|useSafeAreaInsets/);
   assert.doesNotMatch(layout, /height:\s*62|paddingBottom:\s*7/);
+  assert.match(home, /useBottomTabBarHeight/);
+  assert.match(home, /styles\.heroStage, \{ paddingTop: tabBarHeight \+ secondaryHeight \}/);
+  assert.match(home, /handleSecondaryLayout/);
+  assert.match(home, /justifyContent: 'center'/);
+  assert.doesNotMatch(home, /SCREEN_H \* 0\.18/);
 });
 
 await test('U3', 'movie discovery preserves ranking and opens a dedicated detail route', () => {
   const screen = read('app/(tabs)/resources.tsx');
   const detail = read('app/movie/[movieId].tsx');
   const ratings = read('src/core/movieRatings.ts');
+  const ratingStrip = read('src/components/MovieRatingStrip.tsx');
+  const copy = read('src/core/resourceCopy.ts');
   assert.match(screen, /keyExtractor=\{resourceFeedItemKey\}/);
   assert.match(screen, /item\.recommended/);
   assert.match(screen, /pathname: '\/movie\/\[movieId\]'/);
   assert.match(screen, /resource\.resource_type === 'magnet'/);
   assert.doesNotMatch(screen, /copy\.subtitle|copy\.updatedAt|generatedAt/);
   assert.doesNotMatch(screen, /content_code|MY-1065|javbus/i);
-  assert.match(screen, /getVisibleMovieRatings/);
-  assert.match(screen, /rating\.source/);
-  assert.match(screen, /rating\.value\.toFixed\(1\)/);
-  assert.match(screen, /copy\.featuredScore/);
-  assert.match(screen, /copy\.highScore/);
+  assert.match(screen, /MovieRatingStrip/);
+  assert.match(detail, /MovieRatingStrip/);
+  assert.match(ratingStrip, /getVisibleMovieRatings/);
+  assert.match(ratingStrip, /rating\.source/);
+  assert.match(ratingStrip, /rating\.value\.toFixed\(1\)/);
+  assert.match(ratingStrip, /rating\.tier === 'high'/);
+  assert.doesNotMatch(ratingStrip, /tierLabel|精品|高分/);
+  assert.doesNotMatch(copy, /featuredScore|highScore|精品|高分/);
   assert.match(ratings, /FEATURED_SCORE_THRESHOLD = 6\.0/);
   assert.match(ratings, /HIGH_SCORE_THRESHOLD = 8\.0/);
   assert.match(ratings, /value > 0 && value <= 10/);
   assert.doesNotMatch(screen, /item\.douban_rating\.toFixed|name="star" size=\{11\}/);
+  assert.doesNotMatch(detail, /scorePill|movie\.douban_rating\.toFixed|name="star" size=\{14\}/);
   assert.match(detail, /copy\.detailSynopsis/);
   assert.match(detail, /copy\.detailResources/);
   assert.match(detail, /pathname: '\/search'/);
