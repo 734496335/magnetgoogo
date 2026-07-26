@@ -36,36 +36,28 @@ const SPOTLIGHT_WIDTH = 158;
 const SPOTLIGHT_COVER_HEIGHT = 224;
 const ROW_COVER_WIDTH = 86;
 const ROW_COVER_HEIGHT = 122;
-const TITLE_COPY_FEEDBACK_MS = 3000;
+const TITLE_COPY_TOAST_MS = 2000;
 
 type MediaChannel = 'movie' | 'us' | 'uk' | 'china' | 'korea' | 'japan';
 
 interface CopyableMediaTitleProps {
   title: string;
-  copiedLabel: string;
+  onCopied: () => void;
   style: StyleProp<TextStyle>;
   numberOfLines?: number;
 }
 
 const CopyableMediaTitle = memo(function CopyableMediaTitle({
   title,
-  copiedLabel,
+  onCopied,
   style,
   numberOfLines,
 }: CopyableMediaTitleProps) {
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (!copied) return undefined;
-    const timer = setTimeout(() => setCopied(false), TITLE_COPY_FEEDBACK_MS);
-    return () => clearTimeout(timer);
-  }, [copied]);
-
   const copyTitle = useCallback(async (event: GestureResponderEvent) => {
     event.stopPropagation();
     try {
       await Clipboard.setStringAsync(title);
-      setCopied(true);
+      onCopied();
     } catch (error) {
       console.warn('[ResourcesScreen]', {
         stage: 'copy_media_title',
@@ -74,7 +66,7 @@ const CopyableMediaTitle = memo(function CopyableMediaTitle({
         error: error instanceof Error ? error.message : String(error),
       });
     }
-  }, [title]);
+  }, [onCopied, title]);
 
   return (
     <TouchableOpacity
@@ -84,7 +76,7 @@ const CopyableMediaTitle = memo(function CopyableMediaTitle({
       accessibilityLabel={title}
     >
       <Text style={style} numberOfLines={numberOfLines}>
-        {copied ? copiedLabel : title}
+        {title}
       </Text>
     </TouchableOpacity>
   );
@@ -214,11 +206,11 @@ interface SpotlightCardProps {
   item: MovieFeedItem;
   colors: Colors;
   badgeText: string;
-  copiedLabel: string;
+  onTitleCopied: () => void;
   onOpen: (item: MovieFeedItem) => void;
 }
 
-const SpotlightCard = memo(function SpotlightCard({ item, colors, badgeText, copiedLabel, onOpen }: SpotlightCardProps) {
+const SpotlightCard = memo(function SpotlightCard({ item, colors, badgeText, onTitleCopied, onOpen }: SpotlightCardProps) {
   const open = useCallback(() => onOpen(item), [item, onOpen]);
   const hasProminentScore = getMovieScoreTier(item) !== null;
   return (
@@ -245,7 +237,7 @@ const SpotlightCard = memo(function SpotlightCard({ item, colors, badgeText, cop
       </TouchableOpacity>
       <CopyableMediaTitle
         title={item.title}
-        copiedLabel={copiedLabel}
+        onCopied={onTitleCopied}
         style={[styles.spotlightTitle, { color: hasProminentScore ? '#dc2626' : colors.text }]}
         numberOfLines={2}
       />
@@ -274,7 +266,7 @@ interface MediaRowProps {
   colors: Colors;
   minutesLabel: (value: number) => string;
   resourceLabel: (value: number) => string;
-  copiedLabel: string;
+  onTitleCopied: () => void;
   onOpen: (item: MovieFeedItem) => void;
 }
 
@@ -283,7 +275,7 @@ const MediaRow = memo(function MediaRow({
   colors,
   minutesLabel,
   resourceLabel,
-  copiedLabel,
+  onTitleCopied,
   onOpen,
 }: MediaRowProps) {
   const open = useCallback(() => onOpen(item), [item, onOpen]);
@@ -317,7 +309,7 @@ const MediaRow = memo(function MediaRow({
       <View style={styles.mediaInfo}>
         <CopyableMediaTitle
           title={item.title}
-          copiedLabel={copiedLabel}
+          onCopied={onTitleCopied}
           style={[styles.mediaTitle, { color: hasProminentScore ? '#dc2626' : colors.text }]}
           numberOfLines={2}
         />
@@ -371,6 +363,7 @@ export default function ResourcesScreen() {
   const [loadingKind, setLoadingKind] = useState<MediaKind | null>('movie');
   const [refreshingKind, setRefreshingKind] = useState<MediaKind | null>(null);
   const [failedKinds, setFailedKinds] = useState<Partial<Record<MediaKind, boolean>>>({});
+  const [titleCopyToastNonce, setTitleCopyToastNonce] = useState(0);
 
   const activeKind = channelKind(activeChannel);
   const feed = feeds[activeKind] ?? null;
@@ -412,6 +405,16 @@ export default function ResourcesScreen() {
   useEffect(() => {
     setActiveGenre(null);
   }, [activeChannel]);
+
+  useEffect(() => {
+    if (titleCopyToastNonce === 0) return undefined;
+    const timer = setTimeout(() => setTitleCopyToastNonce(0), TITLE_COPY_TOAST_MS);
+    return () => clearTimeout(timer);
+  }, [titleCopyToastNonce]);
+
+  const showTitleCopiedToast = useCallback(() => {
+    setTitleCopyToastNonce((current) => current + 1);
+  }, []);
 
   const openMedia = useCallback((item: MovieFeedItem) => {
     router.push({
@@ -468,10 +471,10 @@ export default function ResourcesScreen() {
       item={item}
       colors={colors}
       badgeText={copy.recommendation}
-      copiedLabel={copy.copiedAction}
+      onTitleCopied={showTitleCopiedToast}
       onOpen={openMedia}
     />
-  ), [colors, copy.copiedAction, copy.recommendation, openMedia]);
+  ), [colors, copy.recommendation, openMedia, showTitleCopiedToast]);
 
   const renderItem = useCallback(({ item }: { item: MovieFeedItem }) => (
     <MediaRow
@@ -479,10 +482,10 @@ export default function ResourcesScreen() {
       colors={colors}
       minutesLabel={copy.minutes}
       resourceLabel={copy.resourceCount}
-      copiedLabel={copy.copiedAction}
+      onTitleCopied={showTitleCopiedToast}
       onOpen={openMedia}
     />
-  ), [colors, copy.copiedAction, copy.minutes, copy.resourceCount, openMedia]);
+  ), [colors, copy.minutes, copy.resourceCount, openMedia, showTitleCopiedToast]);
 
   const channelLabel = useCallback((channel: MediaChannel) => {
     if (channel === 'movie') return copy.mediaMovies;
@@ -681,12 +684,42 @@ export default function ResourcesScreen() {
           removeClippedSubviews
         />
       )}
+
+      {titleCopyToastNonce > 0 && (
+        <View
+          pointerEvents="none"
+          style={[styles.copyToastLayer, { bottom: Math.max(insets.bottom, 8) + 76 }]}
+        >
+          <View style={styles.copyToast}>
+            <Ionicons name="checkmark-circle" size={16} color="#fff" />
+            <Text style={styles.copyToastText}>{copy.copiedAction}</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  copyToastLayer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 40,
+  },
+  copyToast: {
+    minHeight: 38,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(17,24,39,0.94)',
+  },
+  copyToastText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   center: {
     flex: 1,
     alignItems: 'center',

@@ -1,5 +1,28 @@
 ---
 Date/Time: 2026-07-26 (UTC+8)
+Version: app-v0.2.1-title-copy-toast-correction
+Scope: Replace title-text mutation with a non-blocking capsule Toast after copy
+Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,app/movie/[movieId].tsx,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
+
+### Product correction
+- Movie and series titles no longer change into `已复制` after a successful copy.
+- The original title remains visible at all times; a dark capsule Toast with a check icon appears above the bottom navigation/action area.
+- The Toast is shared by resource-list titles, spotlight titles and the detail-page main title, then disappears automatically after about 2 seconds.
+- Title-copy and card/detail navigation remain separate interactions.
+
+### Verification
+- TypeScript PASS; App adversarial 36/36; resource Feed tests PASS; fluency 17/17.
+- `npm run android:k30s` completed with `BUILD SUCCESSFUL` and installation `Success`.
+- K30S resource page immediately showed both `寒战1994` and the independent `已复制` Toast; the page did not enter detail.
+- After 2.2 seconds the Toast was absent while `寒战1994` remained visible.
+- K30S detail page also showed the original title and the independent Toast simultaneously; the Toast bounds were `[516,2037][624,2086]`.
+
+### Release state
+- v0.2.1 remains development-only. No tag, formal APK release or remote deployment.
+---
+
+---
+Date/Time: 2026-07-26 (UTC+8)
 Version: app-v0.2.1-segmented-tabs-compact-resources-title-copy
 Scope: Redesign the primary media navigation, update-state hierarchy, high-density detail resources and title-copy interaction
 Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/core/resourceCopy.ts,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{影视离线Feed数据质量问题-交接爬虫AI.md,APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}

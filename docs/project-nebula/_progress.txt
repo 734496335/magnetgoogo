@@ -11,7 +11,7 @@ Current phase: App v0.2.1 SEGMENTED CHANNEL + COMPACT RESOURCE LIST PASS / NOT R
 - Detail magnets form one continuous rounded list with about 72dp rows and hairline separators.
 - Resource title is limited to two lines; duplicated quality tags are suppressed.
 - Copy/open actions are same-line `55×32dp` capsules labelled 复制 / 打开.
-- Resource-page and detail titles copy on tap and show 已复制 for 3 seconds without triggering navigation.
+- Resource-page and detail titles copy on tap while always retaining the original title; an independent capsule “已复制” Toast disappears after about 2 seconds.
 - Existing natural sorting, scroll auto-load and copy-all behavior remain unchanged.
 - Current series snapshot: 100 titles / 1239 unique magnets.
 - Updated unified crawler issue MD with refreshed audit and remaining defects.
@@ -22,7 +22,7 @@ Current phase: App v0.2.1 SEGMENTED CHANNEL + COMPACT RESOURCE LIST PASS / NOT R
 - `npm run android:k30s` -> BUILD SUCCESSFUL / install Success.
 - K30S showed 精品推荐 and partially visible 韩剧.
 - K30S 69-resource detail showed about ten compact entries per viewport.
-- K30S title-copy tests stayed on the current page and exposed 已复制 in both list and detail.
+- K30S list/detail title-copy tests retained 寒战1994 while showing an independent 已复制 Toast; the Toast was absent after 2.2 seconds.
 
 ## Remaining before release
 - Data AI must resolve the remaining unknown package, false episode ranges and same-episode variant ambiguity.

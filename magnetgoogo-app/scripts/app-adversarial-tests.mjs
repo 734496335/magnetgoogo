@@ -527,21 +527,32 @@ await test('U3', 'movie and regional series channels form one lightweight discov
   assert.match(detail, /seriesStatusForDisplay/);
   assert.match(detail, /resourceDisplayTitle\(resource, seasonNumber\)/);
   assert.match(screen, /import \* as Clipboard from 'expo-clipboard'/);
-  assert.match(screen, /const TITLE_COPY_FEEDBACK_MS = 3000/);
-  assert.match(detail, /const TITLE_COPY_FEEDBACK_MS = 3000/);
+  assert.match(screen, /const TITLE_COPY_TOAST_MS = 2000/);
+  assert.match(detail, /const TITLE_COPY_TOAST_MS = 2000/);
   assert.match(screen, /const CopyableMediaTitle = memo/);
   assert.match(screen, /event\.stopPropagation\(\)/);
   assert.match(screen, /Clipboard\.setStringAsync\(title\)/);
-  assert.match(screen, /copied \? copiedLabel : title/);
+  assert.match(screen, />\s*\{title\}\s*<\/Text>/);
+  assert.doesNotMatch(screen, /copied \? copiedLabel : title/);
+  assert.match(screen, /titleCopyToastNonce > 0/);
+  assert.match(screen, /styles\.copyToastLayer/);
+  assert.match(screen, /styles\.copyToast/);
+  assert.match(screen, /copy\.copiedAction/);
+  assert.match(screen, /borderRadius: 999/);
   assert.equal((screen.match(/<CopyableMediaTitle/g) || []).length, 2);
   assert.match(screen, /<View style=\{styles\.spotlightCard\}>/);
   assert.match(screen, /<View style=\{\[styles\.mediaRow/);
   assert.match(screen, /mediaDetailTouch/);
   assert.match(screen, /mediaChevronTouch/);
-  assert.match(detail, /const \[copiedTitle, setCopiedTitle\] = useState\(false\)/);
+  assert.match(detail, /const \[titleCopyToastNonce, setTitleCopyToastNonce\] = useState\(0\)/);
   assert.match(detail, /Clipboard\.setStringAsync\(movie\.title\)/);
   assert.match(detail, /stage: 'copy_media_title'/);
-  assert.match(detail, /copiedTitle \? copy\.copiedAction : movie\.title/);
+  assert.match(detail, />\s*\{movie\.title\}\s*<\/Text>/);
+  assert.doesNotMatch(detail, /copiedTitle \? copy\.copiedAction : movie\.title/);
+  assert.match(detail, /titleCopyToastNonce > 0/);
+  assert.match(detail, /styles\.copyToastLayer/);
+  assert.match(detail, /styles\.copyToast/);
+  assert.match(detail, /copy\.copiedAction/);
 });
 
 await test('U4', 'movie detail exposes only prominent magnet cards with search-equivalent actions', () => {

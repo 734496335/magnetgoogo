@@ -44,7 +44,7 @@ import type { MediaKind, MovieFeedItem, MovieResource } from '../../src/core/res
 const INITIAL_RESOURCE_LIMIT = 12;
 const RESOURCE_BATCH_SIZE = 20;
 const AUTO_LOAD_THRESHOLD = 360;
-const TITLE_COPY_FEEDBACK_MS = 3000;
+const TITLE_COPY_TOAST_MS = 2000;
 
 interface MagnetResourceCardProps {
   resource: MovieResource;
@@ -167,7 +167,7 @@ export default function MovieDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [posterFailed, setPosterFailed] = useState(false);
-  const [copiedTitle, setCopiedTitle] = useState(false);
+  const [titleCopyToastNonce, setTitleCopyToastNonce] = useState(0);
   const [copiedResourceUrl, setCopiedResourceUrl] = useState<string | null>(null);
   const [copiedAllMagnets, setCopiedAllMagnets] = useState(false);
   const [resourceSectionLayout, setResourceSectionLayout] = useState<{ y: number; height: number } | null>(null);
@@ -214,7 +214,7 @@ export default function MovieDetailScreen() {
 
   useEffect(() => {
     setVisibleResourceLimit(INITIAL_RESOURCE_LIMIT);
-    setCopiedTitle(false);
+    setTitleCopyToastNonce(0);
     setCopiedAllMagnets(false);
     setPosterFailed(false);
     setResourceSectionLayout(null);
@@ -222,10 +222,10 @@ export default function MovieDetailScreen() {
   }, [movieId]);
 
   useEffect(() => {
-    if (!copiedTitle) return undefined;
-    const timer = setTimeout(() => setCopiedTitle(false), TITLE_COPY_FEEDBACK_MS);
+    if (titleCopyToastNonce === 0) return undefined;
+    const timer = setTimeout(() => setTitleCopyToastNonce(0), TITLE_COPY_TOAST_MS);
     return () => clearTimeout(timer);
-  }, [copiedTitle]);
+  }, [titleCopyToastNonce]);
 
   useEffect(() => {
     if (!copiedResourceUrl) return undefined;
@@ -335,7 +335,7 @@ export default function MovieDetailScreen() {
     try {
       await Clipboard.setStringAsync(movie.title);
       Vibration.vibrate(Platform.OS === 'android' ? 20 : 8);
-      setCopiedTitle(true);
+      setTitleCopyToastNonce((current) => current + 1);
     } catch (error) {
       console.warn('[MovieDetail]', {
         stage: 'copy_media_title',
@@ -483,7 +483,7 @@ export default function MovieDetailScreen() {
           accessibilityLabel={movie.title}
         >
           <Text style={[styles.title, { color: hasProminentScore ? '#dc2626' : colors.text }]}>
-            {copiedTitle ? copy.copiedAction : movie.title}
+            {movie.title}
           </Text>
         </TouchableOpacity>
         {!!movie.original_title && movie.original_title !== movie.title && (
@@ -634,12 +634,42 @@ export default function MovieDetailScreen() {
           </LinearGradient>
         </TouchableOpacity>
       )}
+
+      {titleCopyToastNonce > 0 && (
+        <View
+          pointerEvents="none"
+          style={[styles.copyToastLayer, { bottom: Math.max(insets.bottom, 12) + 76 }]}
+        >
+          <View style={styles.copyToast}>
+            <Ionicons name="checkmark-circle" size={16} color="#fff" />
+            <Text style={styles.copyToastText}>{copy.copiedAction}</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  copyToastLayer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 50,
+  },
+  copyToast: {
+    minHeight: 38,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(17,24,39,0.94)',
+  },
+  copyToastText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   content: { paddingHorizontal: 20 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   notFound: { marginTop: 14, fontSize: 18, fontWeight: '800' },
