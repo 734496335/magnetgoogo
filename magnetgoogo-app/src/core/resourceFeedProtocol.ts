@@ -1,3 +1,4 @@
+export type MediaKind = 'movie' | 'series';
 export type MovieResourceType = 'magnet' | 'cloud';
 export type MovieResourceProvider = 'magnet' | 'xunlei' | 'quark' | 'baidu' | string;
 
@@ -27,10 +28,16 @@ export interface MovieFeedSummary {
 export interface MovieFeedItem {
   rank: number;
   movie_id: string;
-  source_id: 'sixv';
+  source_id: string;
   source_item_key: string;
   detail_url: string;
   listing_title: string;
+  content_kind: MediaKind;
+  series_title: string | null;
+  season_number: number | null;
+  episode_number: number | null;
+  episode_label: string | null;
+  update_status: string | null;
   title: string;
   original_title: string | null;
   year: number | null;
@@ -48,10 +55,10 @@ export interface MovieFeedItem {
   douban_rating: number | null;
   douban_rating_text: string | null;
   douban_url: string | null;
-  cover_source_url: string;
-  cover_asset_path: string;
-  cover_width: number;
-  cover_height: number;
+  cover_source_url: string | null;
+  cover_asset_path: string | null;
+  cover_width: number | null;
+  cover_height: number | null;
   synopsis: string | null;
   recommended: boolean;
   highlight_labels: string[];
@@ -60,8 +67,9 @@ export interface MovieFeedItem {
 }
 
 export interface MovieFeed {
-  schema_version: 'movie-app-feed/1';
-  source_id: 'sixv';
+  schema_version: 'movie-app-feed/1' | 'media-app-feed/1';
+  source_id: string;
+  content_kind: MediaKind;
   generated_at: string;
   snapshot_captured_at: string | null;
   items: MovieFeedItem[];
@@ -107,11 +115,19 @@ function integer(record: Record<string, unknown>, key: string, context: string, 
   return value as number;
 }
 
-function nullableInteger(record: Record<string, unknown>, key: string, context: string): number | null {
+function nullableInteger(
+  record: Record<string, unknown>,
+  key: string,
+  context: string,
+  minimum = 0,
+): number | null {
   const value = record[key];
   if (value === null || value === undefined) return null;
-  if (!Number.isInteger(value) || (value as number) < 0) {
-    throw new ResourceFeedValidationError('INVALID_NULLABLE_INTEGER', `${context}.${key} must be an integer or null`);
+  if (!Number.isInteger(value) || (value as number) < minimum) {
+    throw new ResourceFeedValidationError(
+      'INVALID_NULLABLE_INTEGER',
+      `${context}.${key} must be an integer >= ${minimum} or null`,
+    );
   }
   return value as number;
 }
@@ -182,7 +198,12 @@ function parseSummary(value: unknown): MovieFeedSummary {
   };
 }
 
-function parseItem(value: unknown, index: number): MovieFeedItem {
+function parseItem(
+  value: unknown,
+  index: number,
+  expectedKind: MediaKind,
+  requireOfflineCover: boolean,
+): MovieFeedItem {
   const context = `items[${index}]`;
   if (!isRecord(value)) {
     throw new ResourceFeedValidationError('INVALID_ITEM', `${context} must be an object`);
@@ -190,21 +211,31 @@ function parseItem(value: unknown, index: number): MovieFeedItem {
   if ('content_code' in value || 'adult' in value || 'people' in value) {
     throw new ResourceFeedValidationError('LEGACY_ADULT_FIELD', `${context} contains a legacy adult-feed field`);
   }
-  const sourceId = requiredString(value, 'source_id', context);
-  if (sourceId !== 'sixv') {
-    throw new ResourceFeedValidationError('INVALID_SOURCE', `${context}.source_id must be sixv`);
+  const itemKind = nullableString(value, 'content_kind', context) ?? expectedKind;
+  if (itemKind !== expectedKind) {
+    throw new ResourceFeedValidationError('CONTENT_KIND_MISMATCH', `${context}.content_kind must be ${expectedKind}`);
   }
   const resourcesValue = value.resources;
   if (!Array.isArray(resourcesValue)) {
     throw new ResourceFeedValidationError('INVALID_RESOURCES', `${context}.resources must be an array`);
   }
+  const coverAssetPath = nullableString(value, 'cover_asset_path', context);
+  if (requireOfflineCover && !coverAssetPath) {
+    throw new ResourceFeedValidationError('OFFLINE_COVER_REQUIRED', `${context}.cover_asset_path is required`);
+  }
   return {
     rank: integer(value, 'rank', context, 1),
     movie_id: requiredString(value, 'movie_id', context),
-    source_id: 'sixv',
+    source_id: requiredString(value, 'source_id', context),
     source_item_key: requiredString(value, 'source_item_key', context),
     detail_url: requiredString(value, 'detail_url', context),
     listing_title: requiredString(value, 'listing_title', context),
+    content_kind: expectedKind,
+    series_title: nullableString(value, 'series_title', context),
+    season_number: nullableInteger(value, 'season_number', context, 1),
+    episode_number: nullableInteger(value, 'episode_number', context, 0),
+    episode_label: nullableString(value, 'episode_label', context),
+    update_status: nullableString(value, 'update_status', context),
     title: requiredString(value, 'title', context),
     original_title: nullableString(value, 'original_title', context),
     year: nullableInteger(value, 'year', context),
@@ -222,10 +253,10 @@ function parseItem(value: unknown, index: number): MovieFeedItem {
     douban_rating: nullableNumber(value, 'douban_rating', context),
     douban_rating_text: nullableString(value, 'douban_rating_text', context),
     douban_url: nullableString(value, 'douban_url', context),
-    cover_source_url: requiredString(value, 'cover_source_url', context),
-    cover_asset_path: requiredString(value, 'cover_asset_path', context),
-    cover_width: integer(value, 'cover_width', context, 1),
-    cover_height: integer(value, 'cover_height', context, 1),
+    cover_source_url: nullableString(value, 'cover_source_url', context),
+    cover_asset_path: coverAssetPath,
+    cover_width: nullableInteger(value, 'cover_width', context, 1),
+    cover_height: nullableInteger(value, 'cover_height', context, 1),
     synopsis: nullableString(value, 'synopsis', context),
     recommended: boolean(value, 'recommended', context),
     highlight_labels: stringArray(value.highlight_labels, `${context}.highlight_labels`),
@@ -236,18 +267,37 @@ function parseItem(value: unknown, index: number): MovieFeedItem {
 
 export function parseResourceFeed(value: unknown): MovieFeed {
   if (!isRecord(value)) {
-    throw new ResourceFeedValidationError('INVALID_ROOT', 'movie feed must be an object');
+    throw new ResourceFeedValidationError('INVALID_ROOT', 'media feed must be an object');
   }
-  if (value.schema_version !== 'movie-app-feed/1' || value.source_id !== 'sixv') {
-    throw new ResourceFeedValidationError('INVALID_FEED_IDENTITY', 'movie feed identity mismatch');
+  const schemaVersion = value.schema_version;
+  const isMovieFeed = schemaVersion === 'movie-app-feed/1';
+  const isMediaFeed = schemaVersion === 'media-app-feed/1';
+  if (!isMovieFeed && !isMediaFeed) {
+    throw new ResourceFeedValidationError('INVALID_FEED_IDENTITY', 'media feed schema mismatch');
+  }
+  const contentKindValue = isMovieFeed ? 'movie' : requiredString(value, 'content_kind', 'feed');
+  if (contentKindValue !== 'movie' && contentKindValue !== 'series') {
+    throw new ResourceFeedValidationError('INVALID_CONTENT_KIND', 'feed.content_kind is unsupported');
+  }
+  const contentKind: MediaKind = contentKindValue;
+  const sourceId = requiredString(value, 'source_id', 'feed');
+  if (isMovieFeed && sourceId !== 'sixv') {
+    throw new ResourceFeedValidationError('INVALID_FEED_IDENTITY', 'legacy movie feed source mismatch');
   }
   if (!Array.isArray(value.items)) {
     throw new ResourceFeedValidationError('INVALID_ITEMS', 'items must be an array');
   }
   const summary = parseSummary(value.summary);
-  const items = value.items.map(parseItem);
-  if (summary.record_count !== items.length || summary.cover_count !== items.length) {
-    throw new ResourceFeedValidationError('COUNT_MISMATCH', 'movie or cover count does not match items');
+  const requireOfflineCover = contentKind === 'movie';
+  const items = value.items.map((item, index) => parseItem(item, index, contentKind, requireOfflineCover));
+  if (summary.record_count !== items.length) {
+    throw new ResourceFeedValidationError('COUNT_MISMATCH', 'feed record count does not match items');
+  }
+  if (requireOfflineCover && summary.cover_count !== items.length) {
+    throw new ResourceFeedValidationError('COUNT_MISMATCH', 'movie cover count does not match items');
+  }
+  if (!requireOfflineCover && summary.cover_count > items.length) {
+    throw new ResourceFeedValidationError('COUNT_MISMATCH', 'series cover count exceeds items');
   }
   items.forEach((item, index) => {
     if (item.rank !== index + 1) {
@@ -257,14 +307,15 @@ export function parseResourceFeed(value: unknown): MovieFeed {
   const recommendedCount = items.filter((item) => item.recommended).length;
   const resourceCount = items.reduce((sum, item) => sum + item.resources.length, 0);
   if (summary.recommended_count !== recommendedCount || summary.resource_count !== resourceCount) {
-    throw new ResourceFeedValidationError('SUMMARY_MISMATCH', 'movie feed summary does not match item contents');
+    throw new ResourceFeedValidationError('SUMMARY_MISMATCH', 'media feed summary does not match item contents');
   }
   if (!summary.offline_ready) {
-    throw new ResourceFeedValidationError('OFFLINE_ASSETS_REQUIRED', 'movie feed must include offline covers');
+    throw new ResourceFeedValidationError('OFFLINE_ASSETS_REQUIRED', 'media feed must be bundled for offline use');
   }
   return {
-    schema_version: 'movie-app-feed/1',
-    source_id: 'sixv',
+    schema_version: isMovieFeed ? 'movie-app-feed/1' : 'media-app-feed/1',
+    source_id: sourceId,
+    content_kind: contentKind,
     generated_at: requiredString(value, 'generated_at', 'feed'),
     snapshot_captured_at: nullableString(value, 'snapshot_captured_at', 'feed'),
     items,
@@ -273,7 +324,7 @@ export function parseResourceFeed(value: unknown): MovieFeed {
 }
 
 export function resourceFeedItemKey(item: MovieFeedItem): string {
-  return item.movie_id;
+  return `${item.content_kind}:${item.movie_id}`;
 }
 
 export function findMovieById(feed: MovieFeed, movieId: string): MovieFeedItem | null {

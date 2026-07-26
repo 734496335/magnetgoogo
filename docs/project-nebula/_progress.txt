@@ -1,29 +1,30 @@
-Current phase: App v0.2.1 MOVIE COPY POLISH PASS / NOT RELEASED 2026-07-26
+Current phase: App v0.2.1 OFFLINE MOVIE/SERIES SEGMENT PASS / NOT RELEASED 2026-07-26
 
 ## Completed
-- Replaced the separate rating strip with one shared movie tag row.
-- Tag order is always Douban, IMDb, then quality tags such as 4K and HD.
-- Recommended cards, recent-list rows and movie details use the same tag component.
-- Missing, zero, non-finite and out-of-range ratings remain hidden.
-- Internal 6.0 / 8.0 tiers only control restrained color and font weight.
-- Detail content order remains synopsis, movie information, cast, then resources.
-- Empty synopsis, movie-information, cast and resource sections are entirely omitted.
-- Added a fixed “查看资源（N）” shortcut that scrolls to resources and automatically hides while the section is visible.
-- Removed obsolete empty-state copy and the old MovieRatingStrip component.
-- Renamed the recommendation section from “值得一看” to “近期好片”.
-- Movie titles turn red in recommended cards, recent rows and details when Douban or IMDb is at least 6.0.
-- The fixed “查看资源（N）” action now uses a true capsule shape with narrower horizontal bounds.
+- Added a compact top segmented control: “电影 / 电视剧”.
+- Only one FlatList is mounted; movie opens by default and series loads lazily on first switch.
+- Movie tab keeps 50 bundled movies, 9 “近期好片” items and 50 offline covers.
+- Series tab bundles 100 offline records and 2,105 magnet resources from `series_latest_100_feed.json`.
+- Series reuses the movie card/detail style and surfaces update state such as “更新10 / 第1集 / 全集”.
+- Series details reuse the same synopsis, information, cast, resource cards and fixed resource shortcut.
+- Series posters never fetch remote URLs; missing local cover assets use a local gradient TV placeholder.
+- Detail routing carries `kind=movie|series` and retains backward-compatible cross-feed lookup.
+- Large resource sets render 12 cards first and add 20 per “再显示 N 个资源” action.
+- “搜索更多资源” now uses a centered full-capsule style.
 
 ## Verification
 - TypeScript -> PASS.
 - App adversarial tests -> 36/36 PASS.
-- Movie feed tests -> PASS; fluency suite -> 17/17 PASS.
+- Resource Feed tests -> PASS including `media-app-feed/1` series coverage.
+- Fluency suite -> 17/17 PASS.
 - `npm run android:k30s` -> BUILD SUCCESSFUL / install Success.
-- K30S list showed `豆瓣 7.1` before `4K` and `HD`.
-- K30S detail showed a red 7.1-rated title, `豆瓣 7.1 / 4K / HD`, plus the centered capsule `查看资源（3）`.
-- Tapping the shortcut scrolled to `资源 / 3 个资源` and three magnet cards.
-- The shortcut was absent once the resource section entered the viewport.
+- Prebuild bundled 100 series entries and 2,105 magnet resources with no runtime poster traffic.
+- K30S showed “电影 / 电视剧”; series first row showed “更新10” and 4 resources.
+- K30S series detail showed fixed “查看资源（4）” and all copy/open actions.
+- A 233-resource series initially exposed “再显示 221 个资源”; one tap changed it to 201.
+- K30S “搜索更多资源” bounds were `[238,1927][843,2059]`, confirming a centered capsule.
 - No AndroidRuntime fatal or React Native unhandled error observed.
 
 ## Remaining before release
+- Data side should export local series cover assets; App already avoids runtime remote cover downloads.
 - Run final signed v0.2.1 release acceptance; do not tag, publish or deploy yet.

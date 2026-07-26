@@ -103,6 +103,43 @@ function sampleFeed(items) {
   };
 }
 
+function sampleSeriesFeed() {
+  const item = {
+    ...sampleItem(1, '测试剧集'),
+    source_id: 'sixv-series',
+    content_kind: 'series',
+    series_title: '测试剧集',
+    season_number: 1,
+    episode_number: 8,
+    episode_label: '更新08',
+    update_status: '更新08',
+    cover_asset_path: null,
+    cover_width: null,
+    cover_height: null,
+    recommended: false,
+  };
+  return {
+    schema_version: 'media-app-feed/1',
+    source_id: 'series-offline',
+    content_kind: 'series',
+    generated_at: '2026-07-26T12:00:00Z',
+    snapshot_captured_at: '2026-07-26T11:00:00Z',
+    items: [item],
+    summary: {
+      record_count: 1,
+      target_count: 1,
+      recommended_count: 0,
+      resource_count: 1,
+      missing_urls: [],
+      snapshot_http_requests: 0,
+      detail_http_requests: 0,
+      database_movie_count: 1,
+      cover_count: 0,
+      offline_ready: true,
+    },
+  };
+}
+
 const parsed = parseResourceFeed(sampleFeed([sampleItem(1), sampleItem(2)]));
 assert.equal(parsed.items.length, 2);
 assert.equal(new Set(parsed.items.map(resourceFeedItemKey)).size, 2);
@@ -148,6 +185,14 @@ assert.equal(getMovieScoreTier({ imdb_rating: 8.0, douban_rating: 7.9 }), 'high'
 assert.equal(getMovieScoreTier({ imdb_rating: 5.9, douban_rating: null }), null);
 console.log('PASS  M5  zero is hidden, 6.0+ is featured and 8.0+ is high score');
 
+const series = parseResourceFeed(sampleSeriesFeed());
+assert.equal(series.content_kind, 'series');
+assert.equal(series.items[0].content_kind, 'series');
+assert.equal(series.items[0].update_status, '更新08');
+assert.equal(series.items[0].cover_asset_path, null);
+assert.equal(resourceFeedItemKey(series.items[0]).startsWith('series:'), true);
+console.log('PASS  M6  bundled series feed supports offline text/resources with zero runtime poster traffic');
+
 if (fs.existsSync(localFeedPath)) {
   const local = parseResourceFeed(JSON.parse(fs.readFileSync(localFeedPath, 'utf8')));
   assert.equal(local.items.length, 50);
@@ -176,9 +221,9 @@ if (fs.existsSync(localFeedPath)) {
   assert.ok(providers.has('xunlei'));
   assert.ok(providers.has('quark'));
   assert.ok(providers.has('baidu'));
-  console.log('PASS  M6  SixV bundle is 50 movies / 9 recommendations / 134 resources / 50 offline covers');
+  console.log('PASS  M7  SixV bundle is 50 movies / 9 recommendations / 134 resources / 50 offline covers');
 } else {
-  console.log('SKIP  M6  local untracked SixV App bundle is not present');
+  console.log('SKIP  M7  local untracked SixV App bundle is not present');
 }
 
 console.log('=== Movie resource feed tests passed ===');

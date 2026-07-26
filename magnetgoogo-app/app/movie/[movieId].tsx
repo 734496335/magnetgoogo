@@ -26,8 +26,12 @@ import { getMovieScoreTier } from '../../src/core/movieRatings';
 import { getResourceCopy } from '../../src/core/resourceCopy';
 import { addHistory } from '../../src/core/searchHistory';
 import { trackCopy, trackOpen } from '../../src/core/analytics';
-import { loadMovieById, movieCoverUri } from '../../src/core/resourceFeed';
-import type { MovieFeedItem, MovieResource } from '../../src/core/resourceFeedProtocol';
+import {
+  loadMediaById,
+  loadMediaByIdAcrossFeeds,
+  movieCoverUri,
+} from '../../src/core/resourceFeed';
+import type { MediaKind, MovieFeedItem, MovieResource } from '../../src/core/resourceFeedProtocol';
 
 interface MagnetResourceCardProps {
   resource: MovieResource;
@@ -122,11 +126,18 @@ function InfoRow({ label, value, colors }: { label: string; value: string; color
 export default function MovieDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ movieId?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    movieId?: string | string[];
+    kind?: string | string[];
+  }>();
   const { lang, t } = useLang();
   const { colors } = useTheme();
   const copy = getResourceCopy(lang);
   const movieId = Array.isArray(params.movieId) ? params.movieId[0] : params.movieId;
+  const kindParam = Array.isArray(params.kind) ? params.kind[0] : params.kind;
+  const requestedKind: MediaKind | null = kindParam === 'movie' || kindParam === 'series'
+    ? kindParam
+    : null;
   const [movie, setMovie] = useState<MovieFeedItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -134,6 +145,7 @@ export default function MovieDetailScreen() {
   const [copiedResourceUrl, setCopiedResourceUrl] = useState<string | null>(null);
   const [resourceSectionLayout, setResourceSectionLayout] = useState<{ y: number; height: number } | null>(null);
   const [resourceSectionVisible, setResourceSectionVisible] = useState(false);
+  const [visibleResourceLimit, setVisibleResourceLimit] = useState(12);
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -145,7 +157,10 @@ export default function MovieDetailScreen() {
         active = false;
       };
     }
-    loadMovieById(movieId)
+    const loader = requestedKind
+      ? loadMediaById(requestedKind, movieId)
+      : loadMediaByIdAcrossFeeds(movieId);
+    loader
       .then((loaded) => {
         if (!active) return;
         if (loaded) setMovie(loaded);
@@ -154,9 +169,10 @@ export default function MovieDetailScreen() {
       .catch((error) => {
         if (!active) return;
         console.warn('[MovieDetail]', {
-          stage: 'load_movie',
-          error_code: 'MOVIE_DETAIL_LOAD_FAILED',
-          movie_id: movieId,
+          stage: 'load_media_detail',
+          error_code: 'MEDIA_DETAIL_LOAD_FAILED',
+          media_id: movieId,
+          content_kind: requestedKind,
           error: error instanceof Error ? error.message : String(error),
         });
         setFailed(true);
@@ -167,6 +183,13 @@ export default function MovieDetailScreen() {
     return () => {
       active = false;
     };
+  }, [movieId, requestedKind]);
+
+  useEffect(() => {
+    setVisibleResourceLimit(12);
+    setPosterFailed(false);
+    setResourceSectionLayout(null);
+    setResourceSectionVisible(false);
   }, [movieId]);
 
   useEffect(() => {
@@ -180,7 +203,11 @@ export default function MovieDetailScreen() {
     return [
       movie.year,
       movie.genres.slice(0, 2).join(' · '),
-      movie.duration_minutes ? copy.minutes(movie.duration_minutes) : null,
+      movie.content_kind === 'series'
+        ? movie.update_status || movie.episode_label
+        : movie.duration_minutes
+          ? copy.minutes(movie.duration_minutes)
+          : null,
     ].filter(Boolean).join(' · ');
   }, [copy, movie]);
 
@@ -188,6 +215,12 @@ export default function MovieDetailScreen() {
     () => movie?.resources.filter((resource) => resource.resource_type === 'magnet') ?? [],
     [movie],
   );
+
+  const visibleMagnetResources = useMemo(
+    () => magnetResources.slice(0, visibleResourceLimit),
+    [magnetResources, visibleResourceLimit],
+  );
+  const remainingResourceCount = Math.max(0, magnetResources.length - visibleMagnetResources.length);
 
   const synopsis = movie?.synopsis?.trim() ?? '';
 
@@ -231,6 +264,9 @@ export default function MovieDetailScreen() {
   }, [insets.top, resourceSectionLayout]);
 
   const showResourceShortcut = magnetResources.length > 0 && !resourceSectionVisible;
+  const showMoreResources = useCallback(() => {
+    setVisibleResourceLimit((current) => current + 20);
+  }, []);
 
   const copyResource = useCallback(async (resource: MovieResource) => {
     try {
@@ -300,6 +336,7 @@ export default function MovieDetailScreen() {
   }
 
   const hasProminentScore = getMovieScoreTier(movie) !== null;
+  const detailCoverUri = movieCoverUri(movie);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -315,13 +352,23 @@ export default function MovieDetailScreen() {
       >
         <View style={{ height: insets.top + 54 }} />
         <View style={[styles.poster, { backgroundColor: colors.chipBg, shadowColor: colors.shadow }]}>
-          {posterFailed ? (
-            <View style={styles.posterFallback}>
-              <Ionicons name="film-outline" size={42} color={colors.textTertiary} />
-            </View>
+          {posterFailed || !detailCoverUri ? (
+            <LinearGradient
+              colors={[colors.tagBg, colors.chipBg]}
+              style={styles.posterFallback}
+            >
+              <Ionicons
+                name={movie.content_kind === 'series' ? 'tv-outline' : 'film-outline'}
+                size={42}
+                color={colors.textTertiary}
+              />
+              <Text style={[styles.posterFallbackTitle, { color: colors.textSecondary }]} numberOfLines={3}>
+                {movie.title}
+              </Text>
+            </LinearGradient>
           ) : (
             <Image
-              source={{ uri: movieCoverUri(movie) }}
+              source={{ uri: detailCoverUri }}
               style={styles.posterImage}
               resizeMode="cover"
               onError={() => setPosterFailed(true)}
@@ -386,7 +433,7 @@ export default function MovieDetailScreen() {
                 {copy.resourceCount(magnetResources.length)}
               </Text>
             </View>
-            {magnetResources.map((resource) => (
+            {visibleMagnetResources.map((resource) => (
               <MagnetResourceCard
                 key={resource.url}
                 resource={resource}
@@ -399,6 +446,19 @@ export default function MovieDetailScreen() {
                 onOpen={openResource}
               />
             ))}
+            {remainingResourceCount > 0 && (
+              <TouchableOpacity
+                style={[styles.moreResourcesButton, { backgroundColor: colors.chipBg }]}
+                activeOpacity={0.8}
+                onPress={showMoreResources}
+                accessibilityRole="button"
+                accessibilityLabel={copy.showMoreResources(remainingResourceCount)}
+              >
+                <Text style={[styles.moreResourcesText, { color: colors.accent }]}>
+                  {copy.showMoreResources(remainingResourceCount)}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -475,7 +535,8 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   posterImage: { width: '100%', height: '100%' },
-  posterFallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  posterFallback: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
+  posterFallbackTitle: { marginTop: 12, fontSize: 13, lineHeight: 19, fontWeight: '700', textAlign: 'center' },
   title: { marginTop: 22, fontSize: 25, lineHeight: 32, fontWeight: '800', textAlign: 'center', letterSpacing: -0.5 },
   originalTitle: { marginTop: 7, fontSize: 13, lineHeight: 18, textAlign: 'center' },
   metadata: { marginTop: 10, fontSize: 13, textAlign: 'center' },
@@ -525,10 +586,24 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   actionButtonText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  moreResourcesButton: {
+    alignSelf: 'center',
+    minWidth: 190,
+    height: 42,
+    borderRadius: 999,
+    marginTop: 16,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moreResourcesText: { fontSize: 12, fontWeight: '800' },
   searchButton: {
-    height: 50,
-    borderRadius: 15,
+    alignSelf: 'center',
+    minWidth: 220,
+    height: 48,
+    borderRadius: 999,
     marginTop: 30,
+    paddingHorizontal: 28,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

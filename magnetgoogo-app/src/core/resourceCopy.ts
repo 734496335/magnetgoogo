@@ -5,6 +5,8 @@ export interface ResourceCopy {
   tabResources: string;
   tabSettings: string;
   title: string;
+  mediaMovies: string;
+  mediaSeries: string;
   recommendedTitle: string;
   latestTitle: string;
   loading: string;
@@ -15,6 +17,7 @@ export interface ResourceCopy {
   rating: (value: number) => string;
   resourceCount: (value: number) => string;
   viewResources: (value: number) => string;
+  showMoreResources: (value: number) => string;
   recommendation: string;
   detailSynopsis: string;
   detailInfo: string;
@@ -44,7 +47,9 @@ const EN: ResourceCopy = {
   tabSearch: 'Search',
   tabResources: 'Movies',
   tabSettings: 'Settings',
-  title: 'Movies',
+  title: 'Movies & series',
+  mediaMovies: 'Movies',
+  mediaSeries: 'Series',
   recommendedTitle: 'Recommended',
   latestTitle: 'Recently added',
   loading: 'Loading movies…',
@@ -55,6 +60,7 @@ const EN: ResourceCopy = {
   rating: (value) => `${value.toFixed(1)}`,
   resourceCount: (value) => `${value} links`,
   viewResources: (value) => `View resources (${value})`,
+  showMoreResources: (value) => `Show ${value} more`,
   recommendation: 'Pick',
   detailSynopsis: 'Story',
   detailInfo: 'Details',
@@ -85,6 +91,8 @@ const ZH: ResourceCopy = {
   tabResources: '资源',
   tabSettings: '设置',
   title: '影视',
+  mediaMovies: '电影',
+  mediaSeries: '电视剧',
   recommendedTitle: '近期好片',
   latestTitle: '最近更新',
   loading: '正在加载影视…',
@@ -95,6 +103,7 @@ const ZH: ResourceCopy = {
   rating: (value) => `${value.toFixed(1)}`,
   resourceCount: (value) => `${value} 个资源`,
   viewResources: (value) => `查看资源（${value}）`,
+  showMoreResources: (value) => `再显示 ${value} 个资源`,
   recommendation: '推荐',
   detailSynopsis: '剧情简介',
   detailInfo: '影片信息',

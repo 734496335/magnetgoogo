@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLang } from '../../src/core/LangContext';
@@ -21,6 +22,7 @@ import { getResourceCopy } from '../../src/core/resourceCopy';
 import { loadResourceFeed, movieCoverUri } from '../../src/core/resourceFeed';
 import {
   resourceFeedItemKey,
+  type MediaKind,
   type MovieFeed,
   type MovieFeedItem,
 } from '../../src/core/resourceFeedProtocol';
@@ -38,15 +40,27 @@ interface PosterProps {
 
 const MoviePoster = memo(function MoviePoster({ item, style, colors }: PosterProps) {
   const [failed, setFailed] = useState(false);
+  const coverUri = movieCoverUri(item);
+  const showPlaceholder = failed || !coverUri;
   return (
     <View style={[style, styles.posterShell, { backgroundColor: colors.chipBg }]}>
-      {failed ? (
-        <View style={styles.posterFallback}>
-          <Ionicons name="film-outline" size={30} color={colors.textTertiary} />
-        </View>
+      {showPlaceholder ? (
+        <LinearGradient
+          colors={[colors.tagBg, colors.chipBg]}
+          style={styles.posterFallback}
+        >
+          <Ionicons
+            name={item.content_kind === 'series' ? 'tv-outline' : 'film-outline'}
+            size={30}
+            color={colors.textTertiary}
+          />
+          <Text style={[styles.posterFallbackText, { color: colors.textSecondary }]} numberOfLines={2}>
+            {item.title}
+          </Text>
+        </LinearGradient>
       ) : (
         <Image
-          source={{ uri: movieCoverUri(item) }}
+          source={{ uri: coverUri }}
           style={styles.posterImage}
           resizeMode="cover"
           fadeDuration={120}
@@ -61,7 +75,7 @@ interface RecommendedCardProps {
   item: MovieFeedItem;
   colors: Colors;
   recommendation: string;
-  onOpen: (movieId: string) => void;
+  onOpen: (item: MovieFeedItem) => void;
 }
 
 const RecommendedCard = memo(function RecommendedCard({
@@ -70,7 +84,7 @@ const RecommendedCard = memo(function RecommendedCard({
   recommendation,
   onOpen,
 }: RecommendedCardProps) {
-  const open = useCallback(() => onOpen(item.movie_id), [item.movie_id, onOpen]);
+  const open = useCallback(() => onOpen(item), [item, onOpen]);
   const hasProminentScore = getMovieScoreTier(item) !== null;
   return (
     <TouchableOpacity
@@ -109,26 +123,31 @@ const RecommendedCard = memo(function RecommendedCard({
   );
 });
 
-interface MovieRowProps {
+interface MediaRowProps {
   item: MovieFeedItem;
   colors: Colors;
   minutesLabel: (value: number) => string;
   resourceLabel: (value: number) => string;
-  onOpen: (movieId: string) => void;
+  onOpen: (item: MovieFeedItem) => void;
 }
 
-const MovieRow = memo(function MovieRow({
+const MediaRow = memo(function MediaRow({
   item,
   colors,
   minutesLabel,
   resourceLabel,
   onOpen,
-}: MovieRowProps) {
-  const open = useCallback(() => onOpen(item.movie_id), [item.movie_id, onOpen]);
+}: MediaRowProps) {
+  const open = useCallback(() => onOpen(item), [item, onOpen]);
+  const status = item.content_kind === 'series'
+    ? item.update_status || item.episode_label
+    : item.duration_minutes
+      ? minutesLabel(item.duration_minutes)
+      : null;
   const metadata = [
     item.year,
     item.genres.slice(0, 2).join(' · '),
-    item.duration_minutes ? minutesLabel(item.duration_minutes) : null,
+    status,
   ].filter(Boolean).join(' · ');
   const visibleTags = item.quality_tags.slice(0, 3);
   const magnetCount = item.resources.filter((resource) => resource.resource_type === 'magnet').length;
@@ -176,76 +195,89 @@ export default function ResourcesScreen() {
   const { lang } = useLang();
   const { colors } = useTheme();
   const copy = getResourceCopy(lang);
-  const [feed, setFeed] = useState<MovieFeed | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [activeKind, setActiveKind] = useState<MediaKind>('movie');
+  const [feeds, setFeeds] = useState<Partial<Record<MediaKind, MovieFeed>>>({});
+  const [loadingKind, setLoadingKind] = useState<MediaKind | null>('movie');
+  const [refreshingKind, setRefreshingKind] = useState<MediaKind | null>(null);
+  const [failedKinds, setFailedKinds] = useState<Partial<Record<MediaKind, boolean>>>({});
 
-  const load = useCallback(async (forceRefresh: boolean) => {
-    if (forceRefresh) setRefreshing(true);
-    else setLoading(true);
-    setFailed(false);
+  const feed = feeds[activeKind] ?? null;
+  const loading = loadingKind === activeKind;
+  const refreshing = refreshingKind === activeKind;
+  const failed = failedKinds[activeKind] === true;
+
+  const load = useCallback(async (kind: MediaKind, forceRefresh: boolean) => {
+    if (forceRefresh) setRefreshingKind(kind);
+    else setLoadingKind(kind);
+    setFailedKinds((current) => ({ ...current, [kind]: false }));
     try {
-      const loaded = await loadResourceFeed(forceRefresh);
-      setFeed(loaded.feed);
+      const loaded = await loadResourceFeed(kind, forceRefresh);
+      setFeeds((current) => ({ ...current, [kind]: loaded.feed }));
     } catch (error) {
       console.warn('[ResourcesScreen]', {
-        stage: 'load_movie_feed',
-        error_code: 'MOVIE_FEED_LOAD_FAILED',
+        stage: 'load_media_feed',
+        error_code: 'MEDIA_FEED_LOAD_FAILED',
+        content_kind: kind,
         error: error instanceof Error ? error.message : String(error),
       });
-      setFailed(true);
+      setFailedKinds((current) => ({ ...current, [kind]: true }));
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setLoadingKind((current) => current === kind ? null : current);
+      setRefreshingKind((current) => current === kind ? null : current);
     }
   }, []);
 
   useEffect(() => {
-    void load(false);
+    if (!feeds[activeKind] && loadingKind !== activeKind) {
+      void load(activeKind, false);
+    }
+  }, [activeKind, feeds, load, loadingKind]);
+
+  useEffect(() => {
+    void load('movie', false);
   }, [load]);
 
-  const openMovie = useCallback((movieId: string) => {
+  const switchKind = useCallback((kind: MediaKind) => {
+    setActiveKind(kind);
+  }, []);
+
+  const openMedia = useCallback((item: MovieFeedItem) => {
     router.push({
       pathname: '/movie/[movieId]',
-      params: { movieId },
+      params: { movieId: item.movie_id, kind: item.content_kind },
     });
   }, [router]);
 
   const recommended = useMemo(
-    () => feed?.items.filter((item) => item.recommended) ?? [],
-    [feed?.items],
+    () => activeKind === 'movie' ? feed?.items.filter((item) => item.recommended) ?? [] : [],
+    [activeKind, feed?.items],
   );
   const recent = useMemo(
-    () => feed?.items.filter((item) => !item.recommended) ?? [],
-    [feed?.items],
+    () => feed?.items.filter((item) => activeKind === 'series' || !item.recommended) ?? [],
+    [activeKind, feed?.items],
   );
   const renderRecommended = useCallback((item: MovieFeedItem) => (
     <RecommendedCard
-      key={item.movie_id}
+      key={resourceFeedItemKey(item)}
       item={item}
       colors={colors}
       recommendation={copy.recommendation}
-      onOpen={openMovie}
+      onOpen={openMedia}
     />
-  ), [colors, copy.recommendation, openMovie]);
+  ), [colors, copy.recommendation, openMedia]);
 
   const renderItem = useCallback(({ item }: { item: MovieFeedItem }) => (
-    <MovieRow
+    <MediaRow
       item={item}
       colors={colors}
       minutesLabel={copy.minutes}
       resourceLabel={copy.resourceCount}
-      onOpen={openMovie}
+      onOpen={openMedia}
     />
-  ), [colors, copy.minutes, copy.resourceCount, openMovie]);
+  ), [colors, copy.minutes, copy.resourceCount, openMedia]);
 
-  const header = useMemo(() => (
+  const listHeader = useMemo(() => (
     <View>
-      <View style={styles.pageHeader}>
-        <Text style={[styles.pageTitle, { color: colors.text }]}>{copy.title}</Text>
-      </View>
-
       {recommended.length > 0 && (
         <View style={styles.recommendedSection}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>{copy.recommendedTitle}</Text>
@@ -263,58 +295,85 @@ export default function ResourcesScreen() {
         {copy.latestTitle}
       </Text>
     </View>
-  ), [colors, copy, recommended, renderRecommended]);
+  ), [colors.text, copy.latestTitle, copy.recommendedTitle, recommended, renderRecommended]);
 
-  if (loading && !feed) {
-    return (
-      <View style={[styles.center, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
-        <ActivityIndicator size="large" color={colors.accent} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{copy.loading}</Text>
-      </View>
-    );
-  }
-
-  if ((failed || !feed) && !refreshing) {
-    return (
-      <View style={[styles.center, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
-        <View style={[styles.emptyIcon, { backgroundColor: colors.chipBg }]}>
-          <Ionicons name="film-outline" size={34} color={colors.textTertiary} />
-        </View>
-        <Text style={[styles.emptyTitle, { color: colors.text }]}>{copy.emptyTitle}</Text>
-        <Text style={[styles.emptyBody, { color: colors.textTertiary }]}>{copy.emptyBody}</Text>
-        <TouchableOpacity
-          style={[styles.retryButton, { backgroundColor: colors.accent }]}
-          onPress={() => void load(true)}
-        >
-          <Text style={styles.retryText}>{copy.retry}</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  const segment = (
+    <View style={[styles.segment, { backgroundColor: colors.chipBg }]}>
+      {(['movie', 'series'] as const).map((kind) => {
+        const active = activeKind === kind;
+        return (
+          <TouchableOpacity
+            key={kind}
+            style={[styles.segmentButton, active && { backgroundColor: colors.accent }]}
+            activeOpacity={0.8}
+            onPress={() => switchKind(kind)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={kind === 'movie' ? copy.mediaMovies : copy.mediaSeries}
+          >
+            <Text style={[styles.segmentText, { color: active ? '#fff' : colors.textSecondary }]}>
+              {kind === 'movie' ? copy.mediaMovies : copy.mediaSeries}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
-      <FlatList
-        data={recent}
-        renderItem={renderItem}
-        keyExtractor={resourceFeedItemKey}
-        ListHeaderComponent={header}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={(
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => void load(true)}
-            tintColor={colors.accent}
-            colors={[colors.accent]}
-          />
-        )}
-        initialNumToRender={8}
-        maxToRenderPerBatch={8}
-        updateCellsBatchingPeriod={40}
-        windowSize={7}
-        removeClippedSubviews
-      />
+      <View style={styles.pageHeader}>
+        <Text style={[styles.pageTitle, { color: colors.text }]}>{copy.title}</Text>
+        {segment}
+      </View>
+
+      {loading && !feed ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{copy.loading}</Text>
+        </View>
+      ) : (failed || !feed) && !refreshing ? (
+        <View style={styles.center}>
+          <View style={[styles.emptyIcon, { backgroundColor: colors.chipBg }]}>
+            <Ionicons
+              name={activeKind === 'series' ? 'tv-outline' : 'film-outline'}
+              size={34}
+              color={colors.textTertiary}
+            />
+          </View>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>{copy.emptyTitle}</Text>
+          <Text style={[styles.emptyBody, { color: colors.textTertiary }]}>{copy.emptyBody}</Text>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: colors.accent }]}
+            onPress={() => void load(activeKind, true)}
+          >
+            <Text style={styles.retryText}>{copy.retry}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          key={activeKind}
+          data={recent}
+          renderItem={renderItem}
+          keyExtractor={resourceFeedItemKey}
+          ListHeaderComponent={listHeader}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={(
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => void load(activeKind, true)}
+              tintColor={colors.accent}
+              colors={[colors.accent]}
+            />
+          )}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          updateCellsBatchingPeriod={40}
+          windowSize={7}
+          removeClippedSubviews
+        />
+      )}
     </View>
   );
 }
@@ -335,6 +394,22 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
   },
   pageTitle: { fontSize: 31, fontWeight: '800', letterSpacing: -0.8 },
+  segment: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    marginTop: 16,
+    borderRadius: 999,
+    padding: 3,
+  },
+  segmentButton: {
+    minWidth: 82,
+    height: 34,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  segmentText: { fontSize: 13, fontWeight: '800' },
   recommendedSection: { marginBottom: 24 },
   sectionTitle: {
     paddingHorizontal: 20,
@@ -348,7 +423,13 @@ const styles = StyleSheet.create({
   recommendedPosterWrap: { position: 'relative' },
   posterShell: { borderRadius: 13, overflow: 'hidden' },
   posterImage: { width: '100%', height: '100%' },
-  posterFallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  posterFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  posterFallbackText: { marginTop: 8, fontSize: 10, lineHeight: 14, fontWeight: '700', textAlign: 'center' },
   recommendBadge: {
     position: 'absolute',
     top: 8,
@@ -384,6 +465,6 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 18, fontWeight: '800', textAlign: 'center' },
   emptyBody: { marginTop: 8, fontSize: 13, lineHeight: 20, textAlign: 'center' },
-  retryButton: { marginTop: 20, borderRadius: 14, paddingHorizontal: 22, paddingVertical: 11 },
+  retryButton: { marginTop: 20, borderRadius: 999, paddingHorizontal: 24, paddingVertical: 11 },
   retryText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 });

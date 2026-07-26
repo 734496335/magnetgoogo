@@ -419,7 +419,7 @@ await test('U2', 'bottom navigation and search hero respect the usable screen ar
   assert.doesNotMatch(home, /SCREEN_H \* 0\.18/);
 });
 
-await test('U3', 'movie discovery preserves ranking and opens a dedicated detail route', () => {
+await test('U3', 'offline movie and series discovery share one lightweight segmented experience', () => {
   const screen = read('app/(tabs)/resources.tsx');
   const detail = read('app/movie/[movieId].tsx');
   const ratings = read('src/core/movieRatings.ts');
@@ -428,6 +428,16 @@ await test('U3', 'movie discovery preserves ranking and opens a dedicated detail
   assert.match(screen, /keyExtractor=\{resourceFeedItemKey\}/);
   assert.match(screen, /item\.recommended/);
   assert.match(screen, /pathname: '\/movie\/\[movieId\]'/);
+  assert.match(screen, /params: \{ movieId: item\.movie_id, kind: item\.content_kind \}/);
+  assert.match(screen, /useState<MediaKind>\('movie'\)/);
+  assert.match(screen, /\(\['movie', 'series'\] as const\)/);
+  assert.match(screen, /copy\.mediaMovies/);
+  assert.match(screen, /copy\.mediaSeries/);
+  assert.match(screen, /loadResourceFeed\(kind, forceRefresh\)/);
+  assert.match(screen, /key=\{activeKind\}/);
+  assert.equal((screen.match(/<FlatList/g) || []).length, 1);
+  assert.match(screen, /item\.update_status \|\| item\.episode_label/);
+  assert.match(screen, /showPlaceholder = failed \|\| !coverUri/);
   assert.match(screen, /resource\.resource_type === 'magnet'/);
   assert.doesNotMatch(screen, /copy\.subtitle|copy\.updatedAt|generatedAt/);
   assert.doesNotMatch(screen, /content_code|MY-1065|javbus/i);
@@ -458,6 +468,9 @@ await test('U3', 'movie discovery preserves ranking and opens a dedicated detail
   assert.match(detail, /copy\.detailSynopsis/);
   assert.match(detail, /copy\.detailResources/);
   assert.match(detail, /pathname: '\/search'/);
+  assert.match(detail, /loadMediaById\(requestedKind, movieId\)/);
+  assert.match(detail, /loadMediaByIdAcrossFeeds\(movieId\)/);
+  assert.match(detail, /movie\.content_kind === 'series'/);
 });
 
 await test('U4', 'movie detail exposes only prominent magnet cards with search-equivalent actions', () => {
@@ -482,6 +495,12 @@ await test('U4', 'movie detail exposes only prominent magnet cards with search-e
   assert.match(detail, /borderRadius: 999/);
   assert.match(detail, /left: 64/);
   assert.match(detail, /right: 64/);
+  assert.match(detail, /visibleResourceLimit/);
+  assert.match(detail, /magnetResources\.slice\(0, visibleResourceLimit\)/);
+  assert.match(detail, /setVisibleResourceLimit\(\(current\) => current \+ 20\)/);
+  assert.match(copy, /showMoreResources: \(value\) => `再显示 \$\{value\} 个资源`/);
+  assert.match(detail, /searchButton: \{[\s\S]*?borderRadius: 999/);
+  assert.match(detail, /searchButton: \{[\s\S]*?minWidth: 220/);
   assert.ok(detail.indexOf('copy.detailSynopsis') < detail.indexOf('copy.detailResources'));
   assert.ok(detail.indexOf('copy.detailInfo') < detail.indexOf('copy.detailResources'));
   assert.ok(detail.indexOf('copy.detailCast') < detail.indexOf('copy.detailResources'));
@@ -490,16 +509,24 @@ await test('U4', 'movie detail exposes only prominent magnet cards with search-e
   assert.doesNotMatch(detail, /movie\.resources\.map|movie\.resources\.length/);
 });
 
-await test('U5', 'movie bundle is offline-first and excludes the legacy adult feed', () => {
+await test('U5', 'movie and series bundles are offline-first and exclude the legacy adult feed', () => {
 
   const loader = read('src/core/resourceFeed.ts');
   const protocol = read('src/core/resourceFeedProtocol.ts');
   const plugin = read('plugins/with-resource-feed.js');
   assert.match(loader, /resource-index', 'sixv'/);
+  assert.match(loader, /resource-index', 'series'/);
   assert.match(loader, /movieCoverUri/);
+  assert.match(loader, /if \(!item\.cover_asset_path\) return null/);
   assert.match(protocol, /movie-app-feed\/1/);
+  assert.match(protocol, /media-app-feed\/1/);
+  assert.match(protocol, /content_kind: MediaKind/);
   assert.match(protocol, /LEGACY_ADULT_FIELD/);
   assert.match(plugin, /sixv_app_bundle/);
+  assert.match(plugin, /series_latest_100_feed\.json/);
+  assert.match(plugin, /normalizeSeriesFeed/);
+  assert.match(plugin, /resource\.resource_type !== 'magnet'/);
+  assert.match(plugin, /poster placeholders require no runtime image traffic/);
   assert.match(plugin, /rmSync\(legacyAdultFeed/);
   assert.doesNotMatch(plugin, /javbus_latest_100\.db/);
 });

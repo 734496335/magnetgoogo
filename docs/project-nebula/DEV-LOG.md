@@ -1,5 +1,34 @@
 ---
 Date/Time: 2026-07-26 (UTC+8)
+Version: app-v0.2.1-offline-series-segment
+Scope: Add offline TV-series discovery with a lightweight movie/series switch and capsule search CTA
+Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/core/resourceFeed.ts,src/core/resourceFeedProtocol.ts,src/core/resourceCopy.ts,plugins/with-resource-feed.js,scripts/resource-feed-tests.mjs,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
+
+### Product changes
+- Added a compact `电影 / 电视剧` segmented control at the top of Resources.
+- Kept one mounted FlatList and lazy-loaded the selected bundled Feed, so switching remains light and the Search tab startup is unaffected.
+- Bundled 100 series records and 2,105 magnet resources from the existing offline series snapshot; non-magnet providers are stripped from the App asset.
+- Reused the movie card/detail visual language and added series update status such as `更新10`, `第1集` and `全集` to the metadata line.
+- Series source data currently has no local cover assets, so the App uses local gradient TV placeholders and never requests remote poster URLs at runtime.
+- Detail routes now carry `kind=movie|series`, with cross-feed fallback for old links.
+- Large series resource sets render 12 cards first and add 20 per request; a 233-resource detail therefore avoids mounting hundreds of cards at once.
+- Converted `搜索更多资源` to a centered full-capsule button, matching the fixed resource CTA.
+
+### Verification
+- TypeScript PASS; App adversarial 36/36; resource Feed tests PASS; fluency 17/17.
+- `npm run android:k30s` completed with `BUILD SUCCESSFUL` and installation `Success`.
+- Prebuild logged 50 movies / 50 offline covers and 100 series / 2,105 magnet resources / zero runtime poster traffic.
+- K30S showed the movie/series segment; the first series row displayed `更新10`, `1080p / HD / 中字` and 4 resources.
+- Series detail opened successfully with `查看资源（4）`; a 233-resource series initially showed `再显示 221 个资源` and changed to 201 after one expansion.
+- The `搜索更多资源` control measured `[238,1927][843,2059]`, confirming the centered capsule layout.
+- No AndroidRuntime fatal or React Native unhandled error was observed.
+
+### Release state
+- v0.2.1 remains development-only. No tag, formal APK release or remote deployment.
+---
+
+---
+Date/Time: 2026-07-26 (UTC+8)
 Version: app-v0.2.1-recommendation-copy-prominent-titles
 Scope: Improve recommendation naming, high-score title visibility and the fixed resource CTA shape
 Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/core/resourceCopy.ts,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
