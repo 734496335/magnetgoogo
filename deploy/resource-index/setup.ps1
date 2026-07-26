@@ -1,8 +1,8 @@
 [CmdletBinding()]
 param(
-    [ValidateSet("javbus", "sixv")]
+    [ValidateSet("javbus", "sixv", "dytt8899")]
     [string]$Source = "javbus",
-    [int]$Count = 100,
+    [int]$Count = 0,
     [string]$VenvPath = "",
     [string]$OutputDir = ""
 )
@@ -54,12 +54,17 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+$DoctorArguments = @(
+    "-B", "-m", "magnet.resource_index.cli", "doctor",
+    "--source", $Source,
+    "--output-dir", $OutputDir
+)
+if ($Count -gt 0) {
+    $DoctorArguments += @("--count", $Count)
+}
 Push-Location $RepoRoot
 try {
-    & $PythonExe -B -m magnet.resource_index.cli doctor `
-        --source $Source `
-        --count $Count `
-        --output-dir $OutputDir
+    & $PythonExe @DoctorArguments
     if ($LASTEXITCODE -ne 0) {
         throw "Deployment doctor failed"
     }

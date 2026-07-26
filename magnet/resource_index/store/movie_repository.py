@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from magnet.resource_index.adapters.sixv.models import SixVMovieDetail
+from magnet.resource_index.domain.movie_models import MovieDetail
 from magnet.resource_index.store.sqlite_repository import SqliteResourceRepository, _iso
 
 
@@ -36,7 +36,7 @@ class MovieRepository:
         self.repo = repo
         self.conn = repo.conn
 
-    def upsert(self, movie: SixVMovieDetail, *, now: datetime) -> MovieUpsertStats:
+    def upsert(self, movie: MovieDetail, *, now: datetime) -> MovieUpsertStats:
         now_s = _iso(now)
         assert now_s is not None
         movie_id = movie_id_for(movie.source_id, movie.source_item_key)
@@ -146,44 +146,79 @@ class MovieRepository:
             )
             for resource in movie.resources:
                 resource_id = movie_resource_id_for(movie_id, resource.resource_url)
-                existed = self.conn.execute(
-                    "SELECT 1 FROM movie_resources WHERE resource_id = ?",
-                    (resource_id,),
-                ).fetchone()
-                self.conn.execute(
-                    """
-                    INSERT INTO movie_resources(
-                        resource_id, movie_id, resource_type, provider,
-                        resource_url, info_hash, display_title, extraction_code,
-                        quality_tags_json, first_seen_at, last_seen_at,
-                        created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(resource_id) DO UPDATE SET
-                        resource_type = excluded.resource_type,
-                        provider = excluded.provider,
-                        info_hash = excluded.info_hash,
-                        display_title = excluded.display_title,
-                        extraction_code = COALESCE(excluded.extraction_code, movie_resources.extraction_code),
-                        quality_tags_json = excluded.quality_tags_json,
-                        last_seen_at = excluded.last_seen_at,
-                        updated_at = excluded.updated_at
-                    """,
-                    (
-                        resource_id,
-                        movie_id,
-                        resource.resource_type,
-                        resource.provider,
-                        resource.resource_url,
-                        resource.info_hash,
-                        resource.display_title,
-                        resource.extraction_code,
-                        json.dumps(resource.quality_tags, ensure_ascii=False),
-                        now_s,
-                        now_s,
-                        now_s,
-                        now_s,
-                    ),
-                )
+                if resource.resource_type in {"download", "player"}:
+                    existed = self.conn.execute(
+                        "SELECT 1 FROM movie_external_resources WHERE resource_id = ?",
+                        (resource_id,),
+                    ).fetchone()
+                    self.conn.execute(
+                        """
+                        INSERT INTO movie_external_resources(
+                            resource_id, movie_id, resource_type, provider,
+                            resource_url, display_title, quality_tags_json,
+                            first_seen_at, last_seen_at, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(resource_id) DO UPDATE SET
+                            resource_type = excluded.resource_type,
+                            provider = excluded.provider,
+                            display_title = excluded.display_title,
+                            quality_tags_json = excluded.quality_tags_json,
+                            last_seen_at = excluded.last_seen_at,
+                            updated_at = excluded.updated_at
+                        """,
+                        (
+                            resource_id,
+                            movie_id,
+                            resource.resource_type,
+                            resource.provider,
+                            resource.resource_url,
+                            resource.display_title,
+                            json.dumps(resource.quality_tags, ensure_ascii=False),
+                            now_s,
+                            now_s,
+                            now_s,
+                            now_s,
+                        ),
+                    )
+                else:
+                    existed = self.conn.execute(
+                        "SELECT 1 FROM movie_resources WHERE resource_id = ?",
+                        (resource_id,),
+                    ).fetchone()
+                    self.conn.execute(
+                        """
+                        INSERT INTO movie_resources(
+                            resource_id, movie_id, resource_type, provider,
+                            resource_url, info_hash, display_title, extraction_code,
+                            quality_tags_json, first_seen_at, last_seen_at,
+                            created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(resource_id) DO UPDATE SET
+                            resource_type = excluded.resource_type,
+                            provider = excluded.provider,
+                            info_hash = excluded.info_hash,
+                            display_title = excluded.display_title,
+                            extraction_code = COALESCE(excluded.extraction_code, movie_resources.extraction_code),
+                            quality_tags_json = excluded.quality_tags_json,
+                            last_seen_at = excluded.last_seen_at,
+                            updated_at = excluded.updated_at
+                        """,
+                        (
+                            resource_id,
+                            movie_id,
+                            resource.resource_type,
+                            resource.provider,
+                            resource.resource_url,
+                            resource.info_hash,
+                            resource.display_title,
+                            resource.extraction_code,
+                            json.dumps(resource.quality_tags, ensure_ascii=False),
+                            now_s,
+                            now_s,
+                            now_s,
+                            now_s,
+                        ),
+                    )
                 if existed is None:
                     resources_created += 1
                 else:
@@ -296,11 +331,16 @@ class MovieRepository:
         ).fetchone()[0]
         resources = self.conn.execute(
             """
-            SELECT COUNT(*) FROM movie_resources r
-            JOIN movie_items m ON m.movie_id = r.movie_id
-            WHERE m.source_id = ?
+            SELECT
+                (SELECT COUNT(*) FROM movie_resources r
+                 JOIN movie_items m ON m.movie_id = r.movie_id
+                 WHERE m.source_id = ?)
+                +
+                (SELECT COUNT(*) FROM movie_external_resources r
+                 JOIN movie_items m ON m.movie_id = r.movie_id
+                 WHERE m.source_id = ?)
             """,
-            (source_id,),
+            (source_id, source_id),
         ).fetchone()[0]
         recommended = self.conn.execute(
             "SELECT COUNT(*) FROM movie_items WHERE source_id = ? AND recommended = 1",
@@ -325,9 +365,14 @@ class MovieRepository:
                    display_title, extraction_code, quality_tags_json
             FROM movie_resources
             WHERE movie_id = ?
+            UNION ALL
+            SELECT resource_type, provider, resource_url, NULL AS info_hash,
+                   display_title, NULL AS extraction_code, quality_tags_json
+            FROM movie_external_resources
+            WHERE movie_id = ?
             ORDER BY resource_type, provider, display_title, resource_url
             """,
-            (row["movie_id"],),
+            (row["movie_id"], row["movie_id"]),
         ).fetchall()
         return {
             "rank": rank,

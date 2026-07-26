@@ -352,6 +352,23 @@
 
 ---
 
+## CHALLENGE-008 — 电影多来源低频自动化与站点隔离
+
+- **严重程度**：major
+- **状态**：solved in implementation；独立复验待执行
+- **首次记录**：2026-07-26
+- **业务影响**：继续按站点复制完整 Runner 会造成锁、预算、恢复和 Feed 逻辑漂移；反过来用一个通用 CSS 解析器兼容所有电影站，又会让单站改版拖垮全部来源。
+- **架构裁决**：共享 `MovieLatestRunner`、自动化预算和持久化状态；SixV、DYTT8899 分别维护列表/详情适配器和来源边界。
+- **安全策略**：单并发；SixV 10 秒、DYTT 15 秒请求间隔；网络检查至少 12 小时；每日预算 80/50；失败退避 24/48/72 小时；403/429/挑战立即暂停；不绕过验证码、WAF、登录或延迟资源释放。
+- **边界修复**：电影来源不再注册到旧 `crawl_query/crawl_detail_urls` 协议；共享内核在快照前校验 HTTPS、注册域名、公开路径、连续 rank、唯一 URL 和 source key。
+- **DYTT真实证据**：正式快照 25/25 完成；25 部均有标题、封面和简介，保存 48 条公开 `jianpian://` 资源；仅《杀手正在召唤》源站没有可可靠获取的类型，保守留空；完成后重跑 0 请求。
+- **自动化证据**：完成快照检查仅 1 个列表请求，预留 12/实际 1/退款 11；立即再次调用因 12 小时门禁零网络跳过。
+- **验证**：Resource Index 134 passed；全 magnet 非集成 197 passed / 2 deselected；schema 0006、PowerShell 7/7、ScheduledTasks IgnoreNew/PT6H、Python 3.13最小环境和项目外 doctor/status/safe PASS。
+- **证据**：`RESOURCE-INDEX-MOVIE-MULTISOURCE-AUTOMATION-2026-07-26.md`
+- **剩余边界**：无法承诺永不触发反爬；SQLite仍为单机单写；站点改版会暂停该来源但不应影响其他来源；App 是否接入 DYTT Feed 属于后续产品批次。
+
+---
+
 ## 调研流程 SOP
 
 每 2 周（建议每月 1/15 号）做一次：

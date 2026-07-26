@@ -1,11 +1,9 @@
 [CmdletBinding()]
 param(
-    [ValidateSet("javbus", "sixv", "dytt8899")]
-    [string]$Source = "javbus",
+    [string]$Sources = "sixv,dytt8899",
     [int]$Count = 0,
     [string]$VenvPath = "",
-    [string]$OutputDir = "",
-    [string]$Database = ""
+    [string]$OutputDir = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,27 +19,23 @@ function Resolve-RepoPath([string]$Value, [string]$DefaultRelative) {
 
 $VenvPath = Resolve-RepoPath $VenvPath ".venv-resource-index"
 $OutputDir = Resolve-RepoPath $OutputDir "data\resource_index"
-if (-not [string]::IsNullOrWhiteSpace($Database)) {
-    $Database = Resolve-RepoPath $Database ""
-}
-
 $PythonExe = Join-Path $VenvPath "Scripts\python.exe"
 if (-not (Test-Path $PythonExe)) {
     throw "Runtime is not installed. Run deploy\resource-index\setup.bat first."
 }
 
 $Arguments = @(
-    "-B",
-    "-m", "magnet.resource_index.cli",
-    "doctor",
-    "--source", $Source,
+    "-B", "-m", "magnet.resource_index.cli", "movie-sources-status",
     "--output-dir", $OutputDir
 )
+foreach ($Source in ($Sources -split ",")) {
+    $Trimmed = $Source.Trim()
+    if (-not [string]::IsNullOrWhiteSpace($Trimmed)) {
+        $Arguments += @("--source", $Trimmed)
+    }
+}
 if ($Count -gt 0) {
     $Arguments += @("--count", $Count)
-}
-if (-not [string]::IsNullOrWhiteSpace($Database)) {
-    $Arguments += @("--db", $Database)
 }
 
 $env:PYTHONUTF8 = "1"

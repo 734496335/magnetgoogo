@@ -643,9 +643,9 @@ def test_doctor_checks_minimal_runtime_and_writable_paths(tmp_path: Path) -> Non
     assert report["checks"]["source_registry"]["ok"] is True
 
 
-def test_schema_0005_contains_latest_job_tables(tmp_path: Path) -> None:
+def test_schema_0006_contains_latest_job_tables(tmp_path: Path) -> None:
     repo = SqliteResourceRepository(tmp_path / "m.db")
-    assert repo.init_schema() == "0005"
+    assert repo.init_schema() == "0006"
     tables = {
         row[0]
         for row in repo.conn.execute(
@@ -700,7 +700,7 @@ def test_existing_schema_0002_upgrades_without_content_loss(tmp_path: Path) -> N
     connection.close()
 
     repo = SqliteResourceRepository(db)
-    assert repo.init_schema() == "0005"
+    assert repo.init_schema() == "0006"
     assert repo.conn.execute("SELECT COUNT(*) FROM content_items").fetchone()[0] == 1
     assert repo.conn.execute(
         "SELECT COUNT(*) FROM latest_crawl_jobs"

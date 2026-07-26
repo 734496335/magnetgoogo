@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from magnet.resource_index.acquisition.policy import LiveFetchPolicy
+from magnet.resource_index.adapters.movie_registry import get_movie_source
 from magnet.resource_index.adapters.registry import get_crawler_factory
 from magnet.resource_index.config import SCHEMA_VERSION
 from magnet.resource_index.errors import (
@@ -863,15 +864,26 @@ def run_deployment_doctor(
         if repo is not None:
             repo.close()
 
+    source_kind = None
     try:
         get_crawler_factory(source_id)
-        checks["source_registry"] = {"ok": True, "source_id": source_id}
-    except ResourceIndexError as exc:
+        source_kind = "content"
+    except ResourceIndexError as content_error:
+        try:
+            get_movie_source(source_id)
+            source_kind = "movie_latest"
+        except ResourceIndexError:
+            checks["source_registry"] = {
+                "ok": False,
+                "source_id": source_id,
+                "error_code": content_error.error_code,
+                "error": content_error.message,
+            }
+    if source_kind is not None:
         checks["source_registry"] = {
-            "ok": False,
+            "ok": True,
             "source_id": source_id,
-            "error_code": exc.error_code,
-            "error": exc.message,
+            "source_kind": source_kind,
         }
 
     failed = sorted(name for name, detail in checks.items() if not detail.get("ok"))

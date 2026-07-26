@@ -1,86 +1,150 @@
-# Resource Index 跨电脑稳定部署
+# Resource Index 多站点稳定部署
 
-本目录用于在 Windows 电脑上部署 JavBus 与 6V 最新列表抓取。运行器保持单并发、每次 HTTP 尝试至少间隔 10 秒，并把快照、批次进度、失败次数和最终 Feed 持久化。
+Resource Index 采用“一套运行内核 + 每站独立适配器”的结构。统一内核负责锁、快照、请求预算、恢复、去重、Feed、日志和低频调度；SixV 与 DYTT8899 分别维护自己的编码、分页和详情解析逻辑。
 
-## 1. 环境要求
+当前来源：
 
-- Windows 10/11 或 Windows Server
-- Python 3.10 或更高版本，安装时勾选 Python Launcher 或 PATH
-- 可以访问目标站点的网络环境
-- 至少 100 MB 可用磁盘空间
-- 项目目录需要可写
+- `javbus`：历史成人内容来源；
+- `sixv`：6V 最新电影，默认 50 部；
+- `dytt8899`：电影天堂最新电影，默认 25 部。
 
-不需要安装完整开发依赖。部署脚本只安装：
+电影来源使用独立 SQLite 和 Feed。单站改版、限流或解析失败不会污染其他站点。
+
+## 1. 安全边界
+
+脚本只能降低触发反爬的概率，不能承诺永远不会被限制。当前策略：
+
+- 单进程、单并发；
+- SixV 每次 HTTP 尝试至少间隔 10 秒；
+- DYTT8899 每次 HTTP 尝试至少间隔 15 秒；
+- 自动检查间隔至少 12 小时；
+- SixV 每日最多预留 80 次请求，DYTT8899 每日最多预留 50 次；
+- 快照未变化时不重新抓取详情；
+- 403、429、访问挑战或站点硬停止立即暂停；
+- 连续失败后自动退避为至少 24、48、72 小时，成功后恢复 12 小时检查；
+- 不处理验证码，不绕过 WAF，不模拟登录；
+- 不绕过 DYTT 延迟释放的隐藏磁力资源，只保存页面当前公开的链接；
+- DYTT 仅访问公开电影分类和 `/i/` 详情路径。
+
+自动调度在请求前预留最坏情况预算。即使进程崩溃或外部通道返回 502，预留额度也不会自动释放并形成高频重试。
+
+## 2. 环境与安装
+
+要求 Windows 10/11 或 Windows Server、Python 3.10+、可访问目标站点、至少 100 MB 可用空间。最小直接依赖：
 
 - `beautifulsoup4==4.15.0`
 - `curl_cffi==0.15.0`
+- `Pillow`（SixV封面压缩和App离线导出）
 
-## 2. 首次安装
-
-在项目根目录双击或执行：
+首次安装：
 
 ```bat
 deploy\resource-index\setup.bat
 ```
 
-部署 6V 电影来源时也可以直接执行：
+按来源自检：
 
 ```bat
-deploy\resource-index\setup.bat -Source sixv -Count 50
+deploy\resource-index\doctor.bat -Source sixv
+deploy\resource-index\doctor.bat -Source dytt8899
 ```
 
-脚本会：
+未传 `-Count` 时自动使用来源默认值：JavBus 100、SixV 50、DYTT8899 25。
 
-1. 创建独立环境 `.venv-resource-index`；
-2. 安装最小运行依赖；
-3. 创建 `data\resource_index`；
-4. 初始化 SQLite schema；
-5. 运行离线部署自检。
+## 3. 首次初始化
 
-重新检查环境：
+SixV 最新 50 部：
 
 ```bat
-deploy\resource-index\doctor.bat
+deploy\resource-index\run-latest.bat -Source sixv -Refresh
 ```
 
-6V 环境检查：
+DYTT8899 最新 25 部：
 
 ```bat
-deploy\resource-index\doctor.bat -Source sixv -Count 50
+deploy\resource-index\run-latest.bat -Source dytt8899 -Refresh
 ```
 
-所有检查均为 `ok: true` 后再开始真实抓取。
-
-## 3. 抓取最新列表
-
-JavBus 最新 100 条：
+需要控制单次运行长度：
 
 ```bat
-deploy\resource-index\run-latest.bat -Source javbus -Count 100 -Refresh
+deploy\resource-index\run-latest.bat -Source dytt8899 -MaxBatches 2
 ```
 
-6V 最新电影 50 部：
+退出码 `2` 表示任务尚未完成。再次执行同一命令即可续跑；恢复时不要带 `-Refresh`。
+
+SixV 完整抓取成功后，现有 `run-latest.bat` 流程还会同步缺失封面到 SQLite，并导出：
+
+```text
+sixv_app_bundle\feed.json
+sixv_app_bundle\covers\*.jpg
+```
+
+已入库封面再次运行时保持零封面网络请求。
+
+## 4. 安全自动化
+
+同时管理 SixV 与 DYTT8899：
 
 ```bat
-deploy\resource-index\run-latest.bat -Source sixv -Count 50 -Refresh
+deploy\resource-index\run-movies-safe.bat
 ```
 
-输出目录默认为：
+只管理一个来源：
+
+```bat
+deploy\resource-index\run-movies-safe.bat -Sources dytt8899
+```
+
+控制器会根据持久化状态自动选择：
+
+1. 12 小时内运行过：直接跳过，零网络；
+2. 上次任务未完成：沿用原快照，只补缺失详情；
+3. 当前任务已完成：低频获取最新列表；
+4. 列表未变化：停止，不重抓详情；
+5. 列表有变化：每次最多处理 2 批，每批 5 条；
+6. 达到每日预算：停止到次日；
+7. 站点异常或解析失败：按 24/48/72 小时逐级退避。
+
+查看自动化策略、每日剩余额度和任务覆盖：
+
+```bat
+deploy\resource-index\movie-sources-status.bat
+```
+
+### Windows 任务计划程序
+
+一键安装当前用户的安全抓取任务：
+
+```bat
+deploy\resource-index\install-movie-schedule.bat
+```
+
+默认每 6 小时触发 `run-movies-safe.bat`，内部 12 小时门禁会让多余触发零网络退出，并设置“已有实例时不启动新实例”。安装脚本不会绕过每日请求预算。
+
+只调度 DYTT8899：
+
+```bat
+deploy\resource-index\install-movie-schedule.bat -Sources dytt8899
+```
+
+删除任务：
+
+```bat
+deploy\resource-index\install-movie-schedule.bat -Remove
+```
+
+也可以手工建立任务，但应使用项目所在账户运行，不设置分钟级无限重试，并选择“不启动新的实例”。
+
+## 5. 输出文件
+
+默认目录：
 
 ```text
 data\resource_index
 ```
 
-JavBus 主要文件：
-
-```text
-javbus_latest_100.db
-javbus_latest_100_urls.json
-javbus_latest_100_feed.json
-javbus_latest_100.log
-```
-
-6V 主要文件：
+SixV：
 
 ```text
 sixv_latest_50.db
@@ -91,128 +155,66 @@ sixv_app_bundle\feed.json
 sixv_app_bundle\covers\*.jpg
 ```
 
-6V 完整抓取成功后，`run-latest.bat` 会自动继续：
-
-1. 下载缺失封面并压缩写入 `sixv_latest_50.db`；
-2. 已入库封面再次运行时保持零网络请求；
-3. 从 SQLite 导出 `sixv_app_bundle`，供 App 离线打包。
-
-- `.db`：完整内容、人物、标签、磁力、网盘资源、电影封面二进制和作业状态；
-- `_urls.json`：本轮最新 100 条的冻结顺序；
-- `_feed.json`：供 App 直接展示的排序 Feed；
-- `.log`：追加写入的运行日志。
-
-## 4. 中断和恢复
-
-正常关闭窗口、网络失败、电脑重启或手动按 `Ctrl+C` 后，重新执行同一命令即可恢复：
-
-```bat
-deploy\resource-index\run-latest.bat -Source javbus -Count 100
-```
-
-6V 恢复命令：
-
-```bat
-deploy\resource-index\run-latest.bat -Source sixv -Count 50
-```
-
-恢复时不会重新抓取已经存在的详情 URL。运行器会：
-
-1. 读取原快照；
-2. 恢复上一次未完成的批次；
-3. 用数据库来源观测核对实际已入库项；
-4. 只抓取缺失 URL；
-5. 完成后重新原子生成 Feed。
-
-不要在恢复时使用 `-Refresh`。`-Refresh` 表示放弃继续旧快照，重新获取当前最新列表。
-
-## 5. 控制单次运行长度
-
-需要让任务每次只跑少量批次时：
-
-```bat
-deploy\resource-index\run-latest.bat -MaxBatches 2
-```
-
-退出码 `2` 表示作业仍未完成，不代表数据损坏。再次运行同一命令继续即可。
-
-默认每批 5 条：
-
-```bat
-deploy\resource-index\run-latest.bat -BatchSize 5
-```
-
-不建议随意提高批量。较小批次更容易在断电、网络切换或系统重启后精确恢复。
-
-查看当前持久化进度：
-
-```bat
-deploy\resource-index\status.bat -Source javbus -Count 100
-```
-
-查看 6V 任务：
-
-```bat
-deploy\resource-index\status.bat -Source sixv -Count 50
-```
-
-状态会显示已覆盖数量、失败数量、请求次数和未完成 URL，不会发起网络请求。
-
-## 6. 获取下一轮数据与修复旧解析结果
-
-重新获取新的 JavBus 100 条或 6V 50 部时，使用对应来源并加 `-Refresh`：
-
-```bat
-deploy\resource-index\run-latest.bat -Source sixv -Count 50 -Refresh
-```
-
-SQLite 会继续保留历史内容，Feed 只展示新快照对应的来源记录。
-
-6V 解析器升级后，只修复当前快照中缺少类型或简介的记录：
-
-```bat
-deploy\resource-index\run-latest.bat -Source sixv -Count 50 -ReparseIncomplete
-```
-
-该参数不会刷新列表快照，也不会重抓字段已经完整的电影。
-
-## 7. 单实例保护
-
-同一个 SQLite 数据库只能同时运行一个 `crawl-latest`。第二个进程会检测与数据库绑定的 `.lock` 文件并拒绝启动，避免重复抓取和并发写入。
-
-如果同一电脑异常断电留下锁文件，下一次启动会检查原进程是否仍存在；确认原进程已不存在后自动恢复陈旧锁。
-
-如果把数据目录复制到另一台电脑时意外带上 `.lock` 文件，运行器无法跨电脑验证原进程。必须先确认原电脑已经停止写入，再手动删除对应 `.lock` 文件。共享网络目录不支持多台电脑同时写入同一个 SQLite 数据库。
-
-不要手动同时运行普通 `crawl` 和 `crawl-latest` 写入同一个数据库。
-
-## 8. 退出码
+DYTT8899：
 
 ```text
-0   快照覆盖完整，Feed 已生成
-1   配置、环境或锁冲突
-2   作业未完成，可再次运行恢复
-130 用户中断，状态已安全保存
+dytt8899_latest_25.db
+dytt8899_latest_25_urls.json
+dytt8899_latest_25_feed.json
+dytt8899_latest_25.log
 ```
 
-## 9. App 接入
+- `.db`：电影详情、公开资源、任务、封面资产和自动化预算状态；
+- `_urls.json`：冻结列表顺序；
+- `_feed.json`：供 App 展示；
+- `.log`：追加运行日志。
 
-App 的“资源”模块只使用 6V 影视数据，不再接入 JavBus 成人 Feed。
+## 6. DYTT资源说明
 
-构建时读取：
+DYTT 当前详情页公开提供 `jianpian://` 专属播放器链接，Feed 中保存为：
 
 ```text
-data\resource_index\sixv_app_bundle\feed.json
-data\resource_index\sixv_app_bundle\covers\*.jpg
+resource_type = player
+provider = jianpian
 ```
 
-`feed.json` 保留来源列表排名，并包含 `recommended`、`highlight_labels`、类型、清晰度、字幕、豆瓣/IMDb、导演演员和磁力/网盘资源字段。封面由 SQLite 导出为本地图片，随 APK 打包，手机无需访问 6V 图片域名。
+如果静态 HTML 直接出现 magnet、thunder、ftp、ed2k 或公开网盘链接，解析器会保存。不会拆解播放器协议中的底层地址，也不会等待或绕过页面说明的延迟磁力释放机制。
 
-## 10. 运维建议
+## 7. 状态与恢复
 
-- 每次升级代码后先执行 `doctor.bat`；
-- 停止抓取任务后，再对整个 `data\resource_index` 目录做一致性备份；
-- 日志持续追加，不要依赖终端窗口作为唯一运行证据；
-- 不要删除未完成作业的 `_urls.json`，否则无法按原快照精确恢复；
-- 迁移项目目录时，至少复制整个 `data\resource_index` 目录；
-- Windows 任务计划程序应设置为“不启动新的实例”，不要并行运行同一任务。
+查看单站持久化任务：
+
+```bat
+deploy\resource-index\status.bat -Source sixv
+deploy\resource-index\status.bat -Source dytt8899
+```
+
+电脑重启、网络失败或 `Ctrl+C` 后，重新执行对应 `run-latest` 命令，不带 `-Refresh`。运行器会用数据库实际覆盖核对快照，只处理缺失 URL。
+
+解析器升级后，只重抓当前快照中缺类型或简介的电影：
+
+```bat
+deploy\resource-index\run-latest.bat -Source sixv -ReparseIncomplete
+deploy\resource-index\run-latest.bat -Source dytt8899 -ReparseIncomplete
+```
+
+## 8. 单实例与迁移
+
+每个 SQLite 数据库绑定一个 `.lock` 文件。同一数据库只允许一个写进程。同机死亡 PID 的陈旧锁会自动恢复；跨电脑复制数据时必须先停止原电脑写入，再复制整个 `data\resource_index` 目录。
+
+不支持多台电脑同时写同一个网络共享 SQLite。不要同时使用普通 `crawl` 与 `crawl-latest` 写同一数据库。
+
+## 9. 退出码
+
+```text
+0   成功、自动跳过或安全检查完成
+1   配置、环境、锁或不可恢复错误
+2   手动 crawl-latest 尚未完成，可继续恢复
+130 用户中断，状态已保存
+```
+
+## 10. App 接入
+
+SixV App离线构建继续读取 `sixv_app_bundle`。DYTT列表读取 `dytt8899_latest_25_feed.json`。SixV 与 DYTT Feed 使用同一 `movie-feed/1` 字段结构，但保持来源独立。App可以在展示层按更新时间合并，也可以按来源分区；不要在抓取层把不同站点解析逻辑合并成一个通用CSS选择器。
+
+运维时保留日志和 `_urls.json`，停止写入后再备份数据目录。每次升级代码先运行 `doctor.bat` 和 `movie-sources-status.bat`。

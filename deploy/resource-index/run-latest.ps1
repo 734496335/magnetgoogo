@@ -1,8 +1,8 @@
 [CmdletBinding()]
 param(
-    [ValidateSet("javbus", "sixv")]
+    [ValidateSet("javbus", "sixv", "dytt8899")]
     [string]$Source = "javbus",
-    [int]$Count = 100,
+    [int]$Count = 0,
     [int]$BatchSize = 5,
     [int]$MaxAttempts = 3,
     [double]$DelaySeconds = 10.0,
@@ -39,12 +39,21 @@ if (-not (Test-Path $PythonExe)) {
 $env:PYTHONUTF8 = "1"
 $env:PYTHONDONTWRITEBYTECODE = "1"
 
+$EffectiveCount = if ($Count -gt 0) {
+    $Count
+} elseif ($Source -eq "sixv") {
+    50
+} elseif ($Source -eq "dytt8899") {
+    25
+} else {
+    100
+}
+
 $Arguments = @(
     "-B",
     "-m", "magnet.resource_index.cli",
     "crawl-latest",
     "--source", $Source,
-    "--count", $Count,
     "--output-dir", $OutputDir,
     "--batch-size", $BatchSize,
     "--max-attempts", $MaxAttempts,
@@ -52,6 +61,9 @@ $Arguments = @(
     "--batch-max-requests", (7 + 2 * $BatchSize),
     "--yes"
 )
+if ($Count -gt 0) {
+    $Arguments += @("--count", $Count)
+}
 if (-not [string]::IsNullOrWhiteSpace($Database)) {
     $Arguments += @("--db", $Database)
 }
@@ -71,11 +83,11 @@ try {
     $Code = $LASTEXITCODE
     if ($Code -eq 0 -and $Source -eq "sixv") {
         $EffectiveDatabase = if ([string]::IsNullOrWhiteSpace($Database)) {
-            Join-Path $OutputDir ("sixv_latest_{0}.db" -f $Count)
+            Join-Path $OutputDir ("sixv_latest_{0}.db" -f $EffectiveCount)
         } else {
             $Database
         }
-        $FeedPath = Join-Path $OutputDir ("sixv_latest_{0}_feed.json" -f $Count)
+        $FeedPath = Join-Path $OutputDir ("sixv_latest_{0}_feed.json" -f $EffectiveCount)
         $AppBundlePath = Join-Path $OutputDir "sixv_app_bundle"
 
         & $PythonExe -B -m magnet.resource_index.cli sync-movie-covers `

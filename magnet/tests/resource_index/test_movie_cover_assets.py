@@ -66,7 +66,7 @@ def test_normalize_cover_resizes_and_hashes() -> None:
 
 def test_cover_asset_is_stored_once_and_exported_to_app_bundle(tmp_path: Path) -> None:
     repo = SqliteResourceRepository(tmp_path / "movie.db")
-    assert repo.init_schema() == "0005"
+    assert repo.init_schema() == "0006"
     _insert_movie(repo)
     encoded, mime_type, width, height, digest = _normalize_cover(_jpeg_bytes())
     movies = MovieRepository(repo)

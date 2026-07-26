@@ -8,6 +8,7 @@ import sys
 from typing import Any
 
 from magnet.resource_index.acquisition.policy import LiveFetchPolicy
+from magnet.resource_index.adapters.movie_registry import get_movie_source, list_movie_sources
 from magnet.resource_index.adapters.registry import list_sources
 from magnet.resource_index.errors import ResourceIndexError
 from magnet.resource_index.observability.events import log_event, setup_logging
@@ -24,7 +25,11 @@ from magnet.resource_index.pipeline.latest_crawl import (
     read_latest_status,
     run_deployment_doctor,
 )
-from magnet.resource_index.pipeline.sixv_latest import SixVLatestRunner
+from magnet.resource_index.pipeline.movie_automation import (
+    run_safe_movie_source,
+    safe_movie_source_status,
+)
+from magnet.resource_index.pipeline.movie_latest import MovieLatestRunner
 from magnet.resource_index.store.sqlite_repository import SqliteResourceRepository
 
 
@@ -43,6 +48,14 @@ def _crawl_exit_code(status: str) -> int:
     if status == "cancelled":
         return 130
     return 1
+
+
+def _latest_count(source_id: str, value: int | None) -> int:
+    if value is not None:
+        return int(value)
+    if source_id in list_movie_sources():
+        return get_movie_source(source_id).default_count
+    return 100
 
 
 def cmd_init_db(args: argparse.Namespace) -> int:
@@ -186,11 +199,17 @@ def cmd_list_sources(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_list_movie_sources(_args: argparse.Namespace) -> int:
+    _print_json(list_movie_sources(), pretty=True)
+    return 0
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
+    count = _latest_count(args.source, args.count)
     paths = LatestCrawlPaths.for_output_dir(
         args.output_dir,
         source_id=args.source,
-        target_count=args.count,
+        target_count=count,
         db_path=args.db,
     )
     report = run_deployment_doctor(
@@ -203,10 +222,11 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
 
 def cmd_latest_status(args: argparse.Namespace) -> int:
+    count = _latest_count(args.source, args.count)
     paths = LatestCrawlPaths.for_output_dir(
         args.output_dir,
         source_id=args.source,
-        target_count=args.count,
+        target_count=count,
         db_path=args.db,
     )
     repo = SqliteResourceRepository(paths.db_path)
@@ -215,7 +235,7 @@ def cmd_latest_status(args: argparse.Namespace) -> int:
             repo=repo,
             paths=paths,
             source_id=args.source,
-            target_count=args.count,
+            target_count=count,
         )
         _print_json(status, pretty=True)
         return 0
@@ -235,26 +255,33 @@ def cmd_crawl_latest(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
+    count = _latest_count(args.source, args.count)
     paths = LatestCrawlPaths.for_output_dir(
         args.output_dir,
         source_id=args.source,
-        target_count=args.count,
+        target_count=count,
         db_path=args.db,
     )
     logger = setup_logging(args.log or paths.log_path, append=True)
     repo = SqliteResourceRepository(paths.db_path)
     try:
-        if args.source == "sixv":
-            runner = SixVLatestRunner(
+        movie_sources = list_movie_sources()
+        if args.source in movie_sources:
+            spec = get_movie_source(args.source)
+            runner = MovieLatestRunner(
                 repo=repo,
                 paths=paths,
-                target_count=args.count,
+                source_id=args.source,
+                target_count=count,
                 batch_size=args.batch_size,
                 max_attempts=args.max_attempts,
                 delay_seconds=args.delay,
                 snapshot_max_requests=args.snapshot_max_requests,
                 batch_max_requests=args.batch_max_requests,
                 max_listing_pages=args.max_listing_pages,
+                crawler_builder=spec.crawler_factory,
+                snapshot_schema=spec.snapshot_schema,
+                minimum_delay_seconds=spec.minimum_delay_seconds,
                 logger=logger,
             )
             result = runner.run(
@@ -266,14 +293,14 @@ def cmd_crawl_latest(args: argparse.Namespace) -> int:
             if args.reparse_incomplete:
                 raise ResourceIndexError(
                     "CONFIG_ERROR",
-                    "--reparse-incomplete is only supported for source=sixv",
+                    "--reparse-incomplete is supported only for movie sources",
                     {"source_id": args.source},
                 )
             runner = LatestCrawlRunner(
                 repo=repo,
                 source_id=args.source,
                 paths=paths,
-                target_count=args.count,
+                target_count=count,
                 batch_size=args.batch_size,
                 max_attempts=args.max_attempts,
                 delay_seconds=args.delay,
@@ -347,6 +374,73 @@ def cmd_export_movie_app_bundle(args: argparse.Namespace) -> int:
         return 1
     finally:
         repo.close()
+
+
+
+def cmd_crawl_movies_safe(args: argparse.Namespace) -> int:
+    if not args.yes:
+        print("error_code=LIVE_POLICY_NOT_ACKNOWLEDGED", file=sys.stderr)
+        print("message=pass --yes to acknowledge safe movie-source checks", file=sys.stderr)
+        return 1
+    source_ids = args.source or ["sixv", "dytt8899"]
+    logger = setup_logging(args.log, append=True)
+    results = []
+    had_error = False
+    for source_id in source_ids:
+        try:
+            result = run_safe_movie_source(
+                source_id=source_id,
+                output_dir=args.output_dir,
+                target_count=args.count,
+                logger=logger,
+            )
+            results.append(result.__dict__)
+        except (ResourceIndexError, RuntimeError, ValueError) as exc:
+            had_error = True
+            if isinstance(exc, ResourceIndexError):
+                error_code = exc.error_code
+                message = exc.message
+            else:
+                error_code = "MOVIE_AUTOMATION_ERROR"
+                message = str(exc)
+            results.append(
+                {
+                    "source_id": source_id,
+                    "status": "error",
+                    "error_code": error_code,
+                    "message": message,
+                }
+            )
+    _print_json(results, pretty=True)
+    return 1 if had_error else 0
+
+
+def cmd_movie_sources_status(args: argparse.Namespace) -> int:
+    source_ids = args.source or ["sixv", "dytt8899"]
+    status: dict[str, object] = {}
+    had_error = False
+    for source_id in source_ids:
+        try:
+            status[source_id] = safe_movie_source_status(
+                source_id=source_id,
+                output_dir=args.output_dir,
+                target_count=args.count,
+            )
+        except (ResourceIndexError, RuntimeError, ValueError) as exc:
+            had_error = True
+            if isinstance(exc, ResourceIndexError):
+                error_code = exc.error_code
+                message = exc.message
+            else:
+                error_code = "MOVIE_STATUS_ERROR"
+                message = str(exc)
+            status[source_id] = {
+                "status": "error",
+                "error_code": error_code,
+                "message": message,
+            }
+    _print_json(status, pretty=True)
+    return 1 if had_error else 0
 
 
 def cmd_crawl(args: argparse.Namespace) -> int:
@@ -465,12 +559,15 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("list-sources")
     s.set_defaults(func=cmd_list_sources)
 
+    s = sub.add_parser("list-movie-sources")
+    s.set_defaults(func=cmd_list_movie_sources)
+
     s = sub.add_parser(
         "doctor",
         help="Check the portable resource-index runtime and output paths",
     )
     s.add_argument("--source", default="javbus")
-    s.add_argument("--count", type=int, default=100)
+    s.add_argument("--count", type=int, default=None)
     s.add_argument("--output-dir", default="data/resource_index")
     s.add_argument("--db", default=None)
     s.set_defaults(func=cmd_doctor)
@@ -480,7 +577,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show durable progress for the current latest-list snapshot",
     )
     s.add_argument("--source", default="javbus")
-    s.add_argument("--count", type=int, default=100)
+    s.add_argument("--count", type=int, default=None)
     s.add_argument("--output-dir", default="data/resource_index")
     s.add_argument("--db", default=None)
     s.set_defaults(func=cmd_latest_status)
@@ -490,7 +587,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Snapshot and resumably ingest the latest source records",
     )
     s.add_argument("--source", default="javbus")
-    s.add_argument("--count", type=int, default=100)
+    s.add_argument("--count", type=int, default=None)
     s.add_argument("--output-dir", default="data/resource_index")
     s.add_argument("--db", default=None)
     s.add_argument("--batch-size", type=int, default=5)
@@ -513,7 +610,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument(
         "--reparse-incomplete",
         action="store_true",
-        help="For source=sixv, re-fetch current items missing genres or synopsis",
+        help="For movie sources, re-fetch current items missing genres or synopsis",
     )
     s.add_argument("--yes", action="store_true")
     s.add_argument("--log", default=None)
@@ -538,6 +635,26 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--feed", required=True)
     s.add_argument("--output-dir", required=True)
     s.set_defaults(func=cmd_export_movie_app_bundle)
+
+    s = sub.add_parser(
+        "crawl-movies-safe",
+        help="Run conservative scheduled checks for one or more movie sources",
+    )
+    s.add_argument("--source", action="append", default=None)
+    s.add_argument("--count", type=int, default=None)
+    s.add_argument("--output-dir", default="data/resource_index")
+    s.add_argument("--yes", action="store_true")
+    s.add_argument("--log", default=None)
+    s.set_defaults(func=cmd_crawl_movies_safe)
+
+    s = sub.add_parser(
+        "movie-sources-status",
+        help="Show low-frequency budget and durable movie-source status",
+    )
+    s.add_argument("--source", action="append", default=None)
+    s.add_argument("--count", type=int, default=None)
+    s.add_argument("--output-dir", default="data/resource_index")
+    s.set_defaults(func=cmd_movie_sources_status)
 
     s = sub.add_parser(
         "crawl",

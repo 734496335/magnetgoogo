@@ -21,7 +21,7 @@ def test_cli_demo_loop(tmp_path: Path):
         check=False,
     )
     assert r.returncode == 0
-    assert "schema_version=0005" in r.stdout
+    assert "schema_version=0006" in r.stdout
     assert "status=ready" in r.stdout
 
     r = subprocess.run(
@@ -149,7 +149,7 @@ def test_cli_doctor_and_latest_policy_gate(tmp_path: Path):
     assert doctor.returncode == 0, doctor.stderr + doctor.stdout
     report = json.loads(doctor.stdout)
     assert report["status"] == "pass"
-    assert report["checks"]["sqlite"]["schema_version"] == "0005"
+    assert report["checks"]["sqlite"]["schema_version"] == "0006"
 
     gated = subprocess.run(
         [
