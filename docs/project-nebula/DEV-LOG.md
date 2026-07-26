@@ -1,5 +1,28 @@
 ---
 Date/Time: 2026-07-26 (UTC+8)
+Version: app-v0.2.1-android-nav-safe-area
+Scope: Keep bottom navigation above Android system controls and remove redundant movie-resource decoration
+Modules: magnetgoogo-app/{app.json,app/(tabs)/_layout.tsx,app/movie/[movieId].tsx,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
+
+### Product changes
+- Disabled Android edge-to-edge where supported so the OS reserves the gesture-bar or three-button navigation region.
+- Removed fixed Tab height and bottom padding; React Navigation now computes the bottom layout from system insets, including Android 16 mandatory edge-to-edge behavior.
+- Simplified resource cards to begin directly with the filename; removed the decorative magnet logo and standalone “磁力” label.
+- Retained only information-bearing quality tags and the “复制磁力 / 立即打开” actions.
+
+### Verification
+- TypeScript PASS; App adversarial 35/35; movie feed PASS; fluency 17/17.
+- Expo prebuild generated both edgeToEdge flags as false; Gradle arm64 debug build and K30S installation passed.
+- K30S physical height was 2400px, App content ended at 2266px, and Android reserved the remaining 134px for system navigation.
+- 寒战1994 UI tree contained zero standalone “磁力” labels, no resource logo, and preserved all three filenames and action pairs.
+- No AndroidRuntime fatal or React Native unhandled error was observed.
+
+### Release state
+- v0.2.1 remains development-only. No tag, formal APK release or remote deployment.
+---
+
+---
+Date/Time: 2026-07-26 (UTC+8)
 Version: app-v0.2.1-magnet-detail-ux
 Scope: Simplify movie discovery metadata and make detail resources magnet-only with prominent search-equivalent actions
 Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/core/resourceCopy.ts,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}

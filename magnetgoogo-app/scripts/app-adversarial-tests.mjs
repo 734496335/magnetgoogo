@@ -372,12 +372,16 @@ await test('U1', 'home gradient animation stops on unmount', () => {
   assert.match(code, /return \(\) => animation\.stop\(\)/);
 });
 
-await test('U2', 'bottom navigation exposes search, resources and settings only', () => {
+await test('U2', 'bottom navigation exposes three tabs and lets Android reserve system navigation space', () => {
   const layout = read('app/(tabs)/_layout.tsx');
+  const appConfig = read('app.json');
   assert.match(layout, /name="index"/);
   assert.match(layout, /name="resources"/);
   assert.match(layout, /name="settings"/);
   assert.equal((layout.match(/<Tabs\.Screen/g) || []).length, 3);
+  assert.match(appConfig, /"edgeToEdgeEnabled": false/);
+  assert.doesNotMatch(layout, /AdaptiveTabBar|ANDROID_NAVIGATION_FALLBACK_INSET|useSafeAreaInsets/);
+  assert.doesNotMatch(layout, /height:\s*62|paddingBottom:\s*7/);
 });
 
 await test('U3', 'movie discovery preserves ranking and opens a dedicated detail route', () => {
@@ -407,6 +411,7 @@ await test('U4', 'movie detail exposes only prominent magnet cards with search-e
   assert.match(detail, /colors=\{\['#ff8a4c', '#f06529'\]\}/);
   assert.match(detail, /borderColor: colors\.accent/);
   assert.match(copy, /detailResources: '资源'/);
+  assert.doesNotMatch(detail, /magnetLabel|resourceIcon|resourceType|name="magnet"|providerMagnet/);
   assert.doesNotMatch(detail, /providerXunlei|providerQuark|providerBaidu|cloudResourceHint|extractionCode/);
   assert.doesNotMatch(detail, /movie\.resources\.map|movie\.resources\.length/);
 });

@@ -1,27 +1,25 @@
-Current phase: App v0.2.1 MOVIE MAGNET DETAIL UX K30S PASS / NOT RELEASED 2026-07-26
+Current phase: App v0.2.1 ANDROID NAV SAFE AREA + RESOURCE CARD SIMPLIFICATION PASS / NOT RELEASED 2026-07-26
 
 ## Completed
-- Resources tab no longer shows movie count or update date under the page title.
-- Page header now contains only “影视”, followed directly by “值得一看”.
-- Movie-list resource counts now count magnet resources only.
-- Movie detail section title changed from “播放与下载” to “资源”.
-- Detail filters out Baidu, Quark, Xunlei and all non-magnet resources.
-- Magnet cards now use a strong accent border, shadow, magnet icon and quality tags.
-- Each card reuses search-page labels and actions: “复制磁力” and “立即打开”.
-- Copy writes the magnet URL, tracks the action, vibrates and shows the copied state.
-- Open uses the magnet protocol and the same failure wording as search results.
-- Search-more remains available after the bundled magnet cards.
+- Android edge-to-edge is disabled where the OS permits, so the system reserves gesture/three-button navigation space.
+- Removed fixed tab-bar height and bottom padding; React Navigation now owns bottom inset layout.
+- This also avoids hard-coded device-specific offsets and supports different Android navigation modes.
+- Movie resource cards now start directly with the resource filename.
+- Removed the decorative magnet logo and standalone “磁力” type label.
+- Kept only quality tags plus the useful “复制磁力 / 立即打开” actions.
 
 ## Verification
 - TypeScript -> PASS.
 - App adversarial tests -> 35/35 PASS.
 - Movie feed tests -> PASS; fluency suite -> 17/17 PASS.
-- Gradle arm64 debug build -> BUILD SUCCESSFUL; K30S install -> Success.
-- K30S resources page shows only “影视 / 值得一看”; count/date row absent.
-- K30S 寒战1994 detail shows “资源 / 3 个资源” and three magnet cards.
-- Every visible magnet card exposes “复制磁力 / 立即打开”.
-- No Baidu, Quark, Xunlei or “播放与下载” appears in the detail UI tree.
-- No React Native or AndroidRuntime fatal crash observed.
+- Expo prebuild generated edgeToEdgeEnabled=false and bundled 50 movies / 50 covers.
+- Gradle arm64 debug -> BUILD SUCCESSFUL; K30S install -> Success.
+- K30S physical height=2400px; App content ends at 2266px; system navigation reserve=134px.
+- Bottom tabs stay inside the App area and no longer overlap the gesture bar.
+- 寒战1994 detail standalone “磁力” text count=0; no decorative resource logo remains.
+- Three resource filenames, quality tags, copy and open actions remain visible.
+- No AndroidRuntime fatal or React Native unhandled error observed.
 
 ## Remaining before release
+- Android 16 forces edge-to-edge; fixed tab sizing is removed so React Navigation can use mandatory system insets.
 - Run final signed v0.2.1 release acceptance; do not tag, publish or deploy yet.

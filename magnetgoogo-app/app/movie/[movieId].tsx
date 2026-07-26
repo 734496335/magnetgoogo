@@ -32,7 +32,6 @@ interface MagnetResourceCardProps {
   copyLabel: string;
   copiedLabel: string;
   openLabel: string;
-  magnetLabel: string;
   onCopy: (resource: MovieResource) => void;
   onOpen: (resource: MovieResource) => void;
 }
@@ -44,7 +43,6 @@ const MagnetResourceCard = memo(function MagnetResourceCard({
   copyLabel,
   copiedLabel,
   openLabel,
-  magnetLabel,
   onCopy,
   onOpen,
 }: MagnetResourceCardProps) {
@@ -63,17 +61,9 @@ const MagnetResourceCard = memo(function MagnetResourceCard({
         },
       ]}
     >
-      <View style={styles.resourceHeader}>
-        <LinearGradient colors={['#4e8aff', '#2c63f4']} style={styles.resourceIcon}>
-          <Ionicons name="magnet" size={22} color="#fff" />
-        </LinearGradient>
-        <View style={styles.resourceHeaderText}>
-          <Text style={[styles.resourceType, { color: colors.accent }]}>{magnetLabel}</Text>
-          <Text style={[styles.resourceTitle, { color: colors.text }]} numberOfLines={3}>
-            {resource.display_title}
-          </Text>
-        </View>
-      </View>
+      <Text style={[styles.resourceTitle, { color: colors.text }]} numberOfLines={3}>
+        {resource.display_title}
+      </Text>
 
       {visibleTags.length > 0 && (
         <View style={styles.resourceTags}>
@@ -340,7 +330,6 @@ export default function MovieDetailScreen() {
               copyLabel={t.copyMagnet}
               copiedLabel={t.copied}
               openLabel={t.openMagnet}
-              magnetLabel={copy.providerMagnet}
               onCopy={copyResource}
               onOpen={openResource}
             />
@@ -438,17 +427,7 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 5,
   },
-  resourceHeader: { flexDirection: 'row', alignItems: 'flex-start' },
-  resourceIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  resourceHeaderText: { flex: 1, marginLeft: 12 },
-  resourceType: { fontSize: 11, fontWeight: '800', marginBottom: 4 },
-  resourceTitle: { fontSize: 13, lineHeight: 19, fontWeight: '700' },
+  resourceTitle: { fontSize: 14, lineHeight: 21, fontWeight: '700' },
   resourceTags: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 12 },
   resourceTag: {
     borderRadius: 10,
