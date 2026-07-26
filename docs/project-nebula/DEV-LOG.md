@@ -1,5 +1,53 @@
 ---
 日期/时间：2026-07-26（UTC+8）
+本次版本：resource-index-stability-capacity-review
+本次范围：再次对抗性复核本地影视爬虫的长期稳定性、无人值守闭环和现有免费基础设施容量
+涉及模块：magnet/resource_index / deploy/resource-index / magnetgoogo-app / cf-gateway / 阿里云Nginx与运维状态 / docs
+关键改动摘要（可检索）：
+  - 本轮只读复验代码、正式数据库、Windows计划任务模板、App资源协议、Cloudflare网关和线上服务器，不修改生产逻辑。
+  - 明确区分“爬虫内核失败可恢复”与“当前生产链已经无人值守”：内核PASS，但本机任务未安装、WakeToRun关闭、Bundle未自动发布。
+  - 基于实时2核2G服务器余量、App请求路径、Worker/R2官方免费额度和实际事件上报模型，给出可复算DAU区间。
+  - 发现国内镜像证书将在2026-08-02到期，certbot timer enabled但inactive且无next trigger，列为立即运维blocker。
+实测数据：
+  - Resource Index 178 passed；全magnet非集成241 passed / 2 deselected；稳定性专项56 passed。
+  - 四正式任务分别100/100、50/50、50/50、100/100，均success且pending/running/failed为0。
+  - Windows计划任务实查NOT_INSTALLED；任务模板StartWhenAvailable=true、WakeToRun=false。
+  - 服务器已运行83天，负载0.05/0.03/0.00；内存1870MB、available约514MB、Swap已用约501MB；磁盘剩余约19GB。
+  - 服务器静态服务余量高，但内存不适合继续增加常驻爬虫或动态后端。
+  - 当前APK约31MB；100/1000/5000次日下载分别约3.1/31/155GB日流量。
+  - 当前模型保守支持3,000—5,000 DAU，正常使用约8,000—10,000 DAU；现有约100 DAU远低于上限。
+关键发现：
+  - 资源浏览使用APK内置Bundle，搜索由手机直连资源站，中心服务器不是用户搜索规模的主瓶颈。
+  - 免费额度先受Worker日请求和R2分析写入影响，而不是2核CPU；并行竞速、不取消输家、no-cache和永久事件对象显著浪费额度。
+  - 本地爬虫生成新数据后无法自动到达已安装App，必须建立远程manifest/Feed/封面发布链才能形成持续更新产品闭环。
+  - SixV和Meijumi仍是100+100的核心单点；故障时数据不会写坏，但新鲜度会冻结。
+修改文件清单（新增/修改/删除）：
+  - `+ docs/project-nebula/RESOURCE-INDEX-STABILITY-CAPACITY-REVIEW-2026-07-26.md`
+  - `~ docs/project-nebula/TECH-CHALLENGES.md`
+  - `~ docs/project-nebula/_progress.txt`
+  - `~ docs/project-nebula/DEV-LOG.md`
+关键契约变更：
+  - 无代码或运行契约变更；新增运维和容量裁决。
+风险与未决事项：
+  - 证书续期必须在2026-08-02前处理；本轮未执行任何线上修改。
+  - 免费容量估算假设正常用户流量；公开事件接口若遭滥用可提前耗尽额度。
+  - 阿里云套餐的月流量配额未能从仓库或服务器确认，因此APK直下载成本仍是不确定项。
+验证方式：
+  - Python全量和稳定性专项测试；正式数据库status；Windows任务实查；线上服务器只读SSH；正式Bundle大小与App/网关代码审阅。
+复核要点/审查路径：
+  - 首先检查：本次专项评审文档的结论与容量公式。
+  - 然后检查：SourceContext/configChecker/analytics的启动请求放大。
+  - 再检查：resourceFeed.ts的bundled-only边界和run-media-offline的本地输出边界。
+  - 最后检查：CHALLENGE-012的运维blocker和下一步顺序。
+待办清单（按优先级）：
+  - [ ] 修复并实测证书自动续期。
+  - [ ] 安装并验证WakeToRun计划任务和heartbeat告警。
+  - [ ] 建立远程资源发布与App增量更新链。
+  - [ ] 优化启动请求、分析聚合和滥用防护。
+---
+
+---
+日期/时间：2026-07-26（UTC+8）
 本次版本：resource-index-offline-feed-p0-no-llm
 本次范围：关闭影视离线Feed四项P0数据质量问题，形成无需LLM的一键本地生产链，并预留烂番茄/Bangumi评分回写契约
 涉及模块：magnet/resource_index/{normalize,pipeline,store,schema0008,cli} / deploy/resource-index / magnetgoogo-app/{plugin,protocol,ratings,tests} / docs

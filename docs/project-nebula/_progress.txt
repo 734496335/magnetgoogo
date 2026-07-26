@@ -1,25 +1,29 @@
-Current phase: MEDIA FEED P0 + NO-LLM ONE-CLICK EXACT-COMMIT PASS / NOT RELEASED 2026-07-26
+Current phase: CRAWLER STABILITY + FREE CAPACITY REVIEW / OPERATIONAL BLOCKERS OPEN 2026-07-26
 
-## Completed
-- Formal sources: SixV movie100, DYTT movie50, SixV series50, Meijumi series100.
-- One-click Windows entry installs runtime, resumes sources, aggregates, downloads covers and audits without LLM.
-- Database selection uses durable completion evidence, not filename priority.
-- Genre/country anomalies are normalized before formal export; quality anomaly count is 0.
-- Resource episode identity supports SxxExx, ranges, Chinese episodes, magnet dn and filenames.
-- Cross-season/unknown-season resources are quarantined: mismatch1469, unknown686, total2155.
-- 21 candidates without reliable resources are dropped; movie146 and series109 remain available.
-- Formal output is movie100 + series100; App bundles contain 100 + 100 verified local covers.
-- Movie bundle: 352 resources / 4,139,597 cover bytes; series: 1331 / 5,064,591.
-- App only receives magnet/cloud resources and fills unsupported candidates from the larger pool.
-- Schema 0008 adds nullable Rotten Tomatoes and Bangumi fields for a separate rating writer.
-- All 200 items contain the rating fields; current non-null count is 0; crawler null updates preserve backfills.
+## Engine verdict
+- Resource Index 178 passed; all magnet non-integration 241 passed / 2 deselected.
+- Interrupt/retry/mirror/quality/offline-bundle targeted suite: 56 passed.
+- Formal jobs are success: SixV movie100, DYTT movie50, SixV series50, Meijumi series100.
+- All formal jobs have pending=0, running=0 and failed=0.
+- Durable snapshot, rank resume, locks, budgets, hard stops, atomic export and quality gates are PASS.
 
-## Verification
-- Exact-commit Resource Index 178 passed; all magnet non-integration 241 passed / 2 deselected.
-- Exact-commit App resource Feed PASS; adversarial 36/36; TypeScript and Expo prebuild PASS.
-- PowerShell 8/8; formal DB doctor 4/4, integrity=ok, schema=0008.
-- Real one-click run PASS; all four source invocations and repeated cover builds used 0 HTTP.
+## Production-loop blockers
+- Windows scheduled task is NOT_INSTALLED; current state is manual one-click, not unattended.
+- Task template has StartWhenAvailable=true but WakeToRun=false.
+- App media feed is bundled-only; local crawler updates do not reach installed users without a new APK.
+- SixV shared brand/template and single-endpoint Meijumi remain freshness single points.
+- No heartbeat alerts for missed crawl, stale catalog, failed quota, certificate, disk or publish failure.
+- cn mirror certificate expires 2026-08-02; certbot timer is enabled but inactive with no next trigger.
 
-## Remaining
-- P1 Japanese-series source and evidence-backed ranking remain open.
-- App v0.2.1 is not released; do not tag, publish or deploy.
+## Capacity verdict
+- Resource browsing is APK-local; searches go phone-to-source, not through the central server.
+- Live server: 2 cores mostly idle, about 514MB memory available, about 501MB swap used, about 19GB disk free.
+- Static delivery headroom is high; do not add crawler/database/search backend to this 2GB server.
+- Current free-stack conservative capacity: 3,000-5,000 DAU; normal ceiling about 8,000-10,000 DAU.
+- Current about 100 DAU is far below capacity; APK download traffic is the main Alibaba quota unknown.
+
+## Next
+- Fix and prove certificate renewal before 2026-08-02.
+- Install WakeToRun task plus heartbeat; build remote manifest/feed/cover publishing.
+- Reduce endpoint races/no-cache analytics writes and add abuse controls.
+- App is not released from this review; do not tag or deploy.
