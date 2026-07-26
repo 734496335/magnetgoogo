@@ -3,7 +3,7 @@ param(
     [string]$TaskName = "MagnetGoogo Movie Sources Safe Crawl",
     [ValidateRange(6, 24)]
     [int]$IntervalHours = 6,
-    [string]$Sources = "sixv,dytt8899",
+    [string]$Sources = "sixv,dytt8899,sixv-series,meijumi",
     [string]$VenvPath = "",
     [string]$OutputDir = "",
     [switch]$Remove

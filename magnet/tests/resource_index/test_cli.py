@@ -21,7 +21,7 @@ def test_cli_demo_loop(tmp_path: Path):
         check=False,
     )
     assert r.returncode == 0
-    assert "schema_version=0006" in r.stdout
+    assert "schema_version=0007" in r.stdout
     assert "status=ready" in r.stdout
 
     r = subprocess.run(
@@ -149,7 +149,7 @@ def test_cli_doctor_and_latest_policy_gate(tmp_path: Path):
     assert doctor.returncode == 0, doctor.stderr + doctor.stdout
     report = json.loads(doctor.stdout)
     assert report["status"] == "pass"
-    assert report["checks"]["sqlite"]["schema_version"] == "0006"
+    assert report["checks"]["sqlite"]["schema_version"] == "0007"
 
     gated = subprocess.run(
         [
@@ -167,6 +167,49 @@ def test_cli_doctor_and_latest_policy_gate(tmp_path: Path):
             "--max-batches",
             "0",
         ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert gated.returncode == 1
+    assert "LIVE_POLICY_NOT_ACKNOWLEDGED" in gated.stderr
+
+
+def test_cli_lists_movie_brands_and_gates_live_probe() -> None:
+    py = sys.executable
+    root = str(Path(__file__).resolve().parents[3])
+    sources = subprocess.run(
+        [py, "-B", "-m", "magnet.resource_index.cli", "list-movie-sources"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert sources.returncode == 0
+    source_payload = json.loads(sources.stdout)
+    assert {"sixv", "dytt8899", "meijumi"} <= set(source_payload)
+    assert source_payload["meijumi"]["content_kind"] == "series"
+
+    brands = subprocess.run(
+        [py, "-B", "-m", "magnet.resource_index.cli", "list-movie-brands"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert brands.returncode == 0
+    brand_payload = json.loads(brands.stdout)
+    assert brand_payload["sixv"]["strategy"] == "mirror_family"
+    assert brand_payload["meijumi"]["content_kinds"] == [
+        "series",
+        "documentary",
+        "anime",
+        "variety",
+    ]
+
+    gated = subprocess.run(
+        [py, "-B", "-m", "magnet.resource_index.cli", "probe-movie-brands", "--brand", "sixv"],
         cwd=root,
         capture_output=True,
         text=True,

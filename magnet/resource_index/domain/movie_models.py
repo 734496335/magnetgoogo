@@ -17,6 +17,14 @@ class MovieListingCandidate:
     recommended: bool
     highlight_labels: tuple[str, ...]
     quality_tags: tuple[str, ...]
+    content_kind: str = "movie"
+    series_title: str | None = None
+    season_number: int | None = None
+    episode_number: int | None = None
+    episode_label: str | None = None
+    update_status: str | None = None
+    brand_id: str | None = None
+    endpoint_origin: str | None = None
 
 
 @dataclass(frozen=True)
@@ -60,3 +68,11 @@ class MovieDetail:
     parser_version: str
     raw_document_hash: str
     resources: tuple[MovieResource, ...]
+    content_kind: str = "movie"
+    series_title: str | None = None
+    season_number: int | None = None
+    episode_number: int | None = None
+    episode_label: str | None = None
+    update_status: str | None = None
+    brand_id: str | None = None
+    endpoint_origin: str | None = None

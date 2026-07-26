@@ -1,4 +1,55 @@
 ---
+日期/时间：2026-07-26（UTC+8）
+本次版本：resource-index-brand-family-media
+本次范围：建立影视品牌/镜像体系，新增两路电视剧源并生成跨品牌去重统一Feed
+涉及模块：magnet/resource_index/{config/movie_source_brands.json,adapters/{movie_brand_registry,meijumi,sixv/series_*},pipeline/{movie_latest,movie_brand_probe,media_aggregate},store/schema0007,cli} / deploy/resource-index / tests / docs
+关键改动摘要（可检索）：
+  - 新增品牌注册表，区分主站、官方镜像、跳转别名、发布页、候选和导航页；候选不会自动升级。
+  - SixV旧版三域按发布页与内容指纹归为同品牌镜像；DY2018验证为DYTT8899跳转别名；DYTT8与电影天堂导航保持独立。
+  - 同品牌端点按优先级故障切换，使用稳定source_item_key避免域名切换后重复抓详情。
+  - 新增meijumi正式剧集源和sixv-series正式电视剧源；共用MovieLatestRunner、预算、锁、恢复和Feed。
+  - schema 0007增加movie/series类型、剧名、季集、更新状态、品牌和端点字段；历史0006无损升级。
+  - 新增media-feed/1聚合层，按规范标题/年份或剧名/季跨品牌去重，合并资源与source_variants。
+  - 新增手动品牌探测命令；正式调度默认四源并自动重建media_latest_feed.json。
+实测数据：
+  - 美剧迷50/50，1740资源（1488磁力、126迅雷、73夸克、53百度），字段和URL重复均为0。
+  - SixV电视剧50/50，417资源（308磁力、37迅雷、37夸克、35百度），字段和URL重复均为0。
+  - 四源原始175条聚合为158条：74电影、84电视剧、17组跨品牌合并、2345资源。
+  - 镜像反例：6v520.com失败后切换6v520.net，只发两个列表尝试，详情调用保持1次。
+  - 美剧迷与SixV电视剧完成后重复运行均0请求；安全检查首次1列表请求，立即重跑0请求跳过。
+关键发现：
+  - 同品牌必须由发布页、跳转关系、模板/内容指纹证明，不能按域名名称猜测。
+  - IMDb不能作为唯一聚合主键；一边缺IMDb时会漏合并，现改为标题身份主键+IMDb辅助别名。
+  - SixV与美剧迷当前50条存在16组剧集重合，互补价值来自更新时效和资源集合，不是简单堆来源。
+修改文件清单（新增/修改/删除）：
+  - `+ magnet/resource_index/config/movie_source_brands.json`
+  - `+ magnet/resource_index/adapters/{movie_brand_registry.py,meijumi/**,sixv/series_*}`
+  - `+ magnet/resource_index/pipeline/{movie_brand_probe.py,media_aggregate.py}`
+  - `+ magnet/resource_index/store/sql/0007_media_brand_identity.sql`
+  - `~ magnet/resource_index/{domain/movie_models.py,pipeline/movie_latest.py,store/movie_repository.py,cli.py}`
+  - `~ deploy/resource-index/**`
+  - `+ magnet/tests/resource_index/test_{movie_brand_registry,meijumi,sixv_series,media_aggregate,movie_mirror_failover}.py`
+关键契约变更：
+  - Resource Index schema 0006 -> 0007。
+  - 单源Feed继续movie-feed/1并新增媒体/品牌字段；聚合Feed为media-feed/1。
+  - 默认安全来源为sixv、dytt8899、sixv-series、meijumi。
+风险与未决事项：
+  - 低频不能保证永不触发限制；不实现验证码/WAF/隐藏资源绕过。
+  - App尚未切换到统一电影/电视剧Feed；候选站适配器仍按价值逐批开发。
+验证方式：
+  - Resource Index 147 passed；全magnet非集成210 passed / 2 deselected。
+  - compileall、validate_enum 241/241、真实四源数据审计、镜像切换、零重放和安全门禁PASS。
+复核要点/审查路径：
+  - 首先检查：movie_source_brands.json与movie_brand_registry.py（证据和运行端点边界）。
+  - 然后检查：movie_latest.py（端点切换、稳定键和零重放）。
+  - 再检查：media_aggregate.py（跨品牌去重、防不同季误并）。
+  - 最后检查：正式四源DB/Feed与media_latest_feed.json。
+待办清单（按优先级）：
+  - [ ] 精确提交clean-worktree复验。
+  - [ ] 独立产品批次接入App电影/电视剧统一展示。
+---
+
+---
 Date/Time: 2026-07-26 (UTC+8)
 Version: app-v0.2.1-primary-channel-genre-filter
 Scope: Strengthen the highest-level media navigation, tighten Feed spacing and add real genre filtering with data-quality fallback

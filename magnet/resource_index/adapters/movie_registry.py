@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Protocol
 
-from magnet.resource_index.acquisition.policy import LiveFetchPolicy
 from magnet.resource_index.domain.movie_models import MovieDetail, MovieListingCandidate
 from magnet.resource_index.errors import CONFIG_ERROR, ResourceIndexError
 
@@ -42,7 +41,10 @@ class MovieSourceSpec:
     robots_url: str | None
     allowed_origins: tuple[str, ...]
     allowed_path_prefixes: tuple[str, ...]
-    crawler_factory: Callable[[LiveFetchPolicy], MovieCrawler]
+    crawler_factory: Callable[..., MovieCrawler]
+    brand_id: str | None = None
+    content_kind: str = "movie"
+    parser_variant: str | None = None
 
 
 _SPECS: dict[str, MovieSourceSpec] = {}
@@ -73,6 +75,9 @@ def list_movie_sources() -> dict[str, dict[str, object]]:
             "minimum_check_interval_hours": spec.minimum_check_interval_hours,
             "daily_request_budget": spec.daily_request_budget,
             "robots_url": spec.robots_url,
+            "brand_id": spec.brand_id,
+            "content_kind": spec.content_kind,
+            "parser_variant": spec.parser_variant,
         }
         for source_id, spec in sorted(_SPECS.items())
     }
@@ -98,7 +103,76 @@ def _ensure_builtin_movie_sources() -> None:
                 robots_url=None,
                 allowed_origins=("https://www.6v520.com",),
                 allowed_path_prefixes=("/dy/",),
-                crawler_factory=lambda policy: SixVLiveCrawler(policy=policy),
+                crawler_factory=lambda policy, origin=None, allowed_origins=None: SixVLiveCrawler(
+                    policy=policy,
+                    origin=origin or "https://www.6v520.com",
+                    allowed_origins=allowed_origins,
+                ),
+                brand_id="sixv",
+                content_kind="movie",
+                parser_variant="sixv_legacy",
+            )
+        )
+    if "sixv-series" not in _SPECS:
+        from magnet.resource_index.adapters.sixv.series_crawler import SixVSeriesLiveCrawler
+
+        register_movie_source(
+            MovieSourceSpec(
+                source_id="sixv-series",
+                snapshot_schema="media-latest/sixv-series/1",
+                default_count=50,
+                minimum_delay_seconds=10.0,
+                minimum_check_interval_hours=12,
+                daily_request_budget=70,
+                default_batch_size=5,
+                automatic_max_batches=2,
+                snapshot_max_requests=4,
+                batch_max_requests=5,
+                max_listing_pages=1,
+                robots_url=None,
+                allowed_origins=(
+                    "https://www.6v520.com",
+                    "https://www.6v520.net",
+                    "https://www.6v520.cc",
+                ),
+                allowed_path_prefixes=("/gvod/", "/dlz/", "/rj/", "/mj/"),
+                crawler_factory=lambda policy, origin=None, allowed_origins=None: SixVSeriesLiveCrawler(
+                    policy=policy,
+                    origin=origin or "https://www.6v520.com",
+                    allowed_origins=allowed_origins,
+                ),
+                brand_id="sixv",
+                content_kind="series",
+                parser_variant="sixv_legacy",
+            )
+        )
+    if "meijumi" not in _SPECS:
+        from magnet.resource_index.adapters.meijumi.live_crawler import MeijumiLiveCrawler
+
+        register_movie_source(
+            MovieSourceSpec(
+                source_id="meijumi",
+                snapshot_schema="media-latest/meijumi/1",
+                default_count=50,
+                minimum_delay_seconds=12.0,
+                minimum_check_interval_hours=12,
+                daily_request_budget=70,
+                default_batch_size=5,
+                automatic_max_batches=2,
+                snapshot_max_requests=2,
+                batch_max_requests=5,
+                max_listing_pages=1,
+                robots_url="https://www.meijumi.net/robots.txt",
+                allowed_origins=("https://www.meijumi.net",),
+                allowed_path_prefixes=("/news/", "/"),
+                crawler_factory=lambda policy, origin=None, allowed_origins=None: MeijumiLiveCrawler(
+                    policy=policy,
+                    origin=origin or "https://www.meijumi.net",
+                    allowed_origins=allowed_origins,
+                ),
+                brand_id="meijumi",
+                content_kind="series",
+                parser_variant="meijumi_wordpress",
             )
         )
     if "dytt8899" not in _SPECS:
@@ -120,6 +194,13 @@ def _ensure_builtin_movie_sources() -> None:
                 robots_url="https://www.dytt8899.com/robots.txt",
                 allowed_origins=("https://www.dytt8899.com",),
                 allowed_path_prefixes=("/html/gndy/dyzz/", "/i/"),
-                crawler_factory=lambda policy: DyttLiveCrawler(policy=policy),
+                crawler_factory=lambda policy, origin=None, allowed_origins=None: DyttLiveCrawler(
+                    policy=policy,
+                    origin=origin or "https://www.dytt8899.com",
+                    allowed_origins=allowed_origins,
+                ),
+                brand_id="dytt8899",
+                content_kind="movie",
+                parser_variant="dytt_empire",
             )
         )

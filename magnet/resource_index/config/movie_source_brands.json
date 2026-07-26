@@ -1,0 +1,423 @@
+{
+  "schema_version": "movie-source-brands/1",
+  "verified_at": "2026-07-26T09:30:00+08:00",
+  "brands": [
+    {
+      "brand_id": "sixv",
+      "label": "6V / 66影视",
+      "content_kinds": ["movie", "series", "anime", "variety"],
+      "strategy": "mirror_family",
+      "endpoints": [
+        {
+          "endpoint_id": "sixv-release",
+          "origin": "https://www.6v123.com",
+          "role": "release_page",
+          "state": "discovery_only",
+          "parser_variant": null,
+          "priority": 0,
+          "source_ids": [],
+          "evidence": "publisher_page",
+          "verified_at": "2026-07-26T09:20:00+08:00",
+          "notes": "Publishes the current legacy and modern 6V domains."
+        },
+        {
+          "endpoint_id": "sixv-legacy-primary",
+          "origin": "https://www.6v520.com",
+          "role": "primary",
+          "state": "active",
+          "parser_variant": "sixv_legacy",
+          "priority": 10,
+          "source_ids": ["sixv", "sixv-series"],
+          "evidence": "runtime_content_hash",
+          "content_fingerprint": "1df2d960f82c",
+          "verified_at": "2026-07-26T09:20:00+08:00",
+          "notes": "Byte-identical home page with 6v520.net and 6v520.cc."
+        },
+        {
+          "endpoint_id": "sixv-legacy-net",
+          "origin": "https://www.6v520.net",
+          "role": "official_mirror",
+          "state": "standby",
+          "parser_variant": "sixv_legacy",
+          "priority": 20,
+          "source_ids": ["sixv", "sixv-series"],
+          "evidence": "publisher_page_and_runtime_hash",
+          "content_fingerprint": "1df2d960f82c",
+          "verified_at": "2026-07-26T09:20:00+08:00"
+        },
+        {
+          "endpoint_id": "sixv-legacy-cc",
+          "origin": "https://www.6v520.cc",
+          "role": "official_mirror",
+          "state": "standby",
+          "parser_variant": "sixv_legacy",
+          "priority": 30,
+          "source_ids": ["sixv", "sixv-series"],
+          "evidence": "publisher_page_and_runtime_hash",
+          "content_fingerprint": "1df2d960f82c",
+          "verified_at": "2026-07-26T09:20:00+08:00"
+        },
+        {
+          "endpoint_id": "sixv-modern-xb6v",
+          "origin": "https://www.xb6v.com",
+          "role": "branch",
+          "state": "candidate",
+          "parser_variant": "sixv_modern",
+          "priority": 40,
+          "source_ids": [],
+          "evidence": "publisher_page_and_runtime_hash",
+          "content_fingerprint": "57b941603587",
+          "verified_at": "2026-07-26T09:20:00+08:00"
+        },
+        {
+          "endpoint_id": "sixv-modern-hao6v",
+          "origin": "https://www.hao6v.org",
+          "role": "official_mirror",
+          "state": "candidate",
+          "parser_variant": "sixv_modern",
+          "priority": 50,
+          "source_ids": [],
+          "evidence": "publisher_page_and_runtime_hash",
+          "content_fingerprint": "57b941603587",
+          "verified_at": "2026-07-26T09:20:00+08:00"
+        },
+        {
+          "endpoint_id": "sixv-modern-6vdy",
+          "origin": "https://www.6vdy.org",
+          "role": "candidate",
+          "state": "candidate",
+          "parser_variant": "sixv_modern",
+          "priority": 60,
+          "source_ids": [],
+          "evidence": "self_identified_and_runtime_hash",
+          "content_fingerprint": "57b941603587",
+          "verified_at": "2026-07-26T09:20:00+08:00"
+        },
+        {
+          "endpoint_id": "sixv-6vhao-redirect",
+          "origin": "http://www.6vhao.net",
+          "role": "redirect_alias",
+          "state": "candidate",
+          "parser_variant": "sixv_unknown",
+          "priority": 90,
+          "source_ids": [],
+          "allowed_redirect_origins": ["https://www.6vdyy.com"],
+          "evidence": "redirect_observed",
+          "verified_at": "2026-07-26T09:20:00+08:00"
+        }
+      ]
+    },
+    {
+      "brand_id": "dytt8899",
+      "label": "电影天堂 / DYTT8899",
+      "content_kinds": ["movie", "series", "anime", "variety"],
+      "strategy": "redirect_alias_family",
+      "endpoints": [
+        {
+          "endpoint_id": "dytt8899-primary",
+          "origin": "https://www.dytt8899.com",
+          "role": "primary",
+          "state": "active",
+          "parser_variant": "dytt_empire",
+          "priority": 10,
+          "source_ids": ["dytt8899"],
+          "evidence": "runtime_verified",
+          "content_fingerprint": "d9960faf7ab5",
+          "verified_at": "2026-07-26T09:20:00+08:00"
+        },
+        {
+          "endpoint_id": "dytt8899-dy2018",
+          "origin": "http://www.dy2018.com",
+          "role": "redirect_alias",
+          "state": "standby",
+          "parser_variant": "dytt_empire",
+          "priority": 20,
+          "source_ids": ["dytt8899"],
+          "allowed_redirect_origins": ["https://www.dytt8899.com"],
+          "evidence": "redirect_observed",
+          "content_fingerprint": "d9960faf7ab5",
+          "verified_at": "2026-07-26T09:20:00+08:00"
+        },
+        {
+          "endpoint_id": "dytt8899-ygdy8",
+          "origin": "http://www.ygdy8.com",
+          "role": "candidate",
+          "state": "unavailable",
+          "parser_variant": "unknown",
+          "priority": 90,
+          "source_ids": [],
+          "evidence": "runtime_probe",
+          "verified_at": "2026-07-26T09:20:00+08:00",
+          "notes": "Returned an unusually small response and is not trusted as a mirror."
+        }
+      ]
+    },
+    {
+      "brand_id": "meijumi",
+      "label": "美剧迷",
+      "content_kinds": ["series", "documentary", "anime", "variety"],
+      "strategy": "independent_complement",
+      "endpoints": [
+        {
+          "endpoint_id": "meijumi-primary",
+          "origin": "https://www.meijumi.net",
+          "role": "primary",
+          "state": "active",
+          "parser_variant": "meijumi_wordpress",
+          "priority": 10,
+          "source_ids": ["meijumi"],
+          "evidence": "runtime_verified",
+          "content_fingerprint": "682414151207",
+          "verified_at": "2026-07-26T09:20:00+08:00",
+          "notes": "The /news/ page exposes the latest 100 series updates."
+        }
+      ]
+    },
+    {
+      "brand_id": "dytt8",
+      "label": "DYTT8",
+      "content_kinds": ["movie", "series"],
+      "strategy": "independent_candidate",
+      "endpoints": [
+        {
+          "endpoint_id": "dytt8-org",
+          "origin": "https://www.dytt8.org",
+          "role": "candidate",
+          "state": "candidate",
+          "parser_variant": "dytt8_distinct",
+          "priority": 10,
+          "source_ids": [],
+          "evidence": "runtime_probe",
+          "content_fingerprint": "b10c3f956bab",
+          "verified_at": "2026-07-26T09:20:00+08:00",
+          "notes": "Distinct content and template; not a DYTT8899 mirror."
+        },
+        {
+          "endpoint_id": "dytt8-net",
+          "origin": "https://dytt8.net",
+          "role": "candidate",
+          "state": "unavailable",
+          "parser_variant": "unknown",
+          "priority": 20,
+          "source_ids": [],
+          "evidence": "runtime_probe",
+          "verified_at": "2026-07-26T09:20:00+08:00",
+          "notes": "Timed out during the low-frequency probe."
+        }
+      ]
+    },
+    {
+      "brand_id": "dianyingtiantang_nav",
+      "label": "电影天堂导航",
+      "content_kinds": ["discovery"],
+      "strategy": "discovery_only",
+      "endpoints": [
+        {
+          "endpoint_id": "dianyingtiantang-me",
+          "origin": "https://dianyingtiantang.me",
+          "role": "discovery_portal",
+          "state": "discovery_only",
+          "parser_variant": null,
+          "priority": 10,
+          "source_ids": [],
+          "evidence": "runtime_probe",
+          "content_fingerprint": "fa9d4888b5ef",
+          "verified_at": "2026-07-26T09:20:00+08:00",
+          "notes": "Navigation portal, not treated as a DYTT content mirror."
+        }
+      ]
+    },
+    {
+      "brand_id": "eztv",
+      "label": "EZTV",
+      "content_kinds": ["series"],
+      "strategy": "candidate_mirror_family",
+      "endpoints": [
+        {
+          "endpoint_id": "eztv-eztvx",
+          "origin": "https://eztvx.to",
+          "role": "primary",
+          "state": "candidate",
+          "parser_variant": "eztv_table",
+          "priority": 10,
+          "source_ids": [],
+          "evidence": "publisher_self_identification",
+          "verified_at": "2026-07-26T09:20:00+08:00",
+          "notes": "Current environment receives an access challenge."
+        },
+        {
+          "endpoint_id": "eztv-tf",
+          "origin": "https://eztv.tf",
+          "role": "official_mirror",
+          "state": "candidate",
+          "parser_variant": "eztv_table",
+          "priority": 20,
+          "source_ids": [],
+          "evidence": "publisher_self_identification",
+          "verified_at": "2026-07-26T09:20:00+08:00"
+        },
+        {
+          "endpoint_id": "eztv-wf",
+          "origin": "https://eztv.wf",
+          "role": "candidate",
+          "state": "candidate",
+          "parser_variant": "eztv_table",
+          "priority": 30,
+          "source_ids": [],
+          "evidence": "navigation_discovery"
+        }
+      ]
+    },
+    {
+      "brand_id": "yts",
+      "label": "YTS / YIFY",
+      "content_kinds": ["movie"],
+      "strategy": "candidate_mirror_family",
+      "endpoints": [
+        {
+          "endpoint_id": "yts-mx",
+          "origin": "https://yts.mx",
+          "role": "primary",
+          "state": "candidate",
+          "parser_variant": "yts",
+          "priority": 10,
+          "source_ids": [],
+          "evidence": "navigation_discovery",
+          "verified_at": "2026-07-26T09:20:00+08:00",
+          "notes": "TLS failed in the current deployment environment."
+        },
+        {
+          "endpoint_id": "yts-do",
+          "origin": "https://yts.do",
+          "role": "candidate",
+          "state": "candidate",
+          "parser_variant": "yts",
+          "priority": 20,
+          "source_ids": [],
+          "evidence": "navigation_discovery"
+        },
+        {
+          "endpoint_id": "yts-rs",
+          "origin": "https://yts.rs",
+          "role": "candidate",
+          "state": "candidate",
+          "parser_variant": "yts",
+          "priority": 30,
+          "source_ids": [],
+          "evidence": "navigation_discovery"
+        }
+      ]
+    },
+    {
+      "brand_id": "mikan",
+      "label": "蜜柑计划",
+      "content_kinds": ["anime"],
+      "strategy": "independent_candidate",
+      "endpoints": [
+        {
+          "endpoint_id": "mikan-primary",
+          "origin": "https://mikanani.me",
+          "role": "primary",
+          "state": "candidate",
+          "parser_variant": "mikan",
+          "priority": 10,
+          "source_ids": [],
+          "evidence": "runtime_verified",
+          "content_fingerprint": "a56a66131f87",
+          "verified_at": "2026-07-26T09:20:00+08:00"
+        }
+      ]
+    },
+    {
+      "brand_id": "dmhy",
+      "label": "动漫花园",
+      "content_kinds": ["anime"],
+      "strategy": "independent_candidate",
+      "endpoints": [
+        {
+          "endpoint_id": "dmhy-primary",
+          "origin": "https://share.dmhy.org",
+          "role": "primary",
+          "state": "candidate",
+          "parser_variant": "dmhy",
+          "priority": 10,
+          "source_ids": [],
+          "evidence": "runtime_verified",
+          "content_fingerprint": "ebdc5ebc4810",
+          "verified_at": "2026-07-26T09:20:00+08:00"
+        }
+      ]
+    },
+    {
+      "brand_id": "xunlei8",
+      "label": "迅雷电影天堂",
+      "content_kinds": ["movie", "series"],
+      "strategy": "candidate_mirror_family",
+      "endpoints": [
+        {
+          "endpoint_id": "xunlei8-org",
+          "origin": "https://xunlei8.org",
+          "role": "candidate",
+          "state": "candidate",
+          "parser_variant": "unknown",
+          "priority": 10,
+          "source_ids": [],
+          "evidence": "navigation_discovery"
+        },
+        {
+          "endpoint_id": "xunlei8-top",
+          "origin": "https://xunlei8.top",
+          "role": "candidate",
+          "state": "candidate",
+          "parser_variant": "unknown",
+          "priority": 20,
+          "source_ids": [],
+          "evidence": "navigation_discovery"
+        }
+      ]
+    },
+    {
+      "brand_id": "btbtt",
+      "label": "BTBTT",
+      "content_kinds": ["movie", "series", "anime"],
+      "strategy": "candidate_mirror_family",
+      "endpoints": [
+        {
+          "endpoint_id": "btbtt10",
+          "origin": "https://btbtt10.com",
+          "role": "candidate",
+          "state": "candidate",
+          "parser_variant": "unknown",
+          "priority": 10,
+          "source_ids": [],
+          "evidence": "navigation_discovery"
+        },
+        {
+          "endpoint_id": "btbtt12",
+          "origin": "https://btbtt12.com",
+          "role": "candidate",
+          "state": "candidate",
+          "parser_variant": "unknown",
+          "priority": 20,
+          "source_ids": [],
+          "evidence": "navigation_discovery"
+        }
+      ]
+    },
+    {
+      "brand_id": "independent_candidates",
+      "label": "独立影视候选池",
+      "content_kinds": ["movie", "series"],
+      "strategy": "probe_only",
+      "endpoints": [
+        {"endpoint_id": "seedhub", "origin": "https://www.seedhub.cc", "role": "candidate", "state": "candidate", "parser_variant": "unknown", "priority": 10, "source_ids": [], "evidence": "user_candidate"},
+        {"endpoint_id": "pianyuan", "origin": "https://pianyuan.org", "role": "candidate", "state": "candidate", "parser_variant": "unknown", "priority": 20, "source_ids": [], "evidence": "user_candidate"},
+        {"endpoint_id": "wuji", "origin": "https://wuji.me", "role": "candidate", "state": "candidate", "parser_variant": "unknown", "priority": 30, "source_ids": [], "evidence": "user_candidate"},
+        {"endpoint_id": "piaohua", "origin": "http://www.piaohua.com", "role": "candidate", "state": "candidate", "parser_variant": "unknown", "priority": 40, "source_ids": [], "evidence": "user_candidate"},
+        {"endpoint_id": "yhg", "origin": "https://yhg007.com", "role": "candidate", "state": "candidate", "parser_variant": "unknown", "priority": 50, "source_ids": [], "evidence": "user_candidate"},
+        {"endpoint_id": "bthaha", "origin": "https://bthaha.top", "role": "candidate", "state": "candidate", "parser_variant": "unknown", "priority": 60, "source_ids": [], "evidence": "user_candidate"},
+        {"endpoint_id": "ttdytt", "origin": "https://ttdytt.cc", "role": "candidate", "state": "candidate", "parser_variant": "unknown", "priority": 70, "source_ids": [], "evidence": "navigation_discovery", "notes": "Certificate verification failed in the current environment."}
+      ]
+    }
+  ]
+}

@@ -256,9 +256,9 @@ def test_detail_parser_falls_back_to_listing_genres_when_source_omits_category()
     assert movie.genres == ("剧情",)
 
 
-def test_schema_0006_adds_movie_cover_and_source_state_tables(tmp_path: Path) -> None:
+def test_schema_0007_adds_media_brand_identity(tmp_path: Path) -> None:
     repo = SqliteResourceRepository(tmp_path / "movie.db")
-    assert repo.init_schema() == "0006"
+    assert repo.init_schema() == "0007"
     tables = {
         row[0]
         for row in repo.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
@@ -270,6 +270,11 @@ def test_schema_0006_adds_movie_cover_and_source_state_tables(tmp_path: Path) ->
         "movie_external_resources",
         "movie_source_state",
     } <= tables
+    columns = {
+        row[1]
+        for row in repo.conn.execute("PRAGMA table_info(movie_items)")
+    }
+    assert {"content_kind", "series_title", "brand_id", "endpoint_origin"} <= columns
     repo.close()
 
 

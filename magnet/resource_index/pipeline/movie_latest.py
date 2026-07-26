@@ -6,13 +6,17 @@ import hashlib
 import json
 import logging
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Any, Callable
 from urllib.parse import urlparse
 
 from magnet.resource_index.acquisition.http_client import normalized_origin
 from magnet.resource_index.acquisition.policy import LiveFetchPolicy
+from magnet.resource_index.adapters.movie_brand_registry import (
+    MovieBrandEndpoint,
+    load_movie_brand_registry,
+)
 from magnet.resource_index.adapters.movie_registry import MovieCrawler, get_movie_source
 from magnet.resource_index.domain.movie_models import MovieListingCandidate
 from magnet.resource_index.errors import (
@@ -34,7 +38,7 @@ from magnet.resource_index.store.movie_repository import MovieRepository
 from magnet.resource_index.store.sqlite_repository import SqliteResourceRepository
 
 Clock = Callable[[], datetime]
-CrawlerBuilder = Callable[[LiveFetchPolicy], MovieCrawler]
+CrawlerBuilder = Callable[..., MovieCrawler]
 
 
 def _utc_now() -> datetime:
@@ -110,8 +114,41 @@ class MovieLatestRunner:
         self.paths = paths
         self.source_id = source_id
         self.snapshot_schema = snapshot_schema or source_spec.snapshot_schema
+        self.brand_id = source_spec.brand_id
+        self.content_kind = source_spec.content_kind
+        self.parser_variant = source_spec.parser_variant
+        if self.brand_id and self.parser_variant:
+            self.endpoints = load_movie_brand_registry().runtime_endpoints(
+                brand_id=self.brand_id,
+                source_id=self.source_id,
+                parser_variant=self.parser_variant,
+            )
+        else:
+            self.endpoints = tuple(
+                MovieBrandEndpoint(
+                    endpoint_id=f"{source_id}-{index}",
+                    origin=value.rstrip("/"),
+                    role="primary" if index == 0 else "official_mirror",
+                    state="active" if index == 0 else "standby",
+                    parser_variant=self.parser_variant or source_id,
+                    priority=index * 10,
+                    source_ids=(source_id,),
+                    evidence="runtime_config",
+                    verified_at=None,
+                    content_fingerprint=None,
+                    allowed_redirect_origins=(),
+                    notes=None,
+                )
+                for index, value in enumerate(source_spec.allowed_origins)
+            )
+        allowed_origin_values = {
+            origin
+            for endpoint in self.endpoints
+            for origin in endpoint.allowed_origins
+        }
+        self.allowed_origin_values = tuple(sorted(allowed_origin_values))
         self.allowed_origins = {
-            normalized_origin(value) for value in source_spec.allowed_origins
+            normalized_origin(value) for value in self.allowed_origin_values
         }
         self.allowed_path_prefixes = source_spec.allowed_path_prefixes
         self.target_count = target_count
@@ -151,6 +188,35 @@ class MovieLatestRunner:
         )
         policy.assert_allowed()
         return policy
+
+    def _build_crawler(
+        self,
+        *,
+        policy: LiveFetchPolicy,
+        endpoint: MovieBrandEndpoint,
+    ) -> MovieCrawler:
+        try:
+            return self.crawler_builder(
+                policy,
+                origin=endpoint.origin,
+                allowed_origins=self.allowed_origin_values,
+            )
+        except TypeError as exc:
+            message = str(exc)
+            if "unexpected keyword argument" not in message and "positional argument" not in message:
+                raise
+            return self.crawler_builder(policy)
+
+    def _endpoint_for_origin(self, origin: str | None) -> MovieBrandEndpoint:
+        normalized = normalized_origin(origin or self.endpoints[0].origin)
+        for endpoint in self.endpoints:
+            if normalized_origin(endpoint.origin) == normalized:
+                return endpoint
+        raise ResourceIndexError(
+            LIVE_URL_REJECTED,
+            "movie snapshot references an unregistered endpoint origin",
+            {"source_id": self.source_id, "endpoint_origin": origin},
+        )
 
     def _validate_candidates(
         self,
@@ -197,14 +263,13 @@ class MovieLatestRunner:
                     "movie candidate URLs must be unique",
                     {"source_id": self.source_id, "detail_url": candidate.detail_url},
                 )
-            if candidate.source_item_key != parsed.path:
+            if not candidate.source_item_key or not candidate.source_item_key.startswith("/"):
                 raise ResourceIndexError(
                     CONFIG_ERROR,
-                    "movie candidate source key must match the detail path",
+                    "movie candidate source key must be a stable absolute source path",
                     {
                         "source_id": self.source_id,
                         "source_item_key": candidate.source_item_key,
-                        "detail_path": parsed.path,
                     },
                 )
             seen_urls.add(candidate.detail_url)
@@ -233,6 +298,14 @@ class MovieLatestRunner:
                     "recommended": item.recommended,
                     "highlight_labels": list(item.highlight_labels),
                     "quality_tags": list(item.quality_tags),
+                    "content_kind": item.content_kind,
+                    "series_title": item.series_title,
+                    "season_number": item.season_number,
+                    "episode_number": item.episode_number,
+                    "episode_label": item.episode_label,
+                    "update_status": item.update_status,
+                    "brand_id": item.brand_id,
+                    "endpoint_origin": item.endpoint_origin,
                 }
                 for item in candidates
             ],
@@ -246,22 +319,91 @@ class MovieLatestRunner:
                 previous_hash = hashlib.sha256(_canonical_snapshot_bytes(previous)).hexdigest()
             except (OSError, json.JSONDecodeError, KeyError, TypeError):
                 previous_hash = None
-        crawler = self.crawler_builder(self._policy(self.snapshot_max_requests))
-        candidates = crawler.crawl_latest_candidates(
-            limit=self.target_count,
-            max_listing_pages=self.max_listing_pages,
-        )
-        self._validate_candidates(candidates)
+        total_requests = 0
+        attempts: list[dict[str, Any]] = []
+        last_error: Exception | None = None
+        selected_endpoint: MovieBrandEndpoint | None = None
+        candidates: list[MovieListingCandidate] | None = None
+        for endpoint in self.endpoints:
+            remaining = self.snapshot_max_requests - total_requests
+            if remaining <= 0:
+                break
+            crawler = self._build_crawler(
+                policy=self._policy(remaining),
+                endpoint=endpoint,
+            )
+            try:
+                captured = crawler.crawl_latest_candidates(
+                    limit=self.target_count,
+                    max_listing_pages=self.max_listing_pages,
+                )
+                total_requests += crawler.http_requests
+                annotated = [
+                    replace(
+                        item,
+                        content_kind=item.content_kind or self.content_kind,
+                        brand_id=item.brand_id or self.brand_id,
+                        endpoint_origin=endpoint.origin,
+                    )
+                    for item in captured
+                ]
+                self._validate_candidates(annotated)
+                candidates = annotated
+                selected_endpoint = endpoint
+                attempts.append(
+                    {
+                        "endpoint_id": endpoint.endpoint_id,
+                        "origin": endpoint.origin,
+                        "status": "success",
+                        "http_requests": crawler.http_requests,
+                    }
+                )
+                break
+            except KeyboardInterrupt:
+                raise
+            except Exception as exc:
+                total_requests += crawler.http_requests
+                last_error = exc
+                attempts.append(
+                    {
+                        "endpoint_id": endpoint.endpoint_id,
+                        "origin": endpoint.origin,
+                        "status": "failed",
+                        "http_requests": crawler.http_requests,
+                        "error": type(exc).__name__,
+                    }
+                )
+                self._log(
+                    "movie endpoint snapshot failed",
+                    source_id=self.source_id,
+                    endpoint_id=endpoint.endpoint_id,
+                    error=type(exc).__name__,
+                )
+        self._invocation_http_requests += total_requests
+        if candidates is None or selected_endpoint is None:
+            if last_error is not None:
+                raise last_error
+            raise ResourceIndexError(
+                CONFIG_ERROR,
+                "movie source has no usable endpoint within the request budget",
+                {"source_id": self.source_id},
+            )
         snapshot = self._snapshot_payload(
             candidates,
             captured_at=self.clock(),
-            http_requests=crawler.http_requests,
+            http_requests=total_requests,
         )
+        snapshot["brand_id"] = self.brand_id
+        snapshot["content_kind"] = self.content_kind
+        snapshot["selected_endpoint"] = {
+            "endpoint_id": selected_endpoint.endpoint_id,
+            "origin": selected_endpoint.origin,
+        }
+        snapshot["endpoint_attempts"] = attempts
         current_hash = hashlib.sha256(_canonical_snapshot_bytes(snapshot)).hexdigest()
         self._snapshot_changed = previous_hash != current_hash
-        self._invocation_http_requests += crawler.http_requests
         _atomic_write_json(self.paths.snapshot_path, snapshot)
-        return snapshot, crawler.http_requests
+        return snapshot, total_requests
 
     def _load_snapshot(self) -> dict[str, Any]:
         try:
@@ -309,25 +451,48 @@ class MovieLatestRunner:
             recommended=bool(item.get("recommended")),
             highlight_labels=tuple(item.get("highlight_labels") or ()),
             quality_tags=tuple(item.get("quality_tags") or ()),
+            content_kind=str(item.get("content_kind") or self.content_kind),
+            series_title=item.get("series_title"),
+            season_number=item.get("season_number"),
+            episode_number=item.get("episode_number"),
+            episode_label=item.get("episode_label"),
+            update_status=item.get("update_status"),
+            brand_id=item.get("brand_id") or self.brand_id,
+            endpoint_origin=item.get("endpoint_origin"),
         )
 
-    def _sync_success(self, job_id: str) -> int:
-        cursor = self.repo.conn.execute(
-            """
-            UPDATE latest_crawl_items
-            SET status = 'success', last_error_code = NULL, updated_at = ?
-            WHERE job_id = ?
-              AND status <> 'success'
-              AND EXISTS (
-                  SELECT 1 FROM movie_items m
-                  JOIN latest_crawl_jobs j ON j.job_id = latest_crawl_items.job_id
-                  WHERE m.source_id = j.source_id
-                    AND m.detail_url = latest_crawl_items.detail_url
-              )
-            """,
-            (self.clock().isoformat().replace("+00:00", "Z"), job_id),
-        )
-        return int(cursor.rowcount or 0)
+    def _sync_success(self, job_id: str, snapshot: dict[str, Any]) -> int:
+        changed = 0
+        for item in snapshot["items"]:
+            candidate = self._candidate(item)
+            if not self.movie_repo.exists(
+                source_id=self.source_id,
+                source_item_key=candidate.source_item_key,
+                detail_url=candidate.detail_url,
+            ):
+                continue
+            self.movie_repo.refresh_from_candidate(
+                source_id=self.source_id,
+                candidate=candidate,
+                now=self.clock(),
+            )
+            cursor = self.repo.conn.execute(
+                """
+                UPDATE latest_crawl_items
+                SET status = 'success', last_error_code = NULL,
+                    detail_url = ?, source_item_key = ?, updated_at = ?
+                WHERE job_id = ? AND rank = ? AND status <> 'success'
+                """,
+                (
+                    candidate.detail_url,
+                    candidate.source_item_key,
+                    self.clock().isoformat().replace("+00:00", "Z"),
+                    job_id,
+                    candidate.rank,
+                ),
+            )
+            changed += int(cursor.rowcount or 0)
+        return changed
 
     def _mark_incomplete_pending(self, job_id: str) -> int:
         now_s = self.clock().isoformat().replace("+00:00", "Z")
@@ -342,11 +507,18 @@ class MovieLatestRunner:
                   FROM movie_items m
                   JOIN latest_crawl_jobs j ON j.job_id = latest_crawl_items.job_id
                   WHERE m.source_id = j.source_id
-                    AND m.detail_url = latest_crawl_items.detail_url
+                    AND (
+                        m.source_item_key = latest_crawl_items.source_item_key
+                        OR m.detail_url = latest_crawl_items.detail_url
+                    )
                     AND (
                         m.genres_json = '[]'
                         OR m.synopsis IS NULL
                         OR TRIM(m.synopsis) = ''
+                        OR (
+                            m.content_kind = 'series'
+                            AND (m.season_number IS NULL OR m.episode_number IS NULL)
+                        )
                     )
               )
             """,
@@ -406,12 +578,13 @@ class MovieLatestRunner:
         try:
             for rank in ranks:
                 row = self.repo.conn.execute(
-                    "SELECT detail_url FROM latest_crawl_items WHERE job_id = ? AND rank = ?",
+                    "SELECT detail_url, source_item_key FROM latest_crawl_items WHERE job_id = ? AND rank = ?",
                     (job_id, rank),
                 ).fetchone()
                 exists = row is not None and self.movie_repo.exists(
                     source_id=self.source_id,
                     detail_url=row["detail_url"],
+                    source_item_key=row["source_item_key"],
                 )
                 if exists:
                     status = "success"
@@ -451,6 +624,7 @@ class MovieLatestRunner:
                 source_id=self.source_id,
                 detail_url=snapshot_item["detail_url"],
                 rank=int(snapshot_item["rank"]),
+                source_item_key=snapshot_item.get("source_item_key"),
             )
             if feed_item is None:
                 missing_urls.append(snapshot_item["detail_url"])
@@ -537,7 +711,7 @@ class MovieLatestRunner:
                 now=self.clock(),
             )
             self.job_store.recover_running(job_id, now=self.clock())
-            self._sync_success(job_id)
+            self._sync_success(job_id, snapshot)
             if reparse_incomplete:
                 self._mark_incomplete_pending(job_id)
             job = self.job_store.get_job(job_id)
@@ -576,7 +750,11 @@ class MovieLatestRunner:
                     "live_one_shot",
                     self.clock(),
                 )
-                crawler = self.crawler_builder(self._policy(self.batch_max_requests))
+                first_candidate = self._candidate(by_rank[ranks[0]])
+                crawler = self._build_crawler(
+                    policy=self._policy(self.batch_max_requests),
+                    endpoint=self._endpoint_for_origin(first_candidate.endpoint_origin),
+                )
                 errors: dict[int, str] = {}
                 processed_ranks: list[int] = []
                 created = 0
@@ -592,6 +770,17 @@ class MovieLatestRunner:
                         processed_ranks.append(rank)
                         try:
                             movie = crawler.crawl_movie_detail(candidate)
+                            movie = replace(
+                                movie,
+                                content_kind=candidate.content_kind,
+                                series_title=candidate.series_title or movie.series_title,
+                                season_number=candidate.season_number or movie.season_number,
+                                episode_number=candidate.episode_number or movie.episode_number,
+                                episode_label=candidate.episode_label or movie.episode_label,
+                                update_status=candidate.update_status or movie.update_status,
+                                brand_id=candidate.brand_id or movie.brand_id,
+                                endpoint_origin=candidate.endpoint_origin or movie.endpoint_origin,
+                            )
                             stats = self.movie_repo.upsert(movie, now=self.clock())
                             created += int(stats.movie_created)
                             updated += int(stats.movie_updated)

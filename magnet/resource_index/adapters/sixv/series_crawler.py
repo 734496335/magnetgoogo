@@ -1,22 +1,24 @@
-"""Low-frequency live crawler for DYTT movie pages."""
+"""Low-frequency live crawler for SixV latest television series."""
 
 from __future__ import annotations
 
+from datetime import date
 from urllib.parse import urlparse
 
 from magnet.resource_index.acquisition.http_client import LiveHttpClient, normalized_origin
 from magnet.resource_index.acquisition.policy import LiveFetchPolicy, PhysicalRequestBudget
-from magnet.resource_index.adapters.dytt.parser import (
+from magnet.resource_index.adapters.sixv.parser import decode_sixv_html
+from magnet.resource_index.adapters.sixv.series_parser import (
     ORIGIN,
     SOURCE_ID,
-    parse_latest_listing,
-    parse_movie_detail,
+    parse_latest_series_listing,
+    parse_series_detail,
 )
 from magnet.resource_index.domain.movie_models import MovieDetail, MovieListingCandidate
 from magnet.resource_index.errors import CONFIG_ERROR, LIVE_EMPTY_RESULT, LIVE_URL_REJECTED, ResourceIndexError
 
 
-class DyttLiveCrawler:
+class SixVSeriesLiveCrawler:
     source_id = SOURCE_ID
 
     def __init__(
@@ -26,6 +28,7 @@ class DyttLiveCrawler:
         origin: str = ORIGIN,
         allowed_origins: tuple[str, ...] | None = None,
         client: LiveHttpClient | None = None,
+        today: date | None = None,
     ) -> None:
         self.origin = origin.rstrip("/")
         self.policy = policy or LiveFetchPolicy.from_flags()
@@ -39,6 +42,7 @@ class DyttLiveCrawler:
             allowed_origins=self.allowed_origins,
             request_budget=self.request_budget,
         )
+        self.today = today or date.today()
 
     @property
     def http_requests(self) -> int:
@@ -47,8 +51,8 @@ class DyttLiveCrawler:
     def crawl_latest_candidates(
         self,
         *,
-        limit: int = 25,
-        max_listing_pages: int = 2,
+        limit: int = 50,
+        max_listing_pages: int = 1,
     ) -> list[MovieListingCandidate]:
         if limit <= 0 or max_listing_pages <= 0:
             raise ResourceIndexError(
@@ -57,39 +61,20 @@ class DyttLiveCrawler:
                 {"limit": limit, "max_listing_pages": max_listing_pages},
             )
         self.policy.assert_allowed()
-        candidates: list[MovieListingCandidate] = []
-        seen_urls: set[str] = set()
-        for page in range(1, max_listing_pages + 1):
-            page_url = (
-                f"{self.origin}/html/gndy/dyzz/index.html"
-                if page == 1
-                else f"{self.origin}/html/gndy/dyzz/index_{page}.html"
-            )
-            response = self.client.get(page_url, referer=f"{self.origin}/index.html")
-            parsed = parse_latest_listing(
-                response.text,
-                page_url=response.url,
-                rank_offset=len(candidates),
-            )
-            for item in parsed:
-                if item.detail_url in seen_urls:
-                    continue
-                seen_urls.add(item.detail_url)
-                candidates.append(item)
-                if len(candidates) >= limit:
-                    return candidates[:limit]
-            if not parsed:
-                break
-        if not candidates:
-            raise ResourceIndexError(
-                LIVE_EMPTY_RESULT,
-                "DYTT latest-movie listing returned no candidates",
-                {"origin": self.origin},
-            )
+        response = self.client.get(
+            f"{self.origin}/gvod/dsj.html",
+            referer=f"{self.origin}/",
+        )
+        html = decode_sixv_html(response.content)
+        candidates = parse_latest_series_listing(
+            html,
+            page_url=response.url,
+            reference_date=self.today,
+        )
         if len(candidates) < limit:
             raise ResourceIndexError(
                 LIVE_EMPTY_RESULT,
-                "DYTT latest-movie listing did not contain the requested count",
+                "SixV latest-series page did not contain the requested count",
                 {"requested": limit, "found": len(candidates)},
             )
         return candidates[:limit]
@@ -100,21 +85,21 @@ class DyttLiveCrawler:
         if normalized_origin(candidate.detail_url) not in self.allowed_origins:
             raise ResourceIndexError(
                 LIVE_URL_REJECTED,
-                "DYTT detail URL is outside the registered brand origins",
+                "SixV series detail URL is outside the registered brand origins",
                 {"detail_url": candidate.detail_url},
             )
-        if not parsed.path.startswith("/i/") or not parsed.path.endswith(".html"):
+        if not any(parsed.path.startswith(prefix) for prefix in ("/dlz/", "/rj/", "/mj/")):
             raise ResourceIndexError(
                 LIVE_URL_REJECTED,
-                "DYTT detail URL is outside the allowed public movie path",
+                "SixV series detail URL is outside the public series paths",
                 {"detail_url": candidate.detail_url},
             )
         response = self.client.get(
             candidate.detail_url,
-            referer=f"{self.origin}/html/gndy/dyzz/index.html",
+            referer=f"{self.origin}/gvod/dsj.html",
         )
-        return parse_movie_detail(
-            response.text,
+        return parse_series_detail(
+            decode_sixv_html(response.content),
             candidate=candidate,
             raw_content=response.content,
         )

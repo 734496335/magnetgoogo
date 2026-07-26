@@ -9,7 +9,7 @@ from pathlib import Path
 DEFAULT_PARSER_VERSION = "javbus-parser/1.0.0"
 SOURCE_ID_JAVBUS = "javbus"
 SOURCE_ID_SIXV = "sixv"
-SCHEMA_VERSION = "0006"
+SCHEMA_VERSION = "0007"
 
 # Risk status reserved for future policy engine
 RISK_MANUAL_REVIEW = "manual_review"

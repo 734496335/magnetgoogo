@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from magnet.resource_index.domain.movie_models import MovieDetail
+from magnet.resource_index.domain.movie_models import MovieDetail, MovieListingCandidate
 from magnet.resource_index.store.sqlite_repository import SqliteResourceRepository, _iso
 
 
@@ -52,7 +52,9 @@ class MovieRepository:
                 """
                 INSERT INTO movie_items(
                     movie_id, source_id, source_item_key, detail_url,
-                    listing_title, title, original_title, year, update_date,
+                    listing_title, content_kind, series_title, season_number,
+                    episode_number, episode_label, update_status, brand_id,
+                    endpoint_origin, title, original_title, year, update_date,
                     release_date, duration_minutes, countries_json, genres_json,
                     languages_json, directors_json, actors_json, imdb_id,
                     douban_rating, douban_rating_text, douban_url,
@@ -62,11 +64,20 @@ class MovieRepository:
                     created_at, updated_at
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?
                 )
                 ON CONFLICT(movie_id) DO UPDATE SET
                     detail_url = excluded.detail_url,
                     listing_title = excluded.listing_title,
+                    content_kind = excluded.content_kind,
+                    series_title = COALESCE(excluded.series_title, movie_items.series_title),
+                    season_number = COALESCE(excluded.season_number, movie_items.season_number),
+                    episode_number = COALESCE(excluded.episode_number, movie_items.episode_number),
+                    episode_label = COALESCE(excluded.episode_label, movie_items.episode_label),
+                    update_status = COALESCE(excluded.update_status, movie_items.update_status),
+                    brand_id = COALESCE(excluded.brand_id, movie_items.brand_id),
+                    endpoint_origin = COALESCE(excluded.endpoint_origin, movie_items.endpoint_origin),
                     title = excluded.title,
                     original_title = COALESCE(excluded.original_title, movie_items.original_title),
                     year = COALESCE(excluded.year, movie_items.year),
@@ -116,6 +127,14 @@ class MovieRepository:
                     movie.source_item_key,
                     movie.detail_url,
                     movie.listing_title,
+                    movie.content_kind,
+                    movie.series_title,
+                    movie.season_number,
+                    movie.episode_number,
+                    movie.episode_label,
+                    movie.update_status,
+                    movie.brand_id,
+                    movie.endpoint_origin,
                     movie.title,
                     movie.original_title,
                     movie.year,
@@ -234,12 +253,76 @@ class MovieRepository:
             resources_updated=resources_updated,
         )
 
-    def exists(self, *, source_id: str, detail_url: str) -> bool:
+    def exists(
+        self,
+        *,
+        source_id: str,
+        detail_url: str | None = None,
+        source_item_key: str | None = None,
+    ) -> bool:
+        if source_item_key:
+            row = self.conn.execute(
+                "SELECT 1 FROM movie_items WHERE source_id = ? AND source_item_key = ? LIMIT 1",
+                (source_id, source_item_key),
+            ).fetchone()
+            if row is not None:
+                return True
+        if not detail_url:
+            return False
         row = self.conn.execute(
             "SELECT 1 FROM movie_items WHERE source_id = ? AND detail_url = ? LIMIT 1",
             (source_id, detail_url),
         ).fetchone()
         return row is not None
+
+    def refresh_from_candidate(
+        self,
+        *,
+        source_id: str,
+        candidate: MovieListingCandidate,
+        now: datetime,
+    ) -> bool:
+        now_s = _iso(now)
+        assert now_s is not None
+        cursor = self.conn.execute(
+            """
+            UPDATE movie_items SET
+                detail_url = ?, listing_title = ?, update_date = COALESCE(?, update_date),
+                recommended = ?, highlight_labels_json = ?,
+                quality_tags_json = CASE WHEN ? <> '[]' THEN ? ELSE quality_tags_json END,
+                content_kind = ?, series_title = COALESCE(?, series_title),
+                season_number = COALESCE(?, season_number),
+                episode_number = COALESCE(?, episode_number),
+                episode_label = COALESCE(?, episode_label),
+                update_status = COALESCE(?, update_status),
+                brand_id = COALESCE(?, brand_id),
+                endpoint_origin = COALESCE(?, endpoint_origin),
+                last_seen_at = ?, updated_at = ?
+            WHERE source_id = ? AND source_item_key = ?
+            """,
+            (
+                candidate.detail_url,
+                candidate.listing_title,
+                candidate.update_date.isoformat() if candidate.update_date else None,
+                int(candidate.recommended),
+                json.dumps(candidate.highlight_labels, ensure_ascii=False),
+                json.dumps(candidate.quality_tags, ensure_ascii=False),
+                json.dumps(candidate.quality_tags, ensure_ascii=False),
+                candidate.content_kind,
+                candidate.series_title,
+                candidate.season_number,
+                candidate.episode_number,
+                candidate.episode_label,
+                candidate.update_status,
+                candidate.brand_id,
+                candidate.endpoint_origin,
+                now_s,
+                now_s,
+                source_id,
+                candidate.source_item_key,
+            ),
+        )
+        return int(cursor.rowcount or 0) > 0
 
     def cover_targets(self, *, source_id: str) -> list[dict[str, Any]]:
         rows = self.conn.execute(
@@ -352,11 +435,25 @@ class MovieRepository:
             "recommended": int(recommended),
         }
 
-    def feed_item(self, *, source_id: str, detail_url: str, rank: int) -> dict[str, Any] | None:
-        row = self.conn.execute(
-            "SELECT * FROM movie_items WHERE source_id = ? AND detail_url = ?",
-            (source_id, detail_url),
-        ).fetchone()
+    def feed_item(
+        self,
+        *,
+        source_id: str,
+        detail_url: str,
+        rank: int,
+        source_item_key: str | None = None,
+    ) -> dict[str, Any] | None:
+        row = None
+        if source_item_key:
+            row = self.conn.execute(
+                "SELECT * FROM movie_items WHERE source_id = ? AND source_item_key = ?",
+                (source_id, source_item_key),
+            ).fetchone()
+        if row is None:
+            row = self.conn.execute(
+                "SELECT * FROM movie_items WHERE source_id = ? AND detail_url = ?",
+                (source_id, detail_url),
+            ).fetchone()
         if row is None:
             return None
         resources = self.conn.execute(
@@ -381,6 +478,14 @@ class MovieRepository:
             "source_item_key": row["source_item_key"],
             "detail_url": row["detail_url"],
             "listing_title": row["listing_title"],
+            "content_kind": row["content_kind"],
+            "series_title": row["series_title"],
+            "season_number": row["season_number"],
+            "episode_number": row["episode_number"],
+            "episode_label": row["episode_label"],
+            "update_status": row["update_status"],
+            "brand_id": row["brand_id"],
+            "endpoint_origin": row["endpoint_origin"],
             "title": row["title"],
             "original_title": row["original_title"],
             "year": row["year"],

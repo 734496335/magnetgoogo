@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet("javbus", "sixv", "dytt8899")]
+    [ValidateSet("javbus", "sixv", "dytt8899", "sixv-series", "meijumi")]
     [string]$Source = "javbus",
     [int]$Count = 0,
     [int]$BatchSize = 5,
@@ -45,6 +45,10 @@ $EffectiveCount = if ($Count -gt 0) {
     50
 } elseif ($Source -eq "dytt8899") {
     25
+} elseif ($Source -eq "sixv-series") {
+    50
+} elseif ($Source -eq "meijumi") {
+    50
 } else {
     100
 }

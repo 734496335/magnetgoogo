@@ -339,9 +339,17 @@ def test_existing_schema_0005_upgrades_without_movie_resource_loss(tmp_path: Pat
     connection.close()
 
     repo = SqliteResourceRepository(db)
-    assert repo.init_schema() == "0006"
+    assert repo.init_schema() == "0007"
     assert repo.conn.execute("SELECT COUNT(*) FROM movie_items").fetchone()[0] == 1
     assert repo.conn.execute("SELECT COUNT(*) FROM movie_resources").fetchone()[0] == 1
+    migrated = repo.conn.execute(
+        "SELECT content_kind, series_title, brand_id, endpoint_origin FROM movie_items"
+    ).fetchone()
+    assert tuple(migrated) == ("movie", None, None, None)
+    latest_columns = {
+        row[1] for row in repo.conn.execute("PRAGMA table_info(latest_crawl_items)")
+    }
+    assert "source_item_key" in latest_columns
     tables = {
         row[0]
         for row in repo.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
@@ -356,7 +364,7 @@ def test_existing_schema_0005_upgrades_without_movie_resource_loss(tmp_path: Pat
 
 def test_movie_source_state_interval_budget_refund_and_date_reset(tmp_path: Path) -> None:
     repo = SqliteResourceRepository(tmp_path / "state.db")
-    assert repo.init_schema() == "0006"
+    assert repo.init_schema() == "0007"
     store = MovieSourceStateStore(repo)
     first = store.reserve(
         source_id="dytt8899",

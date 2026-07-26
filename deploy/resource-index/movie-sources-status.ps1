@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Sources = "sixv,dytt8899",
+    [string]$Sources = "sixv,dytt8899,sixv-series,meijumi",
     [int]$Count = 0,
     [string]$VenvPath = "",
     [string]$OutputDir = ""

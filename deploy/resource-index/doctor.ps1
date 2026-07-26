@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet("javbus", "sixv", "dytt8899")]
+    [ValidateSet("javbus", "sixv", "dytt8899", "sixv-series", "meijumi")]
     [string]$Source = "javbus",
     [int]$Count = 0,
     [string]$VenvPath = "",

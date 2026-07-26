@@ -8,6 +8,7 @@ import sys
 from typing import Any
 
 from magnet.resource_index.acquisition.policy import LiveFetchPolicy
+from magnet.resource_index.adapters.movie_brand_registry import list_movie_brands
 from magnet.resource_index.adapters.movie_registry import get_movie_source, list_movie_sources
 from magnet.resource_index.adapters.registry import list_sources
 from magnet.resource_index.errors import ResourceIndexError
@@ -25,10 +26,12 @@ from magnet.resource_index.pipeline.latest_crawl import (
     read_latest_status,
     run_deployment_doctor,
 )
+from magnet.resource_index.pipeline.media_aggregate import aggregate_media_feeds
 from magnet.resource_index.pipeline.movie_automation import (
     run_safe_movie_source,
     safe_movie_source_status,
 )
+from magnet.resource_index.pipeline.movie_brand_probe import probe_movie_brands
 from magnet.resource_index.pipeline.movie_latest import MovieLatestRunner
 from magnet.resource_index.store.sqlite_repository import SqliteResourceRepository
 
@@ -201,6 +204,35 @@ def cmd_list_sources(_args: argparse.Namespace) -> int:
 
 def cmd_list_movie_sources(_args: argparse.Namespace) -> int:
     _print_json(list_movie_sources(), pretty=True)
+    return 0
+
+
+def cmd_list_movie_brands(_args: argparse.Namespace) -> int:
+    _print_json(list_movie_brands(), pretty=True)
+    return 0
+
+
+def cmd_probe_movie_brands(args: argparse.Namespace) -> int:
+    if not args.yes:
+        print("error_code=LIVE_POLICY_NOT_ACKNOWLEDGED", file=sys.stderr)
+        print("message=pass --yes to acknowledge low-frequency brand endpoint probes", file=sys.stderr)
+        return 1
+    report = probe_movie_brands(
+        brand_ids=args.brand,
+        include_candidates=args.include_candidates,
+        delay_seconds=args.delay,
+    )
+    _print_json(report, pretty=True)
+    return 0
+
+
+def cmd_aggregate_media_feeds(args: argparse.Namespace) -> int:
+    payload = aggregate_media_feeds(
+        args.feed,
+        output_path=args.output,
+        limit=args.limit,
+    )
+    _print_json(payload["summary"], pretty=True)
     return 0
 
 
@@ -382,7 +414,7 @@ def cmd_crawl_movies_safe(args: argparse.Namespace) -> int:
         print("error_code=LIVE_POLICY_NOT_ACKNOWLEDGED", file=sys.stderr)
         print("message=pass --yes to acknowledge safe movie-source checks", file=sys.stderr)
         return 1
-    source_ids = args.source or ["sixv", "dytt8899"]
+    source_ids = args.source or ["sixv", "dytt8899", "sixv-series", "meijumi"]
     logger = setup_logging(args.log, append=True)
     results = []
     had_error = False
@@ -416,7 +448,7 @@ def cmd_crawl_movies_safe(args: argparse.Namespace) -> int:
 
 
 def cmd_movie_sources_status(args: argparse.Namespace) -> int:
-    source_ids = args.source or ["sixv", "dytt8899"]
+    source_ids = args.source or ["sixv", "dytt8899", "sixv-series", "meijumi"]
     status: dict[str, object] = {}
     had_error = False
     for source_id in source_ids:
@@ -561,6 +593,28 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("list-movie-sources")
     s.set_defaults(func=cmd_list_movie_sources)
+
+    s = sub.add_parser("list-movie-brands")
+    s.set_defaults(func=cmd_list_movie_brands)
+
+    s = sub.add_parser(
+        "probe-movie-brands",
+        help="Manually probe registered movie brand endpoints without changing config",
+    )
+    s.add_argument("--brand", action="append", default=None)
+    s.add_argument("--include-candidates", action="store_true")
+    s.add_argument("--delay", type=float, default=2.0)
+    s.add_argument("--yes", action="store_true")
+    s.set_defaults(func=cmd_probe_movie_brands)
+
+    s = sub.add_parser(
+        "aggregate-media-feeds",
+        help="Merge independent movie/series feeds into one deduplicated media feed",
+    )
+    s.add_argument("--feed", action="append", required=True)
+    s.add_argument("--output", required=True)
+    s.add_argument("--limit", type=int, default=200)
+    s.set_defaults(func=cmd_aggregate_media_feeds)
 
     s = sub.add_parser(
         "doctor",
