@@ -43,6 +43,8 @@ export interface MovieFeedItem {
   directors: string[];
   actors: string[];
   imdb_id: string | null;
+  imdb_rating: number | null;
+  imdb_rating_text: string | null;
   douban_rating: number | null;
   douban_rating_text: string | null;
   douban_url: string | null;
@@ -215,6 +217,8 @@ function parseItem(value: unknown, index: number): MovieFeedItem {
     directors: stringArray(value.directors, `${context}.directors`),
     actors: stringArray(value.actors, `${context}.actors`),
     imdb_id: nullableString(value, 'imdb_id', context),
+    imdb_rating: nullableNumber(value, 'imdb_rating', context),
+    imdb_rating_text: nullableString(value, 'imdb_rating_text', context),
     douban_rating: nullableNumber(value, 'douban_rating', context),
     douban_rating_text: nullableString(value, 'douban_rating_text', context),
     douban_url: nullableString(value, 'douban_url', context),

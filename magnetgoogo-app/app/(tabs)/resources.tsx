@@ -17,6 +17,7 @@ import { useLang } from '../../src/core/LangContext';
 import { useTheme, type Colors } from '../../src/core/ThemeContext';
 import { getResourceCopy } from '../../src/core/resourceCopy';
 import { loadResourceFeed, movieCoverUri } from '../../src/core/resourceFeed';
+import { getMovieScoreTier, getVisibleMovieRatings } from '../../src/core/movieRatings';
 import {
   resourceFeedItemKey,
   type MovieFeed,
@@ -55,10 +56,91 @@ const MoviePoster = memo(function MoviePoster({ item, style, colors }: PosterPro
   );
 });
 
+interface RatingStripProps {
+  item: MovieFeedItem;
+  colors: Colors;
+  featuredScoreLabel: string;
+  highScoreLabel: string;
+  compact?: boolean;
+}
+
+const RatingStrip = memo(function RatingStrip({
+  item,
+  colors,
+  featuredScoreLabel,
+  highScoreLabel,
+  compact = false,
+}: RatingStripProps) {
+  const ratings = getVisibleMovieRatings(item);
+  const scoreTier = getMovieScoreTier(item);
+  if (ratings.length === 0) return null;
+  const tierLabel = scoreTier === 'high'
+    ? highScoreLabel
+    : scoreTier === 'featured'
+      ? featuredScoreLabel
+      : null;
+  return (
+    <View style={[styles.ratingRow, compact && styles.ratingRowCompact]}>
+      {tierLabel && (
+        <Text
+          style={[
+            styles.scoreTierLabel,
+            compact && styles.scoreTierLabelCompact,
+            scoreTier === 'high' ? styles.highScoreLabel : styles.featuredScoreLabel,
+          ]}
+        >
+          {tierLabel}
+        </Text>
+      )}
+      {ratings.map((rating, index) => (
+        <View key={rating.source} style={styles.scoreItem}>
+          {index > 0 && (
+            <Text style={[styles.scoreSeparator, { color: colors.textTertiary }]}>·</Text>
+          )}
+          <Text
+            style={[
+              styles.scoreSource,
+              rating.tier === 'high' && styles.highScoreText,
+              rating.tier === 'featured' && styles.featuredScoreText,
+              {
+                color: rating.tier === 'high'
+                  ? '#dc2626'
+                  : rating.tier === 'featured'
+                    ? '#d97706'
+                    : colors.textTertiary,
+              },
+            ]}
+          >
+            {rating.source}
+          </Text>
+          <Text
+            style={[
+              styles.scoreValue,
+              rating.tier === 'high' && styles.highScoreText,
+              rating.tier === 'featured' && styles.featuredScoreText,
+              {
+                color: rating.tier === 'high'
+                  ? '#dc2626'
+                  : rating.tier === 'featured'
+                    ? '#d97706'
+                    : colors.textSecondary,
+              },
+            ]}
+          >
+            {rating.value.toFixed(1)}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+});
+
 interface RecommendedCardProps {
   item: MovieFeedItem;
   colors: Colors;
   recommendation: string;
+  featuredScoreLabel: string;
+  highScoreLabel: string;
   onOpen: (movieId: string) => void;
 }
 
@@ -66,6 +148,8 @@ const RecommendedCard = memo(function RecommendedCard({
   item,
   colors,
   recommendation,
+  featuredScoreLabel,
+  highScoreLabel,
   onOpen,
 }: RecommendedCardProps) {
   const open = useCallback(() => onOpen(item.movie_id), [item.movie_id, onOpen]);
@@ -86,12 +170,6 @@ const RecommendedCard = memo(function RecommendedCard({
         <View style={styles.recommendBadge}>
           <Text style={styles.recommendBadgeText}>{recommendation}</Text>
         </View>
-        {item.douban_rating !== null && (
-          <View style={styles.ratingBadge}>
-            <Ionicons name="star" size={11} color="#facc15" />
-            <Text style={styles.ratingBadgeText}>{item.douban_rating.toFixed(1)}</Text>
-          </View>
-        )}
       </View>
       <Text style={[styles.recommendedTitle, { color: colors.text }]} numberOfLines={2}>
         {item.title}
@@ -99,6 +177,13 @@ const RecommendedCard = memo(function RecommendedCard({
       <Text style={[styles.recommendedMeta, { color: colors.textTertiary }]} numberOfLines={1}>
         {[item.year, item.genres.slice(0, 2).join(' · ')].filter(Boolean).join(' · ')}
       </Text>
+      <RatingStrip
+        item={item}
+        colors={colors}
+        featuredScoreLabel={featuredScoreLabel}
+        highScoreLabel={highScoreLabel}
+        compact
+      />
     </TouchableOpacity>
   );
 });
@@ -108,10 +193,20 @@ interface MovieRowProps {
   colors: Colors;
   minutesLabel: (value: number) => string;
   resourceLabel: (value: number) => string;
+  featuredScoreLabel: string;
+  highScoreLabel: string;
   onOpen: (movieId: string) => void;
 }
 
-const MovieRow = memo(function MovieRow({ item, colors, minutesLabel, resourceLabel, onOpen }: MovieRowProps) {
+const MovieRow = memo(function MovieRow({
+  item,
+  colors,
+  minutesLabel,
+  resourceLabel,
+  featuredScoreLabel,
+  highScoreLabel,
+  onOpen,
+}: MovieRowProps) {
   const open = useCallback(() => onOpen(item.movie_id), [item.movie_id, onOpen]);
   const metadata = [
     item.year,
@@ -142,6 +237,12 @@ const MovieRow = memo(function MovieRow({ item, colors, minutesLabel, resourceLa
             {metadata}
           </Text>
         )}
+        <RatingStrip
+          item={item}
+          colors={colors}
+          featuredScoreLabel={featuredScoreLabel}
+          highScoreLabel={highScoreLabel}
+        />
         <View style={styles.tagRow}>
           {visibleTags.map((tag) => (
             <View key={tag} style={[styles.qualityTag, { backgroundColor: colors.tagBg }]}>
@@ -150,14 +251,6 @@ const MovieRow = memo(function MovieRow({ item, colors, minutesLabel, resourceLa
           ))}
         </View>
         <View style={styles.rowFooter}>
-          {item.douban_rating !== null && (
-            <View style={styles.inlineRating}>
-              <Ionicons name="star" size={12} color="#f59e0b" />
-              <Text style={[styles.inlineRatingText, { color: colors.textSecondary }]}>
-                {item.douban_rating.toFixed(1)}
-              </Text>
-            </View>
-          )}
           <Text style={[styles.resourceText, { color: colors.textTertiary }]}>
             {resourceLabel(magnetCount)}
           </Text>
@@ -224,9 +317,11 @@ export default function ResourcesScreen() {
       item={item}
       colors={colors}
       recommendation={copy.recommendation}
+      featuredScoreLabel={copy.featuredScore}
+      highScoreLabel={copy.highScore}
       onOpen={openMovie}
     />
-  ), [colors, copy.recommendation, openMovie]);
+  ), [colors, copy.featuredScore, copy.highScore, copy.recommendation, openMovie]);
 
   const renderItem = useCallback(({ item }: { item: MovieFeedItem }) => (
     <MovieRow
@@ -234,9 +329,11 @@ export default function ResourcesScreen() {
       colors={colors}
       minutesLabel={copy.minutes}
       resourceLabel={copy.resourceCount}
+      featuredScoreLabel={copy.featuredScore}
+      highScoreLabel={copy.highScore}
       onOpen={openMovie}
     />
-  ), [colors, copy.minutes, copy.resourceCount, openMovie]);
+  ), [colors, copy.featuredScore, copy.highScore, copy.minutes, copy.resourceCount, openMovie]);
 
   const header = useMemo(() => (
     <View>
@@ -357,18 +454,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#ef4444',
   },
   recommendBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
-  ratingBadge: {
-    position: 'absolute',
-    right: 8,
-    bottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 8,
-    paddingHorizontal: 7,
-    paddingVertical: 5,
-    backgroundColor: 'rgba(15,23,42,0.84)',
-  },
-  ratingBadgeText: { color: '#fff', marginLeft: 3, fontSize: 11, fontWeight: '800' },
+  ratingRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: 7 },
+  ratingRowCompact: { marginTop: 6 },
+  scoreTierLabel: { fontSize: 10, fontWeight: '800', marginRight: 7, marginBottom: 4 },
+  scoreTierLabelCompact: { fontSize: 9 },
+  featuredScoreLabel: { color: '#d97706' },
+  highScoreLabel: { color: '#dc2626', fontWeight: '900' },
+  scoreItem: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 4 },
+  scoreSeparator: { marginHorizontal: 7, fontSize: 10 },
+  scoreSource: { fontSize: 10, fontWeight: '600' },
+  scoreValue: { marginLeft: 3, fontSize: 11, fontWeight: '800' },
+  featuredScoreText: { fontWeight: '800' },
+  highScoreText: { fontWeight: '900' },
   recommendedTitle: { marginTop: 9, fontSize: 14, lineHeight: 19, fontWeight: '700' },
   recommendedMeta: { marginTop: 4, fontSize: 11 },
   movieRow: {
@@ -386,9 +483,7 @@ const styles = StyleSheet.create({
   qualityTag: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3, marginRight: 5, marginBottom: 4 },
   qualityTagText: { fontSize: 9, fontWeight: '700' },
   rowFooter: { marginTop: 'auto', flexDirection: 'row', alignItems: 'center' },
-  inlineRating: { flexDirection: 'row', alignItems: 'center' },
-  inlineRatingText: { marginLeft: 3, fontSize: 11, fontWeight: '700' },
-  resourceText: { marginLeft: 10, fontSize: 10 },
+  resourceText: { fontSize: 10 },
   emptyIcon: {
     width: 72,
     height: 72,

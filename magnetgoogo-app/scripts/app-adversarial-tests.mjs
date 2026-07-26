@@ -387,12 +387,22 @@ await test('U2', 'bottom navigation exposes three tabs and lets Android reserve 
 await test('U3', 'movie discovery preserves ranking and opens a dedicated detail route', () => {
   const screen = read('app/(tabs)/resources.tsx');
   const detail = read('app/movie/[movieId].tsx');
+  const ratings = read('src/core/movieRatings.ts');
   assert.match(screen, /keyExtractor=\{resourceFeedItemKey\}/);
   assert.match(screen, /item\.recommended/);
   assert.match(screen, /pathname: '\/movie\/\[movieId\]'/);
   assert.match(screen, /resource\.resource_type === 'magnet'/);
   assert.doesNotMatch(screen, /copy\.subtitle|copy\.updatedAt|generatedAt/);
   assert.doesNotMatch(screen, /content_code|MY-1065|javbus/i);
+  assert.match(screen, /getVisibleMovieRatings/);
+  assert.match(screen, /rating\.source/);
+  assert.match(screen, /rating\.value\.toFixed\(1\)/);
+  assert.match(screen, /copy\.featuredScore/);
+  assert.match(screen, /copy\.highScore/);
+  assert.match(ratings, /FEATURED_SCORE_THRESHOLD = 6\.0/);
+  assert.match(ratings, /HIGH_SCORE_THRESHOLD = 8\.0/);
+  assert.match(ratings, /value > 0 && value <= 10/);
+  assert.doesNotMatch(screen, /item\.douban_rating\.toFixed|name="star" size=\{11\}/);
   assert.match(detail, /copy\.detailSynopsis/);
   assert.match(detail, /copy\.detailResources/);
   assert.match(detail, /pathname: '\/search'/);

@@ -1,5 +1,30 @@
 ---
 Date/Time: 2026-07-26 (UTC+8)
+Version: app-v0.2.1-movie-rating-labels
+Scope: Add separate IMDb/Douban ratings and two-tier quality labels to movie list cards
+Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,src/core/movieRatings.ts,src/core/resourceFeedProtocol.ts,src/core/resourceCopy.ts,scripts/resource-feed-tests.mjs,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
+
+### Product changes
+- App-only change: no crawler, database schema, feed export or live data-fetch code was modified.
+- Recommended and recent movie cards now render IMDb and Douban as separate labeled scores.
+- Invalid, missing, zero and out-of-range scores are hidden instead of displaying misleading `0.0` values.
+- A score from 6.0 through 7.9 marks the movie as “精品” with restrained warm emphasis.
+- A score of 8.0 or above upgrades the movie to red extra-bold “高分”.
+- The Feed protocol accepts optional IMDb rating fields and remains compatible with existing bundles that do not contain them.
+
+### Verification
+- TypeScript PASS; movie feed tests PASS; App adversarial 35/35 PASS.
+- Boundary tests cover 0, 5.9, 6.0, 7.9 and 8.0.
+- Existing local bundle remains 50 movies / 9 recommendations / 134 resources / 50 offline covers.
+- Android arm64 debug build passed and installed successfully on K30S.
+
+### Release state
+- IMDb numeric values will appear automatically when the separate crawler/data pipeline provides `imdb_rating`.
+- v0.2.1 remains development-only. No tag, formal APK release or remote deployment.
+---
+
+---
+Date/Time: 2026-07-26 (UTC+8)
 Version: app-v0.2.1-android-nav-safe-area
 Scope: Keep bottom navigation above Android system controls and remove redundant movie-resource decoration
 Modules: magnetgoogo-app/{app.json,app/(tabs)/_layout.tsx,app/movie/[movieId].tsx,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}

@@ -7,6 +7,12 @@ import {
   resourceFeedItemKey,
   ResourceFeedValidationError,
 } from '../src/core/resourceFeedProtocol.ts';
+import {
+  FEATURED_SCORE_THRESHOLD,
+  HIGH_SCORE_THRESHOLD,
+  getMovieScoreTier,
+  getVisibleMovieRatings,
+} from '../src/core/movieRatings.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const bundleDir = path.resolve(here, '..', '..', 'data', 'resource_index', 'sixv_app_bundle');
@@ -58,6 +64,8 @@ function sampleItem(rank, title = `Movie ${rank}`, recommended = false) {
     directors: ['导演'],
     actors: ['演员'],
     imdb_id: 'tt1234567',
+    imdb_rating: 7.4,
+    imdb_rating_text: '7.4/10 from 1000 users',
     douban_rating: 8.1,
     douban_rating_text: '8.1/10',
     douban_url: null,
@@ -122,6 +130,24 @@ assert.throws(
 );
 console.log('PASS  M4  legacy adult-feed fields are rejected');
 
+assert.equal(FEATURED_SCORE_THRESHOLD, 6.0);
+assert.equal(HIGH_SCORE_THRESHOLD, 8.0);
+assert.deepEqual(
+  getVisibleMovieRatings({ imdb_rating: 0, douban_rating: null }),
+  [],
+);
+assert.deepEqual(
+  getVisibleMovieRatings({ imdb_rating: 6.9, douban_rating: 6.0 }).map(({ source, value, tier }) => ({ source, value, tier })),
+  [
+    { source: 'IMDb', value: 6.9, tier: 'featured' },
+    { source: '豆瓣', value: 6.0, tier: 'featured' },
+  ],
+);
+assert.equal(getMovieScoreTier({ imdb_rating: 7.9, douban_rating: 5.9 }), 'featured');
+assert.equal(getMovieScoreTier({ imdb_rating: 8.0, douban_rating: 7.9 }), 'high');
+assert.equal(getMovieScoreTier({ imdb_rating: 5.9, douban_rating: null }), null);
+console.log('PASS  M5  zero is hidden, 6.0+ is featured and 8.0+ is high score');
+
 if (fs.existsSync(localFeedPath)) {
   const local = parseResourceFeed(JSON.parse(fs.readFileSync(localFeedPath, 'utf8')));
   assert.equal(local.items.length, 50);
@@ -138,6 +164,8 @@ if (fs.existsSync(localFeedPath)) {
   for (const item of local.items) {
     assert.equal('content_code' in item, false);
     assert.equal('adult' in item, false);
+    const visibleRatings = getVisibleMovieRatings(item);
+    assert.ok(visibleRatings.every((rating) => rating.value > 0 && rating.value <= 10));
     const coverPath = path.resolve(bundleDir, item.cover_asset_path);
     assert.ok(coverPath.startsWith(bundleDir + path.sep));
     assert.ok(fs.existsSync(coverPath), `missing cover: ${item.cover_asset_path}`);
@@ -148,9 +176,9 @@ if (fs.existsSync(localFeedPath)) {
   assert.ok(providers.has('xunlei'));
   assert.ok(providers.has('quark'));
   assert.ok(providers.has('baidu'));
-  console.log('PASS  M5  SixV bundle is 50 movies / 9 recommendations / 134 resources / 50 offline covers');
+  console.log('PASS  M6  SixV bundle is 50 movies / 9 recommendations / 134 resources / 50 offline covers');
 } else {
-  console.log('SKIP  M5  local untracked SixV App bundle is not present');
+  console.log('SKIP  M6  local untracked SixV App bundle is not present');
 }
 
 console.log('=== Movie resource feed tests passed ===');

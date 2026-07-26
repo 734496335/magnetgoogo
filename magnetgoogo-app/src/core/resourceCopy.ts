@@ -15,6 +15,8 @@ export interface ResourceCopy {
   rating: (value: number) => string;
   resourceCount: (value: number) => string;
   recommendation: string;
+  featuredScore: string;
+  highScore: string;
   detailSynopsis: string;
   detailInfo: string;
   detailCast: string;
@@ -56,6 +58,8 @@ const EN: ResourceCopy = {
   rating: (value) => `${value.toFixed(1)}`,
   resourceCount: (value) => `${value} links`,
   recommendation: 'Pick',
+  featuredScore: 'Quality',
+  highScore: 'Top rated',
   detailSynopsis: 'Story',
   detailInfo: 'Details',
   detailCast: 'Cast & crew',
@@ -97,6 +101,8 @@ const ZH: ResourceCopy = {
   rating: (value) => `${value.toFixed(1)}`,
   resourceCount: (value) => `${value} 个资源`,
   recommendation: '推荐',
+  featuredScore: '精品',
+  highScore: '高分',
   detailSynopsis: '剧情简介',
   detailInfo: '影片信息',
   detailCast: '主创阵容',

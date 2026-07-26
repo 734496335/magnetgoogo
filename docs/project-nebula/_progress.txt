@@ -1,25 +1,23 @@
-Current phase: App v0.2.1 ANDROID NAV SAFE AREA + RESOURCE CARD SIMPLIFICATION PASS / NOT RELEASED 2026-07-26
+Current phase: App v0.2.1 MOVIE RATING LABELS PASS / NOT RELEASED 2026-07-26
 
 ## Completed
-- Android edge-to-edge is disabled where the OS permits, so the system reserves gesture/three-button navigation space.
-- Removed fixed tab-bar height and bottom padding; React Navigation now owns bottom inset layout.
-- This also avoids hard-coded device-specific offsets and supports different Android navigation modes.
-- Movie resource cards now start directly with the resource filename.
-- Removed the decorative magnet logo and standalone “磁力” type label.
-- Kept only quality tags plus the useful “复制磁力 / 立即打开” actions.
+- App work only; no crawler, SQLite schema or data re-fetch changes are included.
+- Movie list cards now show IMDb and Douban ratings as separate values.
+- Missing, non-finite, zero and out-of-range ratings are hidden.
+- Any available rating from 6.0 to 7.9 marks the movie as “精品”.
+- Any available rating at 8.0 or above upgrades the movie to “高分”.
+- “精品” uses a restrained warm emphasis; “高分” uses red extra-bold emphasis.
+- Recommended cards and recent-list cards share the same rating logic.
+- Feed parsing remains backward-compatible when imdb_rating fields are absent.
 
 ## Verification
 - TypeScript -> PASS.
+- Movie feed tests -> PASS, including 0 / 5.9 / 6.0 / 7.9 / 8.0 boundaries.
 - App adversarial tests -> 35/35 PASS.
-- Movie feed tests -> PASS; fluency suite -> 17/17 PASS.
-- Expo prebuild generated edgeToEdgeEnabled=false and bundled 50 movies / 50 covers.
-- Gradle arm64 debug -> BUILD SUCCESSFUL; K30S install -> Success.
-- K30S physical height=2400px; App content ends at 2266px; system navigation reserve=134px.
-- Bottom tabs stay inside the App area and no longer overlap the gesture bar.
-- 寒战1994 detail standalone “磁力” text count=0; no decorative resource logo remains.
-- Three resource filenames, quality tags, copy and open actions remain visible.
-- No AndroidRuntime fatal or React Native unhandled error observed.
+- Existing local bundle remains 50 movies / 9 recommendations / 134 resources / 50 covers.
+- Existing bundle currently has 8 movies in the 6.0–7.9 “精品” tier and no 8.0+ item.
+- Android arm64 debug -> BUILD SUCCESSFUL; K30S install -> Success.
 
 ## Remaining before release
-- Android 16 forces edge-to-edge; fixed tab sizing is removed so React Navigation can use mandatory system insets.
+- IMDb numeric ratings depend on the separate crawler/data pipeline providing imdb_rating.
 - Run final signed v0.2.1 release acceptance; do not tag, publish or deploy yet.
