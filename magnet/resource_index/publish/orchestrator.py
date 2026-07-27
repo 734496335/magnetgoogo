@@ -57,6 +57,21 @@ class MediaPublishResult:
     receipt_path: str
 
 
+@dataclass(frozen=True)
+class MediaPublishPlan:
+    release_id: str
+    pointer_revision: int
+    manifest_sha256: str
+    verified_object_count: int
+    object_count: int
+    artifact_count: int
+    total_file_count: int
+    total_bytes: int
+    upload_pointer_candidate: bool
+    object_kinds: dict[str, int]
+    requests: tuple[UploadRequest, ...]
+
+
 def _fail(error_code: str, message: str, **context: Any) -> None:
     raise ResourceIndexError(error_code, message, context)
 
@@ -271,16 +286,12 @@ def _outcome_record(request: UploadRequest, outcome: UploadOutcome) -> dict[str,
     }
 
 
-def publish_media_release(
-    backend: PublisherBackend,
-    config: MediaPublishConfig,
-) -> MediaPublishResult:
+def build_media_publish_plan(config: MediaPublishConfig) -> MediaPublishPlan:
     if config.max_workers < 1 or config.max_workers > 32:
         _fail(PUBLISH_CONFIG_ERROR, "max_workers must be between 1 and 32", value=config.max_workers)
     release_dir = config.release_dir.resolve()
     current_path = config.current_path.resolve()
     public_key_path = config.public_key_path.resolve()
-    receipt_dir = config.receipt_dir.resolve()
     if current_path.name == "current.json" and current_path.parent.name == "v1":
         _fail(
             PUBLISH_CONFIG_ERROR,
@@ -313,11 +324,47 @@ def publish_media_release(
         release_id=release_id,
         cache_control=IMMUTABLE_CACHE_CONTROL,
     )
-    pointer_request = _artifact_request(
-        key=f"staging/pointers/{current_path.name}",
-        source_path=current_path,
+    requests = [*object_requests, manifest_request]
+    if config.upload_pointer_candidate:
+        requests.append(
+            _artifact_request(
+                key=f"staging/pointers/{current_path.name}",
+                source_path=current_path,
+                release_id=release_id,
+                cache_control=POINTER_CANDIDATE_CACHE_CONTROL,
+            )
+        )
+    object_kinds: dict[str, int] = {}
+    for request in requests:
+        object_kinds[request.object_kind] = object_kinds.get(request.object_kind, 0) + 1
+    return MediaPublishPlan(
         release_id=release_id,
-        cache_control=POINTER_CANDIDATE_CACHE_CONTROL,
+        pointer_revision=pointer_revision,
+        manifest_sha256=str(local_report["manifest_sha256"]),
+        verified_object_count=int(local_report["verified_objects"]),
+        object_count=len(object_requests),
+        artifact_count=len(requests) - len(object_requests),
+        total_file_count=len(requests),
+        total_bytes=sum(request.size for request in requests),
+        upload_pointer_candidate=config.upload_pointer_candidate,
+        object_kinds=object_kinds,
+        requests=tuple(requests),
+    )
+
+
+def publish_media_release(
+    backend: PublisherBackend,
+    config: MediaPublishConfig,
+) -> MediaPublishResult:
+    plan = build_media_publish_plan(config)
+    receipt_dir = config.receipt_dir.resolve()
+    release_id = plan.release_id
+    pointer_revision = plan.pointer_revision
+    object_requests = [request for request in plan.requests if request.object_kind not in {"manifest", "pointer-candidate"}]
+    manifest_request = next(request for request in plan.requests if request.object_kind == "manifest")
+    pointer_request = next(
+        (request for request in plan.requests if request.object_kind == "pointer-candidate"),
+        None,
     )
 
     attempt_id = uuid.uuid4().hex[:12]
@@ -406,7 +453,7 @@ def publish_media_release(
             manifest_uploaded = manifest_outcome.uploaded or manifest_outcome.reused
             records.append(_outcome_record(manifest_request, manifest_outcome))
 
-            if config.upload_pointer_candidate:
+            if pointer_request is not None:
                 failed_request = pointer_request
                 pointer_outcome = backend.upload(pointer_request, deep_verify=config.deep_verify)
                 pointer_uploaded = pointer_outcome.uploaded or pointer_outcome.reused
@@ -426,8 +473,8 @@ def publish_media_release(
             "destination": backend.destination,
             "release_id": release_id,
             "pointer_revision": pointer_revision,
-            "manifest_sha256": local_report["manifest_sha256"],
-            "local_verified_objects": local_report["verified_objects"],
+            "manifest_sha256": plan.manifest_sha256,
+            "local_verified_objects": plan.verified_object_count,
             "deep_verify": config.deep_verify,
             "max_workers": config.max_workers,
             "objects": sorted(records, key=lambda row: row["key"]),

@@ -13,7 +13,11 @@ import pytest
 from magnet.resource_index.cli import main as cli_main
 from magnet.resource_index.errors import ResourceIndexError
 from magnet.resource_index.publish.base import UploadRequest
-from magnet.resource_index.publish.orchestrator import MediaPublishConfig, publish_media_release
+from magnet.resource_index.publish.orchestrator import (
+    MediaPublishConfig,
+    build_media_publish_plan,
+    publish_media_release,
+)
 from magnet.resource_index.publish.r2 import R2PublisherBackend
 from magnet.resource_index.release.builder import build_media_release
 from magnet.resource_index.release.protocol import sha256_file
@@ -691,3 +695,85 @@ def test_real_local_release_contract_publishes_all_614_objects_when_available(tm
     receipt_text = Path(second.receipt_path).read_text(encoding="utf-8").lower()
     assert "access_key" not in receipt_text
     assert "secret" not in receipt_text
+
+
+def test_publish_plan_is_complete_and_has_no_remote_side_effects(tmp_path: Path) -> None:
+    config = _setup(tmp_path)
+    release = build_media_release(config)
+
+    plan = build_media_publish_plan(
+        MediaPublishConfig(
+            release_dir=Path(release.release_dir),
+            current_path=Path(release.current_path),
+            public_key_path=config.public_key_path,
+            receipt_dir=tmp_path / "receipts",
+        )
+    )
+
+    assert plan.object_count == release.object_count
+    assert plan.artifact_count == 2
+    assert plan.total_file_count == release.object_count + 2
+    assert plan.verified_object_count == release.object_count
+    assert plan.total_bytes == sum(request.size for request in plan.requests)
+    assert plan.object_kinds["manifest"] == 1
+    assert plan.object_kinds["pointer-candidate"] == 1
+    assert not any(request.key == "v1/current.json" for request in plan.requests)
+
+
+def test_publish_plan_can_exclude_pointer_candidate(tmp_path: Path) -> None:
+    config = _setup(tmp_path)
+    release = build_media_release(config)
+
+    plan = build_media_publish_plan(
+        MediaPublishConfig(
+            release_dir=Path(release.release_dir),
+            current_path=Path(release.current_path),
+            public_key_path=config.public_key_path,
+            receipt_dir=tmp_path / "receipts",
+            upload_pointer_candidate=False,
+        )
+    )
+
+    assert plan.artifact_count == 1
+    assert plan.total_file_count == release.object_count + 1
+    assert "pointer-candidate" not in plan.object_kinds
+
+
+def test_cli_dry_run_needs_no_acknowledgement_or_credentials(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = _setup(tmp_path)
+    release = build_media_release(config)
+    for name in (
+        "R2_ACCOUNT_ID",
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY",
+        "CLOUDFLARE_API_TOKEN",
+        "R2_PARENT_ACCESS_KEY_ID",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    code = cli_main(
+        [
+            "publish-media-r2-staging",
+            "--release-dir",
+            release.release_dir,
+            "--current",
+            release.current_path,
+            "--public-key",
+            str(config.public_key_path),
+            "--prefix",
+            "m2-test/dry-run",
+            "--dry-run",
+        ]
+    )
+
+    assert code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "dry-run"
+    assert payload["total_file_count"] == release.object_count + 2
+    assert payload["remote_requests"] == 0
+    assert payload["current_promoted"] is False
+    assert payload["object_kinds"]["pointer-candidate"] == 1

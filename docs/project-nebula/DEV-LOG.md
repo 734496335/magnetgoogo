@@ -1,5 +1,77 @@
 ---
 Date/Time: 2026-07-27 (UTC+8)
+Version: media-release-m2c-offline-publish-plan
+Scope: Add a credential-free dry-run that verifies and exposes the exact R2 upload plan before remote execution
+Modules: magnet/resource_index/publish/orchestrator.py, magnet/resource_index/cli.py, magnet/tests/resource_index/test_media_publish.py, deploy/resource-index/{publish-media-r2-staging.ps1,README.md}, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Implementation
+- Extracted one `MediaPublishPlan` contract shared by dry-run and live publication.
+- Added CLI `--dry-run` and Windows `-DryRun`; no acknowledgement or Cloudflare/R2 credentials are required.
+- Dry-run performs full local signature/hash/path verification and reports total files, bytes, object kinds and boundary keys without creating receipts or network requests.
+- Kept the production `v1/current.json` guard and optional pointer-candidate exclusion in the shared plan.
+
+### Verification
+- Targeted publisher/credential suite: 34/34 PASS.
+- Real M1 release dry-run: 614 immutable objects + Manifest + pointer candidate = 616 files and 11,072,715 bytes.
+- Planned kinds: 14 catalog, 200 cover, 200 detail, 200 resources, 1 Manifest, 1 pointer candidate.
+- Output confirmed `remote_requests=0` and `current_promoted=false`.
+
+### Release state
+- M2 preflight is complete; the real 616-file boto3 upload still awaits external direct or parent temporary credentials.
+- No Bucket visibility, custom domain, App endpoint, control plane or production pointer was changed.
+---
+
+---
+Date/Time: 2026-07-27 (UTC+8)
+Version: media-release-m2b-temporary-r2-credentials
+Scope: Add short-lived prefix-scoped Cloudflare R2 credentials for the exact boto3 staging publisher
+Modules: magnet/resource_index/publish/temporary_credentials.py, magnet/resource_index/cli.py, magnet/tests/resource_index/test_r2_temporary_credentials.py, deploy/resource-index/{publish-media-r2-staging.ps1,README.md}, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Implementation
+- Added Cloudflare Temporary Credentials API support using only Python standard-library HTTP code.
+- Parent API token, account ID and parent R2 access key ID are read from environment variables; child S3 credentials remain in memory.
+- Child permission is fixed to `object-read-write`, one Bucket, one `m2-test/.../` prefix and a 60-3600 second TTL.
+- Added CLI and Windows switches for temporary credentials while retaining direct scoped S3 credentials.
+- Redacted access key, secret and session token from repr, exceptions, logs and receipts; unsuccessful Cloudflare responses retain only status/error codes.
+
+### Verification
+- Temporary credential + publisher targeted suite: 31/31 PASS.
+- Verified exact API request contract, test-prefix/TTL rejection, environment failure, HTTP/API error redaction and CLI in-memory handoff to boto3.
+- Missing parent environment fails before local release access or any R2 request.
+- No real full-object run was claimed because this machine still lacks both direct S3 credentials and parent temporary-credential inputs.
+
+### Release state
+- Credential path is implementation-complete but the real 616-file boto3 receipt remains pending external parent credentials.
+- Existing test Bucket remains private; no production bucket/domain, App endpoint, Aliyun mirror, control plane or `v1/current.json` was modified.
+---
+
+---
+Date/Time: 2026-07-27 (UTC+8)
+Version: app-home-native-share
+Scope: Add a localized native share action beside the home feedback button and verify it on Redmi K30S
+Modules: magnetgoogo-app/src/components/FeedbackFAB.tsx, magnetgoogo-app/src/core/{appShare.ts,i18n.ts}, magnetgoogo-app/scripts/app-adversarial-tests.mjs, docs/project-nebula/{APP-CHANGELOG.md,DEV-LOG.md}
+
+### Implementation
+- Replaced the single floating feedback action with a two-button row: feedback first, share second.
+- Both buttons reuse the exact same blue translucent `styles.fab`, spacing, typography, icon color, shadow and dimensions.
+- Native share content is intentionally minimal: one problem-led sentence plus the canonical `https://magnetgoogo.com` URL.
+- Added typed share button text, dialog title, share message and failure text for all 10 supported languages.
+- Added stable accessibility labels/test IDs and structured `NATIVE_SHARE_FAILED` logging.
+
+### Verification
+- TypeScript `npx tsc --noEmit`: PASS.
+- App adversarial suite: 37/37 PASS, including all-language key parity, localized share content, canonical URL uniqueness, button order and shared-style guards.
+- Fluency suite: 17/17 PASS; resource Feed suite: PASS.
+- `npm run android:k30s`: `BUILD SUCCESSFUL`; streamed install `Success` on device `a1ea223a`.
+- Final K30S screenshot analysis found identical button bounds: feedback `[648,2065]-[830,2154]`, share `[853,2065]-[1035,2154]`.
+- Tapping the right button resumed `android/com.android.internal.app.MiuiChooserActivity`, proving the real system share sheet opened.
+
+### Release state
+- Debug build and device verification only. No release APK, production config, remote endpoint, tag, push or deployment was performed.
+---
+
+---
+Date/Time: 2026-07-27 (UTC+8)
 Version: media-release-m2-r2-isolated-publisher
 Scope: Add a backend-neutral publisher, hardened R2 S3 implementation and isolated real-bucket verification without production promotion
 Modules: magnet/resource_index/{publish,cli.py,errors.py}, magnet/tests/resource_index/test_media_publish.py, deploy/resource-index/{publish-media-r2-staging.bat,publish-media-r2-staging.ps1,README.md,requirements.txt}, docs/project-nebula/{_progress.txt,DEV-LOG.md}

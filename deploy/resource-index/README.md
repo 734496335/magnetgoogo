@@ -270,6 +270,19 @@ $env:R2_PARENT_ACCESS_KEY_ID = "<PARENT_R2_ACCESS_KEY_ID>"
 -TemporaryCredentials -CredentialTtlSeconds 900
 ```
 
+在配置任何凭证前，先执行完全离线的发布计划检查：
+
+```bat
+deploy\resource-index\publish-media-r2-staging.bat ^
+  -ReleaseDir "data\resource_index\media_releases\staging\releases\<release_id>" ^
+  -CurrentPath "data\resource_index\media_releases\staging\pointers\<pointer_revision>-<release_id>.json" ^
+  -Bucket "magnetgoogo-media-m2-test" ^
+  -Prefix "m2-test\手工批次名" ^
+  -DryRun
+```
+
+`-DryRun` 不需要 `--yes` 或任何 Cloudflare/R2 凭证，不创建收据、不访问网络；它会先完成 Release、Manifest、签名和 614 个对象的本地深度校验，再输出总文件数、总字节数、对象分类及首尾远程键。真实 M1 Release 当前计划为 614 个不可变对象 + Manifest + 签名指针候选，共 616 个文件、11,072,715 字节，且 `remote_requests=0`、`current_promoted=false`。
+
 执行隔离上传：
 
 ```bat

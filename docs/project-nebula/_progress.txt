@@ -1,22 +1,21 @@
-Current phase: MEDIA RELEASE M2-B TEMPORARY CREDENTIAL FLOW COMPLETE / FULL REAL R2 RUN AWAITS PARENT CREDENTIALS 2026-07-27
+Current phase: MEDIA RELEASE M2-C DRY-RUN PREFLIGHT COMPLETE / REAL CREDENTIALED R2 RUN STILL EXTERNALLY BLOCKED 2026-07-27
 
-## M2-B implemented
-- Added Cloudflare R2 Temporary Credentials API integration for the exact boto3 publisher.
-- Parent inputs are read only from `R2_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` and `R2_PARENT_ACCESS_KEY_ID`.
-- Child credentials are minted in memory with `object-read-write`, one test Bucket, one `m2-test/.../` prefix and a TTL limited to 60-3600 seconds.
-- Temporary access key, secret and session token are never serialized, logged, written to receipts or included in exceptions/repr.
-- CLI adds `--temporary-credentials --credential-ttl-seconds`; Windows adds `-TemporaryCredentials -CredentialTtlSeconds`.
-- Existing direct S3 environment credential mode remains supported.
-- Production `v1/current.json` guard and M2 test-prefix guard remain unchanged.
+## M2-C implemented
+- Extracted `build_media_publish_plan` from the live publisher so local verification and remote execution share one request contract.
+- Added credential-free CLI/Windows `--dry-run` / `-DryRun` mode.
+- Dry-run verifies signatures, Manifest hash, all local object hashes, safe paths and production-pointer guards before producing a plan.
+- The plan reports release ID, pointer revision, total files, total bytes, object kinds, first/last keys and whether the pointer candidate is included.
+- Dry-run performs zero remote requests, creates no receipt and needs neither `--yes` nor Cloudflare/R2 credentials.
+- Live publication still consumes the exact same request plan, avoiding drift between preflight and execution.
 
 ## Verification
-- Temporary-credential and publisher targeted tests: 30 passed before final expansion.
-- API request contract verified: account endpoint, bucket, parentAccessKeyId, object-read-write, TTL and exact prefix.
-- HTTP/API failures expose only status or Cloudflare error codes, never response messages or credential material.
-- Missing parent environment fails before local release access or any R2 request.
-- Official Cloudflare contract checked: temporary credentials support bucket, permission, prefixes/objects, session token and TTL; the API still requires a parent R2 Access Key ID plus API token.
+- Publisher and temporary-credential targeted suite: 34 passed.
+- Real release dry-run: 614 immutable objects + Manifest + signed pointer candidate = 616 files.
+- Real release total planned bytes: 11,072,715.
+- Object kinds: 14 catalog, 200 cover, 200 detail, 200 resources, 1 Manifest, 1 pointer candidate.
+- `remote_requests=0`, `current_promoted=false`, and no `v1/current.json` key exists in the plan.
 
 ## Boundary / next step
-- Current machine has no direct S3 credentials and no parent API token/access key environment, so a real 616-file boto3 run cannot be fabricated.
-- Existing private Bucket `magnetgoogo-media-m2-test` remains non-public, without custom domain or production pointer.
-- Once parent variables are supplied, run the Windows publisher with temporary credentials, retain first-upload and second-all-reused receipts, then begin M3 Aliyun mirror.
+- Current machine still lacks both direct R2 S3 credentials and parent temporary-credential inputs, so the real boto3 616-file upload remains externally blocked.
+- Existing private test Bucket remains non-public and without a custom domain.
+- Once credentials are supplied, execute the same plan twice and retain first-upload plus all-reused receipts; then proceed to M3 Aliyun mirror.

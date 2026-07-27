@@ -431,7 +431,7 @@ def cmd_verify_media_release(args: argparse.Namespace) -> int:
 
 
 def cmd_publish_media_r2_staging(args: argparse.Namespace) -> int:
-    if not args.yes:
+    if not args.yes and not args.dry_run:
         print("error_code=LIVE_POLICY_NOT_ACKNOWLEDGED", file=sys.stderr)
         print(
             "message=pass --yes to acknowledge remote upload to the isolated R2 staging destination",
@@ -445,10 +445,45 @@ def cmd_publish_media_r2_staging(args: argparse.Namespace) -> int:
     try:
         from magnet.resource_index.publish.orchestrator import (
             MediaPublishConfig,
+            build_media_publish_plan,
             publish_media_release,
         )
         from magnet.resource_index.publish.r2 import R2PublisherBackend
 
+        publish_config = MediaPublishConfig(
+            release_dir=Path(args.release_dir),
+            current_path=Path(args.current),
+            public_key_path=Path(args.public_key),
+            receipt_dir=Path(args.receipt_dir),
+            max_workers=args.max_workers,
+            deep_verify=not args.shallow_verify,
+            upload_pointer_candidate=not args.no_pointer_candidate,
+        )
+        if args.dry_run:
+            plan = build_media_publish_plan(publish_config)
+            _print_json(
+                {
+                    "status": "dry-run",
+                    "bucket": args.bucket,
+                    "prefix": args.prefix,
+                    "release_id": plan.release_id,
+                    "pointer_revision": plan.pointer_revision,
+                    "manifest_sha256": plan.manifest_sha256,
+                    "verified_object_count": plan.verified_object_count,
+                    "object_count": plan.object_count,
+                    "artifact_count": plan.artifact_count,
+                    "total_file_count": plan.total_file_count,
+                    "total_bytes": plan.total_bytes,
+                    "upload_pointer_candidate": plan.upload_pointer_candidate,
+                    "object_kinds": plan.object_kinds,
+                    "first_keys": [request.key for request in plan.requests[:5]],
+                    "last_keys": [request.key for request in plan.requests[-5:]],
+                    "current_promoted": False,
+                    "remote_requests": 0,
+                },
+                pretty=True,
+            )
+            return 0
         if args.temporary_credentials:
             from magnet.resource_index.publish.temporary_credentials import (
                 mint_temporary_r2_credentials_from_environment,
@@ -472,18 +507,7 @@ def cmd_publish_media_r2_staging(args: argparse.Namespace) -> int:
                 bucket=args.bucket,
                 prefix=args.prefix,
             )
-        result = publish_media_release(
-            backend,
-            MediaPublishConfig(
-                release_dir=Path(args.release_dir),
-                current_path=Path(args.current),
-                public_key_path=Path(args.public_key),
-                receipt_dir=Path(args.receipt_dir),
-                max_workers=args.max_workers,
-                deep_verify=not args.shallow_verify,
-                upload_pointer_candidate=not args.no_pointer_candidate,
-            ),
-        )
+        result = publish_media_release(backend, publish_config)
         _print_json(result.__dict__, pretty=True)
         return 0
     except ModuleNotFoundError as exc:
@@ -771,6 +795,11 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--credential-ttl-seconds", type=int, default=900)
     s.add_argument("--shallow-verify", action="store_true")
     s.add_argument("--no-pointer-candidate", action="store_true")
+    s.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Verify and print the complete local upload plan without credentials or remote requests",
+    )
     s.add_argument("--yes", action="store_true")
     s.set_defaults(func=cmd_publish_media_r2_staging)
 
