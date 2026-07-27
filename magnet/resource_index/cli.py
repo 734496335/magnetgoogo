@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -448,10 +449,29 @@ def cmd_publish_media_r2_staging(args: argparse.Namespace) -> int:
         )
         from magnet.resource_index.publish.r2 import R2PublisherBackend
 
-        backend = R2PublisherBackend.from_environment(
-            bucket=args.bucket,
-            prefix=args.prefix,
-        )
+        if args.temporary_credentials:
+            from magnet.resource_index.publish.temporary_credentials import (
+                mint_temporary_r2_credentials_from_environment,
+            )
+
+            temporary = mint_temporary_r2_credentials_from_environment(
+                bucket=args.bucket,
+                prefix=args.prefix,
+                ttl_seconds=args.credential_ttl_seconds,
+            )
+            backend = R2PublisherBackend(
+                bucket=args.bucket,
+                prefix=args.prefix,
+                account_id=os.environ.get("R2_ACCOUNT_ID"),
+                access_key_id=temporary.access_key_id,
+                secret_access_key=temporary.secret_access_key,
+                session_token=temporary.session_token,
+            )
+        else:
+            backend = R2PublisherBackend.from_environment(
+                bucket=args.bucket,
+                prefix=args.prefix,
+            )
         result = publish_media_release(
             backend,
             MediaPublishConfig(
@@ -743,6 +763,12 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--prefix", default="m2-test")
     s.add_argument("--receipt-dir", default="data/resource_index/media_publish_receipts")
     s.add_argument("--max-workers", type=int, default=8)
+    s.add_argument(
+        "--temporary-credentials",
+        action="store_true",
+        help="Mint short-lived prefix-scoped R2 S3 credentials from parent environment variables",
+    )
+    s.add_argument("--credential-ttl-seconds", type=int, default=900)
     s.add_argument("--shallow-verify", action="store_true")
     s.add_argument("--no-pointer-candidate", action="store_true")
     s.add_argument("--yes", action="store_true")

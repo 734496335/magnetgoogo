@@ -9,7 +9,9 @@ param(
     [string]$PublicKey = "",
     [string]$ReceiptDir = "",
     [int]$MaxWorkers = 8,
+    [int]$CredentialTtlSeconds = 900,
     [string]$VenvPath = "",
+    [switch]$TemporaryCredentials,
     [switch]$ShallowVerify,
     [switch]$NoPointerCandidate
 )
@@ -73,12 +75,23 @@ if ($LASTEXITCODE -ne 0) {
 $HasEndpoint = -not [string]::IsNullOrWhiteSpace($env:R2_ENDPOINT_URL) -or `
     -not [string]::IsNullOrWhiteSpace($env:AWS_ENDPOINT_URL) -or `
     -not [string]::IsNullOrWhiteSpace($env:R2_ACCOUNT_ID)
-$HasAccessId = -not [string]::IsNullOrWhiteSpace($env:R2_ACCESS_KEY_ID) -or `
-    -not [string]::IsNullOrWhiteSpace($env:AWS_ACCESS_KEY_ID)
-$HasAccessSecret = -not [string]::IsNullOrWhiteSpace($env:R2_SECRET_ACCESS_KEY) -or `
-    -not [string]::IsNullOrWhiteSpace($env:AWS_SECRET_ACCESS_KEY)
-if (-not $HasEndpoint -or -not $HasAccessId -or -not $HasAccessSecret) {
-    throw "R2 S3 environment is incomplete. Set endpoint/account and scoped access credentials; values are never passed on the command line."
+if ($TemporaryCredentials) {
+    $HasParentToken = -not [string]::IsNullOrWhiteSpace($env:CLOUDFLARE_API_TOKEN)
+    $HasParentAccessId = -not [string]::IsNullOrWhiteSpace($env:R2_PARENT_ACCESS_KEY_ID)
+    if (-not $HasEndpoint -or -not $HasParentToken -or -not $HasParentAccessId) {
+        throw "Temporary R2 credential environment is incomplete. Set account, parent API token and parent access key ID."
+    }
+    if ($CredentialTtlSeconds -lt 60 -or $CredentialTtlSeconds -gt 3600) {
+        throw "CredentialTtlSeconds must be between 60 and 3600."
+    }
+} else {
+    $HasAccessId = -not [string]::IsNullOrWhiteSpace($env:R2_ACCESS_KEY_ID) -or `
+        -not [string]::IsNullOrWhiteSpace($env:AWS_ACCESS_KEY_ID)
+    $HasAccessSecret = -not [string]::IsNullOrWhiteSpace($env:R2_SECRET_ACCESS_KEY) -or `
+        -not [string]::IsNullOrWhiteSpace($env:AWS_SECRET_ACCESS_KEY)
+    if (-not $HasEndpoint -or -not $HasAccessId -or -not $HasAccessSecret) {
+        throw "R2 S3 environment is incomplete. Set endpoint/account and scoped access credentials; values are never passed on the command line."
+    }
 }
 
 $Arguments = @(
@@ -94,6 +107,9 @@ $Arguments = @(
     "--max-workers", $MaxWorkers,
     "--yes"
 )
+if ($TemporaryCredentials) {
+    $Arguments += @("--temporary-credentials", "--credential-ttl-seconds", $CredentialTtlSeconds)
+}
 if ($ShallowVerify) {
     $Arguments += "--shallow-verify"
 }

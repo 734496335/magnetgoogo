@@ -1,25 +1,22 @@
-Current phase: MEDIA RELEASE M2-A COMPLETE / CREDENTIALED FULL R2 RUN PENDING 2026-07-27
+Current phase: MEDIA RELEASE M2-B TEMPORARY CREDENTIAL FLOW COMPLETE / FULL REAL R2 RUN AWAITS PARENT CREDENTIALS 2026-07-27
 
-## M2-A implemented
-- Added backend-neutral `PublisherBackend` plus Cloudflare `R2PublisherBackend` using the S3-compatible API.
-- Publication order is immutable objects -> verified Manifest -> isolated staging pointer candidate; production `v1/current.json` cannot be uploaded or promoted.
-- Every source file is re-hashed before upload; remote verification checks size, SHA-256 metadata and, by default, a downloaded body hash.
-- Immutable creation uses `If-None-Match: *`; same-content races reuse the winner and different-content races block.
-- Existing matching objects are reused, interrupted runs resume, and path collisions never overwrite remote data.
-- Added bounded exponential retry for 408/429/5xx and transient R2 errors; each retry reopens the local file.
-- Added destination locks with active-lock protection, dead-PID recovery and a grace window for newly created PID-less locks.
-- Each attempt keeps an independent success/failure `media-publish-receipt/1`; retries do not overwrite prior evidence.
-- R2 credentials are accepted only from environment variables; CLI requires `--yes` and an `m2-test*` prefix.
+## M2-B implemented
+- Added Cloudflare R2 Temporary Credentials API integration for the exact boto3 publisher.
+- Parent inputs are read only from `R2_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` and `R2_PARENT_ACCESS_KEY_ID`.
+- Child credentials are minted in memory with `object-read-write`, one test Bucket, one `m2-test/.../` prefix and a TTL limited to 60-3600 seconds.
+- Temporary access key, secret and session token are never serialized, logged, written to receipts or included in exceptions/repr.
+- CLI adds `--temporary-credentials --credential-ttl-seconds`; Windows adds `-TemporaryCredentials -CredentialTtlSeconds`.
+- Existing direct S3 environment credential mode remains supported.
+- Production `v1/current.json` guard and M2 test-prefix guard remain unchanged.
 
-## Verification and remote evidence
-- Publisher adversarial tests: 24 passed; full resource-index suite: 167 passed.
-- Real M1 contract test uploaded and deep-verified 614 objects + Manifest + pointer in the injected backend, then reused all 616 on the second run.
-- Portable runtime uses boto3 1.43.56; botocore confirms PutObject `IfNoneMatch` support.
-- Created private Bucket `magnetgoogo-media-m2-test`; r2.dev is disabled and no custom domain is attached.
-- Real R2 probe under `m2-real-probe/20260727` uploaded and downloaded catalog, detail, resources, cover, Manifest and signed pointer candidate with matching SHA-256.
-- Probe confirmed `m2-real-probe/20260727/v1/current.json` does not exist.
+## Verification
+- Temporary-credential and publisher targeted tests: 30 passed before final expansion.
+- API request contract verified: account endpoint, bucket, parentAccessKeyId, object-read-write, TTL and exact prefix.
+- HTTP/API failures expose only status or Cloudflare error codes, never response messages or credential material.
+- Missing parent environment fails before local release access or any R2 request.
+- Official Cloudflare contract checked: temporary credentials support bucket, permission, prefixes/objects, session token and TTL; the API still requires a parent R2 Access Key ID plus API token.
 
-## Boundary / next batch
-- No production bucket/domain, App endpoint, Aliyun mirror, GitHub/Pages/Worker control plane, remote push, tag or production pointer was changed.
-- Wrangler OAuth can manage the Bucket but is not an R2 S3 Access Key/Secret. A scoped test-bucket S3 credential is still required to run the exact boto3 publisher against all 614 real objects.
-- Next: provision the minimum-scope S3 credential, run and retain the full credentialed R2 receipt, then proceed to M3 Aliyun mirror and dual-endpoint atomic publication.
+## Boundary / next step
+- Current machine has no direct S3 credentials and no parent API token/access key environment, so a real 616-file boto3 run cannot be fabricated.
+- Existing private Bucket `magnetgoogo-media-m2-test` remains non-public, without custom domain or production pointer.
+- Once parent variables are supplied, run the Windows publisher with temporary credentials, retain first-upload and second-all-reused receipts, then begin M3 Aliyun mirror.

@@ -256,6 +256,20 @@ $env:R2_SECRET_ACCESS_KEY = "<M2_TEST_SECRET_ACCESS_KEY>"
 
 也可以使用 `R2_ENDPOINT_URL` 直接指定 S3 兼容端点。凭证禁止写入 bat、PowerShell 参数、源码、发布收据或 Git。
 
+更推荐使用 Cloudflare 临时凭证 API。父凭证只放在当前终端环境变量中，程序会在内存中生成最长 1 小时、仅允许当前测试 Bucket 和 `m2-test/...` 前缀的子凭证，不写入磁盘：
+
+```powershell
+$env:R2_ACCOUNT_ID = "<R2_ACCOUNT_ID>"
+$env:CLOUDFLARE_API_TOKEN = "<PARENT_API_TOKEN>"
+$env:R2_PARENT_ACCESS_KEY_ID = "<PARENT_R2_ACCESS_KEY_ID>"
+```
+
+临时凭证模式在发布命令后增加：
+
+```text
+-TemporaryCredentials -CredentialTtlSeconds 900
+```
+
 执行隔离上传：
 
 ```bat
@@ -306,7 +320,7 @@ deploy\resource-index\publish-media-r2-staging.bat ... -NoPointerCandidate
 
 `-ShallowVerify` 只校验远端大小和 SHA-256 元数据，不重新下载对象。正式验证默认必须使用深度校验，不建议日常关闭。
 
-当前项目已经创建私有隔离 Bucket `magnetgoogo-media-m2-test`，并在 `m2-real-probe/20260727` 下完成频道、详情、资源、封面、Manifest 和签名指针候选的真实上传与回读哈希校验；该 Bucket 未绑定自定义域名，也没有生产 `current.json`。完整 614 对象的正式 S3 发布仍必须使用独立的最小权限 S3 凭证执行，Wrangler 的网页登录状态不能替代这组凭证。
+当前项目已经创建私有隔离 Bucket `magnetgoogo-media-m2-test`，并在 `m2-real-probe/20260727` 下完成频道、详情、资源、封面、Manifest 和签名指针候选的真实上传与回读哈希校验；该 Bucket 未绑定自定义域名，也没有生产 `current.json`。完整 614 对象的正式 S3 发布仍需要父 R2 API Token/Access Key 来派生短期凭证，或直接使用独立最小权限 S3 凭证；Wrangler 的网页登录状态不能替代它们。
 
 ## 11. App 接入
 
