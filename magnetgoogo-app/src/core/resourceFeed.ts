@@ -1,4 +1,11 @@
+import * as Application from 'expo-application';
 import { File, Paths } from 'expo-file-system';
+import { cachedMediaFeed, clearMediaCacheMemory } from './mediaReleaseCache';
+import {
+  clearActiveMediaRelease,
+  loadRemoteMediaDetail,
+  syncMediaFeed,
+} from './mediaReleaseClient';
 import {
   findMovieById,
   parseResourceFeed,
@@ -12,7 +19,7 @@ const BUNDLE_ROOTS: Record<MediaKind, readonly string[]> = {
   series: ['resource-index', 'series'],
 };
 
-export type ResourceFeedOrigin = 'bundled';
+export type ResourceFeedOrigin = 'bundled' | 'disk-cache' | 'network';
 
 export interface LoadedResourceFeed {
   feed: MovieFeed;
@@ -20,6 +27,7 @@ export interface LoadedResourceFeed {
 }
 
 const memoryCache: Partial<Record<MediaKind, LoadedResourceFeed>> = {};
+const networkSyncs: Partial<Record<MediaKind, Promise<LoadedResourceFeed>>> = {};
 
 function safeAssetParts(relativePath: string): string[] {
   const parts = relativePath.split('/').filter(Boolean);
@@ -27,6 +35,22 @@ function safeAssetParts(relativePath: string): string[] {
     throw new Error('INVALID_MEDIA_ASSET_PATH');
   }
   return parts;
+}
+
+function logResourceFeedSuccess(
+  kind: MediaKind,
+  stage: string,
+  origin: ResourceFeedOrigin,
+  recordCount: number,
+) {
+  if (!Application.applicationId?.endsWith('.debug')) return;
+  console.warn('[MediaReleaseEvidence]', {
+    stage,
+    error_code: 'OK',
+    content_kind: kind,
+    origin,
+    record_count: recordCount,
+  });
 }
 
 function logResourceFeedFailure(
@@ -63,14 +87,70 @@ async function loadBundled(kind: MediaKind): Promise<LoadedResourceFeed> {
   return { feed, origin: 'bundled' };
 }
 
+async function loadCached(kind: MediaKind): Promise<LoadedResourceFeed | null> {
+  try {
+    const feed = await cachedMediaFeed(kind);
+    if (!feed || feed.content_kind !== kind) return null;
+    return { feed, origin: 'disk-cache' };
+  } catch (error) {
+    logResourceFeedFailure(kind, 'disk_cache_load', 'MEDIA_DISK_CACHE_FAILED', error);
+    return null;
+  }
+}
+
+export async function syncResourceFeed(kind: MediaKind): Promise<LoadedResourceFeed> {
+  if (networkSyncs[kind]) return networkSyncs[kind] as Promise<LoadedResourceFeed>;
+  const task = syncMediaFeed(kind)
+    .then((feed): LoadedResourceFeed => {
+      const loaded: LoadedResourceFeed = { feed, origin: 'network' };
+      memoryCache[kind] = loaded;
+      logResourceFeedSuccess(kind, 'network_feed_ready', loaded.origin, feed.items.length);
+      return loaded;
+    })
+    .catch((error) => {
+      logResourceFeedFailure(kind, 'network_sync', 'MEDIA_NETWORK_SYNC_FAILED', error);
+      throw error;
+    })
+    .finally(() => {
+      if (networkSyncs[kind] === task) delete networkSyncs[kind];
+    });
+  networkSyncs[kind] = task;
+  return task;
+}
+
 export async function loadResourceFeed(
   kind: MediaKind = 'movie',
   forceRefresh = false,
 ): Promise<LoadedResourceFeed> {
-  if (!forceRefresh && memoryCache[kind]) return memoryCache[kind] as LoadedResourceFeed;
+  if (forceRefresh) {
+    try {
+      return await syncResourceFeed(kind);
+    } catch (error) {
+      logResourceFeedFailure(kind, 'force_refresh', 'MEDIA_FORCE_REFRESH_FAILED', error);
+      if (memoryCache[kind]) return memoryCache[kind] as LoadedResourceFeed;
+      const cached = await loadCached(kind);
+      if (cached) {
+        memoryCache[kind] = cached;
+        return cached;
+      }
+      return loadBundled(kind);
+    }
+  }
+  if (memoryCache[kind]) {
+    const loaded = memoryCache[kind] as LoadedResourceFeed;
+    logResourceFeedSuccess(kind, 'memory_feed_ready', loaded.origin, loaded.feed.items.length);
+    return loaded;
+  }
+  const cached = await loadCached(kind);
+  if (cached) {
+    memoryCache[kind] = cached;
+    logResourceFeedSuccess(kind, 'disk_feed_ready', cached.origin, cached.feed.items.length);
+    return cached;
+  }
   try {
     const loaded = await loadBundled(kind);
     memoryCache[kind] = loaded;
+    logResourceFeedSuccess(kind, 'bundled_feed_ready', loaded.origin, loaded.feed.items.length);
     return loaded;
   } catch (error) {
     logResourceFeedFailure(kind, 'bundled_load', 'BUNDLED_MEDIA_FEED_FAILED', error);
@@ -84,7 +164,17 @@ export async function loadMediaById(
   mediaId: string,
 ): Promise<MovieFeedItem | null> {
   const { feed } = await loadResourceFeed(kind, false);
-  return findMovieById(feed, mediaId);
+  const item = findMovieById(feed, mediaId);
+  if (!item) return null;
+  if (item.remote_release_id && item.remote_detail_path) {
+    try {
+      return await loadRemoteMediaDetail(item);
+    } catch (error) {
+      logResourceFeedFailure(kind, 'network_detail', 'MEDIA_NETWORK_DETAIL_FAILED', error);
+      return item;
+    }
+  }
+  return item;
 }
 
 export async function loadMovieById(movieId: string): Promise<MovieFeedItem | null> {
@@ -98,6 +188,7 @@ export async function loadMediaByIdAcrossFeeds(mediaId: string): Promise<MovieFe
 }
 
 export function movieCoverUri(item: MovieFeedItem): string | null {
+  if (item.remote_cover_url) return item.remote_cover_url;
   if (item.cover_asset_path) {
     return new File(
       Paths.bundle,
@@ -115,4 +206,6 @@ export function clearResourceFeedMemoryCache(kind?: MediaKind) {
   }
   delete memoryCache.movie;
   delete memoryCache.series;
+  clearMediaCacheMemory();
+  clearActiveMediaRelease();
 }

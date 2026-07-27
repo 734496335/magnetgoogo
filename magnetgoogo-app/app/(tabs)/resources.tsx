@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -24,7 +24,7 @@ import { MovieTagRow } from '../../src/components/MovieTagRow';
 import { getMovieScoreTier } from '../../src/core/movieRatings';
 import { seriesStatusForDisplay } from '../../src/core/mediaResourceTitle';
 import { getResourceCopy } from '../../src/core/resourceCopy';
-import { loadResourceFeed, movieCoverUri } from '../../src/core/resourceFeed';
+import { loadResourceFeed, movieCoverUri, syncResourceFeed } from '../../src/core/resourceFeed';
 import {
   resourceFeedItemKey,
   type MediaKind,
@@ -290,7 +290,9 @@ const MediaRow = memo(function MediaRow({
     duration,
   ].filter(Boolean).join(' · ');
   const visibleTags = item.quality_tags.slice(0, 3);
-  const magnetCount = item.resources.filter((resource) => resource.resource_type === 'magnet').length;
+  const magnetCount = item.resources.length > 0
+    ? item.resources.filter((resource) => resource.resource_type === 'magnet').length
+    : item.resource_count_hint ?? 0;
   const hasProminentScore = getMovieScoreTier(item) !== null;
   return (
     <View style={[styles.mediaRow, { borderBottomColor: colors.border }]}>
@@ -364,6 +366,7 @@ export default function ResourcesScreen() {
   const [refreshingKind, setRefreshingKind] = useState<MediaKind | null>(null);
   const [failedKinds, setFailedKinds] = useState<Partial<Record<MediaKind, boolean>>>({});
   const [titleCopyToastNonce, setTitleCopyToastNonce] = useState(0);
+  const backgroundSyncStarted = useRef(new Set<MediaKind>());
 
   const activeKind = channelKind(activeChannel);
   const feed = feeds[activeKind] ?? null;
@@ -401,6 +404,24 @@ export default function ResourcesScreen() {
       void load(activeKind, false);
     }
   }, [activeKind, feeds, load, loadingKind]);
+
+  useEffect(() => {
+    if (!feeds[activeKind] || backgroundSyncStarted.current.has(activeKind)) return undefined;
+    backgroundSyncStarted.current.add(activeKind);
+    syncResourceFeed(activeKind)
+      .then((loaded) => {
+        setFeeds((current) => ({ ...current, [activeKind]: loaded.feed }));
+      })
+      .catch((error) => {
+        console.warn('[ResourcesScreen]', {
+          stage: 'background_media_sync',
+          error_code: 'MEDIA_BACKGROUND_SYNC_FAILED',
+          content_kind: activeKind,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    return undefined;
+  }, [activeKind, feeds]);
 
   useEffect(() => {
     setActiveGenre(null);

@@ -22,7 +22,7 @@ function isAuthorized(request, env) {
   return typeof expected === "string" && expected.length >= 32 && actual === `Bearer ${expected}`;
 }
 
-function parseKey(request) {
+function parseKey(request, env) {
   const key = new URL(request.url).searchParams.get("key") || "";
   if (!key || key.startsWith("/") || key.includes("\\") || /[\u0000-\u001f]/.test(key)) {
     return { error: "unsafe object key" };
@@ -31,8 +31,21 @@ function parseKey(request) {
   if (parts.some((part) => !part || part === "." || part === "..")) {
     return { error: "unsafe object key" };
   }
-  if (!key.startsWith("m2-test/")) {
-    return { error: "object key must remain under m2-test/" };
+  const mode = env.PUBLISH_MODE || "m2-test";
+  if (mode === "m2-test") {
+    if (!key.startsWith("m2-test/")) {
+      return { error: "object key must remain under m2-test/" };
+    }
+  } else if (mode === "production-data") {
+    const allowed = key.startsWith("v1/objects/")
+      || key.startsWith("v1/covers/")
+      || key.startsWith("v1/releases/")
+      || key.startsWith("staging/pointers/");
+    if (!allowed) {
+      return { error: "production data key is outside the frozen allowlist" };
+    }
+  } else {
+    return { error: "unsupported publish mode" };
   }
   if (key.endsWith("/v1/current.json") || key === "v1/current.json") {
     return { error: "production current.json is forbidden" };
@@ -112,12 +125,16 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === "/health" && request.method === "GET") {
       await env.MEDIA_BUCKET.list({ prefix: "__m2_healthcheck_never__", limit: 1 });
-      return jsonResponse({ status: "ok", currentPromotion: false });
+      return jsonResponse({
+        status: "ok",
+        currentPromotion: false,
+        publishMode: env.PUBLISH_MODE || "m2-test",
+      });
     }
     if (url.pathname !== "/object") {
       return jsonResponse({ error: "not found" }, 404);
     }
-    const parsed = parseKey(request);
+    const parsed = parseKey(request, env);
     if (parsed.error) {
       return jsonResponse({ error: parsed.error }, 400);
     }

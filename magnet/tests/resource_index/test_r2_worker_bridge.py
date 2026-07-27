@@ -224,3 +224,59 @@ def test_worker_bridge_rejects_non_test_prefix() -> None:
             prefix="production",
             transport=FakeBridge(),
         )
+
+
+def test_worker_bridge_production_root_uses_exact_release_keys(tmp_path: Path) -> None:
+    path = tmp_path / "object.json"
+    path.write_text('{"ok":true}', encoding="utf-8")
+    bridge = FakeBridge()
+    backend = WorkerR2PublisherBackend(
+        worker_url="https://example.workers.dev",
+        upload_token="t" * 48,
+        prefix="",
+        allow_production_root=True,
+        transport=bridge,
+        retry_base_seconds=0,
+        sleeper=lambda _seconds: None,
+    )
+
+    backend.upload(_request(path), deep_verify=True)
+
+    assert set(bridge.objects) == {"v1/objects/detail/example.json"}
+    assert "allow_production_root=True" in repr(backend)
+
+
+def test_worker_bridge_production_root_rejects_nonempty_prefix() -> None:
+    with pytest.raises(ResourceIndexError, match="bucket root"):
+        WorkerR2PublisherBackend(
+            worker_url="https://example.workers.dev",
+            upload_token="t" * 48,
+            prefix="production",
+            allow_production_root=True,
+            transport=FakeBridge(),
+        )
+
+
+def test_worker_bridge_default_mode_rejects_empty_prefix() -> None:
+    with pytest.raises(ResourceIndexError, match="non-empty"):
+        WorkerR2PublisherBackend(
+            worker_url="https://example.workers.dev",
+            upload_token="t" * 48,
+            prefix="",
+            transport=FakeBridge(),
+        )
+
+
+def test_worker_bridge_production_root_still_forbids_current(tmp_path: Path) -> None:
+    path = tmp_path / "current.json"
+    path.write_text("{}", encoding="utf-8")
+    backend = WorkerR2PublisherBackend(
+        worker_url="https://example.workers.dev",
+        upload_token="t" * 48,
+        prefix="",
+        allow_production_root=True,
+        transport=FakeBridge(),
+    )
+
+    with pytest.raises(ResourceIndexError, match="current.json"):
+        backend.upload(_request(path, key="v1/current.json"))

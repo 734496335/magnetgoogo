@@ -1,16 +1,16 @@
 {
   "$schema": "../../../cf-gateway/node_modules/wrangler/config-schema.json",
-  "name": "magnetgoogo-media-m2-uploader",
-  "main": "worker.mjs",
+  "name": "magnetgoogo-media-production-uploader",
+  "main": "../r2-upload-worker/worker.mjs",
   "compatibility_date": "2026-07-27",
   "workers_dev": true,
   "vars": {
-    "PUBLISH_MODE": "m2-test"
+    "PUBLISH_MODE": "production-data"
   },
   "r2_buckets": [
     {
       "binding": "MEDIA_BUCKET",
-      "bucket_name": "magnetgoogo-media-m2-test"
+      "bucket_name": "magnetgoogo-media"
     }
   ]
 }

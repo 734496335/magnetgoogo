@@ -42,8 +42,16 @@ def _fail(error_code: str, message: str, **context: Any) -> None:
     raise ResourceIndexError(error_code, message, context)
 
 
-def _normalize_prefix(prefix: str) -> str:
+def _normalize_prefix(prefix: str, *, allow_production_root: bool) -> str:
     value = prefix.strip().replace("\\", "/").strip("/")
+    if allow_production_root:
+        if value:
+            _fail(
+                PUBLISH_CONFIG_ERROR,
+                "production Worker bridge must publish at the bucket root",
+                prefix=prefix,
+            )
+        return ""
     parts = PurePosixPath(value).parts if value else ()
     if not value or any(part in {"", ".", ".."} for part in parts):
         _fail(PUBLISH_CONFIG_ERROR, "Worker bridge prefix must be a safe non-empty path", prefix=prefix)
@@ -102,6 +110,7 @@ class WorkerR2PublisherBackend(PublisherBackend):
         upload_token: str,
         prefix: str,
         transport: Transport | None = None,
+        allow_production_root: bool = False,
         max_attempts: int = 3,
         retry_base_seconds: float = 0.5,
         sleeper: Callable[[float], None] = time.sleep,
@@ -115,7 +124,8 @@ class WorkerR2PublisherBackend(PublisherBackend):
         if max_attempts < 1 or max_attempts > 8:
             _fail(PUBLISH_CONFIG_ERROR, "Worker bridge max_attempts must be between 1 and 8")
         self.worker_url = worker_url.rstrip("/")
-        self.prefix = _normalize_prefix(prefix)
+        self.allow_production_root = allow_production_root
+        self.prefix = _normalize_prefix(prefix, allow_production_root=allow_production_root)
         self._token = upload_token
         self._transport = transport or _default_transport
         self.max_attempts = max_attempts
@@ -128,13 +138,18 @@ class WorkerR2PublisherBackend(PublisherBackend):
 
     @property
     def destination(self) -> str:
-        return f"{self.worker_url}/{self.prefix}"
+        return f"{self.worker_url}/{self.prefix}" if self.prefix else self.worker_url
 
     def __repr__(self) -> str:
-        return f"WorkerR2PublisherBackend(worker_url={self.worker_url!r}, prefix={self.prefix!r}, token=<redacted>)"
+        return (
+            "WorkerR2PublisherBackend("
+            f"worker_url={self.worker_url!r}, prefix={self.prefix!r}, "
+            f"allow_production_root={self.allow_production_root!r}, token=<redacted>)"
+        )
 
     def _remote_key(self, key: str) -> str:
-        return f"{self.prefix}/{_validate_key(key)}"
+        normalized = _validate_key(key)
+        return f"{self.prefix}/{normalized}" if self.prefix else normalized
 
     def _request(
         self,

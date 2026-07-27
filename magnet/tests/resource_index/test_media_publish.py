@@ -636,6 +636,52 @@ def test_cli_rejects_non_m2_prefix_before_loading_credentials(capsys: pytest.Cap
     assert "must begin with m2-test" in capsys.readouterr().err
 
 
+def test_cli_production_root_rejects_wrong_bucket_before_release_access(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    code = cli_main(
+        [
+            "publish-media-r2-staging",
+            "--release-dir",
+            "missing-release",
+            "--current",
+            "missing-pointer.json",
+            "--bucket",
+            "magnetgoogo-media-m2-test",
+            "--prefix",
+            "",
+            "--production-root",
+            "--worker-bridge-url",
+            "https://example.workers.dev",
+            "--yes",
+        ]
+    )
+
+    assert code == 1
+    assert "requires bucket magnetgoogo-media" in capsys.readouterr().err
+
+
+def test_cli_production_root_requires_worker_bridge(capsys: pytest.CaptureFixture[str]) -> None:
+    code = cli_main(
+        [
+            "publish-media-r2-staging",
+            "--release-dir",
+            "missing-release",
+            "--current",
+            "missing-pointer.json",
+            "--bucket",
+            "magnetgoogo-media",
+            "--prefix",
+            "",
+            "--production-root",
+            "--yes",
+        ]
+    )
+
+    assert code == 1
+    assert "requires the authenticated Worker bridge" in capsys.readouterr().err
+
+
 def test_missing_s3_credentials_fail_without_leaking_values(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in (
         "R2_ACCOUNT_ID",
@@ -786,3 +832,38 @@ def test_cli_dry_run_needs_no_acknowledgement_or_credentials(
     assert payload["remote_requests"] == 0
     assert payload["current_promoted"] is False
     assert payload["object_kinds"]["pointer-candidate"] == 1
+
+
+def test_cli_dry_run_can_write_canonical_full_file_plan(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = _setup(tmp_path)
+    release = build_media_release(config)
+    output = tmp_path / "mirror-plan.json"
+
+    code = cli_main(
+        [
+            "publish-media-r2-staging",
+            "--release-dir",
+            release.release_dir,
+            "--current",
+            release.current_path,
+            "--public-key",
+            str(config.public_key_path),
+            "--prefix",
+            "m2-test/dry-run",
+            "--dry-run",
+            "--plan-output",
+            str(output),
+        ]
+    )
+
+    assert code == 0
+    summary = json.loads(capsys.readouterr().out)
+    plan = json.loads(output.read_text(encoding="utf-8"))
+    assert summary["plan_output"] == str(output.resolve())
+    assert plan["schema_version"] == "media-publish-plan/1"
+    assert len(plan["files"]) == release.object_count + 2
+    assert sum(item["size"] for item in plan["files"]) == plan["total_bytes"]
+    assert not any(item["key"] == "v1/current.json" for item in plan["files"])

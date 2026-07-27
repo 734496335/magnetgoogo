@@ -52,6 +52,7 @@
       "./plugins/with-search-background",
       "./plugins/with-startup-overlay",
       "./plugins/with-resource-feed",
+      "./plugins/with-release-signing",
       [
         "expo-build-properties",
         {

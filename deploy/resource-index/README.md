@@ -360,20 +360,53 @@ r2-worker-bridge-af9febdd6c-20260726T000000Z-b8c702d5-r4-a5084e559622.json
 
 独立管理面复验确认远端恰好 616 个键，无缺失、无多余、无 `v1/current.json`；六类代表对象回读 SHA-256 全部匹配。临时 Worker 已删除，发布锁已释放，Bucket 的 r2.dev 访问仍关闭且未绑定自定义域名。本阶段只完成 M2 私有数据面发布，尚未切换 App 生产端点。
 
-## 11. App 接入
+## 11. 生产双数据面与控制指针
 
-App 的“资源”模块只使用 6V 影视数据，不再接入 JavBus 成人 Feed。
+生产数据先发布到两个独立静态数据面，且不包含 staging 指针：
 
-构建时读取：
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File deploy\resource-index\publish-media-r2-production-data.ps1 `
+  -ReleaseDir "完整 Release 目录" `
+  -CurrentPath "签名指针候选"
 
-```text
-data\resource_index\sixv_app_bundle\feed.json
-data\resource_index\sixv_app_bundle\covers\*.jpg
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File deploy\resource-index\publish-media-aliyun-data.ps1 `
+  -ReleaseDir "完整 Release 目录" `
+  -CurrentPath "签名指针候选"
 ```
 
-`feed.json` 保留来源列表排名，并包含 `recommended`、`highlight_labels`、类型、清晰度、字幕、豆瓣/IMDb、导演演员和磁力/网盘资源字段。封面由 SQLite 导出为本地图片，随 APK 打包，手机无需访问 6V 图片域名。
+生产公开数据集合固定为 614 个不可变对象 + Manifest，共 615 个文件。R2 使用 `magnetgoogo-media` Bucket 和 `media.magnetgoogo.com`；阿里云使用 `/var/www/magnetgoogo-site/media` 和 `https://cn.magnetgoogo.com/media`。两端均逐文件校验大小和 SHA-256，重复发布只能复用相同内容，冲突内容会阻断。
 
-## 12. 运维建议
+只有两个数据面的 Manifest 均与签名指针一致时，才执行最后的控制面晋级：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File deploy\resource-index\promote-media-current.ps1 `
+  -CurrentPath "签名指针候选" `
+  -ReleaseDir "完整 Release 目录"
+```
+
+晋级器会验证 Ed25519 签名、Manifest 哈希、revision 单调性和同 revision 内容一致性，然后发布同一字节的 `/v1/current.json`，再从两个端点回读验签。2026-07-27 已上线 revision 4：
+
+```text
+https://media.magnetgoogo.com/v1/current.json
+https://cn.magnetgoogo.com/media/v1/current.json
+```
+
+## 12. App 接入与离线回退
+
+App 的资源模块仍保留随 APK 打包的电影/剧集 Feed作为最后兜底；进入资源页后在后台读取两个生产 `current.json`，选择签名有效且 revision 最高的候选，验证 Manifest签名和每个对象的大小、SHA-256。列表只拉频道对象；详情和资源在点击时按需下载。
+
+磁盘缓存使用随机设备密钥、AES-256-CBC 加密和 HMAC-SHA256 完整性校验，最长保留 72 小时。加载顺序为：
+
+```text
+内存 → AES 磁盘缓存 → APK bundled Feed
+```
+
+K30S 实测：电影和剧集网络 Feed各 100 条；电影资源 351、剧集资源 1331；在线点击详情按需获取 6 个资源；关闭 Wi-Fi和移动数据后重启，仍从磁盘缓存恢复 100 条和同一详情的 6 个资源。
+
+## 13. 运维建议
 
 - 每次升级代码后先执行 `doctor.bat`；
 - 停止抓取任务后，再对整个 `data\resource_index` 目录做一致性备份；

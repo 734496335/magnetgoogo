@@ -64,6 +64,13 @@ export interface MovieFeedItem {
   highlight_labels: string[];
   quality_tags: string[];
   resources: MovieResource[];
+  resource_count_hint?: number;
+  remote_cover_url?: string | null;
+  remote_endpoint?: string;
+  remote_release_id?: string;
+  remote_detail_path?: string;
+  remote_detail_hash?: string;
+  remote_detail_size?: number;
 }
 
 export interface MovieFeed {

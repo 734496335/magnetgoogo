@@ -438,7 +438,20 @@ def cmd_publish_media_r2_staging(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
-    if not args.prefix.strip().startswith("m2-test"):
+    production_root = bool(args.production_root)
+    if production_root:
+        if args.bucket != "magnetgoogo-media" or args.prefix.strip():
+            print("error_code=PUBLISH_CONFIG_ERROR", file=sys.stderr)
+            print(
+                "message=production root mode requires bucket magnetgoogo-media and an empty prefix",
+                file=sys.stderr,
+            )
+            return 1
+        if not args.worker_bridge_url and not args.dry_run:
+            print("error_code=PUBLISH_CONFIG_ERROR", file=sys.stderr)
+            print("message=production root mode requires the authenticated Worker bridge", file=sys.stderr)
+            return 1
+    elif not args.prefix.strip().startswith("m2-test"):
         print("error_code=PUBLISH_CONFIG_ERROR", file=sys.stderr)
         print("message=M2 R2 staging prefix must begin with m2-test", file=sys.stderr)
         return 1
@@ -460,29 +473,53 @@ def cmd_publish_media_r2_staging(args: argparse.Namespace) -> int:
             upload_pointer_candidate=not args.no_pointer_candidate,
         )
         if args.dry_run:
+            from magnet.resource_index.release.protocol import canonical_json_bytes
+
             plan = build_media_publish_plan(publish_config)
-            _print_json(
-                {
-                    "status": "dry-run",
-                    "bucket": args.bucket,
-                    "prefix": args.prefix,
-                    "release_id": plan.release_id,
-                    "pointer_revision": plan.pointer_revision,
-                    "manifest_sha256": plan.manifest_sha256,
-                    "verified_object_count": plan.verified_object_count,
-                    "object_count": plan.object_count,
-                    "artifact_count": plan.artifact_count,
-                    "total_file_count": plan.total_file_count,
-                    "total_bytes": plan.total_bytes,
-                    "upload_pointer_candidate": plan.upload_pointer_candidate,
-                    "object_kinds": plan.object_kinds,
-                    "first_keys": [request.key for request in plan.requests[:5]],
-                    "last_keys": [request.key for request in plan.requests[-5:]],
-                    "current_promoted": False,
-                    "remote_requests": 0,
-                },
-                pretty=True,
-            )
+            summary = {
+                "status": "dry-run",
+                "bucket": args.bucket,
+                "prefix": args.prefix,
+                "production_root": production_root,
+                "release_id": plan.release_id,
+                "pointer_revision": plan.pointer_revision,
+                "manifest_sha256": plan.manifest_sha256,
+                "verified_object_count": plan.verified_object_count,
+                "object_count": plan.object_count,
+                "artifact_count": plan.artifact_count,
+                "total_file_count": plan.total_file_count,
+                "total_bytes": plan.total_bytes,
+                "upload_pointer_candidate": plan.upload_pointer_candidate,
+                "object_kinds": plan.object_kinds,
+                "first_keys": [request.key for request in plan.requests[:5]],
+                "last_keys": [request.key for request in plan.requests[-5:]],
+                "current_promoted": False,
+                "remote_requests": 0,
+            }
+            if args.plan_output:
+                output = Path(args.plan_output).resolve()
+                output.parent.mkdir(parents=True, exist_ok=True)
+                temporary = output.parent / f".{output.name}.tmp"
+                temporary.write_bytes(
+                    canonical_json_bytes(
+                        {
+                            **summary,
+                            "schema_version": "media-publish-plan/1",
+                            "files": [
+                                {
+                                    "key": request.key,
+                                    "sha256": request.sha256,
+                                    "size": request.size,
+                                    "object_kind": request.object_kind,
+                                }
+                                for request in plan.requests
+                            ],
+                        }
+                    )
+                )
+                temporary.replace(output)
+                summary["plan_output"] = str(output)
+            _print_json(summary, pretty=True)
             return 0
         if args.worker_bridge_url:
             from magnet.resource_index.publish.worker_bridge import WorkerR2PublisherBackend
@@ -491,6 +528,7 @@ def cmd_publish_media_r2_staging(args: argparse.Namespace) -> int:
                 worker_url=args.worker_bridge_url,
                 upload_token=os.environ.get("R2_UPLOAD_WORKER_TOKEN", ""),
                 prefix=args.prefix,
+                allow_production_root=production_root,
             )
         elif args.temporary_credentials:
             from magnet.resource_index.publish.temporary_credentials import (
@@ -793,6 +831,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     s.add_argument("--bucket", default="magnetgoogo-media-m2-test")
     s.add_argument("--prefix", default="m2-test")
+    s.add_argument(
+        "--production-root",
+        action="store_true",
+        help="Explicitly publish immutable release data at the root of magnetgoogo-media via Worker bridge",
+    )
     s.add_argument("--receipt-dir", default="data/resource_index/media_publish_receipts")
     s.add_argument("--max-workers", type=int, default=8)
     s.add_argument(
@@ -812,6 +855,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         help="Verify and print the complete local upload plan without credentials or remote requests",
+    )
+    s.add_argument(
+        "--plan-output",
+        default=None,
+        help="With --dry-run, write a canonical full file plan for remote mirror verification",
     )
     s.add_argument("--yes", action="store_true")
     s.set_defaults(func=cmd_publish_media_r2_staging)
