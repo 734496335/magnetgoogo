@@ -1,5 +1,36 @@
 ---
 Date/Time: 2026-07-27 (UTC+8)
+Version: media-release-m2-r2-private-publication
+Scope: Publish and independently verify the complete signed media release in the isolated private R2 data plane without production pointer promotion
+Modules: magnet/resource_index/{cli.py,publish/{orchestrator.py,worker_bridge.py}}, magnet/tests/resource_index/{test_media_publish.py,test_r2_worker_bridge.py}, deploy/resource-index/{publish-media-r2-oauth-bridge.ps1,r2-upload-worker,README.md}, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Implementation
+- Added a one-shot authenticated Worker Bridge for environments with Wrangler OAuth but no R2 S3 credentials; random upload authorization exists only in process memory and a versioned Worker Secret.
+- Reused the existing backend-neutral publication state machine while the temporary Worker provides R2 conditional creation, custom SHA-256 metadata, body validation and deep readback.
+- Added explicit Worker response markers so Cloudflare platform 404 during workers.dev propagation cannot be confused with a genuine missing R2 object.
+- Added bounded cross-edge propagation handling for temporary 401/403/platform 404 responses and retained immediate handling of protocol-marked object 404.
+- Fixed Windows stale-lock recovery when `os.kill(pid, 0)` raises `SystemError/WinError 87` for an exited process.
+- Ensured every failure before closure left Manifest and pointer unpublished; resumable retries reused previously verified immutable objects.
+
+### Publication evidence
+- Published to private Bucket `magnetgoogo-media-m2-test` under `m2-test/release-20260726T000000Z-b8c702d5-r4-published/`.
+- Recovery receipt `...-6428518140dd.json`: 614 objects reused, Manifest and pointer candidate uploaded, all 616 records deep-verified.
+- Second receipt `...-a5084e559622.json`: `uploaded_count=0`, `reused_count=616`, proving complete immutable idempotency.
+- Independent Cloudflare listing exactly matched all 616 locally planned keys; missing=0, unexpected=0 and production `v1/current.json` absent.
+- Independent downloads of catalog, cover, detail, resources, Manifest and pointer matched local sizes and SHA-256.
+- Temporary Worker deleted, lock released, r2.dev disabled and no custom domain attached.
+
+### Verification
+- Worker/publisher targeted suite: 36/36 PASS; full resource-index suite: 186/186 PASS.
+- Wrangler Worker dry-run and Python compile PASS; both success receipts contain no upload token, bearer header or S3 credential fields.
+
+### Release state
+- M2 private R2 data-plane publication complete. App production endpoint and `v1/current.json` were intentionally not switched because the required Aliyun mirror/control-plane stages are not yet closed.
+- No custom/public R2 domain, Aliyun mirror, GitHub/Pages control plane, App release, tag, remote Git push or production deployment was performed.
+---
+
+---
+Date/Time: 2026-07-27 (UTC+8)
 Version: media-release-m2c-offline-publish-plan
 Scope: Add a credential-free dry-run that verifies and exposes the exact R2 upload plan before remote execution
 Modules: magnet/resource_index/publish/orchestrator.py, magnet/resource_index/cli.py, magnet/tests/resource_index/test_media_publish.py, deploy/resource-index/{publish-media-r2-staging.ps1,README.md}, docs/project-nebula/{_progress.txt,DEV-LOG.md}

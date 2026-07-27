@@ -484,7 +484,15 @@ def cmd_publish_media_r2_staging(args: argparse.Namespace) -> int:
                 pretty=True,
             )
             return 0
-        if args.temporary_credentials:
+        if args.worker_bridge_url:
+            from magnet.resource_index.publish.worker_bridge import WorkerR2PublisherBackend
+
+            backend = WorkerR2PublisherBackend(
+                worker_url=args.worker_bridge_url,
+                upload_token=os.environ.get("R2_UPLOAD_WORKER_TOKEN", ""),
+                prefix=args.prefix,
+            )
+        elif args.temporary_credentials:
             from magnet.resource_index.publish.temporary_credentials import (
                 mint_temporary_r2_credentials_from_environment,
             )
@@ -793,6 +801,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Mint short-lived prefix-scoped R2 S3 credentials from parent environment variables",
     )
     s.add_argument("--credential-ttl-seconds", type=int, default=900)
+    s.add_argument(
+        "--worker-bridge-url",
+        default=None,
+        help="Temporary authenticated Worker URL used when Wrangler OAuth is the only R2 credential",
+    )
     s.add_argument("--shallow-verify", action="store_true")
     s.add_argument("--no-pointer-candidate", action="store_true")
     s.add_argument(

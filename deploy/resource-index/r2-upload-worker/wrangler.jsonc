@@ -1,0 +1,13 @@
+{
+  "$schema": "../../../cf-gateway/node_modules/wrangler/config-schema.json",
+  "name": "magnetgoogo-media-m2-uploader",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-07-27",
+  "workers_dev": true,
+  "r2_buckets": [
+    {
+      "binding": "MEDIA_BUCKET",
+      "bucket_name": "magnetgoogo-media-m2-test"
+    }
+  ]
+}

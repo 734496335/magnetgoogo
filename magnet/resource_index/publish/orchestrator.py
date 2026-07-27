@@ -206,7 +206,7 @@ def _process_exists(pid: int) -> bool:
         return False
     except PermissionError:
         return True
-    except OSError:
+    except (OSError, SystemError):
         return False
     return True
 

@@ -12,6 +12,7 @@ from magnet.resource_index.publish.orchestrator import (
     publish_media_release,
 )
 from magnet.resource_index.publish.r2 import R2PublisherBackend
+from magnet.resource_index.publish.worker_bridge import WorkerR2PublisherBackend
 
 __all__ = [
     "PublishedObject",
@@ -22,4 +23,5 @@ __all__ = [
     "MediaPublishResult",
     "publish_media_release",
     "R2PublisherBackend",
+    "WorkerR2PublisherBackend",
 ]

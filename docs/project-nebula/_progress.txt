@@ -1,21 +1,23 @@
-Current phase: MEDIA RELEASE M2-C DRY-RUN PREFLIGHT COMPLETE / REAL CREDENTIALED R2 RUN STILL EXTERNALLY BLOCKED 2026-07-27
+Current phase: MEDIA RELEASE M2 R2 PRIVATE DATA-PLANE PUBLISHED / M3 ALIYUN MIRROR NEXT 2026-07-27
 
-## M2-C implemented
-- Extracted `build_media_publish_plan` from the live publisher so local verification and remote execution share one request contract.
-- Added credential-free CLI/Windows `--dry-run` / `-DryRun` mode.
-- Dry-run verifies signatures, Manifest hash, all local object hashes, safe paths and production-pointer guards before producing a plan.
-- The plan reports release ID, pointer revision, total files, total bytes, object kinds, first/last keys and whether the pointer candidate is included.
-- Dry-run performs zero remote requests, creates no receipt and needs neither `--yes` nor Cloudflare/R2 credentials.
-- Live publication still consumes the exact same request plan, avoiding drift between preflight and execution.
+## M2 completed
+- Built and verified signed release `20260726T000000Z-b8c702d5`, Manifest SHA-256 `8891347a02646fe6d98279205b0614a6945238e5cb57d67188c722febd91f838`.
+- Local publish plan contains 614 immutable objects + Manifest + signed pointer candidate = 616 files / 11,072,715 bytes.
+- Added S3 publisher, temporary-credential flow, offline dry-run and authenticated one-shot Worker Bridge for Wrangler OAuth-only environments.
+- Worker Bridge enforces `m2-test/...`, authenticated conditional writes, SHA-256 custom metadata/body verification and a hard production `v1/current.json` ban.
+- Fixed Windows dead-PID lock recovery for `SystemError/WinError 87` and distinguished Cloudflare platform 404 from Worker object 404 during edge propagation.
 
-## Verification
-- Publisher and temporary-credential targeted suite: 34 passed.
-- Real release dry-run: 614 immutable objects + Manifest + signed pointer candidate = 616 files.
-- Real release total planned bytes: 11,072,715.
-- Object kinds: 14 catalog, 200 cover, 200 detail, 200 resources, 1 Manifest, 1 pointer candidate.
-- `remote_requests=0`, `current_promoted=false`, and no `v1/current.json` key exists in the plan.
+## Real publication evidence
+- Private Bucket: `magnetgoogo-media-m2-test`.
+- Published prefix: `m2-test/release-20260726T000000Z-b8c702d5-r4-published/`.
+- Recovery success receipt `...-6428518140dd.json`: 2 uploaded, 614 reused, Manifest/pointer present, current promoted=false.
+- Second success receipt `...-a5084e559622.json`: 0 uploaded, 616 reused, deep verification complete.
+- Cloudflare management-plane listing exactly matches all 616 planned keys; missing=0, unexpected=0, `v1/current.json` absent.
+- Catalog, cover, detail, resources, Manifest and pointer samples were independently downloaded and SHA-256 matched.
+- Temporary uploader Worker was deleted; local lock released; r2.dev remains disabled; no custom domain is attached.
+- Worker/publisher targeted suite: 36 passed; full resource-index suite: 186 passed; Worker Wrangler dry-run and Python compile PASS.
 
-## Boundary / next step
-- Current machine still lacks both direct R2 S3 credentials and parent temporary-credential inputs, so the real boto3 616-file upload remains externally blocked.
-- Existing private test Bucket remains non-public and without a custom domain.
-- Once credentials are supplied, execute the same plan twice and retain first-upload plus all-reused receipts; then proceed to M3 Aliyun mirror.
+## Boundary / next batch
+- M2 private R2 data-plane staging is complete, but the App production endpoint was not switched.
+- No Aliyun mirror, public/custom R2 domain, GitHub/Pages/Worker control-plane pointer, App network Feed, tag or remote Git push was changed.
+- Next: M3 implement and verify the Aliyun static mirror, then require both data planes before any production `current.json` arbitration or App rollout.

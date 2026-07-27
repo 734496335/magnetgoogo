@@ -10,6 +10,7 @@ from typing import Any
 
 import pytest
 
+import magnet.resource_index.publish.orchestrator as publish_orchestrator
 from magnet.resource_index.cli import main as cli_main
 from magnet.resource_index.errors import ResourceIndexError
 from magnet.resource_index.publish.base import UploadRequest
@@ -490,6 +491,14 @@ def test_stale_publish_lock_is_recovered(tmp_path: Path) -> None:
 
     assert result.status == "success"
     assert not lock_path.exists()
+
+
+def test_windows_system_error_marks_lock_pid_as_dead(monkeypatch: pytest.MonkeyPatch) -> None:
+    def raise_windows_invalid_parameter(_pid: int, _signal: int) -> None:
+        raise SystemError("os.kill returned WinError 87")
+
+    monkeypatch.setattr(publish_orchestrator.os, "kill", raise_windows_invalid_parameter)
+    assert publish_orchestrator._process_exists(90108) is False
 
 
 def test_recent_lock_without_pid_is_not_deleted_during_creation_window(tmp_path: Path) -> None:

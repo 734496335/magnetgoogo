@@ -333,7 +333,32 @@ deploy\resource-index\publish-media-r2-staging.bat ... -NoPointerCandidate
 
 `-ShallowVerify` 只校验远端大小和 SHA-256 元数据，不重新下载对象。正式验证默认必须使用深度校验，不建议日常关闭。
 
-当前项目已经创建私有隔离 Bucket `magnetgoogo-media-m2-test`，并在 `m2-real-probe/20260727` 下完成频道、详情、资源、封面、Manifest 和签名指针候选的真实上传与回读哈希校验；该 Bucket 未绑定自定义域名，也没有生产 `current.json`。完整 614 对象的正式 S3 发布仍需要父 R2 API Token/Access Key 来派生短期凭证，或直接使用独立最小权限 S3 凭证；Wrangler 的网页登录状态不能替代它们。
+如果当前机器只有 Wrangler OAuth 登录、没有 R2 S3 或父凭证，可以使用一次性 Worker Bridge。它会生成随机内存令牌、部署仅绑定测试 Bucket 的临时 Worker、创建版本化 Secret、执行两轮完整发布，并在 `finally` 中删除 Worker：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File deploy\resource-index\publish-media-r2-oauth-bridge.ps1 `
+  -ReleaseDir "data\resource_index\media_releases_m1_final\staging\releases\20260726T000000Z-b8c702d5" `
+  -CurrentPath "data\resource_index\media_releases_m1_final\staging\pointers\00000000000000000004-20260726T000000Z-b8c702d5.json" `
+  -Prefix "m2-test/release-20260726T000000Z-b8c702d5-r4-published"
+```
+
+Worker Bridge 仍使用同一个 `PublisherBackend` 状态机：Worker 只提供带鉴权的条件写、自定义 SHA-256 元数据和回读；生产 `current.json` 仍被本地与 Worker 双重禁止。Cloudflare workers.dev 新版本在不同边缘节点传播可能有短暂 401/403/平台 404，客户端只对这些未带协议标记的响应做最长 60 秒的有界等待；带 `x-media-bridge: 1` 的对象 404 才表示真实不存在。
+
+2026-07-27 已将完整 Release 发布到私有 Bucket `magnetgoogo-media-m2-test` 的前缀：
+
+```text
+m2-test/release-20260726T000000Z-b8c702d5-r4-published/
+```
+
+远端对象与本地签名计划逐键完全一致：614 个不可变对象 + Manifest + 签名指针候选，共 616 个文件、11,072,715 字节。恢复轮仅补传 Manifest 和指针 2 个文件、复用 614 个；第二轮 `uploaded_count=0`、`reused_count=616`。成功收据：
+
+```text
+r2-worker-bridge-af9febdd6c-20260726T000000Z-b8c702d5-r4-6428518140dd.json
+r2-worker-bridge-af9febdd6c-20260726T000000Z-b8c702d5-r4-a5084e559622.json
+```
+
+独立管理面复验确认远端恰好 616 个键，无缺失、无多余、无 `v1/current.json`；六类代表对象回读 SHA-256 全部匹配。临时 Worker 已删除，发布锁已释放，Bucket 的 r2.dev 访问仍关闭且未绑定自定义域名。本阶段只完成 M2 私有数据面发布，尚未切换 App 生产端点。
 
 ## 11. App 接入
 
