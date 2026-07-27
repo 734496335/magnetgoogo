@@ -244,7 +244,71 @@ deploy\resource-index\build-media-release.bat -VerifyOnly ^
 
 重复输入会复用同一 `release_id` 和同一指针候选，不会覆盖不同内容；同一个 `pointer_revision` 也不能重新指向另一配置。签名、Manifest 哈希或任一对象被篡改时，验证会失败。
 
-## 10. App 接入
+## 10. R2 隔离测试发布（M2）
+
+M2 只允许发布到独立测试 Bucket 和以 `m2-test` 开头的前缀，代码中没有生产 `v1/current.json` 的上传或晋级能力。推荐为测试 Bucket 创建最小权限的 R2 S3 凭证，并只通过当前终端的环境变量提供：
+
+```powershell
+$env:R2_ACCOUNT_ID = "<R2_ACCOUNT_ID>"
+$env:R2_ACCESS_KEY_ID = "<M2_TEST_ACCESS_KEY_ID>"
+$env:R2_SECRET_ACCESS_KEY = "<M2_TEST_SECRET_ACCESS_KEY>"
+```
+
+也可以使用 `R2_ENDPOINT_URL` 直接指定 S3 兼容端点。凭证禁止写入 bat、PowerShell 参数、源码、发布收据或 Git。
+
+执行隔离上传：
+
+```bat
+deploy\resource-index\publish-media-r2-staging.bat ^
+  -ReleaseDir "data\resource_index\media_releases\staging\releases\<release_id>" ^
+  -CurrentPath "data\resource_index\media_releases\staging\pointers\<pointer_revision>-<release_id>.json" ^
+  -Bucket "magnetgoogo-media-m2-test" ^
+  -Prefix "m2-test\手工批次名"
+```
+
+发布顺序固定为：
+
+```text
+全部内容寻址对象
+→ 逐对象远程大小、SHA-256 元数据和实际下载内容校验
+→ Manifest
+→ staging/pointers 下的签名指针候选
+```
+
+不会上传：
+
+```text
+v1/current.json
+```
+
+关键行为：
+
+- 远端不存在时使用 `If-None-Match: *` 原子创建，避免并发覆盖；
+- 远端存在且大小、SHA-256 和实际内容一致时直接复用；
+- 相同路径出现不同内容时阻断，不覆盖；
+- 429、超时和 5xx 按指数退避重试，每次重试重新打开本地文件；
+- 任一对象失败时不上传 Manifest；Manifest 失败时不上传指针候选；
+- 中断后重新执行会复用已经验证的对象，只补传缺失对象；
+- 每次尝试保留独立的成功或失败收据，不覆盖历史证据；
+- 同一目标的并发发布由本地锁阻断，异常退出留下的陈旧锁可自动恢复。
+
+发布收据默认位于：
+
+```text
+data\resource_index\media_publish_receipts\
+```
+
+仅验证对象和 Manifest、暂不上传签名指针候选：
+
+```bat
+deploy\resource-index\publish-media-r2-staging.bat ... -NoPointerCandidate
+```
+
+`-ShallowVerify` 只校验远端大小和 SHA-256 元数据，不重新下载对象。正式验证默认必须使用深度校验，不建议日常关闭。
+
+当前项目已经创建私有隔离 Bucket `magnetgoogo-media-m2-test`，并在 `m2-real-probe/20260727` 下完成频道、详情、资源、封面、Manifest 和签名指针候选的真实上传与回读哈希校验；该 Bucket 未绑定自定义域名，也没有生产 `current.json`。完整 614 对象的正式 S3 发布仍必须使用独立的最小权限 S3 凭证执行，Wrangler 的网页登录状态不能替代这组凭证。
+
+## 11. App 接入
 
 App 的“资源”模块只使用 6V 影视数据，不再接入 JavBus 成人 Feed。
 
@@ -257,7 +321,7 @@ data\resource_index\sixv_app_bundle\covers\*.jpg
 
 `feed.json` 保留来源列表排名，并包含 `recommended`、`highlight_labels`、类型、清晰度、字幕、豆瓣/IMDb、导演演员和磁力/网盘资源字段。封面由 SQLite 导出为本地图片，随 APK 打包，手机无需访问 6V 图片域名。
 
-## 11. 运维建议
+## 12. 运维建议
 
 - 每次升级代码后先执行 `doctor.bat`；
 - 停止抓取任务后，再对整个 `data\resource_index` 目录做一致性备份；

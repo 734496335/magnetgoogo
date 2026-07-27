@@ -1,24 +1,25 @@
-Current phase: MEDIA RELEASE M1 COMPLETE / M2 NOT STARTED 2026-07-26
+Current phase: MEDIA RELEASE M2-A COMPLETE / CREDENTIALED FULL R2 RUN PENDING 2026-07-27
 
-## M1 implemented
-- Added backend-independent `media-current/1` and `media-manifest/1` local release protocol.
-- Split 100 movies + 100 series into card, detail, resource and content-addressed cover objects.
-- Added deterministic canonical JSON, SHA-256 inventory and Ed25519 pointer/manifest signatures; key initialization is idempotent and can repair the public half from the private key.
-- Immutable releases live under `staging/releases/<release_id>`; mutable pointer candidates live separately under `staging/pointers`.
-- Same data reuses the exact release and pointer; a higher pointer revision reuses objects but creates a new signed pointer.
-- Pointer revisions are monotonic and cannot be reassigned; OS-backed locking rejects concurrent local publishers.
-- Added local one-click builder and independent verifier for the existing Windows portable runtime.
-- Existing crawler CLI remains usable when the signing dependency is absent; the release wrapper upgrades only its runtime when needed.
+## M2-A implemented
+- Added backend-neutral `PublisherBackend` plus Cloudflare `R2PublisherBackend` using the S3-compatible API.
+- Publication order is immutable objects -> verified Manifest -> isolated staging pointer candidate; production `v1/current.json` cannot be uploaded or promoted.
+- Every source file is re-hashed before upload; remote verification checks size, SHA-256 metadata and, by default, a downloaded body hash.
+- Immutable creation uses `If-None-Match: *`; same-content races reuse the winner and different-content races block.
+- Existing matching objects are reused, interrupted runs resume, and path collisions never overwrite remote data.
+- Added bounded exponential retry for 408/429/5xx and transient R2 errors; each retry reopens the local file.
+- Added destination locks with active-lock protection, dead-PID recovery and a grace window for newly created PID-less locks.
+- Each attempt keeps an independent success/failure `media-publish-receipt/1`; retries do not overwrite prior evidence.
+- R2 credentials are accepted only from environment variables; CLI requires `--yes` and an `m2-test*` prefix.
 
-## Quality and evidence
-- Real build: 100 movies, 100 series, 1,682 unique resources, 200 covers, 200 details, 14 catalog objects.
-- Final release: `20260726T000000Z-b8c702d5`; Manifest SHA-256 `8891347a02646fe6d98279205b0614a6945238e5cb57d67188c722febd91f838`.
-- Independent verification passed all 614 referenced objects and typed card/detail/resource/cover reference closure.
-- Quality: 0 duplicate IDs/resources, 0 cross-season resources, 0 malformed country/genre values, complete covers.
-- Series identity: 52 collection/cloud resources, 142 title-inferred resources, 1 genuinely unknown resource.
-- Targeted release tests: 21 passed; complete resource-index suite: 143 passed.
+## Verification and remote evidence
+- Publisher adversarial tests: 24 passed; full resource-index suite: 167 passed.
+- Real M1 contract test uploaded and deep-verified 614 objects + Manifest + pointer in the injected backend, then reused all 616 on the second run.
+- Portable runtime uses boto3 1.43.56; botocore confirms PutObject `IfNoneMatch` support.
+- Created private Bucket `magnetgoogo-media-m2-test`; r2.dev is disabled and no custom domain is attached.
+- Real R2 probe under `m2-real-probe/20260727` uploaded and downloaded catalog, detail, resources, cover, Manifest and signed pointer candidate with matching SHA-256.
+- Probe confirmed `m2-real-probe/20260727/v1/current.json` does not exist.
 
-## Boundaries / next batch
-- No R2 bucket, Aliyun upload, GitHub/Pages/Worker pointer update, App network Feed, push, tag or production deployment was performed.
-- `mg-data` versus `maggoogo-sources` remains a control-plane configuration drift to close before M5, not part of the data protocol.
-- Next: M2 implement `PublisherBackend` + R2 test bucket/custom-domain upload and remote hash verification without switching the App.
+## Boundary / next batch
+- No production bucket/domain, App endpoint, Aliyun mirror, GitHub/Pages/Worker control plane, remote push, tag or production pointer was changed.
+- Wrangler OAuth can manage the Bucket but is not an R2 S3 Access Key/Secret. A scoped test-bucket S3 credential is still required to run the exact boto3 publisher against all 614 real objects.
+- Next: provision the minimum-scope S3 credential, run and retain the full credentialed R2 receipt, then proceed to M3 Aliyun mirror and dual-endpoint atomic publication.

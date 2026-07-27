@@ -1,4 +1,32 @@
 ---
+Date/Time: 2026-07-27 (UTC+8)
+Version: media-release-m2-r2-isolated-publisher
+Scope: Add a backend-neutral publisher, hardened R2 S3 implementation and isolated real-bucket verification without production promotion
+Modules: magnet/resource_index/{publish,cli.py,errors.py}, magnet/tests/resource_index/test_media_publish.py, deploy/resource-index/{publish-media-r2-staging.bat,publish-media-r2-staging.ps1,README.md,requirements.txt}, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Implementation
+- Added `PublisherBackend` and `R2PublisherBackend`, keeping release construction independent from Cloudflare, Aliyun or future storage backends.
+- Enforced the M2 order: all 614 immutable objects first, signed Manifest second, isolated staging pointer candidate last. No API exists to upload or promote production `v1/current.json`.
+- Re-hashed local files before upload and verified remote size, SHA-256 metadata and downloaded body content.
+- Used atomic `If-None-Match: *` creation so concurrent same-content writers reuse the winner while different-content writers are blocked without overwrite.
+- Added bounded exponential retry for 408/429/5xx/transient errors with a fresh file handle for every attempt.
+- Added resumable idempotency, immutable collision checks, active/dead/malformed lock handling and per-attempt success/failure receipts that preserve previous evidence.
+- Credentials are read only from environment variables; the Windows and CLI entry points require explicit acknowledgement and an `m2-test*` prefix.
+
+### Verification
+- Publisher adversarial suite 24/24; full resource-index suite 167/167; Python compile PASS.
+- The real 614-object M1 contract plus Manifest and pointer was fully uploaded/deep-verified through the injected R2 client and reused all 616 artifacts on a second run.
+- Portable runtime installed boto3 1.43.56 and confirmed botocore PutObject supports `IfNoneMatch`.
+- Created private R2 Bucket `magnetgoogo-media-m2-test`; r2.dev is disabled and no custom domain is connected.
+- Real probe `m2-real-probe/20260727` uploaded and downloaded catalog, detail, resources, cover, Manifest and signed pointer candidate; every SHA-256 matched and `v1/current.json` remained absent.
+- Missing S3 credentials caused the Windows publisher to fail before any remote request and did not print credential values.
+
+### Release state
+- M2-A implementation and isolated Cloudflare probe complete. The exact boto3 publisher has not uploaded all 614 objects to real R2 because no scoped R2 S3 Access Key/Secret is configured; Wrangler OAuth is a different credential type.
+- No production bucket/domain, App endpoint, Aliyun mirror, GitHub/Pages/Worker update, remote push, tag or production pointer was changed.
+---
+
+---
 Date/Time: 2026-07-26 (UTC+8)
 Version: media-release-m1-local-signed-staging
 Scope: Implement the backend-independent local media release protocol, quality gates and Windows staging workflow

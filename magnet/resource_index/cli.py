@@ -429,6 +429,59 @@ def cmd_verify_media_release(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_publish_media_r2_staging(args: argparse.Namespace) -> int:
+    if not args.yes:
+        print("error_code=LIVE_POLICY_NOT_ACKNOWLEDGED", file=sys.stderr)
+        print(
+            "message=pass --yes to acknowledge remote upload to the isolated R2 staging destination",
+            file=sys.stderr,
+        )
+        return 1
+    if not args.prefix.strip().startswith("m2-test"):
+        print("error_code=PUBLISH_CONFIG_ERROR", file=sys.stderr)
+        print("message=M2 R2 staging prefix must begin with m2-test", file=sys.stderr)
+        return 1
+    try:
+        from magnet.resource_index.publish.orchestrator import (
+            MediaPublishConfig,
+            publish_media_release,
+        )
+        from magnet.resource_index.publish.r2 import R2PublisherBackend
+
+        backend = R2PublisherBackend.from_environment(
+            bucket=args.bucket,
+            prefix=args.prefix,
+        )
+        result = publish_media_release(
+            backend,
+            MediaPublishConfig(
+                release_dir=Path(args.release_dir),
+                current_path=Path(args.current),
+                public_key_path=Path(args.public_key),
+                receipt_dir=Path(args.receipt_dir),
+                max_workers=args.max_workers,
+                deep_verify=not args.shallow_verify,
+                upload_pointer_candidate=not args.no_pointer_candidate,
+            ),
+        )
+        _print_json(result.__dict__, pretty=True)
+        return 0
+    except ModuleNotFoundError as exc:
+        print("error_code=PUBLISH_CONFIG_ERROR", file=sys.stderr)
+        print(
+            "message=media R2 publishing dependency is missing; run deploy\\resource-index\\setup.bat",
+            file=sys.stderr,
+        )
+        print(f"dependency={exc.name}", file=sys.stderr)
+        return 1
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        if exc.context:
+            print(f"context={json.dumps(exc.context, ensure_ascii=False, sort_keys=True)}", file=sys.stderr)
+        return 1
+
+
 def cmd_crawl(args: argparse.Namespace) -> int:
     """Live crawl a source into the resource index DB."""
     if not args.yes:
@@ -675,6 +728,25 @@ def build_parser() -> argparse.ArgumentParser:
         default="data/resource_index/.secrets/media-ed25519-public.pem",
     )
     s.set_defaults(func=cmd_verify_media_release)
+
+    s = sub.add_parser(
+        "publish-media-r2-staging",
+        help="Upload a verified release to an isolated R2 M2 prefix without promoting current.json",
+    )
+    s.add_argument("--release-dir", required=True)
+    s.add_argument("--current", required=True, help="Signed staging pointer candidate")
+    s.add_argument(
+        "--public-key",
+        default="data/resource_index/.secrets/media-ed25519-public.pem",
+    )
+    s.add_argument("--bucket", default="magnetgoogo-media-m2-test")
+    s.add_argument("--prefix", default="m2-test")
+    s.add_argument("--receipt-dir", default="data/resource_index/media_publish_receipts")
+    s.add_argument("--max-workers", type=int, default=8)
+    s.add_argument("--shallow-verify", action="store_true")
+    s.add_argument("--no-pointer-candidate", action="store_true")
+    s.add_argument("--yes", action="store_true")
+    s.set_defaults(func=cmd_publish_media_r2_staging)
 
     s = sub.add_parser(
         "crawl",
