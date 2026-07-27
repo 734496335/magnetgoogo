@@ -52,7 +52,7 @@ let syncPromise: Promise<ActiveRelease> | null = null;
 
 function logMediaNetworkSuccess(stage: string, context: Record<string, unknown>) {
   if (!Application.applicationId?.endsWith('.debug')) return;
-  console.warn('[MediaReleaseEvidence]', {
+  console.log('[MediaReleaseEvidence]', {
     stage,
     error_code: 'OK',
     ...context,

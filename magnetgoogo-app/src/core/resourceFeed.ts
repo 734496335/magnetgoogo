@@ -44,7 +44,7 @@ function logResourceFeedSuccess(
   recordCount: number,
 ) {
   if (!Application.applicationId?.endsWith('.debug')) return;
-  console.warn('[MediaReleaseEvidence]', {
+  console.log('[MediaReleaseEvidence]', {
     stage,
     error_code: 'OK',
     content_kind: kind,

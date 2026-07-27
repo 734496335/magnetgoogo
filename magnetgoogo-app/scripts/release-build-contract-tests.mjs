@@ -49,6 +49,8 @@ const cacheSource = fs.readFileSync(path.resolve('src/core/mediaReleaseCache.ts'
 const clientSource = fs.readFileSync(path.resolve('src/core/mediaReleaseClient.ts'), 'utf8');
 assert.match(cacheSource, /media\.cache\.backup\.enc\.json/);
 assert.match(clientSource, /Application\.applicationId\?\.endsWith\('\.debug'\)/);
+assert.match(clientSource, /console\.log\('\[MediaReleaseEvidence\]'/);
+assert.doesNotMatch(clientSource, /console\.warn\('\[MediaReleaseEvidence\]'/);
 
 console.log(JSON.stringify({
   status: 'PASS',
