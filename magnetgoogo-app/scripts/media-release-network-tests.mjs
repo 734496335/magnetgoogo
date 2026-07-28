@@ -107,10 +107,23 @@ assert.match(cacheSource, /CryptoJS\.AES/);
 assert.match(cacheSource, /HmacSHA256/);
 
 const endpointChecks = [];
-const pointerHash = crypto.createHash('sha256').update(fs.readFileSync(pointerPath)).digest('hex');
-const sampleCatalogRef = uniqueCatalogRefs[0];
-const sampleCatalog = JSON.parse(bytes(sampleCatalogRef.path));
-const sampleCard = sampleCatalog.items[0];
+const expectedLivePointerHash = process.env.MEDIA_EXPECTED_POINTER_SHA256 || null;
+const expectedLiveRevision = process.env.MEDIA_EXPECTED_POINTER_REVISION
+  ? Number(process.env.MEDIA_EXPECTED_POINTER_REVISION)
+  : null;
+const minimumLiveRevision = Number(process.env.MEDIA_MIN_POINTER_REVISION || 4);
+const expectedMovieCount = process.env.MEDIA_EXPECTED_MOVIE_COUNT
+  ? Number(process.env.MEDIA_EXPECTED_MOVIE_COUNT)
+  : null;
+const expectedSeriesCount = process.env.MEDIA_EXPECTED_SERIES_COUNT
+  ? Number(process.env.MEDIA_EXPECTED_SERIES_COUNT)
+  : null;
+const expectedResourceCount = process.env.MEDIA_EXPECTED_RESOURCE_COUNT
+  ? Number(process.env.MEDIA_EXPECTED_RESOURCE_COUNT)
+  : null;
+let acceptedPointerHash = null;
+let acceptedPointerBytes = null;
+
 for (const base of ['https://media.magnetgoogo.com', 'https://cn.magnetgoogo.com/media']) {
   const currentResponse = await fetch(`${base}/v1/current.json`, {
     headers: { 'user-agent': 'MagnetGoogo-App-Protocol-Test/1' },
@@ -118,10 +131,20 @@ for (const base of ['https://media.magnetgoogo.com', 'https://cn.magnetgoogo.com
   });
   assert.equal(currentResponse.status, 200, `${base} current status`);
   const currentBytes = Buffer.from(await currentResponse.arrayBuffer());
-  assert.equal(crypto.createHash('sha256').update(currentBytes).digest('hex'), pointerHash);
+  const currentHash = crypto.createHash('sha256').update(currentBytes).digest('hex');
+  if (acceptedPointerBytes === null) {
+    acceptedPointerBytes = currentBytes;
+    acceptedPointerHash = currentHash;
+  } else {
+    assert.deepEqual(currentBytes, acceptedPointerBytes, `${base} current bytes differ from peer endpoint`);
+  }
+  if (expectedLivePointerHash) assert.equal(currentHash, expectedLivePointerHash);
+
   const remotePointer = JSON.parse(currentBytes);
   assert.equal(verifySigned(remotePointer), true);
-  assert.equal(remotePointer.pointer_revision, 4);
+  assert.equal(remotePointer.schema_version, 'media-current/1');
+  assert.ok(remotePointer.pointer_revision >= minimumLiveRevision);
+  if (expectedLiveRevision !== null) assert.equal(remotePointer.pointer_revision, expectedLiveRevision);
 
   const manifestResponse = await fetch(`${base}${remotePointer.manifest_path}`, {
     headers: { 'user-agent': 'MagnetGoogo-App-Protocol-Test/1' },
@@ -130,10 +153,39 @@ for (const base of ['https://media.magnetgoogo.com', 'https://cn.magnetgoogo.com
   assert.equal(manifestResponse.status, 200, `${base} manifest status`);
   const remoteManifestBytes = Buffer.from(await manifestResponse.arrayBuffer());
   assert.equal(crypto.createHash('sha256').update(remoteManifestBytes).digest('hex'), remotePointer.manifest_sha256);
-  assert.equal(verifySigned(JSON.parse(remoteManifestBytes)), true);
+  const remoteManifest = JSON.parse(remoteManifestBytes);
+  assert.equal(verifySigned(remoteManifest), true);
+  assert.equal(remoteManifest.release_id, remotePointer.release_id);
+  assert.ok(remoteManifest.counts.movie > 0);
+  assert.ok(remoteManifest.counts.series > 0);
+  if (expectedMovieCount !== null) assert.equal(remoteManifest.counts.movie, expectedMovieCount);
+  if (expectedSeriesCount !== null) assert.equal(remoteManifest.counts.series, expectedSeriesCount);
+  if (expectedResourceCount !== null) assert.equal(remoteManifest.counts.resources, expectedResourceCount);
 
-  const sampleRefs = [sampleCatalogRef, sampleCard.cover, sampleCard.detail_object];
-  for (const ref of sampleRefs) {
+  const remoteCatalogRefs = [];
+  for (const channel of Object.values(remoteManifest.channels)) {
+    if (channel.featured) remoteCatalogRefs.push(channel.featured);
+    if (channel.updating) remoteCatalogRefs.push(channel.updating);
+    remoteCatalogRefs.push(...channel.latest_pages);
+  }
+  const remoteUniqueCatalogRefs = [
+    ...new Map(remoteCatalogRefs.map((ref) => [ref.hash, ref])).values(),
+  ];
+  assert.equal(remoteUniqueCatalogRefs.length, remoteManifest.counts.catalog_objects);
+  const sampleCatalogRef = remoteUniqueCatalogRefs[0];
+  const catalogResponse = await fetch(`${base}${sampleCatalogRef.path}`, {
+    headers: { 'user-agent': 'MagnetGoogo-App-Protocol-Test/1' },
+    signal: AbortSignal.timeout(20_000),
+  });
+  assert.equal(catalogResponse.status, 200, `${base}${sampleCatalogRef.path}`);
+  const catalogPayload = Buffer.from(await catalogResponse.arrayBuffer());
+  assert.equal(catalogPayload.length, sampleCatalogRef.size);
+  assert.equal(crypto.createHash('sha256').update(catalogPayload).digest('hex'), sampleCatalogRef.hash);
+  const remoteCatalog = JSON.parse(catalogPayload);
+  assert.ok(remoteCatalog.items.length > 0);
+  const sampleCard = remoteCatalog.items[0];
+
+  for (const ref of [sampleCard.cover, sampleCard.detail_object]) {
     const response = await fetch(`${base}${ref.path}`, {
       headers: { 'user-agent': 'MagnetGoogo-App-Protocol-Test/1' },
       signal: AbortSignal.timeout(20_000),
@@ -155,16 +207,26 @@ for (const base of ['https://media.magnetgoogo.com', 'https://cn.magnetgoogo.com
   const resourcePayload = Buffer.from(await resourceResponse.arrayBuffer());
   assert.equal(resourcePayload.length, remoteDetail.resource_object.size);
   assert.equal(crypto.createHash('sha256').update(resourcePayload).digest('hex'), remoteDetail.resource_object.hash);
-  endpointChecks.push({ base, pointer_revision: remotePointer.pointer_revision, live_chain: true });
+  endpointChecks.push({
+    base,
+    pointer_revision: remotePointer.pointer_revision,
+    release_id: remotePointer.release_id,
+    pointer_sha256: currentHash,
+    movie_count: remoteManifest.counts.movie,
+    series_count: remoteManifest.counts.series,
+    resource_count: remoteManifest.counts.resources,
+    live_chain: true,
+  });
 }
 
 console.log(JSON.stringify({
   status: 'PASS',
-  pointer_revision: pointer.pointer_revision,
-  release_id: releaseId,
-  catalog_objects: uniqueCatalogRefs.length,
-  media_cards: cards.size,
-  resource_items: resourceItems,
+  local_fixture_pointer_revision: pointer.pointer_revision,
+  local_fixture_release_id: releaseId,
+  local_fixture_catalog_objects: uniqueCatalogRefs.length,
+  local_fixture_media_cards: cards.size,
+  local_fixture_resource_items: resourceItems,
+  live_pointer_sha256: acceptedPointerHash,
   signature_tamper_rejected: true,
   endpoints: endpointChecks,
 }));
