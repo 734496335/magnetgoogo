@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date
 
+from magnet.resource_index.acquisition.policy import LiveFetchPolicy
+from magnet.resource_index.adapters.sixv.series_crawler import SixVSeriesLiveCrawler
 from magnet.resource_index.adapters.sixv.series_parser import (
     parse_latest_series_listing,
     parse_series_detail,
@@ -69,3 +72,69 @@ def test_sixv_series_detail_reuses_sixv_detail_parser() -> None:
     assert detail.cover_source_url == "https://img.example/stuart.jpg"
     assert detail.synopsis == "一段电视剧简介。"
     assert len(detail.resources) == 1
+
+
+@dataclass
+class _FakeResponse:
+    url: str
+    content: bytes
+
+
+class _FakeSeriesClient:
+    def __init__(self, pages: dict[str, str]) -> None:
+        self.pages = pages
+        self.calls: list[str] = []
+
+    def get(self, url: str, **_kwargs) -> _FakeResponse:
+        self.calls.append(url)
+        return _FakeResponse(url=url, content=self.pages.get(url, "<html></html>").encode("utf-8"))
+
+
+def _listing(*rows: tuple[str, str]) -> str:
+    items = "".join(
+        f'<li><span>[07-26]</span><a href="{path}">{title}</a></li>'
+        for path, title in rows
+    )
+    return f'<html><body><div id="main"><ul class="list">{items}</ul></div></body></html>'
+
+
+def test_sixv_series_crawler_expands_archives_and_deduplicates() -> None:
+    origin = "https://www.6v520.com"
+    pages = {
+        f"{origin}/gvod/dsj.html": _listing(
+            ("/dlz/2026-07-21/50027.html", "《江海潮生》更新09"),
+            ("/rj/2026-06-27/49886.html", "韩剧《金特务》全集"),
+        ),
+        f"{origin}/dlz/": _listing(
+            ("/dlz/2026-07-21/50027.html", "《江海潮生》更新09"),
+            ("/dlz/2026-07-20/50026.html", "《国产新剧》更新08"),
+        ),
+        f"{origin}/rj/": _listing(
+            ("/rj/2026-07-20/50025.html", "韩剧《日韩新剧》更新07"),
+        ),
+        f"{origin}/mj/": _listing(
+            ("/mj/2026-07-20/50024.html", "美剧《欧美新剧》第一季06"),
+        ),
+    }
+    client = _FakeSeriesClient(pages)
+    crawler = SixVSeriesLiveCrawler(
+        policy=LiveFetchPolicy(
+            enabled=True,
+            acknowledged=True,
+            max_pages=10,
+            request_delay_seconds=10.0,
+        ),
+        client=client,  # type: ignore[arg-type]
+        today=date(2026, 7, 26),
+    )
+
+    items = crawler.crawl_latest_candidates(limit=5, max_listing_pages=4)
+
+    assert [item.rank for item in items] == [1, 2, 3, 4, 5]
+    assert len({item.detail_url for item in items}) == 5
+    assert client.calls == [
+        f"{origin}/gvod/dsj.html",
+        f"{origin}/dlz/",
+        f"{origin}/rj/",
+        f"{origin}/mj/",
+    ]

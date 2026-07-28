@@ -238,6 +238,39 @@ def test_detail_parser_splits_compact_multifield_paragraph() -> None:
     assert movie.synopsis == "一段简介。"
 
 
+def test_detail_parser_stops_synopsis_before_download_and_footer_sections() -> None:
+    html = """
+    <html><body><h1>美剧《示例剧》第一季全</h1><div id="endText">
+      <p>◎标　　题　示例剧</p>
+      <p>◎年　　代　2023</p>
+      <p>◎简　　介</p>
+      <p>这是一段应当保留的剧情简介。</p>
+      <p>【下载地址】</p>
+      <p><a href="magnet:?xt=urn:btih:4444444444444444444444444444444444444444">磁力：S01全集</a></p>
+      <div class="tps">上一篇 旧剧 下一篇 新剧</div>
+      <div class="tps">下载帮助：本站所有资源完全免费。</div>
+      <div class="downtps">示例剧网友评论：</div>
+    </div></body></html>
+    """
+    movie = parse_movie_detail(html, candidate=_candidate(1))
+    assert movie.synopsis == "这是一段应当保留的剧情简介。"
+    assert len(movie.resources) == 1
+
+
+def test_detail_parser_truncates_inline_download_marker_from_synopsis() -> None:
+    html = """
+    <html><body><h1>列表标题</h1><div id="endText">
+      <p>◎标　　题　内联标志示例</p>
+      <p>◎简　　介</p>
+      <p>真实简介内容。 【下载地址】 磁力：不应进入简介</p>
+      <a href="magnet:?xt=urn:btih:5555555555555555555555555555555555555555">1080p</a>
+    </div></body></html>
+    """
+    movie = parse_movie_detail(html, candidate=_candidate(1))
+    assert movie.synopsis == "真实简介内容。"
+    assert len(movie.resources) == 1
+
+
 def test_detail_parser_falls_back_to_listing_genres_when_source_omits_category() -> None:
     html = """
     <html><body><h1>2026剧情《天空依旧》1080p.HD国语中字</h1>

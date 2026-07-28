@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
 from urllib.parse import urlparse
 
@@ -61,21 +62,73 @@ class SixVSeriesLiveCrawler:
                 {"limit": limit, "max_listing_pages": max_listing_pages},
             )
         self.policy.assert_allowed()
-        response = self.client.get(
+        candidates: list[MovieListingCandidate] = []
+        seen_urls: set[str] = set()
+
+        def collect(page_url: str, *, referer: str) -> int:
+            response = self.client.get(page_url, referer=referer)
+            parsed = parse_latest_series_listing(
+                decode_sixv_html(response.content),
+                page_url=response.url,
+                reference_date=self.today,
+                rank_offset=len(candidates),
+            )
+            added = 0
+            for item in parsed:
+                if item.detail_url in seen_urls:
+                    continue
+                seen_urls.add(item.detail_url)
+                candidates.append(replace(item, rank=len(candidates) + 1))
+                added += 1
+                if len(candidates) >= limit:
+                    break
+            return added
+
+        listing_requests = 0
+        collect(
             f"{self.origin}/gvod/dsj.html",
             referer=f"{self.origin}/",
         )
-        html = decode_sixv_html(response.content)
-        candidates = parse_latest_series_listing(
-            html,
-            page_url=response.url,
-            reference_date=self.today,
-        )
+        listing_requests += 1
+
+        archive_categories = ("dlz", "rj", "mj")
+        exhausted: set[str] = set()
+        archive_page = 1
+        while len(candidates) < limit and listing_requests < max_listing_pages:
+            progressed = False
+            for category in archive_categories:
+                if category in exhausted or listing_requests >= max_listing_pages:
+                    continue
+                page_url = (
+                    f"{self.origin}/{category}/"
+                    if archive_page == 1
+                    else f"{self.origin}/{category}/index_{archive_page}.html"
+                )
+                added = collect(
+                    page_url,
+                    referer=f"{self.origin}/{category}/",
+                )
+                listing_requests += 1
+                if added == 0:
+                    exhausted.add(category)
+                else:
+                    progressed = True
+                if len(candidates) >= limit:
+                    break
+            if len(exhausted) == len(archive_categories) or not progressed:
+                break
+            archive_page += 1
+
         if len(candidates) < limit:
             raise ResourceIndexError(
                 LIVE_EMPTY_RESULT,
-                "SixV latest-series page did not contain the requested count",
-                {"requested": limit, "found": len(candidates)},
+                "SixV series listings did not contain the requested count",
+                {
+                    "requested": limit,
+                    "found": len(candidates),
+                    "listing_requests": listing_requests,
+                    "max_listing_pages": max_listing_pages,
+                },
             )
         return candidates[:limit]
 
