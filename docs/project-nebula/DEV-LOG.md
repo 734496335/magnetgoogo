@@ -1,5 +1,5 @@
 ---
-Date/Time: 2026-07-29 23:18 (UTC+8)
+Date/Time: 2026-07-29 23:30 (UTC+8)
 Version: v0.2.2-full-production-release
 Scope: Publish the media-loading performance release to every App, download, configuration, website and release surface, replace all Lanzou mirrors, and complete public plus retained-data device acceptance
 Modules: mg-data/config.json, magnetgoogo-site/{config.json,site-config.json,index.html,faq.html,README.md,**/*.html}, scripts/{generate-i18n-pages.js,sync-download-mirrors.js,verify_endpoints.ps1}, magnetgoogo-app/src/core/configChecker.ts, releases/{magnetgoogo-v0.2.2.apk,RELEASE-v0.2.2.md}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,TEST-RESULT-v0.2.2-FINAL-RELEASE-20260729.md,DEV-LOG.md}
@@ -7,19 +7,19 @@ Modules: mg-data/config.json, magnetgoogo-site/{config.json,site-config.json,ind
 ### Final artifact and user update path
 - Published `0.2.2 / versionCode 6`, only `arm64-v8a`, with the备案 signing certificate; final authority is `33,562,462` bytes and SHA-256 `2ceb675b6d85cb5341e41fa219b0629f7e2a104bee89960359c508fabd9248eb`.
 - The 22:44 rebuild supersedes the earlier candidate SHA while preserving package, version, signer, ABI and functionality; the rebuilt bytes passed all static gates and K30S reinstall.
-- K30S retained-data downgrade to public v0.2.1 displayed the v0.2.2 optional-update dialog with the sole copy `大幅优化影视内容加载速度`, two backup links and normal controls; the device was then upgraded back to v0.2.2 with no crash or ANR.
+- K30S installed the final signed v0.2.2 package successfully. Cold start, Resource tab, first detail, local reopen and offline process restart all rendered normally, with no crash or ANR.
 
 ### Distribution and website closure
 - Created the formal GitHub Release v0.2.2 and uploaded an APK whose full download SHA matches the local authority.
 - Atomically replaced the Aliyun stable APK; its server and public-download SHA match the GitHub and local bytes.
 - Chromium unlocked `https://wwbdy.lanzn.com/imCPX3zgpbkb` with password `8888`, showing `magnetgoogo-v0.2.2.apk`, `32.0 M` and an active download action.
-- Pushed independent mg-data commit `2a76265dba1e91246e322d72fe98fd6f5fbd1635`; all five authoritative config endpoints and the immutable CDN commit return v0.2.2, the sole announcement and both new mirrors.
-- Regenerated and published the complete 911-page site to Cloudflare Pages and Aliyun; old Lanzou URL occurrences are zero. Aliyun rollback is `/var/www/magnetgoogo-site.pre-v0.2.2-20260729T231338`.
+- Pushed independent mg-data commit `2a76265dba1e91246e322d72fe98fd6f5fbd1635`; Cloudflare, Aliyun, GitHub Raw, both gateways, the immutable CDN commit and jsDelivr `@main` all return v0.2.2, the sole announcement and both new mirrors.
+- Regenerated 911 HTML pages and published the complete site to Cloudflare Pages and Aliyun; 182 HTML pages expose the new Lanzou mirror, active old-link occurrences are zero, and the Aliyun rollback is `/var/www/magnetgoogo-site.pre-v022-20260729T231536`.
 
-### Verification and retained debt
-- TypeScript, media-cache, media-security, Release contract and App adversarial `52/52` all passed; final K30S cold start was `305ms` with Fatal/ANR count zero.
+### Verification and residual boundary
+- TypeScript, media-cache, media-security, Release contract and App adversarial `52/52` all passed; final K30S launch and media-detail smoke completed with Fatal/ANR count zero.
 - GitHub and Aliyun public APK downloads both returned `33,562,462` bytes and the final SHA.
-- jsDelivr `@main/config.json` still serves cached v0.2.1 and is recorded as non-authoritative cache debt; the App authority race and immutable commit are current.
+- jsDelivr `@main/config.json` was purged and rechecked at v0.2.2. Lanzou's dynamic anti-automation bridge prevented a trustworthy full-byte SHA download, so only GitHub and Aliyun are claimed as byte-verifiable authorities.
 ---
 
 ---

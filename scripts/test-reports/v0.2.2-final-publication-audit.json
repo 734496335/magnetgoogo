@@ -1,0 +1,95 @@
+{
+  "audited_at": "2026-07-29T23:30:00+08:00",
+  "status": "PASS",
+  "version": "0.2.2",
+  "version_code": 6,
+  "package": "com.magnetgoogo.app",
+  "apk": {
+    "path": "releases/magnetgoogo-v0.2.2.apk",
+    "bytes": 33562462,
+    "sha256": "2ceb675b6d85cb5341e41fa219b0629f7e2a104bee89960359c508fabd9248eb",
+    "abi": ["arm64-v8a"],
+    "signing_md5": "df1e684bf483ceffe49062d285b17c06",
+    "hermes_magic": "c61fbc03c103191f"
+  },
+  "update": {
+    "announcement_zh": "大幅优化影视内容加载速度",
+    "announcement_item_count": 1,
+    "locale_count": 10
+  },
+  "github_release": {
+    "url": "https://github.com/734496335/magnetgoogo/releases/tag/v0.2.2",
+    "published": true,
+    "prerelease": false,
+    "asset_name": "magnetgoogo-v0.2.2.apk",
+    "asset_bytes": 33562462,
+    "download_sha256_matches": true
+  },
+  "aliyun": {
+    "stable_path": "/var/www/apk/magnetgoogo.apk",
+    "versioned_path": "/var/www/apk/magnetgoogo-v0.2.2.apk",
+    "server_sha256_matches": true,
+    "public_https_sha256_matches": true,
+    "nginx_config": "PASS",
+    "site_backup": "/var/www/magnetgoogo-site.pre-v022-20260729T231536"
+  },
+  "lanzou": {
+    "url": "https://wwbdy.lanzn.com/imCPX3zgpbkb",
+    "password": "8888",
+    "password_unlock": "PASS",
+    "displayed_filename": "magnetgoogo-v0.2.2.apk",
+    "displayed_size": "32.0 M",
+    "download_action_present": true,
+    "full_byte_sha_verified": false,
+    "verification_boundary": "Dynamic anti-automation bridge prevented a trustworthy automated full-byte download."
+  },
+  "config_delivery": {
+    "mg_data_commit": "2a76265dba1e91246e322d72fe98fd6f5fbd1635",
+    "expected_mirrors": [
+      "https://github.com/734496335/magnetgoogo/releases/download/v0.2.2/magnetgoogo-v0.2.2.apk",
+      "https://wwbdy.lanzn.com/imCPX3zgpbkb"
+    ],
+    "endpoints_passed": [
+      "https://magnetgoogo.com/config.json",
+      "https://cn.magnetgoogo.com/config.json",
+      "https://raw.githubusercontent.com/734496335/mg-data/main/config.json",
+      "https://api.naoshiquan.com/config.json",
+      "https://maggoogo-gateway.734496335lp.workers.dev/config.json",
+      "https://cdn.jsdelivr.net/gh/734496335/mg-data@2a76265/config.json",
+      "https://cdn.jsdelivr.net/gh/734496335/mg-data@main/config.json"
+    ],
+    "jsdelivr_main_cache_debt": false
+  },
+  "website": {
+    "cloudflare_deployment": "https://04b9acd5.magnetgoogo-site.pages.dev",
+    "html_pages_generated": 911,
+    "aliyun_total_files": 963,
+    "html_pages_with_new_lanzou": 182,
+    "html_pages_with_github_v022": 173,
+    "active_old_link_residue": 0,
+    "cloudflare_representative_pages": "7/7 PASS",
+    "aliyun_representative_pages": "3/3 PASS"
+  },
+  "device": {
+    "device": "Redmi K30S",
+    "install_final_apk": "PASS",
+    "launch": "PASS",
+    "resource_page": "PASS",
+    "movie_detail": "PASS",
+    "local_reopen": "PASS",
+    "offline_restart": "PASS",
+    "fatal_or_anr": 0
+  },
+  "tests": {
+    "typescript": "PASS",
+    "media_cache": "PASS",
+    "media_security": "PASS",
+    "release_contract": "PASS",
+    "app_adversarial": "52/52 PASS",
+    "gradle_release": "BUILD SUCCESSFUL"
+  },
+  "notes": [
+    "Windows Schannel cannot reliably handshake with cn.magnetgoogo.com in this local environment; Aliyun public HTTPS was verified from the server side.",
+    "The published APK is authoritative by path, size and SHA. Current source contains a post-build immutable config fallback update for future builds."
+  ]
+}
