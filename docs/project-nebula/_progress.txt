@@ -1,23 +1,26 @@
-Current phase: MEDIA RELEASE M2 R2 PRIVATE DATA-PLANE PUBLISHED / M3 ALIYUN MIRROR NEXT 2026-07-27
+TASK: 影视最新窗口增量抓取与全量评分
+STATUS: LOCAL_CRAWL_RATING_AND_QUALITY_PASS / NOT_PUBLISHED
+DATE: 2026-07-29 UTC+8
 
-## M2 completed
-- Built and verified signed release `20260726T000000Z-b8c702d5`, Manifest SHA-256 `8891347a02646fe6d98279205b0614a6945238e5cb57d67188c722febd91f838`.
-- Local publish plan contains 614 immutable objects + Manifest + signed pointer candidate = 616 files / 11,072,715 bytes.
-- Added S3 publisher, temporary-credential flow, offline dry-run and authenticated one-shot Worker Bridge for Wrangler OAuth-only environments.
-- Worker Bridge enforces `m2-test/...`, authenticated conditional writes, SHA-256 custom metadata/body verification and a hard production `v1/current.json` ban.
-- Fixed Windows dead-PID lock recovery for `SystemError/WinError 87` and distinguished Cloudflare platform 404 from Worker object 404 during edge propagation.
+DONE:
+- SixV电影最新500：success=500、pending/running/failed=0、原始资源1299。
+- SixV电视剧最新500：success=500、pending/running/failed=0、原始资源2971。
+- 当前无新增影视URL；识别6部剧集于2026-07-29更新集数，补抓详情后新增10个资源。
+- 修复同URL剧集更新时不重抓详情的问题，提交3ea9df0。
+- 全量聚合不再截取250：有效电影498、电视剧469，共967条。
+- 最终资源3720，全部唯一；零资源记录0、跨季接受0、异常标签0。
+- 隔离549个不可信资源：season_unknown=300、season_mismatch=247、cross_media_duplicate=2。
+- 固化跨影视重复资源隔离规则，提交8f9a01a。
+- 四源评分完成，errors=0；659/967至少有一项可信评分。
+- 评分覆盖：豆瓣202、IMDb497、烂番茄243、Bangumi130。
+- 可信门禁拒绝年份错配421、标题错配190、短标题无年份1；违规保留0。
 
-## Real publication evidence
-- Private Bucket: `magnetgoogo-media-m2-test`.
-- Published prefix: `m2-test/release-20260726T000000Z-b8c702d5-r4-published/`.
-- Recovery success receipt `...-6428518140dd.json`: 2 uploaded, 614 reused, Manifest/pointer present, current promoted=false.
-- Second success receipt `...-a5084e559622.json`: 0 uploaded, 616 reused, deep verification complete.
-- Cloudflare management-plane listing exactly matches all 616 planned keys; missing=0, unexpected=0, `v1/current.json` absent.
-- Catalog, cover, detail, resources, Manifest and pointer samples were independently downloaded and SHA-256 matched.
-- Temporary uploader Worker was deleted; local lock released; r2.dev remains disabled; no custom domain is attached.
-- Worker/publisher targeted suite: 36 passed; full resource-index suite: 186 passed; Worker Wrangler dry-run and Python compile PASS.
+VERIFIED:
+- Resource Index 183 passed；评分门禁8 passed；评分鲁棒性failure_count=0。
+- 隔离worktree枚举241 rules / ALL VALID；最终数据审计status=pass。
 
-## Boundary / next batch
-- M2 private R2 data-plane staging is complete, but the App production endpoint was not switched.
-- No Aliyun mirror, public/custom R2 domain, GitHub/Pages/Worker control-plane pointer, App network Feed, tag or remote Git push was changed.
-- Next: M3 implement and verify the Aliyun static mirror, then require both data planes before any production `current.json` arbitration or App rollout.
+PENDING:
+- 本轮未生成或发布新媒体revision；线上继续保持revision 5。
+- 主checkout搜索源meta.total_rules=234/实际357为并行开发既有问题，本轮未修改。
+
+EVIDENCE: docs/project-nebula/影视资源增量抓取与全量评分记录-20260729.md
