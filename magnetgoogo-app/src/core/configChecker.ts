@@ -13,7 +13,7 @@ import { compareSemver, isRemoteConfig, type ValidRemoteConfig } from './configV
 // Endpoints raced in parallel — first valid response wins.
 const CN_ALI = 'https://cn.magnetgoogo.com';
 const CF_PAGES = 'https://magnetgoogo.com';
-const CDN_BASE = 'https://cdn.jsdelivr.net/gh/734496335/mg-data@main';
+const CDN_BASE = 'https://cdn.jsdelivr.net/gh/734496335/mg-data@2a76265dba1e91246e322d72fe98fd6f5fbd1635';
 const RAW_BASE = 'https://raw.githubusercontent.com/734496335/mg-data/main';
 const GATEWAY_BASE = 'https://api.naoshiquan.com';
 const GATEWAY_OLD = 'https://maggoogo-gateway.734496335lp.workers.dev';
@@ -50,15 +50,17 @@ export function getAppVersion(): string {
 export async function checkConfig(): Promise<ConfigCheckResult> {
   const appVersion = getAppVersion();
 
-  // Race all endpoints in parallel
-  const urls = [
+  // Race authoritative endpoints first. jsDelivr branch aliases may remain stale
+  // for hours, so it is only a last-resort fallback and can never beat a fresh
+  // first-party / GitHub Raw response.
+  const authoritativeUrls = [
     `${CN_ALI}/config.json`,
     `${CF_PAGES}/config.json`,
-    `${CDN_BASE}/config.json`,
     `${RAW_BASE}/config.json`,
     `${GATEWAY_BASE}/config.json`,
     `${GATEWAY_OLD}/config.json`,
   ];
+  const fallbackUrls = [`${CDN_BASE}/config.json`];
 
   const headers = {
     'Cache-Control': 'no-cache',
@@ -68,21 +70,27 @@ export async function checkConfig(): Promise<ConfigCheckResult> {
   let config: RemoteConfig | null = null;
   let error: string | null = null;
 
+  const loadFirstValid = (urls: string[]) => Promise.any(
+    urls.map(async (url) => {
+      const resp = await fetchWithTimeout(url, { headers });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      if (!isRemoteConfig(data)) throw new Error('invalid_config');
+      console.log(`[ConfigChecker] ✓ Loaded config from ${url}`);
+      return data;
+    }),
+  );
+
   try {
-    const result = await Promise.any(
-      urls.map(async (url) => {
-        const resp = await fetchWithTimeout(url, { headers });
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const data = await resp.json();
-        if (!isRemoteConfig(data)) throw new Error('invalid_config');
-        console.log(`[ConfigChecker] ✓ Loaded config from ${url}`);
-        return data;
-      }),
-    );
-    config = result;
-  } catch (e: any) {
-    error = e.message || String(e);
-    console.log(`[ConfigChecker] All endpoints failed: ${error}`);
+    config = await loadFirstValid(authoritativeUrls);
+  } catch (authoritativeError: any) {
+    console.log('[ConfigChecker] Authoritative endpoints failed, trying CDN fallback');
+    try {
+      config = await loadFirstValid(fallbackUrls);
+    } catch (fallbackError: any) {
+      error = fallbackError?.message || authoritativeError?.message || String(fallbackError);
+      console.log(`[ConfigChecker] All endpoints failed: ${error}`);
+    }
   }
 
   if (!config) {

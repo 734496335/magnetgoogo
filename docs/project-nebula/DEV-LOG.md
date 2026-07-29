@@ -1,4 +1,531 @@
 ---
+Date/Time: 2026-07-29 23:18 (UTC+8)
+Version: v0.2.2-full-production-release
+Scope: Publish the media-loading performance release to every App, download, configuration, website and release surface, replace all Lanzou mirrors, and complete public plus retained-data device acceptance
+Modules: mg-data/config.json, magnetgoogo-site/{config.json,site-config.json,index.html,faq.html,README.md,**/*.html}, scripts/{generate-i18n-pages.js,sync-download-mirrors.js,verify_endpoints.ps1}, magnetgoogo-app/src/core/configChecker.ts, releases/{magnetgoogo-v0.2.2.apk,RELEASE-v0.2.2.md}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,TEST-RESULT-v0.2.2-FINAL-RELEASE-20260729.md,DEV-LOG.md}
+
+### Final artifact and user update path
+- Published `0.2.2 / versionCode 6`, only `arm64-v8a`, with the备案 signing certificate; final authority is `33,562,462` bytes and SHA-256 `2ceb675b6d85cb5341e41fa219b0629f7e2a104bee89960359c508fabd9248eb`.
+- The 22:44 rebuild supersedes the earlier candidate SHA while preserving package, version, signer, ABI and functionality; the rebuilt bytes passed all static gates and K30S reinstall.
+- K30S retained-data downgrade to public v0.2.1 displayed the v0.2.2 optional-update dialog with the sole copy `大幅优化影视内容加载速度`, two backup links and normal controls; the device was then upgraded back to v0.2.2 with no crash or ANR.
+
+### Distribution and website closure
+- Created the formal GitHub Release v0.2.2 and uploaded an APK whose full download SHA matches the local authority.
+- Atomically replaced the Aliyun stable APK; its server and public-download SHA match the GitHub and local bytes.
+- Chromium unlocked `https://wwbdy.lanzn.com/imCPX3zgpbkb` with password `8888`, showing `magnetgoogo-v0.2.2.apk`, `32.0 M` and an active download action.
+- Pushed independent mg-data commit `2a76265dba1e91246e322d72fe98fd6f5fbd1635`; all five authoritative config endpoints and the immutable CDN commit return v0.2.2, the sole announcement and both new mirrors.
+- Regenerated and published the complete 911-page site to Cloudflare Pages and Aliyun; old Lanzou URL occurrences are zero. Aliyun rollback is `/var/www/magnetgoogo-site.pre-v0.2.2-20260729T231338`.
+
+### Verification and retained debt
+- TypeScript, media-cache, media-security, Release contract and App adversarial `52/52` all passed; final K30S cold start was `305ms` with Fatal/ANR count zero.
+- GitHub and Aliyun public APK downloads both returned `33,562,462` bytes and the final SHA.
+- jsDelivr `@main/config.json` still serves cached v0.2.1 and is recorded as non-authoritative cache debt; the App authority race and immutable commit are current.
+---
+
+---
+Date/Time: 2026-07-29 22:28 (UTC+8)
+Version: v0.2.2-media-detail-fast-cache-release-candidate
+Scope: Finalize the fast media-detail client, simplify the Chinese loading copy, produce a signed upgradeable APK and complete a short K30S release smoke without publishing
+Modules: magnetgoogo-app/{app.json,package.json,package-lock.json,app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/core/resourceCopy.ts,scripts/release-build-contract-tests.mjs}, releases/magnetgoogo-v0.2.2.apk, docs/project-nebula/{_progress.txt,TEST-RESULT-v0.2.2-正式包构建与K30S简测-20260729.md,DEV-LOG.md}
+
+### Release candidate changes
+- Changed the Chinese media loading message from `正在加载影视…` to `正在加载...` and confirmed the former copy is absent.
+- Removed the temporary K30S navigation timing parameter and Debug performance logs used only for diagnosis, restoring the normal route contract.
+- Raised the candidate from public `0.2.1 / versionCode 5` to `0.2.2 / versionCode 6`; publishing another code-5 APK would not upgrade existing 0.2.1 installations.
+- Retained plaintext long-term media shards, per-object incremental refresh and immediate detail-card rendering; search-source encryption remains unchanged.
+
+### Build and artifact identity
+- Production Expo prebuild/export and Gradle Release completed with R8 and resource shrinking, only `arm64-v8a`.
+- Final APK: `releases/magnetgoogo-v0.2.2.apk`, `33,562,462` bytes, SHA-256 `ad1266c585416842cee7dfb5c356ede58af876e0d213bfe0e28b4d801b703f51`.
+- Package is `com.magnetgoogo.app`, versionName `0.2.2`, versionCode `6`; signing MD5 `df1e684bf483ceffe49062d285b17c06` matches public v0.2.1.
+- APK contains Hermes bytecode and no non-arm64 native ABI.
+
+### Verification and publication boundary
+- TypeScript, media-cache policy, media security and Release contract passed; App adversarial tests passed `52/52`.
+- K30S retained-data upgrade install returned `Success`; cold start was `290ms`; Resource tab and `寒战1994` detail title/synopsis/resource section were visible; Fatal/ANR count was zero.
+- No config, website, GitHub Release, Aliyun APK or public endpoint was changed. Full v0.2.2 release waits for the new Lanzou share supplied by the user.
+---
+
+---
+Date/Time: 2026-07-29 21:35 (UTC+8)
+Version: media-latest-500x2-incremental-crawl-and-full-rating
+Scope: Refresh the complete current SixV movie/series windows, re-fetch updated series details, rate every valid item with four trusted providers, and close duplicate-resource quality debt without publishing
+Modules: magnet/resource_index/pipeline/{movie_latest.py,media_aggregate.py}, magnet/tests/resource_index/{test_dytt.py,test_media_aggregate.py}, data/resource_index/{media_500_batch_20260728,media_incremental_20260729}, docs/project-nebula/{_progress.txt,影视资源增量抓取与全量评分记录-20260729.md,DEV-LOG.md}
+
+### Crawl and update closure
+- Completed movie and series latest-window jobs at 500/500 each with zero pending, running or failed rows; raw source resources are 1,299 movies and 2,971 series.
+- No new detail URLs entered the current windows, but six series advanced episode state on 2026-07-29. Fixed the same-URL reuse gap and re-fetched those six detail pages, adding ten resources with zero errors.
+- Commit `3ea9df0` makes changed episode/date/status metadata force exactly one detail refresh while preserving retry and replay behavior.
+
+### Full aggregation and rating
+- Removed the former 250-per-kind cap. Quality-gated output contains 498 movies plus 469 series: 967 records and 3,720 globally unique resources.
+- Dropped 39 zero-resource records and quarantined 549 ambiguous resources: 300 unknown-season, 247 season-mismatch and two cross-media duplicates.
+- Commit `8f9a01a` permanently quarantines resource identities shared by distinct media instead of requiring manual cleanup.
+- Four-source rating writeback completed for all 967 records with zero errors. Coverage is 202 Douban, 497 IMDb, 243 Rotten Tomatoes and 130 Bangumi; 659 records have at least one trusted score.
+- The match gate rejected 421 year mismatches, 190 title mismatches and one short-title-without-year result; retained violations and corrupt caches are both zero.
+
+### Verification and boundary
+- Resource Index `183 passed`; rating gate `8 passed`; robustness `failure_count=0`; isolated enum gate `241 rules / ALL VALID`; final data audit `status=pass`.
+- Main-checkout source enum remains independently inconsistent (`meta.total_rules=234`, actual `357`) due parallel search-source work and was not changed here.
+- No signed media release, current-pointer promotion, App version change, APK/AAB build or public rollout was performed; production remains revision 5.
+---
+
+---
+Date/Time: 2026-07-29 20:38 (UTC+8)
+Version: media-plaintext-cache-v2-k30s-runtime-acceptance
+Scope: Install the current isolated Debug package on Redmi K30S and complete migration, first-open, second-open and offline-process-restart acceptance for plaintext long-term incremental media cache
+Modules: magnetgoogo-app/{app/movie/[movieId].tsx,plugins/with-release-signing.js,scripts/release-build-contract-tests.mjs}, scripts/test_k30s_media_cache_v2.py, docs/project-nebula/{_progress.txt,TEST-RESULT-20260729-K30S影视长期增量缓存与详情秒开.md,DEV-LOG.md}
+
+### K30S runtime acceptance
+- Confirmed the existing Debug app contained both legacy aggregate AES media cache files before upgrade. After entering the Resource tab, migration created v2 index/movie/series shards and the migration marker, then removed both legacy encrypted files.
+- Forced a true App-level cache miss for movie `寒战1994`: the Catalog card was ready in `1ms`, complete detail/resources in `178ms`, and exactly one `5,384`-byte plaintext detail shard was written.
+- Second open completed card/detail in `1ms / 2ms`. With Wi-Fi and mobile data disabled plus a full process restart, card/detail completed in `1ms / 32ms`, network failures were zero, and the same detail shard remained readable.
+- No Fatal Exception, ANR or native fatal signal occurred. Wi-Fi was restored and mobile data returned to its original disabled state.
+
+### Build/package safety correction
+- Initial standalone Debug generation reused production package `com.magnetgoogo.app`, so Android correctly rejected the debug-signature overwrite. Added permanent `applicationIdSuffix '.debug'` injection and a release-build contract assertion.
+- Rebuilt and installed `com.magnetgoogo.app.debug` successfully while preserving its data. Production `com.magnetgoogo.app` remains installed at `0.2.1 / versionCode 5` and was not modified.
+- TypeScript, media-cache policy, media security, release-build contract and App adversarial `52/52` all passed after the correction.
+
+### Publication boundary
+- This is Debug runtime acceptance only. No new release APK was built or published and public v0.2.1 remains unchanged.
+---
+
+---
+Date/Time: 2026-07-29 (UTC+8)
+Version: media-detail-open-latency-root-cause-diagnosis
+Scope: Diagnose why opening a movie detail from the Resource tab is materially slower than rendering the list, without changing production code
+Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/core/{resourceFeed.ts,mediaReleaseClient.ts,mediaReleaseCache.ts,mediaReleaseProtocol.ts}}, data/resource_index/media_releases_250_final, docs/project-nebula/{诊断-20260729-资源页电影详情打开慢.md,_progress.txt,DEV-LOG.md}
+
+### Root cause
+- The list is rendered from an already loaded Catalog feed, but the detail route passes only `movieId/kind`; the detail screen shows only a spinner until the full remote detail chain completes.
+- A cold detail unnecessarily resolves the active release by fetching current pointers and a `688,509`-byte Manifest, canonicalizing the complete signed document and verifying Ed25519, although the Catalog card already carries release, endpoint and detail path/hash/size.
+- Detail and resource objects are fetched serially. Live R2 samples measured about `1.02–1.09s current + 1.20s manifest + 1.03s detail + 0.94s resources`, approximately `4.2s` of serial network latency before cache work.
+- The Aliyun media endpoint currently fails TLS in the local environment, matching prior K30S evidence; `Promise.allSettled()` can additionally wait for the slow/failing endpoint.
+
+### Ruled out and secondary amplifiers
+- Movie detail/resource payloads are tiny: median about `1.4KB / 1.3KB`, 95th percentile about `2.5KB / 2.4KB`; movies have median 4 resources and maximum 18, with only 12 initially rendered. JSON size and resource-row rendering are not the cause of multi-second delay.
+- `saveMediaDetail()` rewrites the complete AES/HMAC media cache, validates the temporary file, rotates backup, then decrypts the committed file again; the detail screen waits for this persistence before ending Loading.
+- Resource screen immediately force-syncs the active feed after cached list display, creating current/Manifest/catalog/network and cache competition with a fast user tap into detail.
+
+### Verification boundary
+- Static call-chain evidence, full revision-5 object statistics and live endpoint timing agree on the same root cause.
+- `adb devices` returned no K30S in this session, so first-open/second-open device timing remains a follow-up measurement; no code, build or production asset was changed.
+---
+
+---
+Date/Time: 2026-07-29 (UTC+8)
+Version: media-plaintext-long-term-incremental-cache
+Scope: Keep encryption only for search sources, convert media data to persistent plaintext shards, and make detail pages render immediately before asynchronous hydration
+Modules: magnetgoogo-app/{app/movie/[movieId].tsx,src/core/{mediaReleaseCache.ts,mediaReleaseLegacyMigration.ts,mediaReleaseClient.ts,resourceFeed.ts,resourceFeedProtocol.ts},scripts/{media-cache-policy-tests.mjs,media-release-security-tests.mjs,media-release-network-tests.mjs,release-build-contract-tests.mjs,app-adversarial-tests.mjs},package.json}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,开发-20260729-影视明文长期增量缓存与详情秒开.md,DEV-LOG.md}
+
+### Cache and incremental architecture
+- Replaced the new-media cache path with plaintext v2 shards: one index, one feed per media kind, and one complete detail/resource file per media ID. The main cache has no AES, SecureStore dependency or 72-hour global expiry.
+- Cached detail reuse is bound to the signed Catalog `remote_detail_hash`, not release ID. Unchanged objects persist across revisions; changed objects replace only their own shard.
+- Added temp-file, backup and atomic replacement per shard, including interrupted-write recovery. Detail cache persistence failure no longer blocks the already downloaded detail from rendering.
+- Added a one-time legacy migration module that decrypts the previous aggregate AES/HMAC cache, writes v2 shards, then removes the old media cache files and media-cache key. Search-source encryption remains unchanged.
+
+### Detail and feed behavior
+- Detail routes now display the existing Catalog card first, then hydrate synopsis and resources asynchronously. A failed hydration leaves title, poster, year and ratings visible instead of failing the whole page.
+- Detail cold loads trust the already verified Catalog object reference and continue checking detail/resource byte size and SHA; they no longer fetch and verify the 688 KB Manifest again.
+- Added per-media single-flight and long-term local detail hits. Reopening an unchanged movie requires no network.
+- Feed background sync checks the 554-byte current pointer first. Same pointer returns the persistent local feed; unavailable endpoints retain offline feed. On a changed pointer the App downloads the new Manifest, then reuses content-addressed Catalog shards by SHA and downloads only newly referenced or changed Catalog objects.
+
+### Verification and limits
+- TypeScript PASS; media-cache policy PASS (including content-addressed Catalog shards); App adversarial 52/52 PASS; media security PASS; release-build contract PASS; Resource Feed PASS.
+- R2 revision 5 live protocol PASS with 250 movies, 250 series and 2602 resources; Android Expo/Hermes export PASS at approximately 5.03 MB HBC.
+- An unchanged movie feed falls from about 904,858 bytes to about 554 bytes, roughly 99.94% less transfer. Typical first movie detail now transfers only a few KB and no Manifest.
+- K30S was not connected, so migration, first-open/second-open timing and offline runtime acceptance remain pending. No APK was rebuilt or published; public v0.2.1 is unchanged.
+---
+
+---
+Date/Time: 2026-07-29 00:56 (UTC+8)
+Version: v0.2.1-lanzou-backup-mirror-publication
+Scope: Validate the replacement Lanzou share and add it to every App, website and GitHub download surface without rebuilding the released APK
+Modules: mg-data/config.json, magnetgoogo-site/{config.json,site-config.json,index.html,faq.html,README.md}, scripts/{generate-i18n-pages.js,generate-guide-pages.js,generate-seo-pages.js,sync-download-mirrors.js}, magnetgoogo-app/src/core/configChecker.ts, releases/RELEASE-v0.2.1.md, docs/project-nebula/{_progress.txt,TEST-RESULT-v0.2.1-LANZOU-MIRROR-20260729.md,DEV-LOG.md}
+
+### Mirror validation and App delivery
+- Real Chromium verification unlocked `https://wwbdy.lanzn.com/iy2h73zalz1g` with password `8888` and displayed `magnetgoogo-v0.2.1.apk`, size `36.7 M`, with an active download button.
+- Added the mirror after the GitHub APK in remote config and appended the password to all 10 localized update announcements, so the existing v0.2.1 APK can show the backup without a rebuild.
+- Pushed independent mg-data commit `51f95f25c3b615b4a5e1cd597621d227e6314bd8`; future App builds pin their immutable config fallback to that commit.
+- TypeScript and App adversarial tests remained green (`52/52`).
+
+### Website and GitHub publication
+- Updated the Chinese homepage, nine locale landing-page generator, guide generator, SEO generator, FAQ, README and Release notes to expose GitHub plus Lanzou/password.
+- Added an idempotent historical-page sync gate; the complete temporary site contained 911 HTML pages, 203 new-link occurrences, 204 password occurrences, zero old-link occurrences and zero missing mirror pages.
+- Cloudflare Pages deployment completed at `https://7e97c7fa.magnetgoogo-site.pages.dev`.
+- Atomically switched the complete Aliyun site; rollback is `/var/www/magnetgoogo-site.pre-lanzou-20260728T165157Z`, Nginx validation passed.
+- Updated GitHub Release v0.2.1 notes without replacing the APK; asset size and SHA remained `38,471,586 / 085dd394...13b0d`.
+
+### Verification and limits
+- Public audit passed `12/12` across five App config endpoints, six representative website pages and GitHub Release; Aliyun domestic-domain audit passed `7/7`.
+- jsDelivr `@main/config.json` still serves a historical cached config containing the cancelled old mirror despite purge responses. The five authoritative endpoints and immutable commit are current, so this branch alias remains non-authoritative cache debt.
+- Lanzou's dynamic intermediary did not expose independently verifiable full APK bytes; only share-page filename, size, password and download availability are claimed as verified.
+---
+
+---
+Date/Time: 2026-07-29 00:15 (UTC+8)
+Version: media-revision-5-rated-250x250-production
+Scope: Freeze the media catalog at 250 movies and 250 series, complete trusted multi-source ratings, publish signed revision 5 to both data planes, and verify online/offline App consumption
+Modules: magnet/rating_resolver, magnet/resource_index/adapters/sixv, magnetgoogo-app/scripts/media-release-network-tests.mjs, data/resource_index/media_250_batch_20260728, data/resource_index/media_releases_250_final, docs/project-nebula/影视资源250加250评分与revision5发布记录-20260728.md
+
+### Production data and ratings
+- Published signed pointer revision `5`, release `20260728T000000Z-bfe791ce`, pointer SHA `052b0de4d0e73b3cec5bbe8ad315375573ec0e9a2f128fcbaba68ee9843e0fc4`, Manifest SHA `604f67575cefc9575b2ee83a6850c3c1cf7168c43b2f2d3c5ace86e0e014c3eb`.
+- Final catalog: 250 movies, 250 series, 500 unique media IDs, 2602 unique resources and 495 unique cover objects; no zero-resource item, missing cover, synopsis pollution, malformed label or cross-season resource.
+- Completed Douban/IMDb/Rotten Tomatoes/Bangumi lookups for all 500 items. Trusted-score coverage is 190/250 movies and 166/250 series; unmatched or unsafe candidates remain empty.
+- Revalidated 495 unique rating query caches: retained invalid match count `0`; rejected 216 year mismatches, 91 title mismatches and one short-title-without-year candidate.
+
+### Publication and verification
+- R2 first pass uploaded 1243 and reused 274 files; second pass reused all 1517. Aliyun copied 1517 then reused all 1517. Temporary upload Worker and publish lock were removed.
+- Promoted identical signed `current.json` bytes to R2 and Aliyun; representative Catalog, cover, detail, resources and Manifest objects passed size/SHA checks on both endpoints.
+- Resource Index `181 passed`; enum validation `241 rules / ALL VALID`; rating gate `8 passed`; rating robustness `failure_count=0`; App live protocol, media security, Resource Feed and TypeScript passed.
+- K30S online verified revision 5, movie `250/971 resources`, series `250/1631 resources`, visible ratings and season/episode state. Offline restart restored 250 movies and 250 series from encrypted disk cache with no crash/ANR; device network was restored.
+- Known debt: K30S direct Aliyun HTTPS still fails TLS negotiation, while R2 succeeds and both server-side data planes pass byte verification.
+
+### Code binding
+- `8abe5e1` — SixV historical series paging and legacy synopsis boundary repair.
+- `ded6356` — trusted rating resolver and dynamic live media protocol test.
+---
+
+---
+Date/Time: 2026-07-28 23:40 (UTC+8)
+Version: v0.2.1-source-envelope-auto-renewal-and-evidence-correction
+Scope: Close the 72-hour source-pack expiry risk, prove the remote renewal workflow, normalize distribution byte authority, and correct overclaimed final-release evidence
+Modules: mg-data/{.gitattributes,.github/workflows/refresh-source-envelopes.yml,scripts/refresh_source_envelopes.py,sources*.enc.json}, docs/project-nebula/{_progress.txt,TEST-RESULT-v0.2.1-FINAL-RELEASE-20260728.md,DEV-LOG.md}
+
+### Durable renewal closure
+- Deployed an every-8-hours GitHub Actions workflow in `mg-data`; it refreshes both encrypted envelopes when less than 24 hours remain, validates HMAC/AES/gzip/schema/payload invariants, and commits only genuine envelope changes.
+- Configured `SOURCE_ENCRYPTION_KEY_HEX` as a GitHub Actions secret; no encryption key was committed to the distribution repository.
+- Remote run `30371968104` completed successfully in normal check mode.
+- Forced fault drill run `30372175631` completed successfully, re-signed both packs, verified them and automatically pushed commit `990898d`.
+- Latest-HEAD run `30373914575` completed successfully after workflow fixes and LF rules.
+
+### Current source authority
+- Full pack remains `357 rules / 148 GREEN / 52 pools`; curated pack remains `150 / 148`.
+- Current issued/expires: `2026-07-28T15:12:16.646242+00:00` → `2026-07-31T15:12:16.646242+00:00`.
+- Canonical LF hashes: full `597f533dda6a2fcd20eb0f6bad89147da8c7112561adafe6da392c4816521fff`; curated `ef1557be2b2aee528849cabb87f21c5a79d2d83b1d6cfcf1abdfdbf7d4369f23`.
+- Added `.gitattributes` in commit `8e66d4b` to pin distribution JSON/YAML/Python files to LF. Deployments now use Git-object bytes, not Windows CRLF checkout bytes.
+- Cloudflare Pages, GitHub Raw, both Workers and Aliyun were synchronized to the canonical full-pack hash.
+
+### Explicit corrections to the earlier release entry
+- jsDelivr `@main` source aliases have not yet converged and still serve the prior valid envelope (`e90ecc...` / `b2f384...`) despite successful purge responses. They remain a cache-debt fallback, not current byte authority.
+- The exact final APK SHA `085dd394...13b0d` was not reinstalled on K30S after the last rebuild; the environment blocked the install operation. Earlier 0.2.1 Release smoke remains relevant but is not proof of this exact final artifact.
+- The public v0.1.14 downgrade/upgrade drill was also blocked; signing compatibility is supported by identical certificate identity and earlier installation history, not by a completed final downgrade test.
+- This entry supersedes conflicting statements in the immediately following `v0.2.1-public-release-final` entry.
+---
+
+---
+Date/Time: 2026-07-28 22:47 (UTC+8)
+Version: v0.2.1-public-release-final
+Scope: Complete the full public v0.2.1 release across signed Android artifacts, encrypted source delivery, GitHub, Cloudflare Pages and Aliyun, then independently audit every public surface
+Modules: magnetgoogo-app/{app/_layout.tsx,src/components/{OptionalUpdateModal.tsx,ForceUpdateModal.tsx},src/core/{configChecker.ts,configValidation.ts,updateCopy.ts},scripts/app-adversarial-tests.mjs}, magnetgoogo-site, mg-data, releases/{magnetgoogo-v0.2.1.apk,magnetgoogo-v0.2.1.aab,RELEASE-v0.2.1.md}, scripts/test-reports/{v0.2.1-final-publication-audit.json,v0.2.1-cn-publication-audit.json}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
+
+### Release correction and product safeguards
+- Added complete 10-language update UI for optional/forced update titles, descriptions, actions, progress and fallback links; remote announcements now select `announcement_i18n[lang]` while legacy clients retain a bilingual `announcement` fallback.
+- Prevented stale jsDelivr branch aliases from winning config startup: five authoritative endpoints race first, and CDN is used only after all authorities fail; the final CDN fallback is pinned to immutable mg-data commit `16f296268dd19033c64d5ee5ac45cc1a19239b3b`.
+- Real Chrome and Lanzou API verification confirmed the user-supplied mirror displayed “文件取消分享”; removed the cancelled link/password from config, homepage, nine locale pages, guide pages, 148 SEO alternative pages, FAQ and README, then replaced it with the GitHub Release asset.
+
+### Final signed artifacts
+- APK: `releases/magnetgoogo-v0.2.1.apk`, `38,471,586` bytes, SHA256 `085dd394b7981d7faab8323be60d5e4ce14f069fa1a643e5f0fb609923f13b0d`.
+- AAB: `releases/magnetgoogo-v0.2.1.aab`, `29,288,902` bytes, SHA256 `068ba035f3ca3ea6e7321ca2e04f7eaea1fbb8df2e32e01983d17243d6600374`.
+- Package identity: `com.magnetgoogo.app`, versionName `0.2.1`, versionCode `5`, native code `arm64-v8a`; signing MD5 `df1e684bf483ceffe49062d285b17c06`, matching v0.1.14.
+- APK-internal `assets/index.android.bundle` is Hermes bytecode with magic `c61fbc03`; TypeScript, App adversarial `52/52` and release-build contract all passed after the final immutable-CDN change.
+
+### Source publication
+- Full encrypted pack: `357 rules / 148 GREEN / 52 pools`, SHA256 `e90eccafb662366f4b519393a0cfc1c5bd4bbfff37927a4fd33753da7e83b774`.
+- Curated encrypted pack: `150 kept / 148 GREEN`, SHA256 `b2f384fc7797965d20132de7ecf1df233a159da12dc134dfce6b700a118a2cac`.
+- Both packs passed decrypt/HMAC/gzip roundtrip, schema `1`, min app `0.1.10`, fresh 72-hour envelope validation and public-byte convergence.
+- mg-data commits `0dd040e` and `16f2962` were pushed to `main`; no unrelated root-worktree changes were committed.
+
+### Public deployment
+- Published GitHub Release `v0.2.1` with Chinese/English notes and the final APK; downloaded the asset back and confirmed the exact final SHA.
+- Deployed the complete site to Cloudflare Pages and production domain `magnetgoogo.com`.
+- Uploaded the final stable and versioned APKs to Aliyun, then atomically switched the complete 961-file site tree; rollback backup is `/var/www/magnetgoogo-site.pre-v021-20260728T224348Z` and Nginx validation passed.
+- Aliyun config, full source, curated source and APK match local bytes exactly; root, English, Japanese, guide and SEO alternative pages all return HTTP 200 with GitHub fallback and zero cancelled-mirror residue.
+
+### Independent verification
+- `scripts/test-reports/v0.2.1-final-publication-audit.json`: `19/19 PASS` across public config authorities, immutable CDN config, full/curated source endpoints, representative locale/guide/SEO pages and GitHub APK.
+- `scripts/test-reports/v0.2.1-cn-publication-audit.json`: Aliyun file-count, zero-residue, asset-hash and representative-page audit PASS.
+- jsDelivr `@main/config.json` still serves its historical 0.1.14 branch cache despite a successful purge response; final 0.2.1 is insulated by authority-first loading and immutable fallback. Old 0.1.14 clients may temporarily miss the optional update prompt if that single stale endpoint wins, but source delivery and all other five config endpoints are current.
+
+### Explicit limitations
+- The exact final APK SHA was installed on K30S, cold-launched and used for an `Inception` search with normal title-bound results, relevance sorting and zero Crash/ANR. Public v0.1.14 also downgraded successfully with the same signing certificate, proving install-chain compatibility; MIUI `uiautomator` repeatedly failed to reach idle, so the optional-update modal text itself was not captured as reliable UI evidence.
+- The AAB was built and signed locally but no application-market upload was performed; this release covers the website, GitHub, Aliyun, Cloudflare and encrypted-source delivery surfaces.
+---
+
+---
+Date/Time: 2026-07-28 (UTC+8)
+Version: v0.2.1-signed-release-apk-k30s-install-smoke
+Scope: Restore protected release signing material, build the final arm64 signed APK candidate, install it on Redmi K30S, and verify real release behavior
+Modules: magnetgoogo-app/{android,dist}, releases/magnetgoogo-v0.2.1-release-candidate.apk, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Build and artifact
+- Restored the ignored `.env` and备案 keystore from `releases/secrets.enc` without printing credential values.
+- Release contract and TypeScript passed for `0.2.1`, versionCode `5`, package `com.magnetgoogo.app`, native bootstrap `148 GREEN / 52 pools`.
+- Ran clean Expo Android prebuild, exported a 5,004,502-byte HBC bundle, injected it as `index.android.bundle`, and built with R8/resource shrinking and `arm64-v8a` only.
+- First Gradle attempt reached R8 but hit a stale locked `base.jar`; stopped the daemon, removed generated build caches and rebuilt successfully with `--no-daemon`.
+- Archived signed APK at `releases/magnetgoogo-v0.2.1-release-candidate.apk`, size `33,546,650` bytes, SHA256 `4B66251314433832691FDB2A7A19B256686000F1A4B5FD8ADE2020FF20E7CB95`.
+- Artifact identity: `versionName=0.2.1`, `versionCode=5`, native code `arm64-v8a`; signing MD5 `df1e684bf483ceffe49062d285b17c06`, matching public v0.1.14.
+
+### K30S verification
+- `adb install -r` succeeded and cold launch completed normally; package reports `0.2.1/5`.
+- `run-as` returned `package not debuggable`, confirming Release behavior.
+- Offline native-bootstrap test loaded `148 hosts / 52 pools`; Wi-Fi and mobile-data state were restored afterward.
+- Online `Inception` search completed with `160` results, normal titles, relevance sorting and no Hash placeholders.
+- Crash/ANR/fatal-signal scan returned zero.
+
+### Release state
+- Signed APK candidate and K30S release smoke PASS.
+- No source-pack endpoint deployment, GitHub Release upload, website download switch, app-market publication or public release was performed.
+- Remaining gates: fresh six-endpoint `357/148/52` source-pack convergence, real public `0.1.14 -> 0.2.1` data-preserving upgrade smoke, and final bilingual release copy/upload.
+---
+
+---
+Date/Time: 2026-07-28 (UTC+8)
+Version: v0.2.1-source-binding-qualification-and-home-favorites-root-fix
+Scope: Replace Hash-card suppression with title-to-magnet evidence binding, revoke a false 85-host GREEN family, and move Favorites out of the bottom floating-action collision zone
+Modules: sources.json, magnet/{source_qualification.py,health_check.py,tests/{crawler_v3/test_source_qualification.py,test_health_title_quality.py}}, magnetgoogo-app/{app/(tabs)/index.tsx,scripts/app-adversarial-tests.mjs,src/core/searchEngine.ts}, scripts/{test_k30s_native_bootstrap.py,test-reports/*source-binding*,test-reports/*qualified-source*,test-reports/v0.2.1-proxyit-qualification-revocation.json}, docs/project-nebula/{_progress.txt,DEV-LOG.md,TEST-RESULT-v0.2.1-PRE-RELEASE-20260728.md}
+
+### Product and trust correction
+- A syntactically valid BTIH is not sufficient resource evidence: it may be a real torrent, unrelated script/static data or fixed homepage content, and it does not prove current DHT/peer availability.
+- Search now accepts a result only when title and magnet are bound by the same result row/detail page, or when the complete magnet `dn` provides the title.
+- Zero-byte responses, bare page hashes and unbound magnet evidence are parser failures that trigger pool fallback; they are never valid empty results or GREEN evidence.
+
+### Source repair and qualification
+- Repaired current DOM selectors for mirrorbay.org, three thepiratebay.isproxy mirrors and bitsearch.eu; all five return 20 title-bound / 20 high-relevance results in Python live probes and K30S.
+- Audited the proxyit pool: all 85 hosts were attempted, yielding 82 empty responses, 3 timeouts and 0 title-bound results; representative K30S requests returned zero-byte bodies.
+- Manually revoked all 85 proxyit false GREEN qualifications to `yellow/parsing_failed`; the rules remain for future requalification but no longer enter user searches.
+- Honest qualified inventory is now 357 total / 148 GREEN / 52 pools, replacing the inflated 233/53 claim.
+
+### Homepage Favorites redesign
+- Replaced the conditional lower-page Favorites row with a persistent top-right capsule that remains visible at zero favorites and shows a capped `99+` count badge.
+- K30S measured bounds: Favorites y=6.9, height=38.2; Feedback/Share y=718.2, height=32.7; both overlap checks false with about 673dp vertical separation.
+- Temporary measurement code was removed before the final build.
+
+### Verification and release state
+- Python qualification/title tests 15/15; source-pack gate 8/8; enum `ALL VALID`; TypeScript PASS; App 52/52; Fluency 17/17; release contract PASS with 148/52 bootstrap.
+- K30S exhaustive Inception: 148/148 hosts, 52/52 pools, 629 results, 591 high relevance, Hash=0; normal path: 61 hosts, 52/52 pools, 238 results, 209 high relevance, Hash=0.
+- Final instrumentation-free arm64 Debug build installed successfully; Crash/ANR=0, Wi-Fi enabled and LockTask=NONE.
+- No commit, push, production source-pack deployment, signed public artifact, tag, gray release or publication was performed.
+---
+
+---
+Date/Time: 2026-07-28 (UTC+8)
+Version: v0.2.1-hash-title-hard-gate-and-structured-parser-repair
+Scope: Audit every historical Hash-like result, repair shared HTML/JSON/title recovery paths, and make K30S reject any future Hash placeholder title
+Modules: magnetgoogo-app/src/core/{searchEngine.ts,searchResultTitle.ts}, magnetgoogo-app/scripts/app-adversarial-tests.mjs, scripts/test_k30s_search.py, docs/project-nebula/{TEST-RESULT-v0.2.1-PRE-RELEASE-20260728.md,_progress.txt,DEV-LOG.md}
+
+### Findings
+- Re-scanned 11,090 historical source-level titles: 3,651 Hash placeholders across 108 source rules.
+- 85 affected rules belonged to the proxyit mirror family; other material offenders included btmulu, apibay, torrents-csv, cilimao/ciligou, SOBT/BTSOW and thatcdn-based 熊猫/柠檬.
+- The shared bare-hash fallback was the primary defect; JSON endpoints parsed as HTML and internal 32-character IDs were secondary defects.
+
+### Implementation
+- Added one title-quality boundary for pure Hex/Base32, Hash/BTIH/infoHash labels, magnet URIs and infoHash-prefix placeholders.
+- Recover meaningful titles from list/detail fields, h1/h2, Open Graph/page title, magnet dn, `/hash/<btih>` links, data-info-hash attributes and structured JSON API rows.
+- Removed full-page bare-hash fabrication. A source returning only unresolved Hash values now raises `INVALID_RESULT_TITLE_PARSE`, which is a real pool-fallback condition.
+- Added a K30S report gate that records offending source/title evidence and exits with code 2 if any Hash placeholder reaches the result report.
+
+### Verification
+- Python syntax PASS; TypeScript PASS; App adversarial 52/52; Fluency 17/17.
+- Android prebuild/build/install PASS with 357/233/53 native bootstrap.
+- K30S exhaustive Chinese series: 233 hosts / 53 pools, 404 results, 82 high relevance, Hash=0.
+- K30S exhaustive Inception: 233 hosts / 53 pools, 496 results, 463 high relevance, Hash=0.
+- K30S normal Inception: 57 hosts / 53 pools, 195 results, 171 high relevance, Hash=0; invalid-title errors exercised same-pool fallback.
+- Crash/ANR scan returned zero; Wi-Fi remained enabled and LockTask was cleared.
+- No commit, push, source-pack deployment, signed artifact, gray release or publication was performed.
+---
+
+---
+Date/Time: 2026-07-28 (UTC+8)
+Version: v0.2.1-hash-title-recovery-and-legacy-source-pack-compatibility
+Scope: Eliminate fake Hash titles across App search and thatcdn crawler paths, verify all-host K30S output, and audit the fresh 357/233/53 pack against 0.1.10 and 0.1.14
+Modules: magnetgoogo-app/{src/core/{searchEngine.ts,searchResultTitle.ts},scripts/{app-adversarial-tests.mjs,release-build-contract-tests.mjs}}, magnet/{crawler_v3/handlers/thatcdn.py,tests/crawler_v3/handlers/test_thatcdn.py}, docs/project-nebula/{TEST-RESULT-v0.2.1-PRE-RELEASE-20260728.md,_progress.txt,DEV-LOG.md}
+
+### Implementation
+- Audited 11,090 historical source-level K30S result items and identified fake-title output from the proxyit mirror pool, seed8/种子吧, SBT/SOBT, and thatcdn-based 磁力熊猫/磁力柠檬.
+- Removed generic and RRJAV bare-hash fallbacks that fabricated `Hash: xxxxx...` cards.
+- Added a shared final result-title gate rejecting Hash labels, pure hex/Base32 IDs and infoHash-prefix titles; recoverable magnet `dn` titles remain supported.
+- Enhanced App and crawler thatcdn flows to prefer detail-page h1, Open Graph title and page title before the search-list hint; unrecoverable fake titles are dropped.
+- Added App M6 regression coverage and Python unit tests for uppercase Hash detection, detail-title recovery and unrecoverable-title rejection.
+
+### Verification
+- TypeScript PASS; App adversarial 52/52; Fluency 17/17; Release build contract PASS with Schema 1 and min app 0.1.10 assertions.
+- K30S exhaustive `权力的游戏`: 233/233 hosts, 53/53 pools, 404 results, 82 high relevance, 0 skipped and 0 Hash-like titles.
+- Affected pools now behave correctly: 熊猫/柠檬 recover real titles; proxyit, seed8/种子吧 and SBT/SOBT return empty when only a bare hash exists.
+- Python thatcdn unit tests 27/27 PASS; live 熊猫 returned 6 and 柠檬 returned 7 with 0 Hash titles.
+- Current crypto implementation is byte-for-byte unchanged from the 0.1.10 source baseline; public 0.1.14 APK bundles gzip, HMAC, min_app_version and rulesets parsing.
+
+### Compatibility and release state
+- A fresh six-endpoint 357/233/53 pack with `schema_version=1` and `min_app_version=0.1.10` is envelope-compatible with 0.1.10 and 0.1.14.
+- Legacy versions can load all 233 GREEN rules, but 13 rules depend on newer handlers and legacy search lacks 53-pool primary/fallback collapse, so runtime effectiveness and load are not equivalent to 0.2.1.
+- No commit, push, source-pack deployment, signed public artifact, download update, tag, gray release or publication was performed.
+---
+
+---
+Date/Time: 2026-07-28 (UTC+8)
+Version: v0.2.1-pre-release-full-acceptance-and-native-233x53-bootstrap
+Scope: Close the full v0.2.1 Debug acceptance matrix, render one in-copy animated dots group, and guarantee Android builds bundle the current 233 GREEN / 53 pool source authority
+Modules: magnetgoogo-app/{app.json,app/search.tsx,plugins/with-source-bootstrap.js,scripts/{app-adversarial-tests.mjs,release-build-contract-tests.mjs},src/core/{i18n.ts,searchDebugLogger.ts,searchRunner.ts,secureSourceStore.ts}}, scripts/{test_k30s_search.py,test_k30s_media_offline.py,test_k30s_native_bootstrap.py}, docs/project-nebula/{TEST-PLAN-v0.2.1-PRE-RELEASE-20260728.md,TEST-RESULT-v0.2.1-PRE-RELEASE-20260728.md,_progress.txt,DEV-LOG.md}
+
+### Implementation
+- Replaced the old static-ellipsis-plus-appended-dots layout with a unique `...` token rendered in place as exactly one BouncingDots group; all ten locales carry one token and no Unicode ellipsis.
+- Preserved full 53-pool search semantics, relevance-default ordering, history placement, truthful aborted-report completion state and Debug-package-only search reports.
+- Added `with-source-bootstrap`: every Android prebuild encrypts canonical `sources.json`, asserts 357 all / 233 green / 53 pools, roundtrips AES-256-CBC + HMAC-SHA256, and writes the native APK asset.
+- Updated the source store to prefer the native source-bootstrap asset and retain the historical static asset only as a fallback.
+- Added reusable K30S offline-media and native-bootstrap smoke scripts with network restoration in `finally`.
+
+### Verification
+- TypeScript PASS; App adversarial 51/51; Fluency 17/17; Resource Feed PASS; Media security/network PASS; Release build contract PASS.
+- Crawler v3 68 passed / 2 deselected; source-pack gate tests 8/8; source enumeration ALL VALID.
+- K30S validation matrix 24/24: every query loaded 233/53, completed 53/53 pools and returned high-relevance results.
+- K30S exhaustive benchmark 8/8: every query attempted all 233 green rules across 53 pools with 0 skipped.
+- Stop-search probe PASS: completed=false after the first 12 pools; background search PASS on its 227/50 safe subset and posted a completion notification.
+- K30S media online/offline PASS; ciphertext scan found no title, URL, field-name or magnet plaintext; Crash/ANR scan returned zero.
+- Android prebuild logged 233 green / 53 pools; APK extraction audited 357/233/53; offline K30S native bootstrap loaded 233/53, and online native-bootstrap Inception returned 149 results / 83 high-relevance with 53/53 pools.
+
+### Release state
+- Code and Android Debug candidate PASS; public release remains `RELEASE_READY_WITH_MANUAL_GATES`.
+- Required before publication: deploy a fresh source pack and verify six-endpoint byte convergence; build the final signed APK/AAB from a clean commit with three release signing variables; perform v0.1.14 -> v0.2.1 K30S upgrade smoke.
+- This run did not commit, push, upload source packs, build a newly signed public artifact, update download URLs, tag, gray-release or publish.
+---
+
+---
+Date/Time: 2026-07-28 (UTC+8)
+Version: app-search-multilingual-status-fit
+Scope: Replace literal staged-search translations with concise locale-native status labels and guarantee the Stop action remains visible on one K30S line
+Modules: magnetgoogo-app/{app/search.tsx,src/core/i18n.ts,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Implementation
+- Preserved the approved Chinese staged copy and rewrote the other nine locales as short native status labels instead of sentence-length literal translations.
+- Added a localized `stopSearch` label for all ten languages and removed the Chinese/English-only conditional from the search screen.
+- Hardened the one-line layout: status text consumes only remaining width with `flex: 1` and `minWidth: 0`, while the Stop button uses `flexShrink: 0`.
+- Added an automated four-digit result-count length contract for every stage, completion label and Stop label.
+- Used temporary Debug-only layout instrumentation to measure real React Native text and button bounds on K30S, then removed all audit routes, hidden measurement nodes and logs before the final build.
+
+### K30S verification
+- Effective status-row width was 352.7dp; every localized Stop button ended exactly at 352.7dp and remained fully visible.
+- Maximum staged text widths at 9999 results: zh 250.9dp, en 152.0, es 143.3, ru 173.8, pt 146.9, ja 139.6, ko 140.0, fr 173.1, de 141.1, ar 102.2.
+- The tightest case was approved Chinese expanding copy, which still retained 28.4dp before the loading dots; all non-Chinese locales had at least 99.3dp.
+- TypeScript PASS; App adversarial 50/50 PASS; fluency 17/17 PASS; signing contract PASS.
+- Final arm64 standalone Debug build returned BUILD SUCCESSFUL and streamed installation returned Success.
+- K30S was restored to Chinese and system animation scales were restored to 1/1/1.
+
+### Release state
+- No audit instrumentation remains in production source.
+- No commit, push, source-pack upload, APK/AAB publication, config change, tag, gray release or production App release was performed.
+---
+
+---
+Date/Time: 2026-07-28 (UTC+8)
+Version: app-search-full-pool-and-relevance-default
+Scope: Complete all content pools without early satisfaction stop, improve staged search UX, move history above floating actions, and remove Comprehensive sorting in favor of default Relevance
+Modules: magnetgoogo-app/{app/search.tsx,app/(tabs)/index.tsx,plugins/with-release-signing.js,scripts/{app-adversarial-tests.mjs,fluency-extreme-tests.mjs},src/core/{backgroundSearch.ts,backgroundSearchProtocol.ts,i18n.ts,searchQuality.ts,searchRunner.ts}}, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Implementation
+- Normal search now schedules every effective content pool; a valid empty response completes the pool and only real failure/timeout/challenge/parser errors advance through fallback hosts.
+- Added pool-completion progress to foreground/background snapshots and replaced changing source denominators with the approved fast/expanding/tail/completed copy.
+- Moved search history immediately below the home search button so feedback/share FABs cannot cover it.
+- Removed the Comprehensive/Best Match sort chip and changed initial and per-search state to Relevance; Size and Date remain optional sorts.
+- Retained relevance divider behavior and scroll-time list-update deferral to reduce jump/jank while the full-pool search continues.
+- Hardened the Expo release-signing plugin so current generated Gradle layouts and existing native projects remain supported while Debug builds do not require Release credentials.
+
+### Verification
+- `npx tsc --noEmit` PASS.
+- App adversarial suite 49/49 PASS; fluency suite 17/17 PASS with top20 churn=0 and LOW scroll-time re-rank risk.
+- K30S `a1ea223a`: arm64 standalone Debug build completed successfully and streamed install returned Success.
+- Full-pool Inception evidence loaded 233 hosts / 53 pools and covered all 53 pools; latest UI completed with 133 deduped results.
+- K30S UI hierarchy exposed exactly Relevance / Size / Date, no Comprehensive/Best Match, and the first visible cards were direct Inception matches.
+
+### Release state
+- No commit, push, source-pack production upload, tag, APK/AAB publication, gray release or production App release was performed.
+- The 233-host/53-pool source pack remains a temporary K30S Debug input; production encrypted source endpoints remain stale/expired.
+---
+
+---
+Date/Time: 2026-07-28 (UTC+8)
+Version: media-v0.2.1-release-candidate-closure
+Scope: Harden media pointer/cache security, build the clean formally signed APK/AAB candidate, audit artifacts and stop before App gray release
+Modules: magnetgoogo-app/{app.json,plugins/with-release-signing.js,app/(tabs)/resources.tsx,package.json,package-lock.json,scripts/{media-release-network-tests.mjs,media-release-security-tests.mjs,release-build-contract-tests.mjs},src/core/{mediaReleaseProtocol.ts,mediaReleaseClient.ts,mediaReleaseCache.ts,resourceFeed.ts,resourceFeedProtocol.ts}}, releases/RELEASE-v0.2.1-media-rc1.md, docs/project-nebula/{影视资源网络分发与App接入上线记录-20260727.md,_progress.txt,_failures/20260728-media-rc-build-and-device-gates.log}
+
+### Implementation
+- Added raw pointer SHA identity, same-revision conflict rejection and cross-restart monotonic rollback protection.
+- Added encrypted primary/backup cache rotation, recovery and real K30S corruption drills; fixed Expo File.move URI mutation semantics.
+- Added hard Promise timeout for React Native endpoint arbitration and formal env-only signing plugin.
+- Built clean arm64 Release APK/AAB from detached commit `aab126c`; production Metro bundle was regenerated with NODE_ENV=production.
+- Removed Debug success evidence and verified no private key, keystore, signing environment names, upload token, Debug package name or release receipts are in the APK.
+
+### Verification / candidate
+- Resource-index 201/201; App adversarial 47/47; fluency 17/17; media security/live protocol/release contract/resource Feed/TypeScript PASS.
+- APK `0.2.1/5`, SHA-256 `ad2b95e6...4232`, registration certificate matches v0.1.14.
+- AAB SHA-256 `dc834b91...b73a`, signature PASS.
+- K30S Debug online/offline/cache corruption behavior PASS; R2-only PASS.
+- K30S formal first-install/upgrade remains blocked by MIUI shell/ADB install policy and requires manual phone permission before final human acceptance.
+- No upload, remote config change, tag, push, gray release or production App release was performed.
+---
+
+---
+Date/Time: 2026-07-27 (UTC+8)
+Version: media-production-dual-plane-app-consumer
+Scope: Publish the signed media release to R2 and Aliyun, promote the dual-endpoint current pointer, and connect the App with verification, on-demand detail loading and encrypted offline fallback
+Modules: magnet/resource_index/{cli.py,publish/worker_bridge.py}, magnet/tests/resource_index/{test_media_publish.py,test_r2_worker_bridge.py,test_static_mirror_verifier.py,test_media_control_verifier.py}, deploy/resource-index/{README.md,r2-upload-worker,r2-production-upload-worker,publish-media-r2-production-data.ps1,publish-media-aliyun-data.ps1,promote-media-current.ps1,verify-static-mirror.py,verify-media-control.py,verify-media-http.mjs,fetch-media-file.mjs,nginx-media-locations.conf,install-nginx-media-include.py}, magnetgoogo-app/{app/(tabs)/resources.tsx,package.json,package-lock.json,scripts/media-release-network-tests.mjs,src/core/{resourceFeed.ts,resourceFeedProtocol.ts,mediaReleaseProtocol.ts,mediaReleaseClient.ts,mediaReleaseCache.ts}}, docs/project-nebula/{影视资源网络分发与App接入上线记录-20260727.md,_progress.txt,DEV-LOG.md}
+
+### Implementation
+- Created production R2 Bucket `magnetgoogo-media`, bound `media.magnetgoogo.com`, and published only the frozen public data allowlist: 614 immutable objects plus Manifest.
+- Mirrored the exact 615-file plan to Aliyun `/var/www/magnetgoogo-site/media`, added immutable Nginx locations, exact hash verification, atomic copy, file permissions and idempotent reuse.
+- Removed the production staging pointer from both data planes; public control is only `/v1/current.json`.
+- Promoted the same signed revision-4 pointer to R2 and Aliyun after both Manifest hashes passed; added monotonic revision and same-revision conflict gates.
+- Added App Ed25519/current/Manifest/object validation, highest-valid-revision selection, same-release endpoint failover, catalog-first loading and on-demand detail/resource fetching.
+- Added SecureStore-backed AES-256-CBC + HMAC-SHA256 cache with atomic writes, 72-hour expiry and bundled Feed fallback.
+- Debug-only evidence logging is gated by the `.debug` application ID and is absent from production package logs.
+
+### Verification
+- Resource-index suite 201/201 PASS; App adversarial 47/47; fluency 17/17; resource Feed, live media protocol and TypeScript PASS.
+- Both production endpoints return pointer revision 4 and the same signed pointer/Manifest; online catalog, cover, detail and resource hashes match.
+- K30S online: bundled movie 50 -> network movie 100/351 resources; series 100/1331 resources; one movie detail fetched 6 resources on demand.
+- K30S offline: disk-cache restored movie 100 and the same 6 detail resources while both network endpoints failed.
+- Device AES cache envelope contains no plaintext title, field name, resource URL or endpoint.
+- arm64 Debug build succeeded and streamed installation returned Success.
+
+### Release state
+- Media data/control planes are production-live. The media App changes are ready for an isolated commit and clean signed release-candidate build.
+- Search/source-pack and other parallel dirty-workspace changes remain separate and must not enter the media App release candidate.
+---
+
+---
+Date/Time: 2026-07-27 (UTC+8)
+Version: app-search-quality-delivery-audit-and-profile-priors
+Scope: Reconcile static, encrypted and runtime source inventories; reject expired packs; complete the 233-host/53-pool bait benchmark; and verify profile-aware cold-start scheduling on K30S
+Modules: .github/workflows/health-check.yml, magnetgoogo-app/app/search.tsx, magnetgoogo-app/src/core/{searchQuality.ts,sourceStats.ts,searchRunner.ts,searchDebugLogger.ts,secureSourceStore.ts}, magnetgoogo-app/src/data/sourceQualityPriors.ts, magnetgoogo-app/tsconfig.json, magnetgoogo-app/scripts/app-adversarial-tests.mjs, scripts/{audit_source_delivery.py,push_k30s_source_pack.py,test_k30s_search.py,score_k30s_relevance_benchmark.py,source_pack_release_gate.py,verify_source_pack_endpoints.py,test_source_pack_release_gate.py}, source_discovery/out/pool_host_inventory_20260727.md, docs/project-nebula/{SEARCH-QUALITY-SOURCE-SCHEDULING-2026-07-27.md,K30S-RELEVANCE-BAIT-RANKING-2026-07-27.md,APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
+
+### Implementation
+- Added a read-only delivery audit that distinguishes static rules, encrypted distribution packs, remote endpoints, K30S caches, source hosts and effective content pools.
+- Found the canonical inventory at 357 rules / 233 green hosts / 53 pools, while local distribution and the primary remote endpoint still return the same 2026-07-19-expired 125-green pack.
+- Added envelope-expiry enforcement for disk cache, local debug override and all remote fetch paths so an expired pack cannot be accepted and re-cached as newly synchronized.
+- Added a temporary, non-publishing K30S pack injector and proved the App can load and exhaustively attempt the full 233-host/53-pool inventory.
+- Completed eight bait categories and generated conservative pool-level `latin/cjk/code/mixed/global` cold-start priors; source health status and canonical source scores were not rewritten.
+- Allowed evidence and local relevance learning to reorder hosts inside a pool; primary/fallback role is now a small prior instead of an absolute lock.
+- Blended foreground speed tier into quality priority instead of enforcing a hard tier wall, while retaining stricter background ordering.
+- Added non-destructive `cold=1` test mode and report fields separating loaded hosts/pools from attempted hosts/pools and source-pack provenance.
+- Fixed the structural 72-hour expiry bug in the scheduled workflow: pack refresh is now evaluated every run and triggered only for payload/config drift, missing/corrupt packs or less than 24 hours of remaining lifetime.
+- Added atomic candidate generation, workflow concurrency, exact required-endpoint SHA verification and optional mirror propagation reporting; the verifier runs even when no refresh is needed to detect endpoint drift.
+
+### Verification
+- Full K30S benchmark: 8/8 queries completed, each loading and attempting exactly 233 hosts / 53 pools.
+- Final cold-start UX path: Inception 6.4s / 14 hosts / 12 pools; 流浪地球 8.6s / 12 / 12; 海贼王 9.9s / 12 / 12; Breaking Bad 7.4s / 14 / 12; all four had zero source errors.
+- The Chinese-movie intermediate regression was rejected and corrected from 46.7s / 62 hosts / 19 errors to 8.6s / 12 hosts / zero errors.
+- TypeScript PASS; Python compile PASS; App adversarial 47/47 PASS; fluency 17/17 PASS with top20 churn=0; resource Feed PASS.
+- Final Android debug build: BUILD SUCCESSFUL; streamed install Success on K30S `a1ea223a`.
+- Source-pack release gate and endpoint comparison: 8/8 PASS; GitHub Actions YAML parsed with 10 steps.
+- Real stale-pack dry run returned `payload_changed,expires_soon`; verified candidate contained 357 rules / 233 green with a fresh 72-hour envelope.
+- Existing endpoint smoke matched 3/3 required and 2/3 optional mirrors exactly; `cn.magnetgoogo.com` remained an optional unreachable endpoint.
+
+### Release state
+- Production distribution remains blocked: `mg-data/sources.enc.json` and the primary domain still serve the expired 125-source pack; only a temporary debug pack was injected into K30S. The auto-refresh workflow is implemented but was not committed, pushed or triggered.
+- No source health status mutation, canonical score overwrite, production pack upload, release APK, commit, tag, push or deployment was performed.
+---
+
+---
 Date/Time: 2026-07-27 (UTC+8)
 Version: media-release-m2-r2-private-publication
 Scope: Publish and independently verify the complete signed media release in the isolated private R2 data plane without production pointer promotion
@@ -27,6 +554,34 @@ Modules: magnet/resource_index/{cli.py,publish/{orchestrator.py,worker_bridge.py
 ### Release state
 - M2 private R2 data-plane publication complete. App production endpoint and `v1/current.json` were intentionally not switched because the required Aliyun mirror/control-plane stages are not yet closed.
 - No custom/public R2 domain, Aliyun mirror, GitHub/Pages control plane, App release, tag, remote Git push or production deployment was performed.
+---
+
+---
+Date/Time: 2026-07-27 (UTC+8)
+Version: app-search-pool-aware-relevance-ranking
+Scope: Replace host-volume source ordering with pool-aware progressive search, local relevance learning and K30S bait benchmarking
+Modules: magnetgoogo-app/app/search.tsx, magnetgoogo-app/src/core/{searchQuality.ts,sourceStats.ts,searchRunner.ts,searchResultAccumulator.ts,searchDebugLogger.ts,analytics.ts}, magnetgoogo-app/scripts/{app-adversarial-tests.mjs,fluency-extreme-tests.mjs}, scripts/{test_k30s_search.py,score_k30s_relevance_benchmark.py}, source_discovery/out/pool_host_inventory_20260727.md, docs/project-nebula/{SEARCH-QUALITY-SOURCE-SCHEDULING-2026-07-27.md,APP-CHANGELOG.md,_progress.txt,DEV-LOG.md}
+
+### Implementation
+- Changed normal search scheduling from individual hosts to distinct content pools; one primary host runs first and at most one same-pool fallback is attempted after failure or empty results.
+- Added 12/16/rest progressive pool stages and relevance-diversity early stop using globally deduplicated BTIH results.
+- Extended local source learning with deduplicated high-relevance yield, precision, health and latency by query profile without persisting raw search terms or adding network requests.
+- Moved high-relevance results ahead of low-relevance multi-source noise in the final comprehensive rank while preserving first-seen order during active search.
+- Added hidden exhaustive K30S benchmark mode and a host/pool-separated scorer using eight multilingual/content bait terms; benchmark traffic does not write history, analytics or local personalization.
+- Documented the strict distinction between 43 independent dual-bait pools, source hosts and the wider 233-rule product green inventory.
+
+### Verification
+- TypeScript `npx tsc --noEmit`: PASS.
+- App adversarial suite: 44/44 PASS; fluency suite: 17/17 PASS; resource Feed suite: PASS.
+- `npm run android:k30s`: `BUILD SUCCESSFUL`; streamed install `Success` on K30S `a1ea223a`.
+- K30S `Inception` baseline improved from 79.3s / about 120 attempted hosts to 8.2s / 13 attempted hosts across 12 pools.
+- K30S multi-query UX path: `Inception` 8.2s, `流浪地球` 24.1s, `海贼王` 16.1s and `SSIS-001` 7.9s.
+- Exhaustive-mode K30S smoke: `Inception` attempted all 125 runtime-loaded hosts across 46 pools in 79.5s, proving the benchmark path does not early-stop.
+- Current `sources.json` audit: 357 rules, 233 `health.status=green` hosts, 53 distinct `pool_id`; the K30S runtime set is smaller and both remain separate from the 43 independent dual-bait pool KPI.
+
+### Release state
+- Debug build and K30S verification only. Existing source health/status and `sources.json` scores were not changed.
+- Full eight-bait exhaustive ranking has not been applied; no release APK, production config, tag, commit, push or deployment was performed.
 ---
 
 ---

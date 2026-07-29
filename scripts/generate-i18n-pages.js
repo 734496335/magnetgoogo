@@ -11,8 +11,16 @@ const fs = require('fs');
 const path = require('path');
 
 const SITE_DIR = path.join(__dirname, '..', 'magnetgoogo-site');
-const downloadUrl = 'https://api.naoshiquan.com/download/v0.1.8/MagGoogo-v0.1.8.apk';
-const lanzouUrl = 'https://wwbdy.lanzoue.com/iFHEh3oomsjg';
+function loadJson(filePath) {
+  const raw = fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
+  return JSON.parse(raw);
+}
+
+const siteConfig = loadJson(path.join(SITE_DIR, 'site-config.json'));
+const downloadUrl = siteConfig.download_url;
+const backupDownloads = Array.isArray(siteConfig.backup_downloads) && siteConfig.backup_downloads.length > 0
+  ? siteConfig.backup_downloads
+  : [{ url: siteConfig.backup_url || `${siteConfig.lanzou_base}/${siteConfig.lanzou_id}`, label: siteConfig.backup_label || 'Backup' }];
 
 // ─── 语言数据 ──────────────────────────────────────────────────────
 const LANGS = [
@@ -418,11 +426,11 @@ ${hreflangTags}
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         ${lang.ctaDownload}
       </a>
-      <a href="${lanzouUrl}" target="_blank" class="border-2 border-gray-200 text-gray-600 font-medium px-8 py-4 rounded-full text-lg hover:border-brand hover:text-brand transition-colors">
-        ${lang.ctaBackup}
-      </a>
+${backupDownloads.map((item) => `      <a href="${item.url}" target="_blank" rel="noopener" class="border-2 border-gray-200 text-gray-600 font-medium px-6 py-4 rounded-full text-base hover:border-brand hover:text-brand transition-colors">
+        ${item.label === '蓝奏云' ? `LanzouCloud · PIN ${item.password || '8888'}` : item.label}
+      </a>`).join('\n')}
     </div>
-    <p class="mt-4 text-sm text-gray-400">Android 7.0+ · APK ~30MB · v0.1.8</p>
+    <p class="mt-4 text-sm text-gray-400">Android 7.0+ · APK 32.0MB · v0.2.2</p>
   </div>
 </section>
 
