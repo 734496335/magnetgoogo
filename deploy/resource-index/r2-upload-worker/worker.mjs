@@ -1,5 +1,16 @@
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const MAX_OBJECT_BYTES = 1024 * 1024;
+const MAX_MANIFEST_BYTES = 2 * 1024 * 1024;
+const RELEASE_MANIFEST_KEY_RE = /^v1\/releases\/[^/]+\/manifest\.json$/;
+
+export function maxObjectBytesFor(key, objectKind, contentType) {
+  const normalizedType = String(contentType || "").split(";", 1)[0].trim().toLowerCase();
+  return RELEASE_MANIFEST_KEY_RE.test(key)
+    && objectKind === "manifest"
+    && normalizedType === "application/json"
+    ? MAX_MANIFEST_BYTES
+    : MAX_OBJECT_BYTES;
+}
 
 function jsonResponse(value, status = 200) {
   return new Response(JSON.stringify(value), {
@@ -71,11 +82,13 @@ async function putObject(request, env, key) {
   const expectedSize = Number(request.headers.get("x-media-size"));
   const releaseId = request.headers.get("x-media-release-id") || "";
   const objectKind = request.headers.get("x-media-object-kind") || "artifact";
+  const contentType = request.headers.get("content-type") || "application/octet-stream";
+  const maxObjectBytes = maxObjectBytesFor(key, objectKind, contentType);
   if (
     !SHA256_RE.test(expectedHash) ||
     !Number.isSafeInteger(expectedSize) ||
     expectedSize < 0 ||
-    expectedSize > MAX_OBJECT_BYTES
+    expectedSize > maxObjectBytes
   ) {
     return jsonResponse({ error: "invalid expected hash or size" }, 400);
   }
@@ -100,7 +113,7 @@ async function putObject(request, env, key) {
   const stored = await env.MEDIA_BUCKET.put(key, payload, {
     onlyIf: { etagDoesNotMatch: "*" },
     httpMetadata: {
-      contentType: request.headers.get("content-type") || "application/octet-stream",
+      contentType,
       cacheControl: request.headers.get("cache-control") || "no-store",
     },
     customMetadata: { sha256: expectedHash, releaseId, objectKind },

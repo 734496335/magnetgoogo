@@ -6,7 +6,8 @@ param(
     [string]$CurrentPath,
     [string]$PublicKey = "data\resource_index\.secrets\media-ed25519-public.pem",
     [string]$ReceiptDir = "data\resource_index\media_publish_receipts",
-    [int]$MaxWorkers = 12
+    [int]$MaxWorkers = 12,
+    [switch]$ReuseOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -131,14 +132,17 @@ try {
         "--yes"
     )
 
-    Write-Host "Publishing immutable media data to production R2 root..."
-    & python @BaseArguments
-    if ($LASTEXITCODE -ne 0) {
-        throw "First production R2 data publication failed."
+    if (-not $ReuseOnly) {
+        Write-Host "Publishing immutable media data to production R2 root with full byte verification..."
+        & python @BaseArguments
+        if ($LASTEXITCODE -ne 0) {
+            throw "First production R2 data publication failed."
+        }
     }
 
-    Write-Host "Repeating production data publication to prove complete reuse..."
-    & python @BaseArguments
+    Write-Host "Repeating production data publication to prove complete reuse with full metadata verification..."
+    $ReuseArguments = @($BaseArguments) + @("--shallow-verify")
+    & python @ReuseArguments
     if ($LASTEXITCODE -ne 0) {
         throw "Second production R2 data publication/reuse verification failed."
     }

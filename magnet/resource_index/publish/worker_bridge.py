@@ -26,6 +26,19 @@ from magnet.resource_index.release.protocol import sha256_file
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504}
 _MAX_OBJECT_BYTES = 1024 * 1024
+_MAX_MANIFEST_BYTES = 2 * 1024 * 1024
+_RELEASE_MANIFEST_KEY_RE = re.compile(r"^v1/releases/[^/]+/manifest\.json$")
+
+
+def _max_object_bytes(request: UploadRequest) -> int:
+    content_type = request.content_type.split(";", 1)[0].strip().lower()
+    if (
+        _RELEASE_MANIFEST_KEY_RE.fullmatch(request.key)
+        and request.object_kind == "manifest"
+        and content_type == "application/json"
+    ):
+        return _MAX_MANIFEST_BYTES
+    return _MAX_OBJECT_BYTES
 
 
 @dataclass(frozen=True)
@@ -295,12 +308,14 @@ class WorkerR2PublisherBackend(PublisherBackend):
         if not request.source_path.is_file():
             _fail(PUBLISH_CONFIG_ERROR, "Worker bridge local source is missing", path=str(request.source_path))
         actual_size = request.source_path.stat().st_size
-        if request.size > _MAX_OBJECT_BYTES or actual_size > _MAX_OBJECT_BYTES:
+        max_object_bytes = _max_object_bytes(request)
+        if request.size > max_object_bytes or actual_size > max_object_bytes:
             _fail(
                 PUBLISH_CONFIG_ERROR,
-                "Worker bridge object exceeds the 1 MiB safety limit",
+                "Worker bridge object exceeds its safety limit",
                 path=str(request.source_path),
                 size=actual_size,
+                max_size=max_object_bytes,
             )
         actual_hash = sha256_file(request.source_path)
         if actual_size != request.size or actual_hash != request.sha256:

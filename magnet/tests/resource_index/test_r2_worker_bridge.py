@@ -212,7 +212,73 @@ def test_worker_bridge_rejects_object_larger_than_one_mib(tmp_path: Path) -> Non
         object_kind="cover",
     )
 
-    with pytest.raises(ResourceIndexError, match="1 MiB"):
+    with pytest.raises(ResourceIndexError, match="safety limit"):
+        _backend(FakeBridge()).upload(request)
+
+
+def test_worker_bridge_allows_release_manifest_up_to_two_mib(tmp_path: Path) -> None:
+    path = tmp_path / "manifest.json"
+    path.write_bytes(b"x" * (1024 * 1024 + 1))
+    request = UploadRequest(
+        key="v1/releases/release-r6/manifest.json",
+        source_path=path,
+        sha256=sha256_file(path),
+        size=path.stat().st_size,
+        content_type="application/json; charset=utf-8",
+        cache_control="public, max-age=31536000, immutable",
+        release_id="release-r6",
+        object_kind="manifest",
+    )
+    bridge = FakeBridge()
+    backend = WorkerR2PublisherBackend(
+        worker_url="https://example.workers.dev",
+        upload_token="t" * 48,
+        prefix="",
+        allow_production_root=True,
+        transport=bridge,
+        retry_base_seconds=0,
+        sleeper=lambda _seconds: None,
+    )
+
+    outcome = backend.upload(request, deep_verify=True)
+
+    assert outcome.uploaded is True
+    assert set(bridge.objects) == {"v1/releases/release-r6/manifest.json"}
+
+
+def test_worker_bridge_rejects_disguised_large_manifest(tmp_path: Path) -> None:
+    path = tmp_path / "manifest.json"
+    path.write_bytes(b"x" * (1024 * 1024 + 1))
+    request = UploadRequest(
+        key="v1/objects/detail/manifest.json",
+        source_path=path,
+        sha256=sha256_file(path),
+        size=path.stat().st_size,
+        content_type="application/json; charset=utf-8",
+        cache_control="public, max-age=31536000, immutable",
+        release_id="release-r6",
+        object_kind="manifest",
+    )
+
+    with pytest.raises(ResourceIndexError, match="safety limit"):
+        _backend(FakeBridge()).upload(request)
+
+
+def test_worker_bridge_rejects_manifest_larger_than_two_mib(tmp_path: Path) -> None:
+    path = tmp_path / "manifest.json"
+    path.write_bytes(b"x" * (2 * 1024 * 1024 + 1))
+    request = UploadRequest(
+        key="v1/releases/release-r6/manifest.json",
+        source_path=path,
+        sha256=sha256_file(path),
+        size=path.stat().st_size,
+        content_type="application/json; charset=utf-8",
+        cache_control="public, max-age=31536000, immutable",
+        release_id="release-r6",
+        object_kind="manifest",
+    )
+
+    with pytest.raises(ResourceIndexError, match="safety limit"):
         _backend(FakeBridge()).upload(request)
 
 
