@@ -2,7 +2,7 @@
   "expo": {
     "name": "MagGoogo",
     "slug": "magnetgoogo-app",
-    "version": "0.2.1",
+    "version": "0.2.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -31,7 +31,7 @@
     },
     "android": {
       "package": "com.magnetgoogo.app",
-      "versionCode": 5,
+      "versionCode": 7,
       "permissions": ["android.permission.POST_NOTIFICATIONS"],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -51,6 +51,7 @@
       "expo-font",
       "./plugins/with-search-background",
       "./plugins/with-startup-overlay",
+      "./plugins/with-source-bootstrap",
       "./plugins/with-resource-feed",
       "./plugins/with-release-signing",
       [

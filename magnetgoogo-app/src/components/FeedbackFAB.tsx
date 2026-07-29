@@ -16,11 +16,14 @@ import {
   KeyboardAvoidingView,
   Animated,
   Easing,
+  Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLang } from '../core/LangContext';
 import { useTheme } from '../core/ThemeContext';
 import { getAppVersion } from '../core/configChecker';
+import { WEBSITE_URL } from '../core/complianceConfig';
+import { buildAppShareMessage } from '../core/appShare';
 
 const FEEDBACK_API = 'https://api.naoshiquan.com/api/feedback';
 
@@ -47,6 +50,25 @@ export default function FeedbackFAB() {
     setTimeout(() => {
       Animated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setToastMsg(''));
     }, 2500);
+  };
+
+  const handleShare = async () => {
+    try {
+      await Share.share(
+        {
+          title: t.shareDialogTitle,
+          message: buildAppShareMessage(t.shareMessage, WEBSITE_URL),
+        },
+        { dialogTitle: t.shareDialogTitle },
+      );
+    } catch (error) {
+      console.warn('[FeedbackFAB]', {
+        stage: 'open_native_share',
+        error_code: 'NATIVE_SHARE_FAILED',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      showToast(t.shareFailed);
+    }
   };
 
   const handleSubmit = () => {
@@ -99,14 +121,31 @@ export default function FeedbackFAB() {
 
   return (
     <>
-      <TouchableOpacity
-        style={styles.fab}
-        activeOpacity={0.85}
-        onPress={() => setVisible(true)}
-      >
-        <Ionicons name="chatbubble-ellipses-outline" size={16} color="#fff" />
-        <Text style={styles.fabLabel}>{t.feedbackBtn}</Text>
-      </TouchableOpacity>
+      <View style={styles.fabRow}>
+        <TouchableOpacity
+          style={styles.fab}
+          activeOpacity={0.85}
+          onPress={() => setVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel={isZh ? '吐槽' : 'Feedback'}
+          testID="home-feedback-button"
+        >
+          <Ionicons name="chatbubble-ellipses-outline" size={16} color="#fff" />
+          <Text style={styles.fabLabel}>{t.feedbackBtn}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.fab}
+          activeOpacity={0.85}
+          onPress={handleShare}
+          accessibilityRole="button"
+          accessibilityLabel={t.shareDialogTitle}
+          testID="home-share-button"
+        >
+          <Ionicons name="share-social-outline" size={16} color="#fff" />
+          <Text style={styles.fabLabel}>{t.shareBtn}</Text>
+        </TouchableOpacity>
+      </View>
 
       <Modal visible={visible} transparent animationType="slide" onRequestClose={() => setVisible(false)}>
         <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -156,10 +195,15 @@ export default function FeedbackFAB() {
 }
 
 const styles = StyleSheet.create({
-  fab: {
+  fabRow: {
     position: 'absolute',
     right: 16,
     bottom: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  fab: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,

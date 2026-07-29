@@ -86,19 +86,27 @@ expectCode('MEDIA_POINTER_SAME_REVISION_CONFLICT', () => assertMediaPointerTrans
 
 const cacheSource = fs.readFileSync(path.join(process.cwd(), 'src/core/mediaReleaseCache.ts'), 'utf8');
 const clientSource = fs.readFileSync(path.join(process.cwd(), 'src/core/mediaReleaseClient.ts'), 'utf8');
-assert.match(cacheSource, /pointer_sha256: string/);
-assert.match(cacheSource, /manifest_sha256: string/);
-assert.match(cacheSource, /media\.cache\.backup\.enc\.json/);
-assert.match(cacheSource, /restoreBackupToPrimary/);
-assert.match(cacheSource, /temporary\.move\(primary\)/);
-assert.match(cacheSource, /temporaryMoved = true/);
-assert.match(cacheSource, /if \(!temporaryMoved\) deleteIfExists\(temporary\)/);
-assert.match(cacheSource, /new File\(primary\.uri\)\.move\(backup\)/);
-assert.match(cacheSource, /assertMediaPointerTransition\(identity, existingIdentity\)/);
+assert.match(cacheSource, /pointer_sha256/);
+assert.match(cacheSource, /manifest_sha256/);
+assert.match(cacheSource, /media-app-cache-index\/2/);
+assert.match(cacheSource, /media-app-feed-cache\/2/);
+assert.match(cacheSource, /media-app-catalog-cache\/2/);
+assert.match(cacheSource, /media-app-detail-cache\/2/);
+assert.match(cacheSource, /writeJsonAtomically/);
+assert.match(cacheSource, /const targetFile = \(\) => new File\(directory, name\)/);
+assert.match(cacheSource, /targetFile\(\)\.move\(backupFile\(\)\)/);
+assert.match(cacheSource, /temporaryFile\(\)\.move\(targetFile\(\)\)/);
+assert.match(cacheSource, /if \(!temporaryMoved\) deleteIfExists\(temporaryFile\(\)\)/);
+assert.match(cacheSource, /backupFile\(\)\.move\(targetFile\(\)\)/);
+assert.doesNotMatch(cacheSource, /target\.move\(backup\)[\s\S]*temporary\.move\(target\)/);
+assert.match(cacheSource, /readJsonResilient/);
+assert.match(cacheSource, /assertMediaPointerTransition\(identity, existing\?\.identity \?\? null\)/);
+assert.match(cacheSource, /envelope\.detail_hash !== currentItem\.remote_detail_hash/);
+assert.doesNotMatch(cacheSource, /CryptoJS|SecureStore|CACHE_EXPIRY/);
 assert.match(clientSource, /selectMediaCurrentCandidate\(candidates, acceptedIdentity\)/);
 assert.match(clientSource, /cachedMediaPointerIdentity\(\)/);
 assert.match(clientSource, /Promise\.race\(\[request, timeout\]\)/);
-assert.match(clientSource, /MEDIA_CACHE_COMMIT_FAILED/);
+assert.match(clientSource, /manifest_refresh_skipped: true/);
 
 console.log(JSON.stringify({
   status: 'PASS',
@@ -107,5 +115,7 @@ console.log(JSON.stringify({
   rollback_rejected: true,
   single_endpoint_higher_revision_accepted: true,
   cache_identity_fields: true,
-  atomic_backup_contract: true,
+  atomic_shard_contract: true,
+  content_addressed_catalog_cache: true,
+  plaintext_media_cache: true,
 }));

@@ -7,7 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { View, Text, Animated, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SourceProvider, useSources } from '../src/core/SourceContext';
-import { LangProvider } from '../src/core/LangContext';
+import { LangProvider, useLang } from '../src/core/LangContext';
 import { ThemeProvider, useTheme } from '../src/core/ThemeContext';
 import { checkConfig, type ConfigCheckResult } from '../src/core/configChecker';
 import ForceUpdateModal from '../src/components/ForceUpdateModal';
@@ -137,6 +137,16 @@ function ThemedApp({
   configResult: ConfigCheckResult | null;
 }) {
   const { colors } = useTheme();
+  const { lang } = useLang();
+  const displayResult = configResult
+    ? {
+        ...configResult,
+        announcement:
+          configResult.config?.announcement_i18n?.[lang]
+          || configResult.announcement
+          || '',
+      }
+    : null;
   const [showOptionalUpdate, setShowOptionalUpdate] = useState(
     () => !!(configResult?.updateAvailable && !configResult?.forceUpdate),
   );
@@ -165,10 +175,10 @@ function ThemedApp({
         }}
       />
       <SyncToast />
-      {configResult?.forceUpdate && <ForceUpdateModal result={configResult} visible={true} />}
-      {configResult && !configResult.forceUpdate && configResult.updateAvailable && (
+      {displayResult?.forceUpdate && <ForceUpdateModal result={displayResult} visible={true} />}
+      {displayResult && !displayResult.forceUpdate && displayResult.updateAvailable && (
         <OptionalUpdateModal
-          result={configResult}
+          result={displayResult}
           visible={showOptionalUpdate}
           onDismiss={() => setShowOptionalUpdate(false)}
         />

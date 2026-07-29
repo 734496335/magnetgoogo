@@ -160,7 +160,6 @@ export default function HomeScreen() {
   const [toast, setToast] = useState('');
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
-  const [secondaryHeight, setSecondaryHeight] = useState(0);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
@@ -228,11 +227,6 @@ export default function HomeScreen() {
     setHistory([]);
   };
 
-  const handleSecondaryLayout = useCallback((height: number) => {
-    const rounded = Math.round(height);
-    setSecondaryHeight((current) => current === rounded ? current : rounded);
-  }, []);
-
   return (
     <KeyboardAvoidingView
       style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.bg }]}
@@ -241,8 +235,49 @@ export default function HomeScreen() {
       {/* Toast */}
       <TopToast message={toast} visible={!!toast} onHide={hideToast} />
 
-      {/* Center the search experience in the full physical screen, compensating for the Tab bar. */}
-      <View style={[styles.heroStage, { paddingTop: tabBarHeight + secondaryHeight }]}>
+      {/* User-owned content is a stable top-level destination, never a bottom
+          floating action competing with feedback/share. */}
+      <View style={styles.topUtilityBar}>
+        <TouchableOpacity
+          style={[
+            styles.favoriteShortcut,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              shadowColor: colors.shadow,
+            },
+          ]}
+          onPress={() => router.push('/favorites')}
+          activeOpacity={0.78}
+          accessibilityRole="button"
+          accessibilityLabel={`${t.favoritesTitle}${favorites.length > 0 ? ` ${favorites.length}` : ''}`}
+          testID="home-favorites-button"
+        >
+          <View style={[styles.favoriteShortcutIcon, { backgroundColor: colors.chipBg }]}>
+            <Ionicons
+              name={favorites.length > 0 ? 'bookmark' : 'bookmark-outline'}
+              size={17}
+              color={colors.accent}
+            />
+          </View>
+          <Text
+            style={[styles.favoriteShortcutText, { color: colors.text }]}
+            numberOfLines={1}
+          >
+            {t.favoritesTitle}
+          </Text>
+          {favorites.length > 0 && (
+            <View style={[styles.favoriteCountBadge, { backgroundColor: colors.accent }]}>
+              <Text style={styles.favoriteCountText}>
+                {favorites.length > 99 ? '99+' : favorites.length}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Center the search experience in the remaining content area. */}
+      <View style={[styles.heroStage, { paddingTop: tabBarHeight }]}>
         {/* Brand block: magnet icon + text logo + slogan */}
         <View style={styles.brandRow}>
           <Image
@@ -283,37 +318,8 @@ export default function HomeScreen() {
 
         <FlowingGradientButton onPress={handleSearch} label={t.searchButton} />
 
-        {/* Compliance banner */}
-        {COMPLIANCE_MODE && (
-          <TouchableOpacity
-            style={styles.complianceBanner}
-            onPress={() => Linking.openURL(WEBSITE_URL)}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#f0fdf4', '#ecfdf5', '#f0fdf4']}
-              style={styles.complianceBannerBg}
-            >
-              <View style={styles.complianceBadge}>
-                <Ionicons name="shield-checkmark" size={18} color="#fff" />
-              </View>
-              <Text style={styles.complianceLine1}>
-                {t.complianceBannerLine1}
-              </Text>
-              <View style={styles.complianceLinkRow}>
-                <Text style={styles.complianceLinkText}>{t.complianceBannerLink}</Text>
-                <Ionicons name="chevron-forward" size={14} color="#6366f1" />
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <View
-        style={styles.secondaryArea}
-        onLayout={(event) => handleSecondaryLayout(event.nativeEvent.layout.height)}
-      >
-        {/* Search history */}
+        {/* Search history stays directly under the primary action so it cannot
+            be covered by the floating feedback/share buttons. */}
         {history.length > 0 && (
           <View style={styles.historyWrap}>
             <View style={styles.historyHeader}>
@@ -341,17 +347,28 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Favorites entry (only if non-empty) */}
-        {favorites.length > 0 && (
+        {/* Compliance banner */}
+        {COMPLIANCE_MODE && (
           <TouchableOpacity
-            style={[styles.favEntry, { backgroundColor: colors.chipBg }]}
-            onPress={() => router.push('/favorites')}
-            activeOpacity={0.7}
+            style={styles.complianceBanner}
+            onPress={() => Linking.openURL(WEBSITE_URL)}
+            activeOpacity={0.8}
           >
-            <Ionicons name="bookmark" size={16} color="#6366f1" />
-            <Text style={[styles.favEntryText, { color: colors.text }]}>{t.favoritesTitle}</Text>
-            <Text style={[styles.favEntryCount, { color: colors.textTertiary }]}>{favorites.length}</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+            <LinearGradient
+              colors={['#f0fdf4', '#ecfdf5', '#f0fdf4']}
+              style={styles.complianceBannerBg}
+            >
+              <View style={styles.complianceBadge}>
+                <Ionicons name="shield-checkmark" size={18} color="#fff" />
+              </View>
+              <Text style={styles.complianceLine1}>
+                {t.complianceBannerLine1}
+              </Text>
+              <View style={styles.complianceLinkRow}>
+                <Text style={styles.complianceLinkText}>{t.complianceBannerLink}</Text>
+                <Ionicons name="chevron-forward" size={14} color="#6366f1" />
+              </View>
+            </LinearGradient>
           </TouchableOpacity>
         )}
       </View>
@@ -367,6 +384,55 @@ const styles = StyleSheet.create({
     backgroundColor: '#fffdfb',
     alignItems: 'center',
     paddingHorizontal: 32,
+  },
+  topUtilityBar: {
+    width: '100%',
+    minHeight: 46,
+    paddingTop: 6,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    zIndex: 5,
+  },
+  favoriteShortcut: {
+    minHeight: 38,
+    maxWidth: '72%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingLeft: 7,
+    paddingRight: 10,
+    borderRadius: 19,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  favoriteShortcutIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  favoriteShortcutText: {
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  favoriteCountBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  favoriteCountText: {
+    color: '#fff',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
   },
   heroStage: {
     flex: 1,
@@ -503,10 +569,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#92400e',
   },
-  secondaryArea: { width: '100%' },
   historyWrap: {
     width: '100%',
-    marginTop: 20,
+    marginTop: 18,
   },
   historyHeader: {
     flexDirection: 'row',
@@ -537,25 +602,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     color: '#5d6578',
-  },
-  favEntry: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    marginTop: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 14,
-    gap: 8,
-  },
-  favEntryText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  favEntryCount: {
-    fontSize: 13,
-    fontWeight: '500',
   },
   complianceBanner: {
     width: '100%',

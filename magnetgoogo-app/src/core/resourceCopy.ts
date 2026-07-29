@@ -136,7 +136,7 @@ const ZH: ResourceCopy = {
   offlineUpdated: '离线更新',
   channelEmptyTitle: '这个频道暂时没有内容',
   channelEmptyBody: '可以切换其他频道，等待下一次离线内容更新。',
-  loading: '正在加载影视…',
+  loading: '正在加载...',
   emptyTitle: '暂无影视内容',
   emptyBody: '本地影视数据未准备完成，请重新构建 App 后再试。',
   retry: '重新加载',

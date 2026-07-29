@@ -20,6 +20,17 @@ export const LANG_LABELS: Record<Lang, string> = {
 
 export const ALL_LANGS: Lang[] = ['zh', 'en', 'es', 'ru', 'pt', 'ja', 'ko', 'fr', 'de', 'ar'];
 
+export const SEARCH_STATUS_DOTS_TOKEN = '...';
+
+export function splitSearchingStatus(text: string): { before: string; after: string } {
+  const tokenIndex = text.indexOf(SEARCH_STATUS_DOTS_TOKEN);
+  if (tokenIndex < 0) return { before: text, after: '' };
+  return {
+    before: text.slice(0, tokenIndex).replaceAll(SEARCH_STATUS_DOTS_TOKEN, ''),
+    after: text.slice(tokenIndex + SEARCH_STATUS_DOTS_TOKEN.length).replaceAll(SEARCH_STATUS_DOTS_TOKEN, ''),
+  };
+}
+
 const zh = {
   // ── Home ──
   sloganPrefix: '搜全网磁力，上',
@@ -29,10 +40,14 @@ const zh = {
   emptyQueryToast: '请输入搜索内容',
 
   // ── Search results ──
-  searchingStatus: (done: number, total: number, results: number) =>
-    `搜索 ${done}/${total} 个源，找到 ${results} 条结果`,
-  searchDoneStatus: (done: number, total: number, results: number) =>
-    `已搜索 ${done}/${total} 个源，找到 ${results} 条结果`,
+  searchingStatus: (stage: 'fast' | 'expanding' | 'tail', results: number) =>
+    stage === 'fast'
+      ? `先看这些，还在继续找...找到 ${results} 条`
+      : stage === 'expanding'
+        ? `继续翻找，可能还有好东西...找到 ${results} 条`
+        : `快搜完了，找找漏网之鱼...找到 ${results} 条`,
+  searchDoneStatus: (results: number) => `搜完了，共 ${results} 条结果`,
+  stopSearch: '停止',
   sortComprehensive: '综合',
   sortRelevance: '相关性',
   sortSize: '大小',
@@ -87,6 +102,10 @@ const zh = {
   // ── Search UX ──
   lowRelevanceHint: '以下是相关度较低的结果',
   feedbackBtn: '吐槽',
+  shareBtn: '分享',
+  shareDialogTitle: '分享磁力古哥',
+  shareMessage: '资源难找？试试磁力古哥。',
+  shareFailed: '分享失败，请稍后再试',
 
   // ── History ──
   historyTitle: '搜索历史',
@@ -138,10 +157,14 @@ const en: typeof zh = {
   emptyQueryToast: 'Please enter a search query',
 
   // ── Search results ──
-  searchingStatus: (done, total, results) =>
-    `Searching ${done}/${total} indexers... ${results} found`,
-  searchDoneStatus: (done, total, results) =>
-    `Searched ${done}/${total} indexers. ${results} found`,
+  searchingStatus: (stage, results) =>
+    stage === 'fast'
+      ? `First finds... ${results}`
+      : stage === 'expanding'
+        ? `Searching more... ${results}`
+        : `Final sweep... ${results}`,
+  searchDoneStatus: (results) => `Done · ${results} results`,
+  stopSearch: 'Stop',
   sortComprehensive: 'Best Match',
   sortRelevance: 'Relevance',
   sortSize: 'Size',
@@ -196,6 +219,10 @@ const en: typeof zh = {
   // ── Search UX ──
   lowRelevanceHint: 'Low relevance results',
   feedbackBtn: 'Feedback',
+  shareBtn: 'Share',
+  shareDialogTitle: 'Share Magnet Googo',
+  shareMessage: 'Hard to find? Try Magnet Googo.',
+  shareFailed: 'Share failed. Try again later.',
 
   // ── History ──
   historyTitle: 'Search History',
@@ -244,10 +271,14 @@ const es: typeof zh = {
   searchButton: 'Buscar magnets',
   emptyQueryToast: 'Escribe algo para buscar',
 
-  searchingStatus: (done, total, results) =>
-    `Buscando ${done}/${total} fuentes, ${results} resultados`,
-  searchDoneStatus: (done, total, results) =>
-    `Consultadas ${done}/${total} fuentes, ${results} resultados`,
+  searchingStatus: (stage, results) =>
+    stage === 'fast'
+      ? `Primeros... ${results}`
+      : stage === 'expanding'
+        ? `Buscando más... ${results}`
+        : `Último repaso... ${results}`,
+  searchDoneStatus: (results) => `Listo · ${results} resultados`,
+  stopSearch: 'Parar',
   sortComprehensive: 'Inteligente',
   sortRelevance: 'Relevancia',
   sortSize: 'Tamaño',
@@ -298,6 +329,10 @@ const es: typeof zh = {
 
   lowRelevanceHint: 'Los siguientes resultados pueden ser menos relevantes',
   feedbackBtn: '¡Reclama!',
+  shareBtn: 'Compartir',
+  shareDialogTitle: 'Compartir Magnet Googo',
+  shareMessage: '¿Difícil de encontrar? Prueba Magnet Googo.',
+  shareFailed: 'Error al compartir. Inténtalo más tarde.',
 
   historyTitle: 'Historial',
   historyClear: 'Borrar',
@@ -340,10 +375,14 @@ const ru: typeof zh = {
   searchButton: 'Искать магнеты',
   emptyQueryToast: 'Введите поисковый запрос',
 
-  searchingStatus: (done, total, results) =>
-    `Поиск ${done}/${total} источников, найдено ${results}`,
-  searchDoneStatus: (done, total, results) =>
-    `Проверено ${done}/${total} источников, найдено ${results}`,
+  searchingStatus: (stage, results) =>
+    stage === 'fast'
+      ? `Первые находки... ${results}`
+      : stage === 'expanding'
+        ? `Ищем дальше... ${results}`
+        : `Финальный поиск... ${results}`,
+  searchDoneStatus: (results) => `Готово · ${results}`,
+  stopSearch: 'Стоп',
   sortComprehensive: 'Умная',
   sortRelevance: 'Релевантность',
   sortSize: 'Размер',
@@ -394,6 +433,10 @@ const ru: typeof zh = {
 
   lowRelevanceHint: 'Результаты ниже могут быть менее релевантны',
   feedbackBtn: 'Пожаловаться',
+  shareBtn: 'Поделиться',
+  shareDialogTitle: 'Поделиться Magnet Googo',
+  shareMessage: 'Трудно найти? Попробуйте Magnet Googo.',
+  shareFailed: 'Не удалось поделиться. Повторите позже.',
 
   historyTitle: 'История поиска',
   historyClear: 'Очистить',
@@ -436,10 +479,14 @@ const pt: typeof zh = {
   searchButton: 'Buscar magnets',
   emptyQueryToast: 'Digite algo para buscar',
 
-  searchingStatus: (done, total, results) =>
-    `Buscando ${done}/${total} fontes, ${results} resultados`,
-  searchDoneStatus: (done, total, results) =>
-    `Pesquisadas ${done}/${total} fontes, ${results} resultados`,
+  searchingStatus: (stage, results) =>
+    stage === 'fast'
+      ? `Primeiros... ${results}`
+      : stage === 'expanding'
+        ? `Buscando mais... ${results}`
+        : `Busca final... ${results}`,
+  searchDoneStatus: (results) => `Pronto · ${results} resultados`,
+  stopSearch: 'Parar',
   sortComprehensive: 'Inteligente',
   sortRelevance: 'Relevância',
   sortSize: 'Tamanho',
@@ -490,6 +537,10 @@ const pt: typeof zh = {
 
   lowRelevanceHint: 'Os resultados abaixo podem ser menos relevantes',
   feedbackBtn: 'Reclame!',
+  shareBtn: 'Compartilhar',
+  shareDialogTitle: 'Compartilhar Magnet Googo',
+  shareMessage: 'Difícil de encontrar? Experimente o Magnet Googo.',
+  shareFailed: 'Falha ao compartilhar. Tente novamente mais tarde.',
 
   historyTitle: 'Histórico',
   historyClear: 'Limpar',
@@ -532,10 +583,14 @@ const ja: typeof zh = {
   searchButton: 'マグネット検索',
   emptyQueryToast: '検索キーワードを入力してください',
 
-  searchingStatus: (done, total, results) =>
-    `検索中 ${done}/${total} ソース、${results}件の結果`,
-  searchDoneStatus: (done, total, results) =>
-    `検索完了 ${done}/${total} ソース、${results}件の結果`,
+  searchingStatus: (stage, results) =>
+    stage === 'fast'
+      ? `まず${results}件...検索続行`
+      : stage === 'expanding'
+        ? `さらに検索...${results}件`
+        : `最終確認...${results}件`,
+  searchDoneStatus: (results) => `完了 · ${results}件`,
+  stopSearch: '停止',
   sortComprehensive: '総合',
   sortRelevance: '関連性',
   sortSize: 'サイズ',
@@ -586,6 +641,10 @@ const ja: typeof zh = {
 
   lowRelevanceHint: '以下の結果は関連性が低い可能性があります',
   feedbackBtn: '愚痴る',
+  shareBtn: '共有',
+  shareDialogTitle: 'Magnet Googoを共有',
+  shareMessage: '見つからない？Magnet Googoを試そう。',
+  shareFailed: '共有できませんでした。後でもう一度お試しください。',
 
   historyTitle: '検索履歴',
   historyClear: 'クリア',
@@ -628,10 +687,14 @@ const ko: typeof zh = {
   searchButton: '마그넷 검색',
   emptyQueryToast: '검색어를 입력하세요',
 
-  searchingStatus: (done, total, results) =>
-    `검색 중 ${done}/${total} 소스, ${results}개 결과`,
-  searchDoneStatus: (done, total, results) =>
-    `검색 완료 ${done}/${total} 소스, ${results}개 결과`,
+  searchingStatus: (stage, results) =>
+    stage === 'fast'
+      ? `먼저 ${results}개...계속 검색`
+      : stage === 'expanding'
+        ? `더 찾는 중...${results}개`
+        : `마지막 확인...${results}개`,
+  searchDoneStatus: (results) => `완료 · ${results}개`,
+  stopSearch: '중지',
   sortComprehensive: '종합',
   sortRelevance: '관련성',
   sortSize: '크기',
@@ -682,6 +745,10 @@ const ko: typeof zh = {
 
   lowRelevanceHint: '아래 결과는 관련성이 낮을 수 있습니다',
   feedbackBtn: '한마디',
+  shareBtn: '공유',
+  shareDialogTitle: 'Magnet Googo 공유',
+  shareMessage: '찾기 어렵나요? Magnet Googo를 사용해 보세요.',
+  shareFailed: '공유하지 못했습니다. 나중에 다시 시도하세요.',
 
   historyTitle: '검색 기록',
   historyClear: '지우기',
@@ -724,10 +791,14 @@ const fr: typeof zh = {
   searchButton: 'Rechercher',
   emptyQueryToast: 'Saisissez un terme de recherche',
 
-  searchingStatus: (done, total, results) =>
-    `Recherche ${done}/${total} sources, ${results} résultats`,
-  searchDoneStatus: (done, total, results) =>
-    `Consultées ${done}/${total} sources, ${results} résultats`,
+  searchingStatus: (stage, results) =>
+    stage === 'fast'
+      ? `Premiers... ${results}`
+      : stage === 'expanding'
+        ? `On cherche encore... ${results}`
+        : `Dernier passage... ${results}`,
+  searchDoneStatus: (results) => `Terminé · ${results} résultats`,
+  stopSearch: 'Stop',
   sortComprehensive: 'Intelligent',
   sortRelevance: 'Pertinence',
   sortSize: 'Taille',
@@ -778,6 +849,10 @@ const fr: typeof zh = {
 
   lowRelevanceHint: 'Les résultats ci-dessous peuvent être moins pertinents',
   feedbackBtn: 'Râlez!',
+  shareBtn: 'Partager',
+  shareDialogTitle: 'Partager Magnet Googo',
+  shareMessage: 'Difficile à trouver ? Essayez Magnet Googo.',
+  shareFailed: 'Échec du partage. Réessayez plus tard.',
 
   historyTitle: 'Historique',
   historyClear: 'Effacer',
@@ -820,10 +895,14 @@ const de: typeof zh = {
   searchButton: 'Magnets suchen',
   emptyQueryToast: 'Bitte Suchbegriff eingeben',
 
-  searchingStatus: (done, total, results) =>
-    `Suche ${done}/${total} Quellen, ${results} Ergebnisse`,
-  searchDoneStatus: (done, total, results) =>
-    `Durchsucht ${done}/${total} Quellen, ${results} Ergebnisse`,
+  searchingStatus: (stage, results) =>
+    stage === 'fast'
+      ? `Erste Treffer... ${results}`
+      : stage === 'expanding'
+        ? `Suche läuft... ${results}`
+        : `Letzter Check... ${results}`,
+  searchDoneStatus: (results) => `Fertig · ${results} Treffer`,
+  stopSearch: 'Stopp',
   sortComprehensive: 'Smart',
   sortRelevance: 'Relevanz',
   sortSize: 'Größe',
@@ -874,6 +953,10 @@ const de: typeof zh = {
 
   lowRelevanceHint: 'Die folgenden Ergebnisse sind möglicherweise weniger relevant',
   feedbackBtn: 'Ärgern!',
+  shareBtn: 'Teilen',
+  shareDialogTitle: 'Magnet Googo teilen',
+  shareMessage: 'Schwer zu finden? Probier Magnet Googo.',
+  shareFailed: 'Teilen fehlgeschlagen. Bitte später erneut versuchen.',
 
   historyTitle: 'Suchverlauf',
   historyClear: 'Löschen',
@@ -916,10 +999,14 @@ const ar: typeof zh = {
   searchButton: 'بحث مغناطيس',
   emptyQueryToast: 'يرجى إدخال كلمة بحث',
 
-  searchingStatus: (done, total, results) =>
-    `جارٍ البحث ${done}/${total} مصادر، ${results} نتيجة`,
-  searchDoneStatus: (done, total, results) =>
-    `تم البحث ${done}/${total} مصادر، ${results} نتيجة`,
+  searchingStatus: (stage, results) =>
+    stage === 'fast'
+      ? `نتائج أولى... ${results}`
+      : stage === 'expanding'
+        ? `نبحث أكثر... ${results}`
+        : `فحص أخير... ${results}`,
+  searchDoneStatus: (results) => `تم · ${results} نتيجة`,
+  stopSearch: 'إيقاف',
   sortComprehensive: 'ذكي',
   sortRelevance: 'الصلة',
   sortSize: 'الحجم',
@@ -970,6 +1057,10 @@ const ar: typeof zh = {
 
   lowRelevanceHint: 'النتائج أدناه قد تكون أقل صلة',
   feedbackBtn: 'اشتكي!',
+  shareBtn: 'مشاركة',
+  shareDialogTitle: 'مشاركة Magnet Googo',
+  shareMessage: 'يصعب العثور عليه؟ جرّب Magnet Googo.',
+  shareFailed: 'تعذرت المشاركة. حاول مرة أخرى لاحقًا.',
 
   historyTitle: 'سجل البحث',
   historyClear: 'مسح',

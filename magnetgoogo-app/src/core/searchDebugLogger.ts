@@ -11,9 +11,13 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Application from 'expo-application';
 import { File, Directory, Paths } from 'expo-file-system/next';
 
-const DEV_ONLY = true;
+// Search reports may contain user queries and result titles. Keep the device
+// report channel available only in the dedicated Debug application ID; the
+// production package must use the no-op builder.
+const DEV_ONLY = Application.applicationId?.endsWith('.debug') === true;
 const STORAGE_KEY = 'mg_search_debug_reports';
 const MAX_REPORTS = 50;
 
@@ -27,8 +31,12 @@ export interface ResultItemLog {
 export interface SourceResult {
   name: string;
   origin: string;
+  poolId: string;
   status: 'ok' | 'empty' | 'error' | 'timeout' | 'skipped';
   resultCount: number;
+  uniqueResultCount: number;
+  relevantResultCount: number;
+  relevancePrecision: number;
   durationMs: number;
   error?: string;
   sampleTitles: string[];
@@ -40,6 +48,18 @@ export interface SourceResult {
   qualityScore: number;
 }
 
+export interface SearchInventoryLog {
+  benchmarkMode: boolean;
+  coldStartMode: boolean;
+  loadedHostCount: number;
+  loadedPoolCount: number;
+  sourcePackCount: number;
+  sourcePackOrigin: string;
+  sourcePackUpdatedAt: string;
+  sourcePackIssuedAt: string;
+  sourcePackExpiresAt: string;
+}
+
 export interface SearchReport {
   id: string;
   query: string;
@@ -49,6 +69,9 @@ export interface SearchReport {
   completedSources: number;
   sourceResults: SourceResult[];
   totalSources: number;
+  attemptedHostCount: number;
+  attemptedPoolCount: number;
+  inventory: SearchInventoryLog;
   accessibleCount: number;
   resultCount: number;
   emptyCount: number;
@@ -125,13 +148,17 @@ export function exportReportsJson(): string {
 }
 
 /** Start a new search report. Auto-snapshots previous unfinished builder. */
-export function startReport(query: string, totalSources: number): ReportBuilder {
+export function startReport(
+  query: string,
+  totalSources: number,
+  inventory?: Partial<SearchInventoryLog>,
+): ReportBuilder {
   if (!DEV_ONLY) return new NoopReportBuilder() as unknown as ReportBuilder;
   // Auto-snapshot previous builder if it was never finished
   if (_currentBuilder && !_currentBuilder._finished) {
     _currentBuilder.snapshot();
   }
-  const builder = new ReportBuilder(query, totalSources);
+  const builder = new ReportBuilder(query, totalSources, inventory);
   _currentBuilder = builder;
   return builder;
 }
@@ -166,13 +193,25 @@ export class ReportBuilder {
   private totalSources: number;
   private startTime: number;
   private sourceResults: SourceResult[] = [];
+  private inventory: SearchInventoryLog;
   _finished = false;
   private _reportId: string;
 
-  constructor(query: string, totalSources: number) {
+  constructor(query: string, totalSources: number, inventory?: Partial<SearchInventoryLog>) {
     this.query = query;
     this.totalSources = totalSources;
     this.startTime = Date.now();
+    this.inventory = {
+      benchmarkMode: !!inventory?.benchmarkMode,
+      coldStartMode: !!inventory?.coldStartMode,
+      loadedHostCount: Math.max(0, Math.trunc(inventory?.loadedHostCount || 0)),
+      loadedPoolCount: Math.max(0, Math.trunc(inventory?.loadedPoolCount || 0)),
+      sourcePackCount: Math.max(0, Math.trunc(inventory?.sourcePackCount || 0)),
+      sourcePackOrigin: inventory?.sourcePackOrigin || '',
+      sourcePackUpdatedAt: inventory?.sourcePackUpdatedAt || '',
+      sourcePackIssuedAt: inventory?.sourcePackIssuedAt || '',
+      sourcePackExpiresAt: inventory?.sourcePackExpiresAt || '',
+    };
     this._reportId = `sr_${Date.now().toString(36)}`;
   }
 
@@ -190,10 +229,22 @@ export class ReportBuilder {
       requiresWaf?: boolean;
       requiresBrowser?: boolean;
       qualityScore?: number;
+      poolId?: string;
+      uniqueResultCount?: number;
+      relevantResultCount?: number;
+      relevancePrecision?: number;
     },
   ) {
     this.sourceResults.push({
-      name, origin, status, resultCount, durationMs,
+      name,
+      origin,
+      poolId: opts?.poolId || '',
+      status,
+      resultCount,
+      uniqueResultCount: opts?.uniqueResultCount ?? resultCount,
+      relevantResultCount: opts?.relevantResultCount || 0,
+      relevancePrecision: opts?.relevancePrecision || 0,
+      durationMs,
       error: opts?.error,
       sampleTitles: opts?.sampleTitles || [],
       sampleHashes: opts?.sampleHashes || [],
@@ -207,6 +258,11 @@ export class ReportBuilder {
     schedulePersist();
   }
 
+  setTotalSources(totalSources: number) {
+    this.totalSources = Math.max(0, Math.trunc(totalSources || 0));
+    this._upsertCurrent(false);
+  }
+
   /** Save current state as a partial (interrupted) report */
   snapshot() {
     this._upsertCurrent(false);
@@ -214,11 +270,11 @@ export class ReportBuilder {
     notify();
   }
 
-  /** Finalize the report */
-  finish(): SearchReport {
+  /** Finalize the report. Aborted foreground handoffs remain partial. */
+  finish(completed = true): SearchReport {
     if (this._finished) return _reports.find(r => r.id === this._reportId) || _reports[0];
     this._finished = true;
-    this._upsertCurrent(true);
+    this._upsertCurrent(completed);
     _currentBuilder = null;
 
     const report = _reports.find(r => r.id === this._reportId)!;
@@ -248,6 +304,9 @@ export class ReportBuilder {
       completedSources: this.sourceResults.length,
       sourceResults: sortSourceResults(this.sourceResults),
       totalSources: this.totalSources,
+      attemptedHostCount: this.sourceResults.length,
+      attemptedPoolCount: new Set(this.sourceResults.map((source) => source.poolId).filter(Boolean)).size,
+      inventory: this.inventory,
       ...agg,
     };
     const idx = _reports.findIndex(r => r.id === this._reportId);
@@ -268,7 +327,9 @@ export function printReport(r: SearchReport) {
     `总耗时: ${(r.totalDurationMs / 1000).toFixed(1)}s`,
     `状态: ${r.completed ? '完成' : `中断 (${r.completedSources}/${r.totalSources})`}`,
     `───────────────────`,
-    `总源数: ${r.totalSources}`,
+    `计划/实际源主机: ${r.totalSources}/${r.attemptedHostCount}`,
+    `运行时加载源主机/池: ${r.inventory.loadedHostCount}/${r.inventory.loadedPoolCount}`,
+    `实际尝试池: ${r.attemptedPoolCount}`,
     `可访问: ${r.accessibleCount} (${pct(r.accessibleCount, r.totalSources)})`,
     `有结果: ${r.resultCount} (${pct(r.resultCount, r.totalSources)})`,
     `无结果: ${r.emptyCount}`,
@@ -313,8 +374,9 @@ function pct(n: number, total: number): string {
 class NoopReportBuilder {
   _finished = true;
   recordSource() { /* no-op */ }
+  setTotalSources() { /* no-op */ }
   snapshot() { /* no-op */ }
-  finish(): SearchReport {
+  finish(_completed = true): SearchReport {
     return {
       id: 'noop',
       query: '',
@@ -324,6 +386,19 @@ class NoopReportBuilder {
       completedSources: 0,
       sourceResults: [],
       totalSources: 0,
+      attemptedHostCount: 0,
+      attemptedPoolCount: 0,
+      inventory: {
+        benchmarkMode: false,
+        coldStartMode: false,
+        loadedHostCount: 0,
+        loadedPoolCount: 0,
+        sourcePackCount: 0,
+        sourcePackOrigin: '',
+        sourcePackUpdatedAt: '',
+        sourcePackIssuedAt: '',
+        sourcePackExpiresAt: '',
+      },
       accessibleCount: 0,
       resultCount: 0,
       emptyCount: 0,

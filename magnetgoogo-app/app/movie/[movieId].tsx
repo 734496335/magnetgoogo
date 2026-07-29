@@ -35,8 +35,9 @@ import { getResourceCopy } from '../../src/core/resourceCopy';
 import { addHistory } from '../../src/core/searchHistory';
 import { trackCopy, trackOpen } from '../../src/core/analytics';
 import {
-  loadMediaById,
-  loadMediaByIdAcrossFeeds,
+  hydrateMediaItem,
+  loadMediaCardById,
+  loadMediaCardByIdAcrossFeeds,
   movieCoverUri,
 } from '../../src/core/resourceFeed';
 import type { MediaKind, MovieFeedItem, MovieResource } from '../../src/core/resourceFeedProtocol';
@@ -165,6 +166,7 @@ export default function MovieDetailScreen() {
     : null;
   const [movie, setMovie] = useState<MovieFeedItem | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hydrating, setHydrating] = useState(false);
   const [failed, setFailed] = useState(false);
   const [posterFailed, setPosterFailed] = useState(false);
   const [titleCopyToastNonce, setTitleCopyToastNonce] = useState(0);
@@ -177,6 +179,10 @@ export default function MovieDetailScreen() {
 
   useEffect(() => {
     let active = true;
+    setMovie(null);
+    setFailed(false);
+    setLoading(true);
+    setHydrating(false);
     if (!movieId) {
       setFailed(true);
       setLoading(false);
@@ -184,20 +190,45 @@ export default function MovieDetailScreen() {
         active = false;
       };
     }
-    const loader = requestedKind
-      ? loadMediaById(requestedKind, movieId)
-      : loadMediaByIdAcrossFeeds(movieId);
-    loader
-      .then((loaded) => {
+
+    const loadCard = requestedKind
+      ? loadMediaCardById(requestedKind, movieId)
+      : loadMediaCardByIdAcrossFeeds(movieId);
+
+    void loadCard
+      .then(async (card) => {
         if (!active) return;
-        if (loaded) setMovie(loaded);
-        else setFailed(true);
+        if (!card) {
+          setFailed(true);
+          return;
+        }
+
+        setMovie(card);
+        setLoading(false);
+        if (!card.remote_release_id || !card.remote_detail_path) return;
+
+        setHydrating(true);
+        try {
+          const hydrated = await hydrateMediaItem(card);
+          if (active) setMovie(hydrated);
+        } catch (error) {
+          if (!active) return;
+          console.warn('[MovieDetail]', {
+            stage: 'hydrate_media_detail',
+            error_code: 'MEDIA_DETAIL_HYDRATE_FAILED',
+            media_id: movieId,
+            content_kind: card.content_kind,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        } finally {
+          if (active) setHydrating(false);
+        }
       })
       .catch((error) => {
         if (!active) return;
         console.warn('[MovieDetail]', {
-          stage: 'load_media_detail',
-          error_code: 'MEDIA_DETAIL_LOAD_FAILED',
+          stage: 'load_media_card',
+          error_code: 'MEDIA_CARD_LOAD_FAILED',
           media_id: movieId,
           content_kind: requestedKind,
           error: error instanceof Error ? error.message : String(error),
@@ -207,6 +238,7 @@ export default function MovieDetailScreen() {
       .finally(() => {
         if (active) setLoading(false);
       });
+
     return () => {
       active = false;
     };
@@ -499,6 +531,13 @@ export default function MovieDetailScreen() {
           style={styles.detailTags}
         />
 
+        {hydrating && (
+          <View style={[styles.detailLoadingRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <ActivityIndicator size="small" color={colors.accent} />
+            <Text style={[styles.detailLoadingText, { color: colors.textSecondary }]}>{copy.loading}</Text>
+          </View>
+        )}
+
         {synopsis.length > 0 && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>{copy.detailSynopsis}</Text>
@@ -707,6 +746,18 @@ const styles = StyleSheet.create({
   originalTitle: { marginTop: 7, fontSize: 13, lineHeight: 18, textAlign: 'center' },
   metadata: { marginTop: 10, fontSize: 13, textAlign: 'center' },
   detailTags: { marginTop: 16 },
+  detailLoadingRow: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  detailLoadingText: { fontSize: 13, fontWeight: '500' },
   section: { marginTop: 30 },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { fontSize: 18, fontWeight: '800', letterSpacing: -0.2 },

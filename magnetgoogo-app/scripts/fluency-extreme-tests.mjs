@@ -593,8 +593,10 @@ async function testProductionContracts() {
     dirtyRebuildsThroughProductionMapper:
       /const model = options\.buildCard\(result, index\)/.test(accumulator) &&
       /state\._cardModelCache\.set\(key, model\)/.test(accumulator),
-    comprehensiveUsesSessionOrder:
-      /if \(sortKey === 'comprehensive'\) \{\s*return results;\s*\}/m.test(source),
+    relevanceIsDefaultWithoutComprehensive:
+      /useState<SortKey>\('relevance'\)/.test(source) &&
+      /arr\.sort\(\(a, b\) => b\.relevance - a\.relevance\)/.test(source) &&
+      !/k="comprehensive"|sortComprehensive/.test(source),
     uniqueSourceCount:
       /existing\.sourceCount = existing\.sourceNames\.length/.test(accumulator),
     noHashStableDedup:
@@ -603,11 +605,12 @@ async function testProductionContracts() {
     dirtyOnlyWhenDataChanges:
       /if \(existingChanged\) \{\s*existing\._dirty = true;\s*listChanged = true;/m.test(accumulator),
     stopHonorsScrollDeferral:
-      /One-shot comprehensive order on stop; honor scroll deferral\.\s*syncFromSession\(\);/m.test(source),
+      /Rebuild once on stop; list updates still honor scroll deferral\.\s*syncFromSession\(\);/m.test(source),
     runnerKeepsRankingMetadata:
-      /seeders: r\.seeders/.test(runner) &&
-      /leechers: r\.leechers/.test(runner) &&
-      /score: r\.score/.test(runner),
+      /seeders: item\.seeders/.test(runner) &&
+      /leechers: item\.leechers/.test(runner) &&
+      /score: item\.score/.test(runner) &&
+      /relevant_results: qualitySummary\.relevantResultCount/.test(runner),
   };
   const failedChecks = Object.entries(checks).filter(([, ok]) => !ok).map(([name]) => name);
   if (failedChecks.length === 0) {

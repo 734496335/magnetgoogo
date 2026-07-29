@@ -159,22 +159,37 @@ export async function loadResourceFeed(
   }
 }
 
-export async function loadMediaById(
+export async function loadMediaCardById(
   kind: MediaKind,
   mediaId: string,
 ): Promise<MovieFeedItem | null> {
   const { feed } = await loadResourceFeed(kind, false);
-  const item = findMovieById(feed, mediaId);
+  return findMovieById(feed, mediaId);
+}
+
+export async function loadMediaCardByIdAcrossFeeds(mediaId: string): Promise<MovieFeedItem | null> {
+  const movie = await loadMediaCardById('movie', mediaId);
+  if (movie) return movie;
+  return loadMediaCardById('series', mediaId);
+}
+
+export async function hydrateMediaItem(item: MovieFeedItem): Promise<MovieFeedItem> {
+  if (!item.remote_release_id || !item.remote_detail_path) return item;
+  return loadRemoteMediaDetail(item);
+}
+
+export async function loadMediaById(
+  kind: MediaKind,
+  mediaId: string,
+): Promise<MovieFeedItem | null> {
+  const item = await loadMediaCardById(kind, mediaId);
   if (!item) return null;
-  if (item.remote_release_id && item.remote_detail_path) {
-    try {
-      return await loadRemoteMediaDetail(item);
-    } catch (error) {
-      logResourceFeedFailure(kind, 'network_detail', 'MEDIA_NETWORK_DETAIL_FAILED', error);
-      return item;
-    }
+  try {
+    return await hydrateMediaItem(item);
+  } catch (error) {
+    logResourceFeedFailure(kind, 'network_detail', 'MEDIA_NETWORK_DETAIL_FAILED', error);
+    return item;
   }
-  return item;
 }
 
 export async function loadMovieById(movieId: string): Promise<MovieFeedItem | null> {

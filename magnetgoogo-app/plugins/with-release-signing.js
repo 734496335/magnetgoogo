@@ -3,38 +3,82 @@ const { withAppBuildGradle } = require('@expo/config-plugins');
 const MARKER = '// MAGNETGOOGO_RELEASE_SIGNING_V1';
 
 function applyReleaseSigning(contents) {
-  if (contents.includes(MARKER)) return contents;
+  const alreadyCurrent =
+    contents.includes(MARKER) &&
+    contents.includes('def releaseSigningRequested =') &&
+    contents.includes('if (releaseSigningRequested && !releaseKeystore.exists())') &&
+    contents.includes("applicationIdSuffix '.debug'");
+  if (alreadyCurrent) return contents;
 
-  const androidAnchor = 'android {\n';
-  if (!contents.includes(androidAnchor)) {
+  const newline = contents.includes('\r\n') ? '\r\n' : '\n';
+  const legacyHeaderPattern = /\s*\/\/ MAGNETGOOGO_RELEASE_SIGNING_V1\r?\n\s*def releaseStorePassword[^\r\n]*\r?\n\s*def releaseKeyAlias[^\r\n]*\r?\n\s*def releaseKeyPassword[^\r\n]*\r?\n\s*def releaseKeystore[^\r\n]*\r?\n(?:\s*def releaseSigningRequested[^\r\n]*\r?\n)?/;
+  contents = contents.replace(legacyHeaderPattern, newline);
+  const androidPattern = /android\s*\{[ \t]*(?:\r?\n)?/;
+  if (!androidPattern.test(contents)) {
     throw new Error('with-release-signing: android block was not found');
   }
+
+  const androidHeader = [
+    'android {',
+    `    ${MARKER}`,
+    '    def releaseStorePassword = System.getenv("RELEASE_STORE_PASSWORD")',
+    '    def releaseKeyAlias = System.getenv("RELEASE_KEY_ALIAS")',
+    '    def releaseKeyPassword = System.getenv("RELEASE_KEY_PASSWORD")',
+    "    def releaseKeystore = file('../../../releases/magnetgoogo-release-new.keystore')",
+    '    def releaseSigningRequested = gradle.startParameter.taskNames.any { it.toLowerCase().contains("release") }',
+    '',
+  ].join(newline);
+  contents = contents.replace(androidPattern, `${androidHeader}${newline}`);
+
+  const signingBlock = [
+    '    signingConfigs {',
+    '        debug {',
+    "            storeFile file('debug.keystore')",
+    "            storePassword 'android'",
+    "            keyAlias 'androiddebugkey'",
+    "            keyPassword 'android'",
+    '        }',
+    '        release {',
+    '            if (releaseSigningRequested && !releaseKeystore.exists()) {',
+    '                throw new GradleException("Release keystore is missing: " + releaseKeystore)',
+    '            }',
+    '            if (releaseSigningRequested && (!releaseStorePassword || !releaseKeyAlias || !releaseKeyPassword)) {',
+    '                throw new GradleException("Release signing environment variables are incomplete")',
+    '            }',
+    '            storeFile releaseKeystore',
+    '            storePassword releaseStorePassword ?: ""',
+    '            keyAlias releaseKeyAlias ?: ""',
+    '            keyPassword releaseKeyPassword ?: ""',
+    '        }',
+    '    }',
+  ].join(newline);
+
+  // Expo prebuild can reuse a native directory that already contains an older
+  // release signing block. Replace the complete signing section instead of
+  // requiring the pristine debug-only template.
+  const signingSectionPattern = /\s{4}signingConfigs\s*\{[\s\S]*?\r?\n\s{4}\}\s*\r?\n\s{4}buildTypes\s*\{/;
+  if (!signingSectionPattern.test(contents)) {
+    throw new Error('with-release-signing: generated signing/buildTypes blocks were not found');
+  }
   contents = contents.replace(
-    androidAnchor,
-    `${androidAnchor}    ${MARKER}\n    def releaseStorePassword = System.getenv("RELEASE_STORE_PASSWORD")\n    def releaseKeyAlias = System.getenv("RELEASE_KEY_ALIAS")\n    def releaseKeyPassword = System.getenv("RELEASE_KEY_PASSWORD")\n    def releaseKeystore = file('../../../releases/magnetgoogo-release-new.keystore')\n\n`,
+    signingSectionPattern,
+    `${signingBlock}${newline}    buildTypes {`,
   );
 
-  const debugSigning = `    signingConfigs {\n        debug {\n            storeFile file('debug.keystore')\n            storePassword 'android'\n            keyAlias 'androiddebugkey'\n            keyPassword 'android'\n        }\n    }`;
-  if (!contents.includes(debugSigning)) {
-    throw new Error('with-release-signing: generated debug signing block was not found');
+  const releaseAssignmentPattern = /(buildTypes\s*\{[\s\S]*?\r?\n\s{8}release\s*\{[\s\S]*?signingConfig\s+)signingConfigs\.(?:debug|release)/;
+  if (!releaseAssignmentPattern.test(contents)) {
+    throw new Error('with-release-signing: release signing assignment was not found');
   }
-  const signingBlock = `    signingConfigs {\n        debug {\n            storeFile file('debug.keystore')\n            storePassword 'android'\n            keyAlias 'androiddebugkey'\n            keyPassword 'android'\n        }\n        release {\n            if (!releaseKeystore.exists()) {\n                throw new GradleException("Release keystore is missing: " + releaseKeystore)\n            }\n            if (!releaseStorePassword || !releaseKeyAlias || !releaseKeyPassword) {\n                throw new GradleException("Release signing environment variables are incomplete")\n            }\n            storeFile releaseKeystore\n            storePassword releaseStorePassword\n            keyAlias releaseKeyAlias\n            keyPassword releaseKeyPassword\n        }\n    }`;
-  contents = contents.replace(debugSigning, signingBlock);
+  contents = contents.replace(releaseAssignmentPattern, '$1signingConfigs.release');
 
-  const releaseAnchor = `        release {\n            // Caution! In production, you need to generate your own keystore file.\n            // see https://reactnative.dev/docs/signed-apk-android.\n            signingConfig signingConfigs.debug`;
-  if (contents.includes(releaseAnchor)) {
+  const debugBuildTypePattern = /(buildTypes\s*\{[\s\S]*?\r?\n\s{8}debug\s*\{\r?\n)([\s\S]*?\r?\n\s{8}\})/;
+  if (!debugBuildTypePattern.test(contents)) {
+    throw new Error('with-release-signing: debug build type was not found');
+  }
+  if (!contents.includes("applicationIdSuffix '.debug'")) {
     contents = contents.replace(
-      releaseAnchor,
-      `        release {\n            signingConfig signingConfigs.release`,
-    );
-  } else {
-    const releaseDebugSigning = `        release {\n            signingConfig signingConfigs.debug`;
-    if (!contents.includes(releaseDebugSigning)) {
-      throw new Error('with-release-signing: release signing assignment was not found');
-    }
-    contents = contents.replace(
-      releaseDebugSigning,
-      `        release {\n            signingConfig signingConfigs.release`,
+      debugBuildTypePattern,
+      `$1            applicationIdSuffix '.debug'${newline}$2`,
     );
   }
   return contents;

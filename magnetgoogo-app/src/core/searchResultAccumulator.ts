@@ -1,9 +1,12 @@
 import type { DedupedResult } from './dedup';
 import type { ResultCardModel, SearchResult } from './types';
 
+const HIGH_RELEVANCE_THRESHOLD = 30;
+
 type AccumulatedResult = DedupedResult & {
   _sizeBytes: number;
   _videoQ: number;
+  _relevance: number;
   _dirty?: boolean;
 };
 
@@ -101,6 +104,7 @@ export function mergePendingSearchResults(
         bestSeeders: result.seeders || 0,
         _sizeBytes: deps.parseSizeBytes(result.size),
         _videoQ: videoQuality(result.title),
+        _relevance: deps.computeRelevance(result.title, query),
       });
       listChanged = true;
       continue;
@@ -115,6 +119,7 @@ export function mergePendingSearchResults(
         bestSeeders: result.seeders || 0,
         _sizeBytes: deps.parseSizeBytes(result.size),
         _videoQ: videoQuality(result.title),
+        _relevance: deps.computeRelevance(result.title, query),
       });
       state._orderKeys.push(hash);
       listChanged = true;
@@ -130,6 +135,7 @@ export function mergePendingSearchResults(
     if (shouldReplaceMergedTitle(existing.title, result.title, query, deps.computeRelevance)) {
       existing.title = result.title;
       existing._videoQ = videoQuality(result.title);
+      existing._relevance = deps.computeRelevance(result.title, query);
       existing.site_name = result.site_name;
       existing.source = result.source;
       existingChanged = true;
@@ -172,7 +178,11 @@ export function rebuildSearchCardModels(
   if (shouldFullSort) {
     const sorted = [...state._dedupMap.values()];
     sorted.sort((a, b) => {
+      const aRelevant = a._relevance >= HIGH_RELEVANCE_THRESHOLD ? 1 : 0;
+      const bRelevant = b._relevance >= HIGH_RELEVANCE_THRESHOLD ? 1 : 0;
+      if (bRelevant !== aRelevant) return bRelevant - aRelevant;
       if (b.sourceCount !== a.sourceCount) return b.sourceCount - a.sourceCount;
+      if (b._relevance !== a._relevance) return b._relevance - a._relevance;
       const sizeDelta = b._sizeBytes - a._sizeBytes;
       if (sizeDelta !== 0) return sizeDelta;
       const qualityDelta = b._videoQ - a._videoQ;

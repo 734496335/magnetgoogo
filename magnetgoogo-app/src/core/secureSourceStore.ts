@@ -13,6 +13,11 @@ import { getAppVersion } from './configChecker';
 import { COMPLIANCE_MODE } from './complianceConfig';
 import bootstrapPayload from '../../assets/bootstrap-sources.enc.json';
 
+const NATIVE_BOOTSTRAP_FILE = new File(
+  Paths.bundle,
+  'source-bootstrap',
+  'bootstrap-sources.enc.json',
+);
 const SOURCE_FILE = COMPLIANCE_MODE ? '/sources-green.enc.json' : '/sources.enc.json';
 const DEBUG_SOURCE_FILE = new File(Paths.document, 'debug-sources.enc.json');
 
@@ -30,6 +35,7 @@ const DEFAULT_EXPIRY_HOURS = 72;
 const BOOTSTRAP_EXPIRY_HOURS = 24 * 7;
 const BOOTSTRAP_FIRST_USED_KEY = 'mg_bootstrap_first_used_at';
 const AUTH_TOKEN_KEY = 'mg_auth_token';
+const SOURCE_EXPIRY_GRACE_MS = 5 * 60_000;
 
 function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
   return new Promise((resolve, reject) => {
@@ -76,6 +82,8 @@ export interface SourceMeta {
   updatedAt: string;
   count: number;
   remoteUrl: string;
+  issuedAt?: string;
+  expiresAt?: string;
 }
 
 export interface SourceRule {
@@ -167,17 +175,31 @@ function loadFromDisk(): { green: SourceRule[]; meta: SourceMeta } | null {
 
     const decrypted = decryptSources(cache.encPayload);
     const raw = JSON.parse(decrypted);
+    assertFreshEnvelope(raw, 'disk source cache');
     const green = extractGreen(raw);
     const meta: SourceMeta = {
       updatedAt: cache.savedAt,
       count: green.length,
       remoteUrl: `${cache.remoteUrl} (cached)`,
+      issuedAt: raw.issued_at,
+      expiresAt: raw.expires_at,
     };
     console.log(`[SourceStore] Loaded ${green.length} sources from disk cache`);
     return { green, meta };
   } catch (e: any) {
     console.log(`[SourceStore] Disk load failed: ${e.message}`);
     return null;
+  }
+}
+
+function assertFreshEnvelope(raw: any, context: string) {
+  if (!raw || typeof raw !== 'object' || !raw.payload || !raw.expires_at) return;
+  const expiresAt = new Date(raw.expires_at).getTime();
+  if (!Number.isFinite(expiresAt)) {
+    throw new Error(`${context} has invalid expires_at`);
+  }
+  if (Date.now() > expiresAt + SOURCE_EXPIRY_GRACE_MS) {
+    throw new Error(`${context} expired at ${raw.expires_at}`);
   }
 }
 
@@ -237,7 +259,10 @@ async function loadBootstrapSources(): Promise<{ green: SourceRule[]; meta: Sour
       return null;
     }
 
-    const text = JSON.stringify(bootstrapPayload);
+    const nativeBootstrap = NATIVE_BOOTSTRAP_FILE.exists
+      ? await NATIVE_BOOTSTRAP_FILE.text()
+      : '';
+    const text = nativeBootstrap || JSON.stringify(bootstrapPayload);
     if (!text || text.length < 10) {
       throw new Error('bootstrap asset empty');
     }
@@ -249,7 +274,11 @@ async function loadBootstrapSources(): Promise<{ green: SourceRule[]; meta: Sour
     const meta: SourceMeta = {
       updatedAt: new Date(firstUsedAt).toISOString(),
       count: green.length,
-      remoteUrl: `bootstrap://assets/bootstrap-sources.enc.json (${remainingHours}h left)`,
+      remoteUrl: `${nativeBootstrap
+        ? 'bootstrap://native/source-bootstrap/bootstrap-sources.enc.json'
+        : 'bootstrap://assets/bootstrap-sources.enc.json'} (${remainingHours}h left)`,
+      issuedAt: raw.issued_at,
+      expiresAt: raw.expires_at,
     };
     console.log(`[SourceStore] Loaded ${green.length} bootstrap sources from bundled asset`);
     return { green, meta };
@@ -315,11 +344,14 @@ export async function syncSources(url?: string): Promise<{ sources: SourceRule[]
       if (encPayload && encPayload.length > 100) {
         const decrypted = decryptSources(encPayload);
         const envelope = JSON.parse(decrypted);
+        assertFreshEnvelope(envelope, 'debug source pack');
         const green = extractGreen(envelope);
         loadIntoVault(green, {
           updatedAt: envelope.issued_at || new Date().toISOString(),
           count: green.length,
           remoteUrl: 'local://debug-sources.enc.json',
+          issuedAt: envelope.issued_at,
+          expiresAt: envelope.expires_at,
         });
         console.log(`[SourceStore] loaded ${green.length} green from debug-sources.enc.json`);
         return { sources: green, meta: _cachedMeta! };
@@ -352,6 +384,7 @@ export async function syncSources(url?: string): Promise<{ sources: SourceRule[]
     encPayload = result.text;
     const decrypted = decryptSources(encPayload);
     raw = JSON.parse(decrypted);
+    assertFreshEnvelope(raw, `remote source pack from ${result.url}`);
     usedUrl = result.url;
   } catch (raceErr: any) {
     console.log(`[SourceStore] Tier 1 failed: ${raceErr.message}, trying sequentially...`);
@@ -368,6 +401,7 @@ export async function syncSources(url?: string): Promise<{ sources: SourceRule[]
         if (!text || text.length < 10) continue;
         const decrypted = decryptSources(text);
         raw = JSON.parse(decrypted);
+        assertFreshEnvelope(raw, `remote source pack from ${base}`);
         encPayload = text;
         usedUrl = base;
         found = true;
@@ -401,6 +435,8 @@ export async function syncSources(url?: string): Promise<{ sources: SourceRule[]
     updatedAt: new Date().toISOString(),
     count: green.length,
     remoteUrl: usedUrl,
+    issuedAt: raw.issued_at,
+    expiresAt: raw.expires_at,
   };
 
   loadIntoVault(green, meta);

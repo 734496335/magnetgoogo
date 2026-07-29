@@ -19,11 +19,15 @@ export type AnalyticsEventName =
 export interface SearchSourceRollup {
   src: string;
   cat: string;
+  pool?: string;
   called: number;
   ok: number;
   empty: number;
   fail: number;
   results: number;
+  unique_results?: number;
+  relevant_results?: number;
+  relevant_precision?: number;
   hit_searches: number;
   ms: number;
   verify: number;

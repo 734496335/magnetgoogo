@@ -24,6 +24,10 @@ import {
 } from './httpClient';
 import { VerifyManager } from './VerifyManager';
 import { extractInfoHash } from './dedup';
+import {
+  isHashPlaceholderTitle,
+  recoverResultTitle,
+} from './searchResultTitle';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -198,6 +202,144 @@ function extractTitleFromMagnet(magnet: string): string {
   return '';
 }
 
+function magnetFromLooseValue(raw: string): string {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  if (/^magnet:\?/i.test(value) && extractInfoHash(value)) return value;
+
+  const match = value.match(
+    /(?:btih:|\/hash\/|\/torrent\/|[?&](?:hash|info_?hash|infohash|btih)=)([a-f0-9]{40}|[a-z2-7]{32})(?:\b|[./?&#_-])/i,
+  ) || value.match(/^([a-f0-9]{40}|[a-z2-7]{32})$/i);
+  if (!match) return '';
+  return `magnet:?xt=urn:btih:${match[1]}`;
+}
+
+function titleFromLooseValue(raw: string): string {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  try {
+    const parsed = new URL(value, 'https://local.invalid');
+    for (const key of ['title', 'dn', 'name', 'filename']) {
+      const candidate = parsed.searchParams.get(key);
+      if (candidate) return decodeURIComponent(candidate.replace(/\+/g, ' ')).trim();
+    }
+  } catch {}
+  return '';
+}
+
+function formatStructuredSize(value: unknown): string {
+  if (typeof value === 'string' && /\b(?:TB|TiB|GB|GiB|MB|MiB|KB|KiB)\b/i.test(value)) {
+    return normalizeSize(value.trim());
+  }
+  const bytes = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(bytes) || bytes <= 0) return '';
+  if (bytes >= 1024 ** 4) return `${(bytes / 1024 ** 4).toFixed(2)} TB`;
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${Math.trunc(bytes)} B`;
+}
+
+function parseStructuredSearchPayload(
+  raw: string,
+  origin: string,
+  siteName: string,
+  score: number,
+): { parsed: boolean; results: ResultItem[]; unresolvedHashCount: number } {
+  const trimmed = raw.trim();
+  if (!trimmed || !/^[\[{]/.test(trimmed)) {
+    return { parsed: false, results: [], unresolvedHashCount: 0 };
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(trimmed);
+  } catch {
+    return { parsed: false, results: [], unresolvedHashCount: 0 };
+  }
+
+  const results: ResultItem[] = [];
+  const seen = new Set<string>();
+  let unresolvedHashCount = 0;
+  const visit = (value: unknown) => {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    if (!value || typeof value !== 'object') return;
+    const row = value as Record<string, unknown>;
+    const rawMagnet = [row.magnet, row.magnet_uri, row.magnetUri, row.url]
+      .find((candidate) => typeof candidate === 'string' && /^magnet:\?/i.test(candidate)) as string | undefined;
+    const rawHash = [row.info_hash, row.infohash, row.infoHash, row.btih, row.hash]
+      .find((candidate) => typeof candidate === 'string') as string | undefined;
+    const magnet = rawMagnet || magnetFromLooseValue(rawHash || '');
+    const hash = extractInfoHash(magnet);
+    if (hash && !/^0+$/.test(hash) && !seen.has(hash)) {
+      const titleCandidate = [
+        row.name,
+        row.title,
+        row.torrent_name,
+        row.torrentName,
+        row.filename,
+        row.file_name,
+        row.name_simple,
+        row.name_IK,
+      ].find((candidate) => typeof candidate === 'string') as string | undefined;
+      const title = recoverResultTitle(titleCandidate || '', magnet);
+      if (title) {
+        seen.add(hash);
+        const added = row.added ?? row.created_at ?? row.createdAt ?? row.date;
+        let date = typeof added === 'string' ? added : '';
+        if (!date && typeof added === 'number' && added > 0) {
+          date = new Date(added * (added < 10_000_000_000 ? 1000 : 1)).toISOString().slice(0, 10);
+        }
+        results.push({
+          title: cleanTitle(title),
+          magnet,
+          size: formatStructuredSize(row.size ?? row.size_bytes ?? row.sizeBytes),
+          date: cleanDate(date),
+          seeders: Math.max(0, Number(row.seeders ?? row.seeds) || 0),
+          leechers: Math.max(0, Number(row.leechers ?? row.peers) || 0),
+          source: origin,
+          site_name: siteName,
+          score,
+        });
+      } else {
+        unresolvedHashCount += 1;
+      }
+    }
+    Object.values(row).forEach(visit);
+  };
+  visit(payload);
+  return { parsed: true, results, unresolvedHashCount };
+}
+
+function resolveResultTitle(rawTitle: string, magnet: string): string {
+  const recovered = recoverResultTitle(cleanTitle(String(rawTitle || '').trim()), magnet);
+  return recovered ? cleanTitle(recovered) : '';
+}
+
+function finalizeSearchResults(items: ResultItem[]): ResultItem[] {
+  const seen = new Set<string>();
+  const finalized: ResultItem[] = [];
+  let rejectedHashTitles = 0;
+  for (const item of items) {
+    const title = resolveResultTitle(item.title, item.magnet);
+    if (!title || title.length < 4) {
+      if (isHashPlaceholderTitle(item.title, item.magnet)) rejectedHashTitles += 1;
+      continue;
+    }
+    const hash = extractInfoHash(item.magnet) || item.magnet;
+    if (seen.has(hash)) continue;
+    seen.add(hash);
+    finalized.push({ ...item, title });
+  }
+  if (items.length > 0 && finalized.length === 0 && rejectedHashTitles > 0) {
+    throw new Error('INVALID_RESULT_TITLE_PARSE');
+  }
+  return finalized;
+}
+
 // ── Search page parsing ──────────────────────────────────────────────
 
 function extractFromSearchPage(
@@ -212,14 +354,26 @@ function extractFromSearchPage(
   titleHints: string[];
   sizeHints: string[];
   dateHints: string[];
+  unboundEvidenceCount: number;
 } {
   const results: ResultItem[] = [];
   const detailUrls: string[] = [];
   const titleHints: string[] = [];
   const sizeHints: string[] = [];
   const dateHints: string[] = [];
-  const items = $(selectors.list_item);
-  const _magnetCount = ($.html().match(/magnet:\?xt=urn:btih:/gi) || []).length;
+  let unboundEvidenceCount = 0;
+  // Union a few stable result-container patterns so broad/old source rules do
+  // not fall through to a global evidence scan when the site changed a wrapper
+  // tag. The source-specific selector remains first and authoritative.
+  const items = $(
+    `${selectors.list_item}, article.item, article.torrent-item, tr.list-entry, `
+    + `div.bg-white.rounded-lg.border, [data-info-hash], [data-infohash]`,
+  );
+  const htmlStr = $.html();
+  const rawMagnetEvidenceCount = Math.max(
+    $('a[href^="magnet:"]').length,
+    (htmlStr.match(/magnet:\?xt=urn:btih:/gi) || []).length,
+  );
 
   items.each((_: number, el: any) => {
     const item = $(el);
@@ -231,6 +385,22 @@ function extractFromSearchPage(
     }
     if (!magnet) {
       magnet = item.find('a[href^="magnet:"]').first().attr('href') || '';
+    }
+    if (!magnet) {
+      const looseValues: string[] = [];
+      item.find('a[href]').each((__, link) => {
+        looseValues.push($(link).attr('href') || '');
+      });
+      item.find('[data-hash], [data-info-hash], [data-infohash], [data-btih]').each((__, node) => {
+        looseValues.push(
+          $(node).attr('data-hash')
+          || $(node).attr('data-info-hash')
+          || $(node).attr('data-infohash')
+          || $(node).attr('data-btih')
+          || '',
+        );
+      });
+      magnet = looseValues.map(magnetFromLooseValue).find(Boolean) || '';
     }
 
     // Title
@@ -370,53 +540,150 @@ function extractFromSearchPage(
     }
   });
 
-  // ── Brute-force regex fallback: scan full HTML when selectors found nothing ──
-  if (results.length === 0 && _magnetCount > 0) {
-    const htmlStr = $.html();
-    // Match hex (40-char) or Base32 (32-char) btih hashes
-    const magnetRe = /magnet:\?xt=urn:btih:([a-fA-F0-9]{40}|[A-Za-z2-7]{32})/gi;
+  // Selector drift recovery: only recover a result when the title and magnet
+  // are bound by the same anchor/container or by the magnet's own `dn` field.
+  // Never convert an arbitrary page-level hash into a user-visible result.
+  if (results.length === 0 && rawMagnetEvidenceCount > 0) {
     const seen = new Set<string>();
-    let m: RegExpExecArray | null;
-    while ((m = magnetRe.exec(htmlStr)) !== null) {
-      const hashHex = extractInfoHash(m[0]);
-      if (!hashHex || seen.has(hashHex)) continue;
-      seen.add(hashHex);
-      // Reconstruct magnet with normalized hex hash
-      const mag = `magnet:?xt=urn:btih:${hashHex}`;
-      const title = extractTitleFromMagnet(m[0]);
+    $('a[href^="magnet:"]').each((_: number, el: any) => {
+      if (results.length >= 20) return false;
+      const anchor = $(el);
+      const magnet = anchor.attr('href') || '';
+      const hash = extractInfoHash(magnet);
+      if (!hash || seen.has(hash)) return;
+      seen.add(hash);
+
+      const container = anchor.closest(
+        'tr, article, li, .card, .item, .search-item, .torrent-item, '
+        + '.result-item, .list-entry, div.bg-white.rounded-lg.border',
+      );
+      const scope = container.length ? container : anchor.parent();
+      const titleCandidates = [
+        extractTitleFromMagnet(magnet),
+        scope.find('[data-title]').first().attr('data-title') || '',
+        scope.find('.item-title a, .item-name a, h1 a, h2 a, h3 a, h4 a').first().text(),
+        scope.find('h1, h2, h3, h4, .item-title, .title').first().text(),
+        scope.find('a[title]').first().attr('title') || '',
+      ];
+      const title = titleCandidates
+        .map((candidate) => recoverResultTitle(candidate, magnet))
+        .find((candidate): candidate is string => !!candidate);
+      if (!title) {
+        unboundEvidenceCount += 1;
+        return;
+      }
+
+      const scopeText = scope.text();
+      const size = scopeText.match(/([\d.]+)\s*(TB|TiB|GB|GiB|MB|MiB|KB|KiB)\b/i)?.[0] || '';
+      const date = scopeText.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})/)?.[0] || '';
+      const seeders = Number(scopeText.match(/(\d+)\s*seeders?/i)?.[1] || 0);
+      const leechers = Number(scopeText.match(/(\d+)\s*leechers?/i)?.[1] || 0);
       results.push({
-        title: cleanTitle(title || 'Unknown Title'),
-        magnet: mag, size: '', date: '', seeders: 0, leechers: 0,
-        source: origin, site_name: siteName, score,
+        title: cleanTitle(title),
+        magnet,
+        size: normalizeSize(size),
+        date: cleanDate(date),
+        seeders,
+        leechers,
+        source: origin,
+        site_name: siteName,
+        score,
       });
-      if (results.length >= 20) break;
-    }
-  }
-  // Second pass: look for bare 40-char hex or 32-char Base32 info hashes in data attributes, copy buttons, etc.
-  if (results.length === 0) {
-    const htmlStr = $.html();
-    if (htmlStr.length > 1000) {
-      const hashRe = /\b([a-fA-F0-9]{40}|[A-Za-z2-7]{32})\b/g;
-      const seen = new Set<string>();
-      let m: RegExpExecArray | null;
-      while ((m = hashRe.exec(htmlStr)) !== null) {
-        const raw = m[1];
-        // Try to normalize to hex via extractInfoHash
-        const hexHash = extractInfoHash(`magnet:?xt=urn:btih:${raw}`) || raw.toLowerCase();
-        if (seen.has(hexHash)) continue;
-        seen.add(hexHash);
-        const magnet = `magnet:?xt=urn:btih:${hexHash}`;
+    });
+
+    // Some pages emit magnet URIs inside scripts instead of anchors. Preserve
+    // the complete URI so a `dn` title can prove the binding; a bare BTIH is
+    // diagnostic evidence only and must not become a result.
+    if (results.length === 0) {
+      const scriptMagnetRe = /magnet:\?[^"'<>\s]+/gi;
+      let match: RegExpExecArray | null;
+      while ((match = scriptMagnetRe.exec(htmlStr)) !== null && results.length < 20) {
+        const magnet = match[0]
+          .replace(/&amp;/gi, '&')
+          .replace(/&#x3d;/gi, '=')
+          .replace(/&#61;/gi, '=');
+        const hash = extractInfoHash(magnet);
+        if (!hash || seen.has(hash)) continue;
+        seen.add(hash);
+        const title = recoverResultTitle('', magnet);
+        if (!title) {
+          unboundEvidenceCount += 1;
+          continue;
+        }
         results.push({
-          title: `Hash: ${hexHash.slice(0, 12)}...`,
-          magnet, size: '', date: '', seeders: 0, leechers: 0,
-          source: origin, site_name: siteName, score,
+          title: cleanTitle(title),
+          magnet,
+          size: '',
+          date: '',
+          seeders: 0,
+          leechers: 0,
+          source: origin,
+          site_name: siteName,
+          score,
         });
-        if (results.length >= 10) break;
       }
     }
   }
 
-  return { results, detailUrls, titleHints, sizeHints, dateHints };
+  // Bare hashes may still be useful when a same-element URL carries a title
+  // parameter (for example `/download/torrent/<hash>?title=...`). Otherwise
+  // they prove parser drift and must trigger same-pool fallback.
+  if (results.length === 0) {
+    const seen = new Set<string>();
+    $('a[href], [data-hash], [data-info-hash], [data-infohash], [data-btih]').each((_: number, el: any) => {
+      if (results.length >= 20) return false;
+      const node = $(el);
+      const looseValue = node.attr('href')
+        || node.attr('data-hash')
+        || node.attr('data-info-hash')
+        || node.attr('data-infohash')
+        || node.attr('data-btih')
+        || '';
+      const magnet = magnetFromLooseValue(looseValue);
+      const hash = extractInfoHash(magnet);
+      if (!hash || seen.has(hash)) return;
+      seen.add(hash);
+
+      const container = node.closest(
+        'tr, article, li, .card, .item, .search-item, .torrent-item, '
+        + '.result-item, .list-entry, div.bg-white.rounded-lg.border',
+      );
+      const scope = container.length ? container : node.parent();
+      const titleCandidates = [
+        titleFromLooseValue(looseValue),
+        scope.find('[data-title]').first().attr('data-title') || '',
+        scope.find('.item-title a, .item-name a, h1 a, h2 a, h3 a, h4 a').first().text(),
+        scope.find('h1, h2, h3, h4, .item-title, .title').first().text(),
+      ];
+      const title = titleCandidates
+        .map((candidate) => recoverResultTitle(candidate, magnet))
+        .find((candidate): candidate is string => !!candidate);
+      if (!title) {
+        unboundEvidenceCount += 1;
+        return;
+      }
+      results.push({
+        title: cleanTitle(title),
+        magnet,
+        size: normalizeSize(scope.text().match(/([\d.]+)\s*(TB|TiB|GB|GiB|MB|MiB|KB|KiB)\b/i)?.[0] || ''),
+        date: cleanDate(scope.text().match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})/)?.[0] || ''),
+        seeders: Number(scope.text().match(/(\d+)\s*seeders?/i)?.[1] || 0),
+        leechers: Number(scope.text().match(/(\d+)\s*leechers?/i)?.[1] || 0),
+        source: origin,
+        site_name: siteName,
+        score,
+      });
+    });
+  }
+
+  if (results.length === 0) {
+    const bareHashes = new Set(
+      htmlStr.match(/\b(?:[a-fA-F0-9]{40}|[A-Za-z2-7]{32})\b/g) || [],
+    );
+    unboundEvidenceCount += bareHashes.size;
+  }
+
+  return { results, detailUrls, titleHints, sizeHints, dateHints, unboundEvidenceCount };
 }
 
 // ── Detail page following ────────────────────────────────────────────
@@ -509,19 +776,23 @@ async function fetchDetailResults(
 
       let title = '';
       if (detailSelectors.title) {
-        const candidate = $(detailSelectors.title).first().text().trim();
+        const candidate = recoverResultTitle($(detailSelectors.title).first().text(), magnet);
         if (candidate && !_looksLikeSite(candidate)) title = candidate;
       }
       if (!title) {
         const candidates = [
-          $('.box-info-heading h1').first().text().trim(),
-          $('h1.title').first().text().trim(),
-          $('h1').eq(1).text().trim(),
-          $('h1').first().text().trim(),
-          cleanTitle($('title').first().text().trim()),
+          $('.box-info-heading h1').first().text(),
+          $('h1.title').first().text(),
+          $('h1').eq(1).text(),
+          $('h1').first().text(),
+          cleanTitle($('title').first().text()),
         ];
-        for (const c of candidates) {
-          if (c && c.length >= 3 && !_looksLikeSite(c)) { title = c; break; }
+        for (const candidate of candidates) {
+          const recovered = recoverResultTitle(candidate, magnet);
+          if (recovered && recovered.length >= 3 && !_looksLikeSite(recovered)) {
+            title = recovered;
+            break;
+          }
         }
       }
       if (title && title.length < 30 && searchQuery) {
@@ -530,8 +801,8 @@ async function fetchDetailResults(
         const hasKeyword = kws.length === 0 || kws.some((kw) => tl.includes(kw));
         if (!hasKeyword) title = '';
       }
-      if (!title && hint) title = hint;
-      if (!title || title.length < 3) title = extractTitleFromMagnet(magnet);
+      if (!title && hint) title = recoverResultTitle(hint, magnet) || '';
+      if (!title || title.length < 3) title = recoverResultTitle('', magnet) || '';
 
       let _bodyText: string | null = null;
       const getBodyText = () => (_bodyText ??= $('body').text());
@@ -1497,25 +1768,6 @@ async function fetchRrjav(
       });
     });
 
-    // Brute-force fallback: scan full HTML for bare hashes (the v3 does this)
-    if (results.length === 0) {
-      const htmlStr = $.html();
-      const hashRe = /\b([a-fA-F0-9]{40})\b/g;
-      let m: RegExpExecArray | null;
-      while ((m = hashRe.exec(htmlStr)) !== null) {
-        const hex = m[1].toLowerCase();
-        if (seen.has(hex)) continue;
-        seen.add(hex);
-        const magnet = `magnet:?xt=urn:btih:${hex}`;
-        results.push({
-          title: `Hash: ${hex.slice(0, 12)}...`,
-          magnet, size: '', date: '', seeders: 0, leechers: 0,
-          source: origin, site_name: siteName, score,
-        });
-        if (results.length >= 10) break;
-      }
-    }
-
     // Follow detail pages if we have them (supports_detail: true)
     if (results.length === 0) {
       const detailUrls: string[] = [];
@@ -1542,21 +1794,6 @@ async function fetchRrjav(
               source: origin, site_name: siteName, score,
             });
           });
-          // Also brute-force detail page HTML for bare hashes
-          const dHtmlStr = d$.html();
-          const dHashRe = /\b([a-fA-F0-9]{40})\b/g;
-          let dm: RegExpExecArray | null;
-          while ((dm = dHashRe.exec(dHtmlStr)) !== null) {
-            const hex = dm[1].toLowerCase();
-            if (seen.has(hex)) continue;
-            seen.add(hex);
-            const magnet = `magnet:?xt=urn:btih:${hex}`;
-            const title = d$('h1, h2, h3').first().text().trim() || `Hash: ${hex.slice(0, 12)}...`;
-            results.push({
-              title, magnet, size: '', date: '', seeders: 0, leechers: 0,
-              source: origin, site_name: siteName, score,
-            });
-          }
         } catch {}
       }
     }
@@ -2007,7 +2244,7 @@ async function fetchThatCdn(
     const MAGNET_RE = /magnet:\?xt=urn:btih:[A-Za-z0-9]{32,}/i;
     const limit = Math.min(detailLinks.length, 8);
     const fetched = await Promise.allSettled(
-      detailLinks.slice(0, limit).map(async ({ url, title }) => {
+      detailLinks.slice(0, limit).map(async ({ url, title: listTitle }) => {
         const detailBudgetMs = getRemainingSourceBudget(sourceDeadlineAt, TIMEOUT_MS);
         if (detailBudgetMs <= 0) return null;
         const r = await fetchTextWithTimeout(url, {
@@ -2016,7 +2253,18 @@ async function fetchThatCdn(
         });
         const html = r?.text || '';
         const m = html.match(MAGNET_RE);
-        return m ? { title, magnet: m[0] } : null;
+        if (!m) return null;
+        const $d = cheerio.load(html);
+        const detailTitle = [
+          $d('h1').first().text(),
+          $d('h2').first().text(),
+          $d('meta[property="og:title"]').attr('content') || '',
+          $d('title').first().text(),
+          listTitle,
+        ]
+          .map((candidate) => recoverResultTitle(candidate, m[0]))
+          .find((candidate): candidate is string => !!candidate);
+        return { title: detailTitle || listTitle, magnet: m[0] };
       }),
     );
 
@@ -2065,23 +2313,23 @@ export async function searchSource(
   const handler = rule.search.handler || '';
 
   // ── Custom handler dispatch (before template/selectors — handler-only rules omit parse_metadata) ──
-  if (handler === 'javbus') return (await fetchJavBus(origin, query, siteName, score)).slice(0, 30);
-  if (handler === 'meijumi') return (await fetchMeijumi(origin, query, siteName, score)).slice(0, 30);
-  if (handler === 'yhg') return (await fetchYhg(origin, query, siteName, score)).slice(0, 30);
-  if (handler === '6v520') return (await fetch6v520(origin, query, siteName, score)).slice(0, 20);
-  if (handler === 'rarbggo') return (await fetchRarbggo(origin, query, siteName, score)).slice(0, 30);
-  if (handler === 'rrjav') return (await fetchRrjav(origin, query, siteName, score)).slice(0, 30);
-  if (handler === '1337x') return (await fetch1337x(origin, query, siteName, score)).slice(0, 20);
-  if (handler === 'cilimo') return (await fetchCiliMo(origin, query, siteName, score)).slice(0, 20);
-  if (handler === 'clkd') return (await fetchClkd(origin, query, siteName, score)).slice(0, 20);
-  if (handler === 'lulutang') return (await fetchLulutang(origin, query, siteName, score)).slice(0, 20);
-  if (handler === 'btsow') return (await fetchBtsow(origin, query, siteName, score)).slice(0, 30);
-  if (handler === 'snowfl') return (await fetchSnowfl(origin, query, siteName, score)).slice(0, 30);
-  if (handler === 'yts') return (await fetchYts(origin, query, siteName, score)).slice(0, 20);
-  if (handler === 'wuji') return (await fetchWuji(origin, query, siteName, score)).slice(0, 20);
-  if (handler === 'ssbc') return (await fetchSsbc(origin, query, siteName, score)).slice(0, 30);
-  if (handler === 'thatcdn') return (await fetchThatCdn(origin, query, siteName, score)).slice(0, 20);
-  if (handler === 'zhongzidi') return (await fetchZhongzidi(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'javbus') return finalizeSearchResults(await fetchJavBus(origin, query, siteName, score)).slice(0, 30);
+  if (handler === 'meijumi') return finalizeSearchResults(await fetchMeijumi(origin, query, siteName, score)).slice(0, 30);
+  if (handler === 'yhg') return finalizeSearchResults(await fetchYhg(origin, query, siteName, score)).slice(0, 30);
+  if (handler === '6v520') return finalizeSearchResults(await fetch6v520(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'rarbggo') return finalizeSearchResults(await fetchRarbggo(origin, query, siteName, score)).slice(0, 30);
+  if (handler === 'rrjav') return finalizeSearchResults(await fetchRrjav(origin, query, siteName, score)).slice(0, 30);
+  if (handler === '1337x') return finalizeSearchResults(await fetch1337x(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'cilimo') return finalizeSearchResults(await fetchCiliMo(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'clkd') return finalizeSearchResults(await fetchClkd(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'lulutang') return finalizeSearchResults(await fetchLulutang(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'btsow') return finalizeSearchResults(await fetchBtsow(origin, query, siteName, score)).slice(0, 30);
+  if (handler === 'snowfl') return finalizeSearchResults(await fetchSnowfl(origin, query, siteName, score)).slice(0, 30);
+  if (handler === 'yts') return finalizeSearchResults(await fetchYts(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'wuji') return finalizeSearchResults(await fetchWuji(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'ssbc') return finalizeSearchResults(await fetchSsbc(origin, query, siteName, score)).slice(0, 30);
+  if (handler === 'thatcdn') return finalizeSearchResults(await fetchThatCdn(origin, query, siteName, score)).slice(0, 20);
+  if (handler === 'zhongzidi') return finalizeSearchResults(await fetchZhongzidi(origin, query, siteName, score)).slice(0, 20);
 
   // ── Template flow ──
   const template = rule.search.request_template;
@@ -2122,18 +2370,38 @@ export async function searchSource(
       // Store any cookies from the WebView session
       if (vr.cookies) storeCookiesForOrigin(origin, vr.cookies);
       const $ = cheerio.load(vr.html);
-      const { results: spaResults, detailUrls: spaDetailUrls, titleHints: spaTH, sizeHints: spaSH, dateHints: spaDH } =
-        extractFromSearchPage($, selectors, origin, siteName, score);
-      const spaCleaned = spaResults.filter((r) => r.title && r.title !== 'Unknown Title' && r.title.length >= 4);
+      const {
+        results: spaResults,
+        detailUrls: spaDetailUrls,
+        titleHints: spaTH,
+        sizeHints: spaSH,
+        dateHints: spaDH,
+        unboundEvidenceCount: spaUnboundEvidenceCount,
+      } = extractFromSearchPage($, selectors, origin, siteName, score);
+      let spaHadHashPlaceholder = spaUnboundEvidenceCount > 0
+        || spaResults.some((r) => isHashPlaceholderTitle(r.title, r.magnet));
+      const spaCleaned = spaResults.flatMap((r) => {
+        const recoveredTitle = resolveResultTitle(r.title, r.magnet);
+        return recoveredTitle && recoveredTitle.length >= 4 ? [{ ...r, title: recoveredTitle }] : [];
+      });
       // Follow detail pages if needed
       if (supportsDetail && detailSelectors && spaDetailUrls.length > 0 && spaCleaned.length < 20) {
         const spaDetailResults = await fetchDetailResults(
           spaDetailUrls, detailSelectors, origin, siteName, score,
           20 - spaCleaned.length, spaTH, spaSH, spaDH, query,
         );
-        spaCleaned.push(...spaDetailResults);
+        if (spaDetailResults.some((r) => isHashPlaceholderTitle(r.title, r.magnet))) {
+          spaHadHashPlaceholder = true;
+        }
+        spaCleaned.push(...spaDetailResults.flatMap((r) => {
+          const recoveredTitle = resolveResultTitle(r.title, r.magnet);
+          return recoveredTitle && recoveredTitle.length >= 4 ? [{ ...r, title: recoveredTitle }] : [];
+        }));
       }
-      return spaCleaned.slice(0, 30);
+      if (spaCleaned.length === 0 && spaHadHashPlaceholder) {
+        throw new Error('INVALID_RESULT_TITLE_PARSE');
+      }
+      return finalizeSearchResults(spaCleaned).slice(0, 30);
     }
     return [];
   }
@@ -2193,17 +2461,39 @@ export async function searchSource(
     }
   }
 
-  if (!html) return [];
+  if (!html || html.trim().length === 0) {
+    throw new Error('EMPTY_SEARCH_RESPONSE');
+  }
+
+  const structured = parseStructuredSearchPayload(html, origin, siteName, score);
+  if (structured.parsed) {
+    if (structured.results.length === 0 && structured.unresolvedHashCount > 0) {
+      throw new Error('INVALID_RESULT_TITLE_PARSE');
+    }
+    return finalizeSearchResults(structured.results).slice(0, 30);
+  }
 
   const $ = cheerio.load(html);
-  const { results, detailUrls, titleHints, sizeHints, dateHints } =
-    extractFromSearchPage($, selectors, origin, siteName, score);
+  const {
+    results,
+    detailUrls,
+    titleHints,
+    sizeHints,
+    dateHints,
+    unboundEvidenceCount,
+  } = extractFromSearchPage($, selectors, origin, siteName, score);
 
-  // Filter garbage — also reject titles that are just known site names
+  // Filter garbage — also reject titles that are just known site names.
+  // Hash-only rows are excluded before deciding whether detail pages need to
+  // be followed, otherwise a page full of hashes would incorrectly look full.
   const _normT = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const cleaned = results.filter((r) => {
-    if (!r.title || r.title === 'Unknown Title') return false;
-    if (r.title.length < 4) return false;
+  let hadHashPlaceholder = unboundEvidenceCount > 0
+    || results.some((r) => isHashPlaceholderTitle(r.title, r.magnet));
+  const cleaned = results.flatMap((r) => {
+    const recoveredTitle = resolveResultTitle(r.title, r.magnet);
+    if (!recoveredTitle || recoveredTitle.length < 4) return [];
+    return [{ ...r, title: recoveredTitle }];
+  }).filter((r) => {
     const tl = r.title.toLowerCase();
     const sl = siteName.toLowerCase();
     if (tl === sl || (tl.includes(' home') && tl.length < 30)) return false;
@@ -2249,9 +2539,14 @@ export async function searchSource(
         customReferer || undefined,
       );
       const siteNorm = siteName.toLowerCase().replace(/[^a-z0-9]/g, '');
-      detailCleaned = detailResults.filter((r) => {
-        if (!r.title || r.title === 'Unknown Title') return false;
-        if (r.title.length < 4) return false;
+      if (detailResults.some((r) => isHashPlaceholderTitle(r.title, r.magnet))) {
+        hadHashPlaceholder = true;
+      }
+      detailCleaned = detailResults.flatMap((r) => {
+        const recoveredTitle = resolveResultTitle(r.title, r.magnet);
+        if (!recoveredTitle || recoveredTitle.length < 4) return [];
+        return [{ ...r, title: recoveredTitle }];
+      }).filter((r) => {
         const tn = r.title.toLowerCase().replace(/[^a-z0-9]/g, '');
         if (
           tn === siteNorm ||
@@ -2274,5 +2569,8 @@ export async function searchSource(
     return true;
   });
 
-  return merged.slice(0, 20);
+  if (merged.length === 0 && hadHashPlaceholder) {
+    throw new Error('INVALID_RESULT_TITLE_PARSE');
+  }
+  return finalizeSearchResults(merged).slice(0, 20);
 }

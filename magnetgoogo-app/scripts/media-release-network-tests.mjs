@@ -97,14 +97,21 @@ assert.equal(resourceItems, 1682);
 const protocolSource = fs.readFileSync(path.join(process.cwd(), 'src/core/mediaReleaseProtocol.ts'), 'utf8');
 const clientSource = fs.readFileSync(path.join(process.cwd(), 'src/core/mediaReleaseClient.ts'), 'utf8');
 const cacheSource = fs.readFileSync(path.join(process.cwd(), 'src/core/mediaReleaseCache.ts'), 'utf8');
+const legacyMigrationSource = fs.readFileSync(path.join(process.cwd(), 'src/core/mediaReleaseLegacyMigration.ts'), 'utf8');
 assert.match(protocolSource, /tweetnacl/);
 assert.match(protocolSource, /94eLTKi0Gz1RIQEssMSHrk1ND5WRjdIWzQqjAhrsCb4=/);
 assert.match(clientSource, /https:\/\/media\.magnetgoogo\.com/);
 assert.match(clientSource, /https:\/\/cn\.magnetgoogo\.com\/media/);
 assert.match(clientSource, /pointer_revision/);
-assert.match(cacheSource, /72 \* 60 \* 60 \* 1000/);
-assert.match(cacheSource, /CryptoJS\.AES/);
-assert.match(cacheSource, /HmacSHA256/);
+assert.match(clientSource, /manifest_refresh_skipped: true/);
+assert.match(clientSource, /detailSyncs/);
+assert.match(cacheSource, /media-release-cache-v2/);
+assert.match(cacheSource, /media-app-detail-cache\/2/);
+assert.match(cacheSource, /detail_hash/);
+assert.match(cacheSource, /writeDetailEnvelope/);
+assert.doesNotMatch(cacheSource, /CryptoJS|SecureStore|CACHE_EXPIRY/);
+assert.match(legacyMigrationSource, /CryptoJS\.AES/);
+assert.match(legacyMigrationSource, /HmacSHA256/);
 
 const endpointChecks = [];
 const expectedLivePointerHash = process.env.MEDIA_EXPECTED_POINTER_SHA256 || null;
@@ -124,7 +131,12 @@ const expectedResourceCount = process.env.MEDIA_EXPECTED_RESOURCE_COUNT
 let acceptedPointerHash = null;
 let acceptedPointerBytes = null;
 
-for (const base of ['https://media.magnetgoogo.com', 'https://cn.magnetgoogo.com/media']) {
+const liveEndpoints = (process.env.MEDIA_TEST_ENDPOINTS || 'https://media.magnetgoogo.com,https://cn.magnetgoogo.com/media')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
+
+for (const base of liveEndpoints) {
   const currentResponse = await fetch(`${base}/v1/current.json`, {
     headers: { 'user-agent': 'MagnetGoogo-App-Protocol-Test/1' },
     signal: AbortSignal.timeout(20_000),

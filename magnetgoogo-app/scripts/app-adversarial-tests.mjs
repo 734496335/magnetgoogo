@@ -5,7 +5,9 @@ import { fileURLToPath } from 'node:url';
 
 import {
   ALL_LANGS,
+  SEARCH_STATUS_DOTS_TOKEN,
   getTranslations,
+  splitSearchingStatus,
 } from '../src/core/i18n.ts';
 import {
   extractTags,
@@ -17,6 +19,10 @@ import {
   computeRelevance,
 } from '../src/core/types.ts';
 import { extractInfoHash } from '../src/core/dedup.ts';
+import {
+  isHashPlaceholderTitle,
+  recoverResultTitle,
+} from '../src/core/searchResultTitle.ts';
 import {
   createSearchResultAccumulatorState,
   mergePendingSearchResults,
@@ -35,6 +41,17 @@ import {
   mergeBackgroundSearchResults,
   parseBackgroundSearchSnapshot,
 } from '../src/core/backgroundSearchProtocol.ts';
+import { buildAppShareMessage } from '../src/core/appShare.ts';
+import {
+  buildSourcePoolPlans,
+  classifyQueryProfile,
+  computeSourceLearningBoost,
+  getSourceBenchmarkBoost,
+  getSourcePoolKey,
+  getSearchProgressStage,
+  HIGH_RELEVANCE_THRESHOLD,
+  summarizeSourceQuality,
+} from '../src/core/searchQuality.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -121,10 +138,100 @@ await test('I1', 'all 10 languages expose every translation key', () => {
   for (const lang of ALL_LANGS) {
     const translation = getTranslations(lang);
     assert.deepEqual(Object.keys(translation).sort(), baseKeys, `${lang} key mismatch`);
-    assert.equal(typeof translation.searchingStatus(1, 2, 3), 'string');
-    assert.equal(typeof translation.searchDoneStatus(2, 2, 3), 'string');
+    assert.equal(typeof translation.searchingStatus('fast', 3), 'string');
+    assert.equal(typeof translation.searchingStatus('expanding', 3), 'string');
+    assert.equal(typeof translation.searchingStatus('tail', 3), 'string');
+    assert.equal(typeof translation.searchDoneStatus(3), 'string');
     assert.equal(typeof translation.fileCount(4), 'string');
   }
+});
+
+await test('I1B', 'search progress copy fits a single-line mobile status row in every language', () => {
+  const screen = read('app/search.tsx');
+  for (const lang of ALL_LANGS) {
+    const translation = getTranslations(lang);
+    for (const stage of ['fast', 'expanding', 'tail']) {
+      const text = translation.searchingStatus(stage, 9999);
+      const tokenCount = text.split(SEARCH_STATUS_DOTS_TOKEN).length - 1;
+      assert.equal(tokenCount, 1, `${lang}/${stage} must contain exactly one animated-dots token: ${text}`);
+      assert.doesNotMatch(text, /…/, `${lang}/${stage} must not contain a second static ellipsis`);
+      const { before, after } = splitSearchingStatus(text);
+      assert.equal(`${before}${after}`, text.replace(SEARCH_STATUS_DOTS_TOKEN, ''));
+      assert.ok([...`${before}${after}`].length <= 30, `${lang}/${stage} too long: ${text}`);
+    }
+    assert.ok([...translation.searchDoneStatus(9999)].length <= 26, `${lang}/done too long`);
+    assert.ok([...translation.stopSearch].length <= 6, `${lang}/stop too long`);
+  }
+  assert.deepEqual(splitSearchingStatus('before...after...duplicate'), {
+    before: 'before',
+    after: 'afterduplicate',
+  });
+  assert.match(screen, /\{t\.stopSearch\}/);
+  assert.match(screen, /<SearchingStatus text=\{t\.searchingStatus\(progressStage, results\.length\)\} \/>/);
+  assert.equal((screen.match(/<BouncingDots \/>/g) || []).length, 1);
+  assert.match(screen, /searchingStatusCopy: \{[\s\S]*?flex: 1,[\s\S]*?minWidth: 0/);
+  assert.match(screen, /cancelBtn: \{[\s\S]*?flexShrink: 0/);
+});
+
+await test('I2', 'home share action is localized, concise and uses the canonical website URL', () => {
+  const component = read('src/components/FeedbackFAB.tsx');
+
+  for (const lang of ALL_LANGS) {
+    const translation = getTranslations(lang);
+    const message = buildAppShareMessage(translation.shareMessage, 'https://magnetgoogo.com');
+    assert.ok(translation.shareBtn.length > 0, `${lang} share button missing`);
+    assert.ok(translation.shareDialogTitle.length > 0, `${lang} share title missing`);
+    assert.ok(translation.shareFailed.length > 0, `${lang} share failure text missing`);
+    assert.equal(message, `${translation.shareMessage}\nhttps://magnetgoogo.com`);
+    assert.equal((message.match(/https:\/\/magnetgoogo\.com/g) || []).length, 1);
+  }
+
+  assert.match(component, /\bShare\.share\(/);
+  assert.match(component, /buildAppShareMessage\(t\.shareMessage, WEBSITE_URL\)/);
+  assert.match(component, /title: t\.shareDialogTitle/);
+  assert.match(component, /showToast\(t\.shareFailed\)/);
+  assert.match(component, /testID="home-feedback-button"/);
+  assert.match(component, /testID="home-share-button"/);
+  assert.ok(component.indexOf('home-feedback-button') < component.indexOf('home-share-button'));
+  assert.equal((component.match(/style=\{styles\.fab\}/g) || []).length, 2);
+  assert.doesNotMatch(component, /shareFab|shareFabLabel|#6DEDAD|#0B5D46/);
+  assert.match(component, /fabRow: \{[\s\S]*?right: 16[\s\S]*?bottom: 24[\s\S]*?flexDirection: 'row'/);
+  assert.match(component, /stage: 'open_native_share'/);
+  assert.match(component, /error_code: 'NATIVE_SHARE_FAILED'/);
+});
+
+await test('I3', 'favorites are a persistent top utility and history stays below search', () => {
+  const home = read('app/(tabs)/index.tsx');
+  const favoriteIndex = home.indexOf('testID="home-favorites-button"');
+  const heroIndex = home.indexOf('style={[styles.heroStage');
+  const buttonIndex = home.indexOf('<FlowingGradientButton onPress={handleSearch}');
+  const historyIndex = home.indexOf('{history.length > 0 && (');
+  const feedbackIndex = home.indexOf('<FeedbackFAB />');
+
+  assert.ok(favoriteIndex >= 0);
+  assert.ok(heroIndex > favoriteIndex);
+  assert.ok(buttonIndex > heroIndex);
+  assert.ok(historyIndex > buttonIndex);
+  assert.ok(feedbackIndex > historyIndex);
+  assert.equal((home.match(/testID="home-favorites-button"/g) || []).length, 1);
+  assert.equal((home.match(/\{history\.length > 0 && \(/g) || []).length, 1);
+  assert.match(home, /onPress=\{\(\) => router\.push\('\/favorites'\)\}/);
+  assert.match(home, /favorites\.length > 99 \? '99\+' : favorites\.length/);
+  assert.match(home, /topUtilityBar: \{[\s\S]*?alignItems: 'flex-end'/);
+  assert.match(home, /favoriteShortcut: \{[\s\S]*?minHeight: 38[\s\S]*?maxWidth: '72%'/);
+  assert.match(home, /historyWrap: \{[\s\S]*?marginTop: 18/);
+  assert.doesNotMatch(home, /secondaryArea|favEntry|handleSecondaryLayout/);
+});
+
+await test('I4', 'search results default to relevance and expose no comprehensive sort option', () => {
+  const screen = read('app/search.tsx');
+  assert.match(screen, /type SortKey = 'relevance' \| 'size' \| 'date';/);
+  assert.match(screen, /useState<SortKey>\('relevance'\)/);
+  assert.match(screen, /setSortKey\('relevance'\)/);
+  assert.match(screen, /arr\.sort\(\(a, b\) => b\.relevance - a\.relevance\)/);
+  assert.match(screen, /<SortChip label=\{t\.sortRelevance\} k="relevance" \/>/);
+  assert.doesNotMatch(screen, /k="comprehensive"|sortComprehensive/);
+  assert.match(screen, /if \(isScrollingRef\.current && !opts\?\.forceList\)/);
 });
 
 await test('M1', 'software version names are not misclassified as movies', () => {
@@ -145,7 +252,7 @@ await test('M3', 'binary and byte size formats share one numeric parser', () => 
   assert.equal(toResultCardModel({ title: 'x', magnet: 'm', size: '700 MiB' }, 0).sizeBytes, 700 * 1024 ** 2);
 });
 
-await test('M4', 'comprehensive ranking understands binary units', () => {
+await test('M4', 'final model tie-break ranking understands binary units', () => {
   const state = createSearchResultAccumulatorState();
   const raw = [
     { title: 'A', magnet: `magnet:?xt=urn:btih:${'a'.repeat(40)}`, size: '900 MB', source: 's1' },
@@ -175,12 +282,258 @@ await test('M5', 'stable IDs ignore tracker order for btih magnets', () => {
   assert.equal(a, b);
 });
 
+await test('M6', 'hash placeholders are recovered or rejected before reaching users', () => {
+  const hash = '051EE026133C57DBAABBCCDDEEFF001122334455';
+  const magnet = `magnet:?xt=urn:btih:${hash}`;
+  const namedMagnet = `${magnet}&dn=Inception.2010.1080p.BluRay`;
+
+  assert.equal(isHashPlaceholderTitle('Hash: 051EE026133C...', magnet), true);
+  assert.equal(isHashPlaceholderTitle('586b35d6aecdd2976d8777b6952fa56f', magnet), true);
+  assert.equal(isHashPlaceholderTitle(hash, magnet), true);
+  assert.equal(isHashPlaceholderTitle(magnet, magnet), true);
+  assert.equal(isHashPlaceholderTitle('Inception.2010.1080p', magnet), false);
+  assert.equal(recoverResultTitle('Hash: 051EE026133C...', namedMagnet), 'Inception.2010.1080p.BluRay');
+  assert.equal(recoverResultTitle(`${hash} - Inception.2010.1080p`, magnet), 'Inception.2010.1080p');
+  assert.equal(recoverResultTitle('Hash: 051EE026133C...', magnet), null);
+  assert.equal(recoverResultTitle('1917.2019.1080p', magnet), '1917.2019.1080p');
+
+  const engine = read('src/core/searchEngine.ts');
+  assert.doesNotMatch(engine, /title:\s*`Hash:/);
+  assert.match(engine, /function magnetFromLooseValue/);
+  assert.match(engine, /function parseStructuredSearchPayload/);
+  assert.match(engine, /unresolvedHashCount/);
+  assert.match(engine, /unboundEvidenceCount/);
+  assert.match(engine, /rawMagnetEvidenceCount/);
+  assert.match(engine, /const bareHashes = new Set/);
+  assert.match(engine, /throw new Error\('EMPTY_SEARCH_RESPONSE'\)/);
+  assert.match(engine, /Selector drift recovery/);
+  assert.match(engine, /titleFromLooseValue/);
+  assert.match(engine, /article\.item/);
+  assert.match(engine, /tr\.list-entry/);
+  assert.match(engine, /div\.bg-white\.rounded-lg\.border/);
+  assert.match(engine, /recoverResultTitle\(candidate, m\[0\]\)/);
+  assert.match(engine, /throw new Error\('INVALID_RESULT_TITLE_PARSE'\)/);
+  assert.match(engine, /return finalizeSearchResults\(merged\)\.slice\(0, 20\)/);
+  assert.doesNotMatch(engine, /const mag = `magnet:\?xt=urn:btih:\$\{hashHex\}`/);
+
+  const sources = read('../sources.json');
+  const sourcePayload = JSON.parse(sources);
+  const proxyitRules = sourcePayload.rulesets
+    .flatMap((ruleset) => ruleset.rules || [])
+    .filter((rule) => rule?.quality?.pool_id === 'proxyit.de');
+  assert.equal(proxyitRules.length, 85);
+  assert.equal(proxyitRules.filter((rule) => rule?.health?.status === 'green').length, 0);
+  assert.equal(proxyitRules.filter((rule) => (
+    rule?.health?.status === 'yellow'
+    && rule?.health?.status_detail === 'parsing_failed'
+  )).length, 85);
+  assert.match(sources, /tr\.list-entry:has\(a\[href\^=\\"magnet:/);
+  assert.match(sources, /div\.bg-white\.rounded-lg\.border:has\(a\[href\^='magnet:'\]\)/);
+  assert.match(sources, /h3 a\[href\^='\/torrent\/'\]/);
+
+  const deviceTest = read('../scripts/test_k30s_search.py');
+  assert.match(deviceTest, /def is_hash_placeholder_title/);
+  assert.match(deviceTest, /Hash placeholder title gate: 0/);
+  assert.match(deviceTest, /hash_placeholder_title_count/);
+  assert.match(deviceTest, /raise SystemExit\(2\)/);
+});
+
+await test('SQ1', 'source quality counts unique high-relevance results instead of raw volume', () => {
+  const relevantHash = '1'.repeat(40);
+  const summary = summarizeSourceQuality([
+    { title: 'Inception 2010 1080p', magnet: `magnet:?xt=urn:btih:${relevantHash}` },
+    { title: 'Inception duplicate mirror title', magnet: `magnet:?xt=urn:btih:${relevantHash}&tr=x` },
+    { title: 'Unrelated Ubuntu ISO', magnet: `magnet:?xt=urn:btih:${'2'.repeat(40)}` },
+    { title: 'Random archive', magnet: `magnet:?xt=urn:btih:${'3'.repeat(40)}` },
+  ], 'Inception', computeRelevance);
+  assert.equal(summary.uniqueResultCount, 3);
+  assert.equal(summary.relevantResultCount, 1);
+  assert.equal(summary.exactResultCount, 1);
+  assert.equal(summary.relevancePrecision, 1 / 3);
+  assert.equal(HIGH_RELEVANCE_THRESHOLD, 30);
+});
+
+await test('SQ2', 'pool plans collapse mirror hosts and preserve evidence-ranked candidate order', () => {
+  const plans = buildSourcePoolPlans([
+    {
+      id: 'tpb-fallback',
+      site: { origin: 'https://piratebay.party', brand: 'TPB' },
+      quality: { pool_id: 'tpb', pool_role: 'fallback' },
+    },
+    {
+      id: 'knaben-primary',
+      site: { origin: 'https://knaben.eu' },
+      quality: { pool_id: 'knaben', pool_role: 'primary' },
+    },
+    {
+      id: 'tpb-primary',
+      site: { origin: 'https://apibay.org' },
+      quality: { pool_id: 'tpb', pool_role: 'primary' },
+    },
+  ]);
+  assert.equal(plans.length, 2);
+  const tpb = plans.find((plan) => plan.poolId === 'tpb');
+  assert.ok(tpb);
+  assert.equal(tpb.candidates.length, 2);
+  assert.equal(tpb.candidates[0].id, 'tpb-fallback');
+  assert.equal(tpb.candidates[1].id, 'tpb-primary');
+  assert.equal(getSourcePoolKey(tpb.candidates[1]), 'tpb');
+  assert.equal(getSourcePoolKey({
+    site: { origin: 'https://thepiratebay.rocks', brand: 'The Pirate Bay' },
+    quality: {},
+  }), 'tpb');
+  assert.equal(getSourcePoolKey({
+    site: { origin: 'https://apibay.org', brand: 'TPB' },
+    quality: {},
+  }), 'tpb');
+});
+
+await test('SQ2B', 'trusted bait priors adapt cold-start pool ranking to query profile', () => {
+  const btsow = { site: { origin: 'https://btsow.pics' }, quality: { pool_id: 'btsow' } };
+  const tpb = { site: { origin: 'https://thepiratebay.bond' }, quality: { pool_id: 'tpb' } };
+  const nyaa = { site: { origin: 'https://nyaa.digital' }, quality: { pool_id: 'nyaa' } };
+  const proxyit = { site: { origin: 'https://zh.proxyit.de' }, quality: { pool_id: 'proxyit.de' } };
+  assert.ok(getSourceBenchmarkBoost(btsow, '流浪地球') > getSourceBenchmarkBoost(tpb, '流浪地球'));
+  assert.ok(getSourceBenchmarkBoost(tpb, 'Inception') > getSourceBenchmarkBoost(tpb, '流浪地球'));
+  assert.ok(getSourceBenchmarkBoost(nyaa, '海贼王') > getSourceBenchmarkBoost(proxyit, '海贼王'));
+  assert.ok(getSourceBenchmarkBoost(btsow, 'SSIS-001') > 0);
+});
+
+await test('SQ3', 'relevance yield and precision beat a noisy high-volume source', () => {
+  const useful = computeSourceLearningBoost({
+    successRate: 0.9,
+    emptyRate: 0.05,
+    failRate: 0.05,
+    challengeRate: 0,
+    avgMs: 900,
+    relevantYield: 8,
+    precision: 0.8,
+    qualitySamples: 8,
+  });
+  const noisy = computeSourceLearningBoost({
+    successRate: 1,
+    emptyRate: 0,
+    failRate: 0,
+    challengeRate: 0,
+    avgMs: 700,
+    relevantYield: 1,
+    precision: 0.02,
+    qualitySamples: 8,
+  });
+  assert.ok(useful > noisy, `useful=${useful} noisy=${noisy}`);
+});
+
+await test('SQ4', 'search progress stages preserve the first 10-second fast window and switch to tail near completion', () => {
+  assert.equal(classifyQueryProfile('SSIS-001'), 'code');
+  assert.equal(classifyQueryProfile('流浪地球'), 'cjk');
+  assert.equal(classifyQueryProfile('One Piece 海贼王'), 'mixed');
+  assert.equal(getSearchProgressStage(9_999, 11, 53), 'fast');
+  assert.equal(getSearchProgressStage(10_000, 5, 53), 'expanding');
+  assert.equal(getSearchProgressStage(5_000, 12, 53), 'expanding');
+  assert.equal(getSearchProgressStage(20_000, 40, 53), 'tail');
+});
+
+await test('SQ5', 'search execution completes every content pool and only falls back after a real failure', () => {
+  const runner = read('src/core/searchRunner.ts');
+  const stats = read('src/core/sourceStats.ts');
+  assert.match(runner, /buildSourcePoolPlans\(allSources\)/);
+  assert.match(runner, /for \(let index = 0; index < plan\.candidates\.length/);
+  assert.match(runner, /if \(outcome !== 'failed'\)/);
+  assert.doesNotMatch(runner, /isSearchSatisfied/);
+  assert.doesNotMatch(runner, /MAX_HOST_ATTEMPTS_PER_POOL/);
+  assert.match(runner, /relevant_results: qualitySummary\.relevantResultCount/);
+  assert.match(runner, /getSourcePerfBoost\(a, term, ignoreLocalLearning\) - aTier \* 6/);
+  assert.doesNotMatch(runner, /if \(aTier !== bTier\) return aTier - bTier;/);
+  assert.match(stats, /const STORAGE_KEY = 'mg_source_stats_v1'/);
+  assert.match(stats, /setTimeout\(async \(\) =>/);
+  assert.match(stats, /classifyQueryProfile\(params\.query\)/);
+  assert.doesNotMatch(stats, /rawQuery|queryHistory|searchTerms/);
+});
+
+await test('SQ5B', 'K30S benchmark mode exhaustively tests hosts without polluting user analytics', () => {
+  const runner = read('src/core/searchRunner.ts');
+  const screen = read('app/search.tsx');
+  const k30s = read('../scripts/test_k30s_search.py');
+  assert.match(runner, /exhaustive\s*\?\s*allSources\.map/);
+  assert.doesNotMatch(runner, /isSearchSatisfied/);
+  assert.equal((runner.match(/if \(!exhaustive\) \{\s*recordSourceRun\(rule,/g) || []).length, 2);
+  assert.match(screen, /const exhaustiveBenchmark = benchmark === '1'/);
+  assert.match(screen, /exhaustive: exhaustiveBenchmark/);
+  assert.match(screen, /ignoreLocalLearning: coldStartTest/);
+  assert.match(screen, /if \(!exhaustiveBenchmark\) \{\s*try \{\s*session\.searchId = await trackSearchSubmitted/s);
+  assert.match(k30s, /BENCHMARK_QUERIES = \[/);
+  assert.match(k30s, /\("Code title", "SSIS-001"\)/);
+  assert.match(k30s, /uri \+= "&benchmark=1"/);
+  assert.match(k30s, /uri \+= "&cold=1"/);
+  assert.match(k30s, /--cold-start/);
+  assert.match(k30s, /quoted_uri = shlex\.quote\(uri\)/);
+});
+
+await test('SQ5C', 'benchmark reports distinguish loaded inventory from attempted hosts and pools', () => {
+  const runner = read('src/core/searchRunner.ts');
+  const logger = read('src/core/searchDebugLogger.ts');
+  const k30s = read('../scripts/test_k30s_search.py');
+  assert.match(runner, /loadedPoolCount = new Set\(allSources\.map/);
+  assert.match(runner, /sourcePackOrigin: sourceMeta\?\.remoteUrl/);
+  assert.match(logger, /attemptedHostCount: this\.sourceResults\.length/);
+  assert.match(logger, /attemptedPoolCount: new Set/);
+  assert.match(k30s, /--append/);
+  assert.match(k30s, /runtime_loaded_host_counts/);
+});
+
+await test('SQ5D', 'aborted handoffs stay partial and search reports are Debug-package only', () => {
+  const runner = read('src/core/searchRunner.ts');
+  const logger = read('src/core/searchDebugLogger.ts');
+  const k30s = read('../scripts/test_k30s_search.py');
+  assert.match(runner, /debugReport\.finish\(!aborted\(\)\)/);
+  assert.match(logger, /Application\.applicationId\?\.endsWith\('\.debug'\) === true/);
+  assert.match(logger, /finish\(completed = true\)/);
+  assert.match(logger, /this\._upsertCurrent\(completed\)/);
+  assert.match(k30s, /report_data\.get\("completed"\) is True/);
+  assert.match(k30s, /svc", "power", "stayon", "true"/);
+});
+
+await test('SQ6', 'final model rank keeps high-relevance results above low-relevance multi-source noise', () => {
+  const state = createSearchResultAccumulatorState();
+  const relevant = { title: 'Inception 2010', magnet: `magnet:?xt=urn:btih:${'4'.repeat(40)}`, source: 'good' };
+  const noisyHash = '5'.repeat(40);
+  const noisy = [
+    { title: 'Random Ubuntu ISO', magnet: `magnet:?xt=urn:btih:${noisyHash}`, source: 'n1' },
+    { title: 'Random Ubuntu ISO', magnet: `magnet:?xt=urn:btih:${noisyHash}&tr=x`, source: 'n2' },
+    { title: 'Random Ubuntu ISO', magnet: `magnet:?xt=urn:btih:${noisyHash}&tr=y`, source: 'n3' },
+  ];
+  mergePendingSearchResults(state, [relevant, ...noisy], 'Inception', {
+    extractInfoHash,
+    getStableId: getResultStableId,
+    computeRelevance,
+    parseSizeBytes,
+  });
+  rebuildSearchCardModels(state, {
+    searching: false,
+    forceFullSort: true,
+    query: 'Inception',
+    extractInfoHash,
+    getStableId: getResultStableId,
+    buildCard: (result, index) => toResultCardModel(result, index, 'Inception'),
+  });
+  assert.equal(state._cardModels[0].title, 'Inception 2010');
+});
+
 await test('P1', 'source startup effect is stable and sync is single-flight', () => {
   const code = read('src/core/SourceContext.tsx');
   assert.match(code, /syncInFlightRef/);
   assert.match(code, /if \(syncInFlightRef\.current\) return syncInFlightRef\.current/);
   assert.doesNotMatch(code, /\}, \[showToast, sources\.length\]\)/);
   assert.match(code, /if \(!silent\) showToast\(`已同步/);
+});
+
+await test('P1B', 'expired encrypted source packs are rejected on disk, debug override and remote sync', () => {
+  const code = read('src/core/secureSourceStore.ts');
+  assert.match(code, /function assertFreshEnvelope/);
+  assert.match(code, /assertFreshEnvelope\(raw, 'disk source cache'\)/);
+  assert.match(code, /assertFreshEnvelope\(envelope, 'debug source pack'\)/);
+  assert.match(code, /assertFreshEnvelope\(raw, `remote source pack from \$\{result\.url\}`\)/);
+  assert.match(code, /SOURCE_EXPIRY_GRACE_MS/);
 });
 
 await test('P2', 'Chinese sync failures use the error visual state', () => {
@@ -194,7 +547,7 @@ await test('R1', 'new searches invalidate stale asynchronous starts', () => {
   assert.match(code, /let _searchGeneration = 0/);
   assert.match(code, /const generation = \+\+_searchGeneration/);
   assert.match(code, /_session !== session \|\| generation !== _searchGeneration/);
-  assert.match(code, /Promise\.allSettled\(\[\s*addHistory\(normalizedTerm\),\s*loadSourceStats\(\)/s);
+  assert.match(code, /Promise\.allSettled\(\[\s*exhaustiveBenchmark \? Promise\.resolve\(\) : addHistory\(normalizedTerm\),\s*loadSourceStats\(\)/s);
 });
 
 await test('R2', 'analytics failures cannot block searches', () => {
@@ -229,6 +582,8 @@ await test('B1', 'background snapshots preserve partial results and terminal sta
     updatedAt: '2026-07-25T00:00:00.000Z',
     sourceCount: 100,
     doneCount: 12,
+    completedPoolCount: 9,
+    totalPoolCount: 53,
     searching: true,
     completed: false,
     results: [
@@ -239,6 +594,8 @@ await test('B1', 'background snapshots preserve partial results and terminal sta
   assert.ok(snapshot);
   assert.equal(snapshot.query, 'Inception');
   assert.equal(snapshot.resultCount, 1);
+  assert.equal(snapshot.completedPoolCount, 9);
+  assert.equal(snapshot.totalPoolCount, 53);
   assert.equal(backgroundSnapshotMatches(snapshot, 'Inception', 7), true);
   assert.equal(backgroundSnapshotMatches(snapshot, 'Inception', 8), false);
   assert.equal(backgroundSnapshotMatches(snapshot, 'Inception', 0), false);
@@ -401,7 +758,7 @@ await test('U1S', 'startup overlay is native, lifecycle-safe and standalone-debu
   assert.match(bridge, /STARTUP_OVERLAY_HIDE_FAILED/);
 });
 
-await test('U2', 'bottom navigation and search hero respect the usable screen area', () => {
+await test('U2', 'bottom navigation, top favorites and search hero respect the usable screen area', () => {
   const layout = read('app/(tabs)/_layout.tsx');
   const home = read('app/(tabs)/index.tsx');
   const appConfig = read('app.json');
@@ -412,11 +769,13 @@ await test('U2', 'bottom navigation and search hero respect the usable screen ar
   assert.match(appConfig, /"edgeToEdgeEnabled": false/);
   assert.doesNotMatch(layout, /AdaptiveTabBar|ANDROID_NAVIGATION_FALLBACK_INSET|useSafeAreaInsets/);
   assert.doesNotMatch(layout, /height:\s*62|paddingBottom:\s*7/);
+  assert.match(home, /useSafeAreaInsets/);
+  assert.match(home, /paddingTop: insets\.top/);
   assert.match(home, /useBottomTabBarHeight/);
-  assert.match(home, /styles\.heroStage, \{ paddingTop: tabBarHeight \+ secondaryHeight \}/);
-  assert.match(home, /handleSecondaryLayout/);
+  assert.match(home, /styles\.heroStage, \{ paddingTop: tabBarHeight \}/);
+  assert.match(home, /topUtilityBar: \{[\s\S]*?minHeight: 46/);
   assert.match(home, /justifyContent: 'center'/);
-  assert.doesNotMatch(home, /SCREEN_H \* 0\.18/);
+  assert.doesNotMatch(home, /secondaryHeight|handleSecondaryLayout|SCREEN_H \* 0\.18/);
 });
 
 await test('U3', 'movie and regional series channels form one lightweight discovery experience', () => {
@@ -520,8 +879,11 @@ await test('U3', 'movie and regional series channels form one lightweight discov
   assert.match(detail, /copy\.detailSynopsis/);
   assert.match(detail, /copy\.detailResources/);
   assert.match(detail, /pathname: '\/search'/);
-  assert.match(detail, /loadMediaById\(requestedKind, movieId\)/);
-  assert.match(detail, /loadMediaByIdAcrossFeeds\(movieId\)/);
+  assert.match(detail, /loadMediaCardById\(requestedKind, movieId\)/);
+  assert.match(detail, /loadMediaCardByIdAcrossFeeds\(movieId\)/);
+  assert.match(detail, /setMovie\(card\)/);
+  assert.match(detail, /hydrateMediaItem\(card\)/);
+  assert.ok(detail.indexOf('setMovie(card)') < detail.indexOf('hydrateMediaItem(card)'));
   assert.match(detail, /movie\.content_kind === 'series'/);
   assert.match(detail, /inferSeriesSeason\(movie\.title, movie\.season_number\)/);
   assert.match(detail, /seriesStatusForDisplay/);
@@ -646,9 +1008,14 @@ await test('D1', 'stored history/favorites are sanitized before entering caches'
   assert.match(read('src/core/favorites.ts'), /sanitizeFavoriteItems/);
 });
 
-await test('D2', 'config race accepts only structurally valid payloads', () => {
+await test('D2', 'config race validates payloads and cannot let stale CDN beat authorities', () => {
   const code = read('src/core/configChecker.ts');
   assert.match(code, /if \(!isRemoteConfig\(data\)\) throw new Error\('invalid_config'\)/);
+  assert.match(code, /const authoritativeUrls = \[/);
+  assert.match(code, /const fallbackUrls = \[`\$\{CDN_BASE\}\/config\.json`\]/);
+  assert.match(code, /config = await loadFirstValid\(authoritativeUrls\)/);
+  assert.match(code, /config = await loadFirstValid\(fallbackUrls\)/);
+  assert.ok(code.indexOf('loadFirstValid(authoritativeUrls)') < code.indexOf('loadFirstValid(fallbackUrls)'));
 });
 
 const passed = results.filter((item) => item.pass).length;

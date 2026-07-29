@@ -173,6 +173,8 @@ export function registerBackgroundSearchTask() {
       const startedAt = Date.now();
       let sourceCount = 0;
       let doneCount = 0;
+      let completedPoolCount = 0;
+      let totalPoolCount = 0;
       let liveResults = [] as BackgroundSearchSnapshot['results'];
       let searchId = passedSearchId;
       let lastSavedAt = 0;
@@ -192,6 +194,8 @@ export function registerBackgroundSearchTask() {
         startedAt,
         sourceCount,
         doneCount,
+        completedPoolCount,
+        totalPoolCount,
         searching,
         completed,
         resultCount: liveResults.length,
@@ -228,6 +232,8 @@ export function registerBackgroundSearchTask() {
           searchId = searchId || inherited.searchId || '';
           sourceCount = inherited.sourceCount;
           doneCount = inherited.doneCount;
+          completedPoolCount = inherited.completedPoolCount;
+          totalPoolCount = inherited.totalPoolCount;
         }
 
         const ownsSearch = await saveBackgroundSearchProgress(makeSnapshot(true, false));
@@ -240,6 +246,8 @@ export function registerBackgroundSearchTask() {
         });
         sourceCount = backgroundSources.length;
         doneCount = 0;
+        completedPoolCount = 0;
+        totalPoolCount = 0;
         queueProgressSave(true);
         setBackgroundNetworkMode(true);
 
@@ -248,10 +256,14 @@ export function registerBackgroundSearchTask() {
           sources: backgroundSources,
           backgroundMode: true,
           shouldAbort: () => ownershipLost,
-          onProgress: (nextDoneCount, nextSourceCount) => {
+          onProgress: (nextDoneCount, nextSourceCount, progress) => {
             doneCount = nextDoneCount;
             sourceCount = nextSourceCount;
-            queueProgressSave(nextDoneCount === nextSourceCount);
+            completedPoolCount = progress.completedPoolCount;
+            totalPoolCount = progress.totalPoolCount;
+            queueProgressSave(
+              progress.totalPoolCount > 0 && progress.completedPoolCount === progress.totalPoolCount,
+            );
           },
           onItems: (items) => {
             if (items.length === 0) return;
@@ -262,6 +274,8 @@ export function registerBackgroundSearchTask() {
 
         doneCount = result.doneCount;
         sourceCount = result.sourceCount;
+        completedPoolCount = result.completedPoolCount;
+        totalPoolCount = result.totalPoolCount;
         liveResults = mergeBackgroundSearchResults(liveResults, result.results, getResultStableId);
         queueProgressSave(true);
         await persistChain;

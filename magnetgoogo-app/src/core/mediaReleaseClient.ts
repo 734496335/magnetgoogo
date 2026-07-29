@@ -20,8 +20,12 @@ import {
   type MediaPointerIdentity,
 } from './mediaReleaseProtocol';
 import {
+  cachedMediaCatalog,
   cachedMediaDetail,
+  cachedMediaFeed,
+  cachedMediaFeedIdentity,
   cachedMediaPointerIdentity,
+  saveMediaCatalog,
   saveMediaDetail,
   saveMediaFeeds,
 } from './mediaReleaseCache';
@@ -49,6 +53,7 @@ interface ActiveRelease {
 
 let activeRelease: ActiveRelease | null = null;
 let syncPromise: Promise<ActiveRelease> | null = null;
+const detailSyncs = new Map<string, Promise<MovieFeedItem>>();
 
 function logMediaNetworkSuccess(stage: string, context: Record<string, unknown>) {
   if (!Application.applicationId?.endsWith('.debug')) return;
@@ -130,6 +135,20 @@ async function fetchCurrent(endpoint: string): Promise<MediaCurrentCandidate> {
   };
 }
 
+type RemotePointerState = 'same' | 'changed' | 'unavailable';
+
+async function remotePointerState(identity: MediaPointerIdentity): Promise<RemotePointerState> {
+  for (const endpoint of MEDIA_ENDPOINTS) {
+    try {
+      const candidate = await fetchCurrent(endpoint);
+      return candidate.pointer_sha256 === identity.pointer_sha256 ? 'same' : 'changed';
+    } catch (error) {
+      logMediaNetworkFailure('check_current', 'MEDIA_CURRENT_CHECK_FAILED', error, { endpoint });
+    }
+  }
+  return 'unavailable';
+}
+
 function newestAcceptedIdentity(
   memory: MediaPointerIdentity | null,
   disk: MediaPointerIdentity | null,
@@ -167,6 +186,36 @@ async function fetchReferencedJson<T>(
     }
   }
   throw lastError instanceof Error ? lastError : new Error(`${stage}_UNAVAILABLE`);
+}
+
+async function fetchCatalogObject(
+  endpoints: string[],
+  ref: MediaObjectRef,
+): Promise<{ value: ReturnType<typeof parseCatalog>; endpoint: string; cacheHit: boolean }> {
+  const cached = await cachedMediaCatalog(ref);
+  if (cached) {
+    return { value: cached, endpoint: endpoints[0], cacheHit: true };
+  }
+
+  let lastError: unknown = null;
+  for (const endpoint of endpoints) {
+    try {
+      const bytes = await fetchBytes(`${endpoint}${ref.path}`, OBJECT_TIMEOUT_MS);
+      if (bytes.byteLength !== ref.size || sha256Hex(bytes) !== ref.hash) {
+        throw new Error('OBJECT_HASH_OR_SIZE_MISMATCH');
+      }
+      const value = parseCatalog(parseJson(bytes, 'fetch_catalog'));
+      await saveMediaCatalog(ref, bytes);
+      return { value, endpoint, cacheHit: false };
+    } catch (error) {
+      lastError = error;
+      logMediaNetworkFailure('fetch_catalog', 'MEDIA_OBJECT_ENDPOINT_FAILED', error, {
+        endpoint,
+        path: ref.path,
+      });
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('fetch_catalog_UNAVAILABLE');
 }
 
 async function resolveActiveRelease(forceRefresh = false): Promise<ActiveRelease> {
@@ -341,13 +390,30 @@ function itemFromCard(
 }
 
 export async function syncMediaFeed(kind: MediaKind): Promise<MovieFeed> {
+  const [cachedFeed, cachedIdentity] = await Promise.all([
+    cachedMediaFeed(kind),
+    cachedMediaFeedIdentity(kind),
+  ]);
+  if (cachedFeed && cachedIdentity) {
+    const pointerState = await remotePointerState(cachedIdentity);
+    if (pointerState !== 'changed') {
+      logMediaNetworkSuccess(pointerState === 'same' ? 'feed_unchanged' : 'feed_offline_cache', {
+        release_id: cachedIdentity.release_id,
+        pointer_revision: cachedIdentity.pointer_revision,
+        pointer_sha256: cachedIdentity.pointer_sha256,
+        content_kind: kind,
+        item_count: cachedFeed.items.length,
+        incremental_network_bytes: pointerState === 'same' ? 'current_only' : 'unavailable',
+      });
+      return cachedFeed;
+    }
+  }
+
   const release = await resolveActiveRelease(true);
   const refs = catalogRefs(release.manifest, kind);
-  const catalogs = await Promise.all(refs.map((ref) => fetchReferencedJson(
+  const catalogs = await Promise.all(refs.map((ref) => fetchCatalogObject(
     release.endpoints,
     ref,
-    parseCatalog,
-    'fetch_catalog',
   )));
   const byId = new Map<string, MovieFeedItem>();
   catalogs.forEach(({ value, endpoint }) => {
@@ -405,6 +471,8 @@ export async function syncMediaFeed(kind: MediaKind): Promise<MovieFeed> {
     content_kind: kind,
     item_count: items.length,
     resource_count: feed.summary.resource_count,
+    catalog_cache_hits: catalogs.filter((catalog) => catalog.cacheHit).length,
+    catalog_downloads: catalogs.filter((catalog) => !catalog.cacheHit).length,
   });
   return feed;
 }
@@ -450,22 +518,21 @@ function mergeDetail(
   };
 }
 
-export async function loadRemoteMediaDetail(item: MovieFeedItem): Promise<MovieFeedItem> {
-  const cached = await cachedMediaDetail(item.movie_id);
-  if (cached && cached.remote_release_id === item.remote_release_id && cached.resources.length > 0) {
-    logMediaNetworkSuccess('detail_cache_hit', {
-      release_id: cached.remote_release_id,
-      content_kind: cached.content_kind,
-      media_id: cached.movie_id,
-      resource_count: cached.resources.length,
-    });
-    return cached;
-  }
+function detailEndpointOrder(item: MovieFeedItem): string[] {
+  const preferred = item.remote_endpoint && MEDIA_ENDPOINTS.includes(item.remote_endpoint as typeof MEDIA_ENDPOINTS[number])
+    ? item.remote_endpoint
+    : null;
+  return [
+    ...(preferred ? [preferred] : []),
+    ...MEDIA_ENDPOINTS.filter((endpoint) => endpoint !== preferred),
+  ];
+}
+
+async function fetchAndCacheRemoteMediaDetail(item: MovieFeedItem): Promise<MovieFeedItem> {
   if (!item.remote_detail_path || !item.remote_detail_hash || item.remote_detail_size === undefined) return item;
-  const release = await resolveActiveRelease(false);
-  if (item.remote_release_id !== release.pointer.release_id) return item;
+  const endpoints = detailEndpointOrder(item);
   const detailResult = await fetchReferencedJson(
-    release.endpoints,
+    endpoints,
     {
       path: item.remote_detail_path,
       hash: item.remote_detail_hash,
@@ -481,7 +548,7 @@ export async function loadRemoteMediaDetail(item: MovieFeedItem): Promise<MovieF
     throw new Error('ENCRYPTED_MEDIA_RESOURCES_UNSUPPORTED');
   }
   const resourceResult = await fetchReferencedJson(
-    [detailResult.endpoint, ...release.endpoints.filter((endpoint) => endpoint !== detailResult.endpoint)],
+    [detailResult.endpoint, ...endpoints.filter((endpoint) => endpoint !== detailResult.endpoint)],
     detailResult.value.resource_object,
     parseResources,
     'fetch_resources',
@@ -497,8 +564,31 @@ export async function loadRemoteMediaDetail(item: MovieFeedItem): Promise<MovieF
     content_kind: merged.content_kind,
     media_id: merged.movie_id,
     resource_count: merged.resources.length,
+    manifest_refresh_skipped: true,
   });
   return merged;
+}
+
+export async function loadRemoteMediaDetail(item: MovieFeedItem): Promise<MovieFeedItem> {
+  const cached = await cachedMediaDetail(item);
+  if (cached) {
+    logMediaNetworkSuccess('detail_cache_hit', {
+      release_id: cached.remote_release_id,
+      content_kind: cached.content_kind,
+      media_id: cached.movie_id,
+      resource_count: cached.resources.length,
+      detail_hash: cached.remote_detail_hash,
+    });
+    return cached;
+  }
+
+  const existing = detailSyncs.get(item.movie_id);
+  if (existing) return existing;
+  const task = fetchAndCacheRemoteMediaDetail(item).finally(() => {
+    if (detailSyncs.get(item.movie_id) === task) detailSyncs.delete(item.movie_id);
+  });
+  detailSyncs.set(item.movie_id, task);
+  return task;
 }
 
 export function clearActiveMediaRelease() {

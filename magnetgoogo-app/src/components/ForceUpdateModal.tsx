@@ -3,6 +3,8 @@ import { Modal, View, Text, TouchableOpacity, Linking, StyleSheet, Platform, Ale
 import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import type { ConfigCheckResult } from '../core/configChecker';
+import { useLang } from '../core/LangContext';
+import { getUpdateCopy } from '../core/updateCopy';
 
 interface Props {
   result: ConfigCheckResult;
@@ -10,6 +12,8 @@ interface Props {
 }
 
 export default function ForceUpdateModal({ result, visible }: Props) {
+  const { lang } = useLang();
+  const copy = getUpdateCopy(lang);
   const [downloading, setDownloading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('');
@@ -44,7 +48,7 @@ export default function ForceUpdateModal({ result, visible }: Props) {
 
     setDownloading(true);
     setProgress(0);
-    setStatusText('正在下载…');
+    setStatusText(copy.downloading);
 
     const fileUri = FileSystem.cacheDirectory + 'magnetgoogo-update.apk';
 
@@ -71,20 +75,22 @@ export default function ForceUpdateModal({ result, visible }: Props) {
 
       const result = await dl.downloadAsync();
       if (result?.uri) {
-        setStatusText('下载完成，正在安装…');
+        setStatusText(copy.downloadComplete);
         setProgress(1);
         await installApk(result.uri);
       }
     } catch (e: any) {
       console.log('[Update] Download failed:', e.message);
-      setStatusText('下载失败');
-      Alert.alert('下载失败', '请使用浏览器下载安装', [
-        { text: '前往下载', onPress: () => Linking.openURL(url).catch(() => {}) },
+      setStatusText(copy.downloadFailed);
+      Alert.alert(copy.downloadFailed, copy.downloadFailedMessage, [
+        { text: copy.openDownload, onPress: () => Linking.openURL(url).catch(() => {}) },
       ]);
     } finally {
       setDownloading(false);
     }
-  }, [result.downloadUrl, downloading, installApk]);
+  }, [result.downloadUrl, downloading, installApk, copy]);
+
+  const announcement = result.config?.announcement_i18n?.[lang] || result.announcement;
 
   const openMirror = (url: string) => {
     Linking.openURL(url).catch(() => {});
@@ -97,14 +103,12 @@ export default function ForceUpdateModal({ result, visible }: Props) {
           <View style={s.iconWrap}>
             <Text style={s.icon}>⬆️</Text>
           </View>
-          <Text style={s.title}>需要更新</Text>
-          <Text style={s.desc}>
-            当前版本过旧，无法继续使用。{'\n'}请更新到最新版本。
-          </Text>
+          <Text style={s.title}>{copy.forceTitle}</Text>
+          <Text style={s.desc}>{copy.forceDescription}</Text>
 
-          {result.announcement ? (
+          {announcement ? (
             <View style={s.announcementBox}>
-              <Text style={s.announcementText}>{result.announcement}</Text>
+              <Text style={s.announcementText}>{announcement}</Text>
             </View>
           ) : null}
 
@@ -117,16 +121,16 @@ export default function ForceUpdateModal({ result, visible }: Props) {
             </View>
           ) : (
             <TouchableOpacity style={s.primaryBtn} onPress={startDownload} activeOpacity={0.7}>
-              <Text style={s.primaryBtnText}>立即更新</Text>
+              <Text style={s.primaryBtnText}>{copy.updateNow}</Text>
             </TouchableOpacity>
           )}
 
           {!downloading && result.mirrors.length > 0 && (
             <View style={s.mirrors}>
-              <Text style={s.mirrorsLabel}>备用下载：</Text>
+              <Text style={s.mirrorsLabel}>{copy.backupDownload}</Text>
               {result.mirrors.map((url, i) => (
                 <TouchableOpacity key={i} onPress={() => openMirror(url)}>
-                  <Text style={s.mirrorLink}>备用链接 {i + 1}</Text>
+                  <Text style={s.mirrorLink}>{copy.backupLink(i + 1)}</Text>
                 </TouchableOpacity>
               ))}
             </View>

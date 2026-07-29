@@ -64,6 +64,8 @@ import {
 } from '../src/core/backgroundSearchProtocol';
 import { runSearchTask } from '../src/core/searchRunner';
 import { normalizeSearchTerm } from '../src/core/searchTerm';
+import { getSearchProgressStage, HIGH_RELEVANCE_THRESHOLD } from '../src/core/searchQuality';
+import { splitSearchingStatus } from '../src/core/i18n';
 
 // Search throttle (3s cooldown)
 const SEARCH_COOLDOWN_MS = 3000;
@@ -82,6 +84,8 @@ interface _Session extends SearchResultAccumulatorState {
   startedAt: number;
   sourceCount: number;
   doneCount: number;
+  completedPoolCount: number;
+  totalPoolCount: number;
   abortRef: { current: boolean };
   // Mounted component's setState callbacks; null when unmounted.
   _notify: (() => void) | null;
@@ -170,7 +174,24 @@ function BouncingDots() {
     <Animated.Text style={[s.dotText, { transform: [{ translateY: v }] }]}>.</Animated.Text>
   );
   const s = StyleSheet.create({ dotText: { fontSize: 18, fontWeight: '800', color: '#4285F4', lineHeight: 18 } });
-  return <View style={{ flexDirection: 'row' }}>{dot(d1)}{dot(d2)}{dot(d3)}</View>;
+  return <View style={{ flexDirection: 'row', flexShrink: 0 }}>{dot(d1)}{dot(d2)}{dot(d3)}</View>;
+}
+
+function SearchingStatus({ text }: { text: string }) {
+  const { before, after } = splitSearchingStatus(text);
+  return (
+    <View style={styles.searchingStatusCopy}>
+      <Text style={[styles.statusText, styles.searchingStatusBefore]} numberOfLines={1}>
+        {before}
+      </Text>
+      <BouncingDots />
+      {!!after && (
+        <Text style={[styles.statusText, styles.searchingStatusAfter]} numberOfLines={1}>
+          {after}
+        </Text>
+      )}
+    </View>
+  );
 }
 
 // Animated card wrapper — animate by stable id once, never by list index (prevents re-fly on re-rank).
@@ -214,9 +235,8 @@ function AnimatedCard({
 }
 
 // Sort types
-type SortKey = 'comprehensive' | 'relevance' | 'size' | 'date';
+type SortKey = 'relevance' | 'size' | 'date';
 type SortDir = 'desc' | 'asc';
-const RELEVANCE_THRESHOLD = 30;
 type ListItem = ResultCardModel | { _divider: true; id: string };
 
 function parseDate(label: string): number {
@@ -227,17 +247,26 @@ function parseDate(label: string): number {
 
 // Main screen
 export default function SearchScreen() {
-  const { q } = useLocalSearchParams<{ q: string }>();
+  const { q, benchmark, cold } = useLocalSearchParams<{
+    q: string;
+    benchmark?: string;
+    cold?: string;
+  }>();
+  const exhaustiveBenchmark = benchmark === '1';
+  const coldStartTest = cold === '1';
   const [query, setQuery] = useState(() => normalizeSearchTerm(q));
   const [results, setResults] = useState<ResultCardModel[]>([]);
   const [searching, setSearching] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [sourceCount, setSourceCount] = useState(0);
-  const [doneCount, setDoneCount] = useState(0);
-  const [sortKey, setSortKey] = useState<SortKey>('comprehensive');
+  const [, setSourceCount] = useState(0);
+  const [, setDoneCount] = useState(0);
+  const [completedPoolCount, setCompletedPoolCount] = useState(0);
+  const [totalPoolCount, setTotalPoolCount] = useState(0);
+  const [progressClock, setProgressClock] = useState(() => Date.now());
+  const [sortKey, setSortKey] = useState<SortKey>('relevance');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [favSet, setFavSet] = useState<Set<string>>(new Set());
-  const { sources } = useSources();
+  const { sources, meta: sourceMeta } = useSources();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { lang, t } = useLang();
@@ -293,6 +322,8 @@ export default function SearchScreen() {
     setSearching(s.searching);
     setSourceCount(s.sourceCount);
     setDoneCount(s.doneCount);
+    setCompletedPoolCount(s.completedPoolCount);
+    setTotalPoolCount(s.totalPoolCount);
 
     // Defer list data while scrolling to keep scroll position stable
     if (listChanged || opts?.forceList) {
@@ -352,6 +383,13 @@ export default function SearchScreen() {
     getFavorites().then((favs) => setFavSet(new Set(favs.map((f) => f.magnet))));
   }, []);
 
+  useEffect(() => {
+    if (!searching) return undefined;
+    setProgressClock(Date.now());
+    const timer = setInterval(() => setProgressClock(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [searching]);
+
   // Legado-style verification: register listener for challenge events.
   const [verifyRequest, setVerifyRequest] = useState<VerifyRequest | null>(null);
   useEffect(() => {
@@ -397,6 +435,8 @@ export default function SearchScreen() {
       startedAt: session.startedAt,
       sourceCount: session.sourceCount || sources.length,
       doneCount: session.doneCount,
+      completedPoolCount: session.completedPoolCount,
+      totalPoolCount: session.totalPoolCount,
       searching: true,
       completed: false,
       resultCount: session.rawResults.length,
@@ -450,6 +490,8 @@ export default function SearchScreen() {
       existing.startedAt = snapshot.startedAt || existing.startedAt;
       existing.sourceCount = snapshot.sourceCount || existing.sourceCount || sources.length;
       existing.doneCount = snapshot.doneCount;
+      existing.completedPoolCount = snapshot.completedPoolCount;
+      existing.totalPoolCount = snapshot.totalPoolCount;
       existing._keepAliveToken = snapshot.token || existing._keepAliveToken;
       existing.abortRef.current = true;
       existing._notify = debouncedSync;
@@ -463,6 +505,8 @@ export default function SearchScreen() {
         startedAt: snapshot.startedAt || existing?.startedAt || Date.now(),
         sourceCount: snapshot.sourceCount || existing?.sourceCount || sources.length,
         doneCount: snapshot.doneCount || (terminal ? snapshot.sourceCount : 0),
+        completedPoolCount: snapshot.completedPoolCount || existing?.completedPoolCount || 0,
+        totalPoolCount: snapshot.totalPoolCount || existing?.totalPoolCount || 0,
         abortRef: { current: true },
         _notify: debouncedSync,
         _keepAliveToken: snapshot.token || existing?._keepAliveToken,
@@ -567,7 +611,7 @@ export default function SearchScreen() {
       setQuery(normalizedTerm);
 
       await Promise.allSettled([
-        addHistory(normalizedTerm),
+        exhaustiveBenchmark ? Promise.resolve() : addHistory(normalizedTerm),
         loadSourceStats(),
         previousToken && previousQuery
           ? clearBackgroundSearchState(previousQuery, previousToken)
@@ -592,6 +636,8 @@ export default function SearchScreen() {
         startedAt: Date.now(),
         sourceCount: 0,
         doneCount: 0,
+        completedPoolCount: 0,
+        totalPoolCount: 0,
         abortRef: { current: false },
         _notify: debouncedSync,
         _keepAliveToken: keepAliveToken,
@@ -602,9 +648,12 @@ export default function SearchScreen() {
 
       setSearching(true);
       setResults([]);
-      setSortKey('comprehensive');
+      setSortKey('relevance');
       setSortDir('desc');
       setDoneCount(0);
+      setCompletedPoolCount(0);
+      setTotalPoolCount(0);
+      setProgressClock(Date.now());
 
       // The app may have reached background before the async session was created.
       // Do not rely exclusively on a one-shot AppState event in that race.
@@ -614,14 +663,16 @@ export default function SearchScreen() {
       }
 
       try {
-        try {
-          session.searchId = await trackSearchSubmitted({
-            term: normalizedTerm,
-            sourceCount: sources.length,
-            backgroundCapable: true,
-          });
-        } catch {
-          // Analytics must never block the actual search.
+        if (!exhaustiveBenchmark) {
+          try {
+            session.searchId = await trackSearchSubmitted({
+              term: normalizedTerm,
+              sourceCount: sources.length,
+              backgroundCapable: true,
+            });
+          } catch {
+            // Analytics must never block the actual search.
+          }
         }
 
         if (_session !== session || generation !== _searchGeneration) {
@@ -638,12 +689,17 @@ export default function SearchScreen() {
             session.rawResults.push(...items);
             session._notify?.();
           },
-          onProgress: (done, total) => {
+          onProgress: (done, total, progress) => {
             if (_session !== session || generation !== _searchGeneration) return;
             session.doneCount = done;
             session.sourceCount = total;
+            session.completedPoolCount = progress.completedPoolCount;
+            session.totalPoolCount = progress.totalPoolCount;
             session._notify?.();
           },
+          exhaustive: exhaustiveBenchmark,
+          ignoreLocalLearning: coldStartTest,
+          sourceMeta,
         });
 
         if (_session !== session || generation !== _searchGeneration) return;
@@ -653,6 +709,8 @@ export default function SearchScreen() {
           session.searching = false;
           session.doneCount = result.doneCount;
           session.sourceCount = result.sourceCount;
+          session.completedPoolCount = result.completedPoolCount;
+          session.totalPoolCount = result.totalPoolCount;
           session._notify?.();
           if (session.searchId) {
             trackSearchCompleted({
@@ -668,7 +726,7 @@ export default function SearchScreen() {
               sourceRollup: result.analytics.sourceRollup,
             }).catch(() => {});
           }
-          if (!result.aborted) {
+          if (!result.aborted && !exhaustiveBenchmark) {
             notifySearchCompleted({
               query: normalizedTerm,
               resultCount: session.rawResults.length,
@@ -692,7 +750,7 @@ export default function SearchScreen() {
         }
       }
     },
-    [sources, lang, debouncedSync, handoffActiveSessionToBackground],
+    [sources, sourceMeta, lang, debouncedSync, handoffActiveSessionToBackground, exhaustiveBenchmark, coldStartTest],
   );
 
   // On mount/sources ready: restore existing session or start new search.
@@ -708,19 +766,16 @@ export default function SearchScreen() {
       doSearch(routeQuery);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, sources.length]);
+  }, [q, benchmark, cold, sources.length]);
 
-  // Sorting + relevance divider.
-  // Comprehensive order is owned by the session: first-seen while searching,
-  // one final rank after completion. Do not sort it again in the render path.
+  // Relevance is the default and primary ordering. The session keeps result
+  // identity stable, while this render-time sort lets clearly better matches
+  // rise as the full content-pool search continues.
   const sortedResults = React.useMemo((): ListItem[] => {
-    if (sortKey === 'comprehensive') {
-      return results;
-    }
     const arr = [...results];
     if (sortKey === 'relevance') {
       arr.sort((a, b) => b.relevance - a.relevance);
-      const dividerIdx = arr.findIndex((r) => r.relevance < RELEVANCE_THRESHOLD);
+      const dividerIdx = arr.findIndex((r) => r.relevance < HIGH_RELEVANCE_THRESHOLD);
       if (dividerIdx > 0 && dividerIdx < arr.length) {
         const out: ListItem[] = arr.slice(0, dividerIdx);
         out.push({ _divider: true, id: '__relevance_divider__' });
@@ -740,8 +795,8 @@ export default function SearchScreen() {
       }
       return sortDir === 'desc' ? vb - va : va - vb;
     };
-    const high = arr.filter((r) => r.relevance >= RELEVANCE_THRESHOLD);
-    const low = arr.filter((r) => r.relevance < RELEVANCE_THRESHOLD);
+    const high = arr.filter((r) => r.relevance >= HIGH_RELEVANCE_THRESHOLD);
+    const low = arr.filter((r) => r.relevance < HIGH_RELEVANCE_THRESHOLD);
     high.sort(cmp);
     low.sort(cmp);
     if (high.length > 0 && low.length > 0) {
@@ -754,7 +809,7 @@ export default function SearchScreen() {
   }, [results, sortKey, sortDir]);
 
   const toggleSort = (key: SortKey) => {
-    if (key === 'comprehensive' || key === 'relevance') {
+    if (key === 'relevance') {
       setSortKey(key);
       setSortDir('desc');
       return;
@@ -892,7 +947,7 @@ export default function SearchScreen() {
   const SortChip = ({ label, k }: { label: string; k: SortKey }) => {
     const active = sortKey === k;
     const arrow =
-      k === 'comprehensive' || k === 'relevance' ? null : active ? (sortDir === 'desc' ? '↓' : '↑') : null;
+      k === 'relevance' ? null : active ? (sortDir === 'desc' ? '↓' : '↑') : null;
     return (
       <TouchableOpacity
         style={[styles.sortChip, { backgroundColor: colors.chipBg }, active && { backgroundColor: colors.chipActiveBg }]}
@@ -904,6 +959,13 @@ export default function SearchScreen() {
       </TouchableOpacity>
     );
   };
+
+  const progressStage = getSearchProgressStage(
+    Math.max(0, progressClock - (_session?.startedAt || progressClock)),
+    completedPoolCount,
+    totalPoolCount,
+  );
+  const searchCompleted = totalPoolCount > 0 && completedPoolCount >= totalPoolCount;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.bg }]}>
@@ -941,10 +1003,7 @@ export default function SearchScreen() {
       <View style={styles.statusRow}>
         {searching ? (
           <View style={styles.statusInner}>
-            <Text style={styles.statusText} numberOfLines={1}>
-              {t.searchingStatus(doneCount, sourceCount, results.length)}
-            </Text>
-            <BouncingDots />
+            <SearchingStatus text={t.searchingStatus(progressStage, results.length)} />
             <TouchableOpacity
               style={[styles.cancelBtn, { backgroundColor: colors.chipBg }]}
               onPress={() => {
@@ -953,16 +1012,16 @@ export default function SearchScreen() {
                   _session.searching = false;
                 }
                 setSearching(false);
-                // One-shot comprehensive order on stop; honor scroll deferral.
+                // Rebuild once on stop; list updates still honor scroll deferral.
                 syncFromSession();
               }}
             >
-              <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>{lang === 'zh' ? '停止' : 'Stop'}</Text>
+              <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>{t.stopSearch}</Text>
             </TouchableOpacity>
           </View>
-        ) : results.length > 0 ? (
+        ) : results.length > 0 && searchCompleted ? (
           <Text style={styles.statusText} numberOfLines={1}>
-            {t.searchDoneStatus(doneCount, sourceCount, results.length)}
+            {t.searchDoneStatus(results.length)}
           </Text>
         ) : sources.length === 0 ? (
           <View style={styles.emptyState}>
@@ -984,7 +1043,6 @@ export default function SearchScreen() {
       {/* Sort bar */}
       {results.length > 0 && (
         <View style={styles.sortBar}>
-          <SortChip label={t.sortComprehensive} k="comprehensive" />
           <SortChip label={t.sortRelevance} k="relevance" />
           <SortChip label={t.sortSize} k="size" />
           <SortChip label={t.sortDate} k="date" />
@@ -1084,7 +1142,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#4285F4',
     fontWeight: '600',
+  },
+  searchingStatusCopy: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  searchingStatusBefore: {
     flexShrink: 1,
+    minWidth: 0,
+  },
+  searchingStatusAfter: {
+    flexShrink: 0,
   },
   sortBar: {
     flexDirection: 'row',
@@ -1251,11 +1321,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   cancelBtn: {
-    marginLeft: 12,
+    marginLeft: 10,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 10,
     backgroundColor: '#f4f2ef',
+    flexShrink: 0,
   },
   cancelBtnText: {
     fontSize: 12,

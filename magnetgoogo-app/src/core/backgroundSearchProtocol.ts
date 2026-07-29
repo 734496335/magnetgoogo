@@ -11,6 +11,8 @@ export interface BackgroundSearchSnapshot {
   startedAt?: number;
   sourceCount: number;
   doneCount: number;
+  completedPoolCount: number;
+  totalPoolCount: number;
   searching: boolean;
   completed: boolean;
   resultCount: number;
@@ -87,6 +89,8 @@ export function parseBackgroundSearchSnapshot(value: unknown): BackgroundSearchS
     startedAt: finiteNonNegative(record.startedAt) || undefined,
     sourceCount: Math.trunc(finiteNonNegative(record.sourceCount)),
     doneCount: Math.trunc(finiteNonNegative(record.doneCount)),
+    completedPoolCount: Math.trunc(finiteNonNegative(record.completedPoolCount)),
+    totalPoolCount: Math.trunc(finiteNonNegative(record.totalPoolCount)),
     searching,
     completed,
     resultCount: Math.max(Math.trunc(finiteNonNegative(record.resultCount)), results.length),

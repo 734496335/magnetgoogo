@@ -3,6 +3,8 @@ import { Modal, View, Text, TouchableOpacity, Linking, StyleSheet, Platform, Ale
 import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import type { ConfigCheckResult } from '../core/configChecker';
+import { useLang } from '../core/LangContext';
+import { getUpdateCopy } from '../core/updateCopy';
 
 interface Props {
   result: ConfigCheckResult;
@@ -11,6 +13,8 @@ interface Props {
 }
 
 export default function OptionalUpdateModal({ result, visible, onDismiss }: Props) {
+  const { lang } = useLang();
+  const copy = getUpdateCopy(lang);
   const [downloading, setDownloading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('');
@@ -42,7 +46,7 @@ export default function OptionalUpdateModal({ result, visible, onDismiss }: Prop
 
     setDownloading(true);
     setProgress(0);
-    setStatusText('正在下载…');
+    setStatusText(copy.downloading);
 
     const fileUri = FileSystem.cacheDirectory + 'magnetgoogo-update.apk';
 
@@ -65,21 +69,22 @@ export default function OptionalUpdateModal({ result, visible, onDismiss }: Prop
 
       const dlResult = await dl.downloadAsync();
       if (dlResult?.uri) {
-        setStatusText('下载完成，正在安装…');
+        setStatusText(copy.downloadComplete);
         setProgress(1);
         await installApk(dlResult.uri);
       }
     } catch (e: any) {
-      setStatusText('下载失败');
-      Alert.alert('下载失败', '请使用浏览器下载安装', [
-        { text: '前往下载', onPress: () => Linking.openURL(url).catch(() => {}) },
+      setStatusText(copy.downloadFailed);
+      Alert.alert(copy.downloadFailed, copy.downloadFailedMessage, [
+        { text: copy.openDownload, onPress: () => Linking.openURL(url).catch(() => {}) },
       ]);
     } finally {
       setDownloading(false);
     }
-  }, [result.downloadUrl, downloading, installApk]);
+  }, [result.downloadUrl, downloading, installApk, copy]);
 
   const latestVersion = result.config?.latest_version || '';
+  const announcement = result.config?.announcement_i18n?.[lang] || result.announcement;
 
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onDismiss}>
@@ -88,15 +93,13 @@ export default function OptionalUpdateModal({ result, visible, onDismiss }: Prop
           <View style={s.iconWrap}>
             <Text style={s.icon}>🎉</Text>
           </View>
-          <Text style={s.title}>发现新版本</Text>
+          <Text style={s.title}>{copy.optionalTitle}</Text>
           <Text style={s.versionBadge}>v{latestVersion}</Text>
-          <Text style={s.desc}>
-            新版本已发布，建议更新以获得更好的体验。
-          </Text>
+          <Text style={s.desc}>{copy.optionalDescription}</Text>
 
-          {result.announcement ? (
+          {announcement ? (
             <View style={s.announcementBox}>
-              <Text style={s.announcementText}>{result.announcement}</Text>
+              <Text style={s.announcementText}>{announcement}</Text>
             </View>
           ) : null}
 
@@ -109,22 +112,22 @@ export default function OptionalUpdateModal({ result, visible, onDismiss }: Prop
             </View>
           ) : (
             <TouchableOpacity style={s.primaryBtn} onPress={startDownload} activeOpacity={0.7}>
-              <Text style={s.primaryBtnText}>立即更新</Text>
+              <Text style={s.primaryBtnText}>{copy.updateNow}</Text>
             </TouchableOpacity>
           )}
 
           {!downloading && (
             <TouchableOpacity style={s.skipBtn} onPress={onDismiss} activeOpacity={0.7}>
-              <Text style={s.skipBtnText}>稍后再说</Text>
+              <Text style={s.skipBtnText}>{copy.updateLater}</Text>
             </TouchableOpacity>
           )}
 
           {!downloading && result.mirrors.length > 0 && (
             <View style={s.mirrors}>
-              <Text style={s.mirrorsLabel}>备用下载：</Text>
+              <Text style={s.mirrorsLabel}>{copy.backupDownload}</Text>
               {result.mirrors.map((url, i) => (
                 <TouchableOpacity key={i} onPress={() => Linking.openURL(url).catch(() => {})}>
-                  <Text style={s.mirrorLink}>备用链接 {i + 1}</Text>
+                  <Text style={s.mirrorLink}>{copy.backupLink(i + 1)}</Text>
                 </TouchableOpacity>
               ))}
             </View>

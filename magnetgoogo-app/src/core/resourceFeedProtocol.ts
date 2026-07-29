@@ -269,10 +269,33 @@ function parseItem(
     highlight_labels: stringArray(value.highlight_labels, `${context}.highlight_labels`),
     quality_tags: stringArray(value.quality_tags, `${context}.quality_tags`),
     resources: resourcesValue.map((resource, resourceIndex) => parseResource(resource, `${context}.resources[${resourceIndex}]`)),
+    resource_count_hint: nullableInteger(value, 'resource_count_hint', context) ?? undefined,
+    remote_cover_url: nullableString(value, 'remote_cover_url', context),
+    remote_endpoint: nullableString(value, 'remote_endpoint', context) ?? undefined,
+    remote_release_id: nullableString(value, 'remote_release_id', context) ?? undefined,
+    remote_detail_path: nullableString(value, 'remote_detail_path', context) ?? undefined,
+    remote_detail_hash: nullableString(value, 'remote_detail_hash', context) ?? undefined,
+    remote_detail_size: nullableInteger(value, 'remote_detail_size', context) ?? undefined,
   };
 }
 
-export function parseResourceFeed(value: unknown): MovieFeed {
+export interface ParseResourceFeedOptions {
+  requireOfflineCover?: boolean;
+  allowResourceCountHints?: boolean;
+}
+
+export function parseResourceFeedItem(
+  value: unknown,
+  expectedKind: MediaKind,
+  requireOfflineCover = false,
+): MovieFeedItem {
+  return parseItem(value, 0, expectedKind, requireOfflineCover);
+}
+
+export function parseResourceFeed(
+  value: unknown,
+  options: ParseResourceFeedOptions = {},
+): MovieFeed {
   if (!isRecord(value)) {
     throw new ResourceFeedValidationError('INVALID_ROOT', 'media feed must be an object');
   }
@@ -295,7 +318,7 @@ export function parseResourceFeed(value: unknown): MovieFeed {
     throw new ResourceFeedValidationError('INVALID_ITEMS', 'items must be an array');
   }
   const summary = parseSummary(value.summary);
-  const requireOfflineCover = contentKind === 'movie';
+  const requireOfflineCover = options.requireOfflineCover ?? contentKind === 'movie';
   const items = value.items.map((item, index) => parseItem(item, index, contentKind, requireOfflineCover));
   if (summary.record_count !== items.length) {
     throw new ResourceFeedValidationError('COUNT_MISMATCH', 'feed record count does not match items');
@@ -312,7 +335,14 @@ export function parseResourceFeed(value: unknown): MovieFeed {
     }
   });
   const recommendedCount = items.filter((item) => item.recommended).length;
-  const resourceCount = items.reduce((sum, item) => sum + item.resources.length, 0);
+  const resourceCount = items.reduce(
+    (sum, item) => sum + (
+      options.allowResourceCountHints
+        ? item.resource_count_hint ?? item.resources.length
+        : item.resources.length
+    ),
+    0,
+  );
   if (summary.recommended_count !== recommendedCount || summary.resource_count !== resourceCount) {
     throw new ResourceFeedValidationError('SUMMARY_MISMATCH', 'media feed summary does not match item contents');
   }
