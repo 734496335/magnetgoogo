@@ -516,8 +516,67 @@ class MovieLatestRunner:
             endpoint_origin=item.get("endpoint_origin"),
         )
 
+    def _series_refresh_ranks(
+        self,
+        job_id: str,
+        snapshot: dict[str, Any],
+    ) -> set[int]:
+        if self.content_kind != "series":
+            return set()
+        row = self.repo.conn.execute(
+            """
+            SELECT snapshot_json
+            FROM latest_crawl_jobs
+            WHERE source_id = ? AND target_count = ? AND job_id <> ?
+            ORDER BY created_at DESC, job_id DESC
+            LIMIT 1
+            """,
+            (self.source_id, self.target_count, job_id),
+        ).fetchone()
+        if row is None:
+            return set()
+        try:
+            previous = json.loads(row["snapshot_json"])
+        except (json.JSONDecodeError, TypeError):
+            return set()
+        previous_items = {
+            str(item.get("source_item_key") or item.get("detail_url") or ""): item
+            for item in previous.get("items") or []
+            if isinstance(item, dict)
+        }
+        refresh_fields = (
+            "detail_url",
+            "listing_title",
+            "update_date",
+            "update_status",
+            "series_title",
+            "season_number",
+            "episode_number",
+            "episode_label",
+        )
+        ranks: set[int] = set()
+        for item in snapshot["items"]:
+            identity = str(item.get("source_item_key") or item.get("detail_url") or "")
+            prior = previous_items.get(identity)
+            if prior is None:
+                continue
+            if any(prior.get(field) != item.get(field) for field in refresh_fields):
+                ranks.add(int(item["rank"]))
+        return ranks
+
     def _sync_success(self, job_id: str, snapshot: dict[str, Any]) -> int:
         changed = 0
+        refresh_ranks = self._series_refresh_ranks(job_id, snapshot)
+        item_states = {
+            int(item["rank"]): item for item in self.job_store.items(job_id)
+        }
+        if refresh_ranks:
+            self._log(
+                "series listing changes require detail refresh",
+                job_id=job_id,
+                ranks=sorted(refresh_ranks),
+                source_id=self.source_id,
+            )
         for item in snapshot["items"]:
             candidate = self._candidate(item)
             if not self.movie_repo.exists(
@@ -531,6 +590,30 @@ class MovieLatestRunner:
                 candidate=candidate,
                 now=self.clock(),
             )
+            state = item_states.get(candidate.rank) or {}
+            refresh_completed = (
+                state.get("status") == "success" and bool(state.get("last_run_id"))
+            )
+            if candidate.rank in refresh_ranks and not refresh_completed:
+                if not state.get("last_run_id"):
+                    cursor = self.repo.conn.execute(
+                        """
+                        UPDATE latest_crawl_items
+                        SET status = 'pending', attempts = 0, last_run_id = NULL,
+                            last_error_code = NULL, detail_url = ?,
+                            source_item_key = ?, updated_at = ?
+                        WHERE job_id = ? AND rank = ?
+                        """,
+                        (
+                            candidate.detail_url,
+                            candidate.source_item_key,
+                            self.clock().isoformat().replace("+00:00", "Z"),
+                            job_id,
+                            candidate.rank,
+                        ),
+                    )
+                    changed += int(cursor.rowcount or 0)
+                continue
             cursor = self.repo.conn.execute(
                 """
                 UPDATE latest_crawl_items

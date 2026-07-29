@@ -281,6 +281,75 @@ def test_generic_movie_runner_resumes_and_replays_zero_network(tmp_path: Path) -
     repo.close()
 
 
+def test_series_listing_progress_change_forces_one_detail_refresh(tmp_path: Path) -> None:
+    paths = LatestCrawlPaths.for_output_dir(
+        tmp_path / "out",
+        source_id="sixv-series",
+        target_count=1,
+    )
+    repo = SqliteResourceRepository(paths.db_path)
+    calls = {"snapshot": 0, "detail": 0}
+    candidates = [
+        replace(
+            _candidate(1),
+            detail_url="https://www.6v520.com/dlz/2026-07-21/50027.html",
+            source_item_key="/dlz/2026-07-21/50027.html",
+            content_code="50027",
+            listing_title="国产剧《江海潮生》更新09",
+            update_date=date(2026, 7, 26),
+            content_kind="series",
+            series_title="江海潮生",
+            episode_number=9,
+            episode_label="更新09",
+            update_status="更新09",
+            brand_id="sixv",
+            endpoint_origin="https://www.6v520.com",
+        )
+    ]
+    runner = MovieLatestRunner(
+        repo=repo,
+        paths=paths,
+        source_id="sixv-series",
+        target_count=1,
+        batch_size=1,
+        snapshot_max_requests=1,
+        batch_max_requests=1,
+        max_listing_pages=1,
+        crawler_builder=lambda _policy: _FakeCrawler(
+            candidates,
+            calls,
+            source_id="sixv-series",
+        ),
+        snapshot_schema="media-latest/sixv-series/1",
+    )
+
+    first = runner.run(refresh=True)
+    assert first.status == "success"
+    assert calls == {"snapshot": 1, "detail": 1}
+
+    candidates[0] = replace(
+        candidates[0],
+        listing_title="国产剧《江海潮生》更新11",
+        update_date=date(2026, 7, 29),
+        episode_number=11,
+        episode_label="更新11",
+        update_status="更新11",
+    )
+    second = runner.run(refresh=True)
+    assert second.status == "success"
+    assert calls == {"snapshot": 2, "detail": 2}
+    stored = repo.conn.execute(
+        "SELECT episode_number, episode_label, update_status FROM movie_items WHERE source_id = ?",
+        ("sixv-series",),
+    ).fetchone()
+    assert tuple(stored) == (11, "更新11", "更新11")
+
+    third = runner.run(refresh=True)
+    assert third.status == "success"
+    assert calls == {"snapshot": 3, "detail": 2}
+    repo.close()
+
+
 def test_existing_schema_0005_upgrades_without_movie_resource_loss(tmp_path: Path) -> None:
     db = tmp_path / "upgrade.db"
     sql_dir = Path(__file__).resolve().parents[2] / "resource_index" / "store" / "sql"
