@@ -114,6 +114,48 @@ def test_aggregate_merges_same_movie_across_brands_and_resources(tmp_path: Path)
     assert {variant["source_id"] for variant in item["source_variants"]} == {"sixv", "dytt8899"}
 
 
+def test_aggregate_quarantines_cross_media_duplicate_resources(tmp_path: Path) -> None:
+    feed = tmp_path / "movies.json"
+    first = _item(
+        source_id="movie-a",
+        brand_id="sixv",
+        title="电影甲",
+        year=2026,
+        resource="magnet:?xt=urn:btih:AAA",
+    )
+    second = _item(
+        source_id="movie-b",
+        brand_id="sixv",
+        title="电影乙",
+        year=2026,
+        resource="magnet:?xt=urn:btih:BBB",
+    )
+    duplicate = {
+        "resource_type": "cloud",
+        "provider": "baidu",
+        "url": "https://pan.baidu.com/s/shared?pwd=test",
+        "info_hash": None,
+        "display_title": "shared",
+        "extraction_code": "test",
+        "quality_tags": [],
+    }
+    first["resources"].append(dict(duplicate))
+    second["resources"].append(dict(duplicate))
+    _write_feed(feed, "sixv", [first, second])
+
+    result = aggregate_media_feeds([feed])
+
+    assert result["summary"]["record_count"] == 2
+    assert result["summary"]["resource_count"] == 2
+    assert result["summary"]["quarantined_resource_count"] == 2
+    assert result["summary"]["quarantine_reason_counts"]["cross_media_duplicate"] == 2
+    assert all(
+        resource["provider"] == "magnet"
+        for item in result["items"]
+        for resource in item["resources"]
+    )
+
+
 def test_aggregate_series_keeps_latest_episode_and_merges_sources(tmp_path: Path) -> None:
     first = tmp_path / "first.json"
     second = tmp_path / "second.json"

@@ -334,6 +334,41 @@ def _enforce_final_season_resources(
     item["resources"] = accepted
 
 
+def _quarantine_cross_media_duplicate_resources(
+    items: list[dict[str, Any]],
+    *,
+    quarantine: list[dict[str, Any]],
+) -> None:
+    owners: dict[tuple[str, str, str], list[tuple[dict[str, Any], dict[str, Any]]]] = {}
+    for item in items:
+        for resource in item.get("resources") or []:
+            owners.setdefault(_resource_key(resource), []).append((item, resource))
+
+    duplicate_keys = {
+        key
+        for key, entries in owners.items()
+        if key[2] and len({media_identity(item) for item, _resource in entries}) > 1
+    }
+    if not duplicate_keys:
+        return
+
+    for item in items:
+        accepted: list[dict[str, Any]] = []
+        for resource in item.get("resources") or []:
+            if _resource_key(resource) not in duplicate_keys:
+                accepted.append(resource)
+                continue
+            quarantine.append(
+                _quarantine_entry(
+                    item=item,
+                    resource=resource,
+                    reason="cross_media_duplicate",
+                    target_season_number=_integer(item.get("season_number")),
+                )
+            )
+        item["resources"] = accepted
+
+
 def _quality_report(
     *,
     items: list[dict[str, Any]],
@@ -741,6 +776,7 @@ def aggregate_media_feeds(
     deduplicated = _deduplicate_items(raw_items)
     for item in deduplicated:
         _enforce_final_season_resources(item, quarantine=quarantine)
+    _quarantine_cross_media_duplicate_resources(deduplicated, quarantine=quarantine)
     before_resource_gate = len(deduplicated)
     deduplicated = [item for item in deduplicated if item.get("resources")]
     dropped_zero_resource_count = before_resource_gate - len(deduplicated)
