@@ -9,6 +9,7 @@ DONE:
 - GitHub Release v0.2.2正式发布，资产回下载SHA一致。
 - 阿里云稳定APK已原子替换，公网回下载SHA一致。
 - 蓝奏云imCPX3zgpbkb密码8888，Chromium解锁显示正确文件和下载按钮。
+- 主仓库发布控制提交b136f6ec6d6273222281a134994389920e92aa80（主仓库未配置remote）。
 - mg-data提交2a76265dba1e91246e322d72fe98fd6f5fbd1635已推送。
 - 五个权威配置端点与不可变CDN提交均返回0.2.2、新文案和新镜像。
 - Cloudflare Pages与阿里云911页整站发布，旧蓝奏云链接零残留。

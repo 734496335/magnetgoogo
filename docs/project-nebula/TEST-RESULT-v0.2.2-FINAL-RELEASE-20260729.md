@@ -115,6 +115,12 @@ App 源码未来构建的不可变 CDN 兜底已固定到 `2a76265d...`。本次
 - 阿里云 Nginx：配置校验 PASS，已 reload
 - 阿里云回滚目录：`/var/www/magnetgoogo-site.pre-v0.2.2-20260729T231338`
 
+## Git 记录
+
+- 主仓库发布控制提交：`b136f6ec6d6273222281a134994389920e92aa80`
+- `mg-data` 远程配置提交：`2a76265dba1e91246e322d72fe98fd6f5fbd1635`
+- 主仓库当前未配置 Git remote，因此发布控制提交仅保存在本地仓库；GitHub Release 与 `mg-data` 已独立发布到远程。
+
 ## 已知缓存债务
 
 jsDelivr `@main/config.json` 仍命中 v0.2.1 历史缓存，包含旧 GitHub 与旧蓝奏云链接。该端点不是当前 App 的权威竞速端点；五个权威端点均已收敛，且未来构建使用不可变提交 `2a76265d...`，因此记录为非阻塞 CDN 缓存债务。
