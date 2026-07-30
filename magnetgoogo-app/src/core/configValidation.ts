@@ -6,6 +6,7 @@ export interface ValidRemoteConfig {
     mirrors: string[];
   };
   announcement: string;
+  announcement_i18n?: Record<string, string>;
   source_expiry_hours: number;
   source_schema_version: number;
   updated_at: string;
@@ -38,6 +39,10 @@ export function isRemoteConfig(value: unknown): value is ValidRemoteConfig {
   if (typeof download.primary !== 'string') return false;
   if (!Array.isArray(download.mirrors) || download.mirrors.some((item) => typeof item !== 'string')) return false;
   if (data.announcement != null && typeof data.announcement !== 'string') return false;
+  if (data.announcement_i18n != null) {
+    if (typeof data.announcement_i18n !== 'object' || Array.isArray(data.announcement_i18n)) return false;
+    if (Object.values(data.announcement_i18n as Record<string, unknown>).some((item) => typeof item !== 'string')) return false;
+  }
   if (data.source_expiry_hours != null && typeof data.source_expiry_hours !== 'number') return false;
   if (data.source_schema_version != null && typeof data.source_schema_version !== 'number') return false;
   if (data.updated_at != null && typeof data.updated_at !== 'string') return false;

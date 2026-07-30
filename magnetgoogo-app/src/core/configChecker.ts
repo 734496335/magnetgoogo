@@ -9,11 +9,12 @@
 
 import Constants from 'expo-constants';
 import { compareSemver, isRemoteConfig, type ValidRemoteConfig } from './configValidation';
+import { orderUpdateMirrors } from './updateDownloadPolicy';
 
 // Endpoints raced in parallel — first valid response wins.
 const CN_ALI = 'https://cn.magnetgoogo.com';
 const CF_PAGES = 'https://magnetgoogo.com';
-const CDN_BASE = 'https://cdn.jsdelivr.net/gh/734496335/mg-data@2a76265dba1e91246e322d72fe98fd6f5fbd1635';
+const CDN_BASE = 'https://cdn.jsdelivr.net/gh/734496335/mg-data@f7b945ee8365c0f2932909ca4ad7ec56ebeb437b';
 const RAW_BASE = 'https://raw.githubusercontent.com/734496335/mg-data/main';
 const GATEWAY_BASE = 'https://api.naoshiquan.com';
 const GATEWAY_OLD = 'https://maggoogo-gateway.734496335lp.workers.dev';
@@ -114,7 +115,7 @@ export async function checkConfig(): Promise<ConfigCheckResult> {
     updateAvailable,
     announcement: config.announcement || '',
     downloadUrl: config.download?.primary || '',
-    mirrors: config.download?.mirrors || [],
+    mirrors: orderUpdateMirrors(config.download?.mirrors || []),
     error: null,
   };
 }

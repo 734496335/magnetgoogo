@@ -1,4 +1,26 @@
 ---
+Date/Time: 2026-07-30 17:45 (UTC+8)
+Version: app-update-china-r2-fallback
+Scope: Prioritize Lanzou ahead of GitHub in the App update prompt, replace the unstable domestic APK primary with an R2-backed custom-domain path, and add deterministic multi-path download fallback for the next App release
+Modules: mg-data/config.json, magnetgoogo-site/{config.json,site-config.json,_headers}, magnetgoogo-app/src/{components/ForceUpdateModal.tsx,components/OptionalUpdateModal.tsx,core/configChecker.ts,core/updateCopy.ts,core/updateDownload.ts,core/updateDownloadPolicy.ts}, magnetgoogo-app/scripts/update-download-policy-tests.mjs, magnetgoogo-app/package.json, docs/project-nebula/{APP-UPDATE-DOWNLOAD-CHINA-OPTIMIZATION-20260730.md,_progress.txt,DEV-LOG.md}
+
+### Immediate production path
+- Uploaded the signed v0.2.2 APK to R2 key `v0.2.2/magnetgoogo-v0.2.2.apk` and exposed it through `api.naoshiquan.com`; a complete public re-download matched 33,562,462 bytes and SHA-256 `2ceb675b6d85cb5341e41fa219b0629f7e2a104bee89960359c508fabd9248eb`.
+- Published mg-data commit `f7b945ee8365c0f2932909ca4ad7ec56ebeb437b`: primary is the R2 custom-domain APK, mirrors are Lanzou first and GitHub last.
+- Converged Aliyun, Cloudflare Pages, GitHub Raw, both gateways and the immutable CDN config. Pages config responses now use `no-store, no-cache, must-revalidate` to prevent stale update routing.
+
+### Next-App resilience
+- Added deterministic mirror classification and ordering, sequential direct-APK retry, minimum-size and ZIP-signature validation, structured errors, and browser fallback buttons that prioritize Lanzou and leave GitHub last.
+- Both forced and optional update modals use the same policy; an HTML landing page can no longer be treated as an APK byte source.
+- These client changes require the next signed APK. Existing installations already benefit immediately from the remotely switched R2 primary and reordered mirrors.
+
+### Verification and residual risk
+- TypeScript, update-download policy tests and release-build contract passed; App adversarial suite passed 52/52.
+- K30S was not connected, so no physical-device prompt click test was run.
+- `cn.magnetgoogo.com` certificate expires on 2026-08-02. The renewal timer is enabled and active again, but manual HTTP-01 renewal still failed with external 403/connection reset; Aliyun was therefore removed from the App update mirror list until this is repaired.
+---
+
+---
 Date/Time: 2026-07-30 08:22 (UTC+8)
 Version: root-cleanup-reversible-recycle
 Scope: Review the cluttered project root item by item, move confirmed obsolete development artifacts into a reversible local recycle bin, preserve operational inputs and create a deterministic restoration index
