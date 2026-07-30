@@ -54,20 +54,23 @@
 
 ## 配置与官网
 
-- `mg-data`发布提交：`a7cc908`
+- `mg-data`正式发布提交：`a7cc908`
+- 0.2.2迁移提示热修复提交：`9a246ce`
 - Cloudflare Pages最终部署：`https://efdb7645.magnetgoogo-site.pages.dev`
 - 官网共911个HTML页面。
 - 全站主下载统一为R2 v0.2.3。
 - 全站旧v0.2.2 GitHub资产引用：0。
 - 全站旧蓝奏云链接：0。
 - 全站阿里云旧主下载硬编码：0。
-- GitHub Raw、Cloudflare Pages、两个Gateway、jsDelivr `@main`及不可变提交均返回字节一致的v0.2.3配置。
-- 配置SHA-256：`7d4f7accc078b2be9cb3e7de746ca37d17f89d33bc0e0d30819df7080733a8c5`
+- `cn.magnetgoogo.com`、Cloudflare Pages、GitHub Raw及两个Gateway返回字节一致的新迁移提示配置。
+- jsDelivr不可变提交`@9a246ce`返回新配置；`@main`仍有旧公告缓存，但不属于App权威竞速端点。
+- 新配置SHA-256：`6fd975748b3e2208c7481df1ff265f76ebf24a5598b6c44d00433bdfa026e049`
 
 ## K30S发布后验证
 
 - 使用正式0.2.2保留数据降级后启动，收到`v0.2.3`更新提示。
-- 三条更新说明逐字正确。
+- 弹窗明确显示：`0.2.2 用户请不要点击“立即更新”，请点击下方“备用链接 1”，通过蓝奏云下载并安装 0.2.3`。
+- 原三条更新说明继续保留并逐字正确。
 - 备用链接1实际打开新蓝奏云`iDcyE3zn4rcf`。
 - 备用链接2实际打开GitHub v0.2.3 APK。
 - K30S最终恢复正式`0.2.3/code7`。
@@ -84,7 +87,7 @@
 
 1. 已发布0.2.2自身缺少`REQUEST_INSTALL_PACKAGES`，因此0.2.2升级0.2.3仍可能需要通过蓝奏云或浏览器完成一次安装；安装0.2.3后，后续版本具备App内安装基础。
 2. `cn.magnetgoogo.com`在部分外部客户端仍存在TLS握手异常。官网和App主下载均已改为R2，不再依赖该域名；阿里云服务器上的APK和站点文件已正确更新。
-3. v0.2.3 APK内的jsDelivr不可变兜底仍固定到旧配置提交，但只有五个权威端点全部失败时才会使用；当前五个权威端点中的Cloudflare Pages、GitHub Raw和两个Gateway均已验证为v0.2.3。后续版本应更新不可变兜底提交。
+3. v0.2.2 APK内的jsDelivr不可变兜底仍固定到旧配置提交，但只有五个权威端点全部失败时才会使用；当前五个权威端点均已验证返回新迁移提示。后续版本应更新不可变兜底提交。
 
 ## 最终裁决
 

@@ -1,4 +1,21 @@
 ---
+Date/Time: 2026-07-30 22:33 (UTC+8)
+Version: v0.2.3-v0.2.2-migration-notice-hotfix
+Scope: Prevent formal v0.2.2 users from repeatedly attempting the known-broken in-App installer by explicitly directing them to Lanzou backup link 1
+Modules: mg-data/config.json, magnetgoogo-site/config.json, docs/project-nebula/{_progress.txt,TEST-RESULT-v0.2.3-FINAL-RELEASE-20260730.md,DEV-LOG.md}
+
+### Remote notice hotfix
+- Changed the Chinese v0.2.3 announcement to: `0.2.2 用户请不要点击“立即更新”，请点击下方“备用链接 1”，通过蓝奏云下载并安装 0.2.3` while retaining the three approved release notes.
+- Added equivalent guidance for all ten App languages; download primary and mirror order remain R2 → Lanzou → GitHub.
+- Pushed mg-data commit `9a246ce`, deployed Cloudflare Pages, synchronized Aliyun config and purged jsDelivr paths.
+
+### Verification
+- `cn.magnetgoogo.com`, `magnetgoogo.com`, GitHub Raw and both gateways returned byte-identical new config with the migration instruction.
+- K30S formal v0.2.2 displayed the complete new notice; tapping `备用链接 1` launched `https://wwbdy.lanzn.com/iDcyE3zn4rcf`.
+- Restored K30S to formal v0.2.3/code7; Fatal/ANR remained zero.
+---
+
+---
 Date/Time: 2026-07-30 21:55 (UTC+8)
 Version: v0.2.3-full-production-release
 Scope: Publish the signed v0.2.3 cache-fix build to GitHub, R2, Aliyun, Lanzou, remote config and the complete website, then verify the real v0.2.2 user update path on K30S
