@@ -1,0 +1,20 @@
+2026-07-30 20:12 UTC+8
+Task: v0.2.3 signed release build in D:\lpproduct\m023
+Command: gradlew.bat assembleRelease
+Result: FAILED before APK generation
+
+Primary findings:
+1. Generated android/gradle.properties contained:
+   reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
+2. app.json used unsupported expo-build-properties key android.abis instead of android.buildArchs.
+3. Gradle therefore attempted four ABIs and failed while reading an absent Reanimated armeabi-v7a output directory:
+   NoSuchFileException: ...react-native-reanimated...\obj\armeabi-v7a
+4. A concurrent CMake temporary output was also locked:
+   AccessDeniedException: ...android\app\.cxx...CMakeCCompilerABI...tmp
+
+Resolution applied:
+- Replace android.abis with android.buildArchs=["arm64-v8a"].
+- Add release-contract assertions that only buildArchs is used.
+- Stop Gradle, regenerate Android cleanly and rebuild arm64-only.
+
+No APK was produced by the failed attempt and no public endpoint was changed.

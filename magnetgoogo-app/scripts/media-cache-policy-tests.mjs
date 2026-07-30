@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createAsyncSerialQueue } from '../src/core/asyncSerialQueue.ts';
 import { parseResourceFeed } from '../src/core/resourceFeedProtocol.ts';
 
 const remoteItem = {
@@ -84,6 +85,35 @@ assert.equal(parsed.items[0].remote_detail_size, remoteItem.remote_detail_size);
 assert.equal(parsed.items[0].remote_endpoint, remoteItem.remote_endpoint);
 assert.throws(() => parseResourceFeed(remoteFeed), (error) => error?.code === 'OFFLINE_COVER_REQUIRED');
 
+const enqueue = createAsyncSerialQueue();
+let activeTasks = 0;
+let maximumActiveTasks = 0;
+const queueOrder = [];
+const queuedTask = (name, delayMs, shouldFail = false) => enqueue(async () => {
+  activeTasks += 1;
+  maximumActiveTasks = Math.max(maximumActiveTasks, activeTasks);
+  queueOrder.push(`${name}:start`);
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
+  queueOrder.push(`${name}:end`);
+  activeTasks -= 1;
+  if (shouldFail) throw new Error(`${name}_failed`);
+  return name;
+});
+const queueResults = await Promise.allSettled([
+  queuedTask('movie', 20),
+  queuedTask('series', 1),
+  queuedTask('failed', 1, true),
+  queuedTask('after_failure', 1),
+]);
+assert.equal(maximumActiveTasks, 1);
+assert.deepEqual(queueOrder, [
+  'movie:start', 'movie:end',
+  'series:start', 'series:end',
+  'failed:start', 'failed:end',
+  'after_failure:start', 'after_failure:end',
+]);
+assert.deepEqual(queueResults.map((result) => result.status), ['fulfilled', 'fulfilled', 'rejected', 'fulfilled']);
+
 const root = process.cwd();
 const cacheSource = fs.readFileSync(path.join(root, 'src/core/mediaReleaseCache.ts'), 'utf8');
 const legacySource = fs.readFileSync(path.join(root, 'src/core/mediaReleaseLegacyMigration.ts'), 'utf8');
@@ -103,6 +133,8 @@ assert.match(cacheSource, /payload_base64/);
 assert.match(cacheSource, /media-app-detail-cache\/2/);
 assert.match(cacheSource, /envelope\.detail_hash !== currentItem\.remote_detail_hash/);
 assert.match(cacheSource, /writeDetailEnvelope/);
+assert.match(cacheSource, /const enqueueMediaFeedSave = createAsyncSerialQueue\(\)/);
+assert.match(cacheSource, /return enqueueMediaFeedSave\(\(\) => saveMediaFeedsUnlocked/);
 assert.match(cacheSource, /const targetFile = \(\) => new File\(directory, name\)/);
 assert.match(cacheSource, /targetFile\(\)\.move\(backupFile\(\)\)/);
 assert.match(cacheSource, /temporaryFile\(\)\.move\(targetFile\(\)\)/);
@@ -141,4 +173,5 @@ console.log(JSON.stringify({
   unchanged_feed_uses_pointer_only: true,
   offline_feed_is_retained: true,
   immediate_card_render: true,
+  feed_index_commit_serialized: maximumActiveTasks === 1,
 }));

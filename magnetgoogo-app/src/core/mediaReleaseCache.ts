@@ -1,5 +1,6 @@
 import { Buffer } from 'buffer';
 import { Directory, File, Paths } from 'expo-file-system';
+import { createAsyncSerialQueue } from './asyncSerialQueue';
 import {
   assertMediaPointerTransition,
   parseCatalog,
@@ -77,6 +78,7 @@ const missingCatalogs = new Set<string>();
 const memoryDetails = new Map<string, MovieFeedItem>();
 const missingDetails = new Set<string>();
 let migrationPromise: Promise<void> | null = null;
+const enqueueMediaFeedSave = createAsyncSerialQueue();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -442,7 +444,7 @@ export async function cachedMediaPointerIdentity(): Promise<MediaPointerIdentity
   return index?.identity ?? null;
 }
 
-export async function saveMediaFeeds(
+async function saveMediaFeedsUnlocked(
   identity: MediaPointerIdentity,
   endpoint: string,
   feeds: Partial<Record<MediaKind, MovieFeed>>,
@@ -474,6 +476,14 @@ export async function saveMediaFeeds(
     endpoint,
     identity,
   });
+}
+
+export function saveMediaFeeds(
+  identity: MediaPointerIdentity,
+  endpoint: string,
+  feeds: Partial<Record<MediaKind, MovieFeed>>,
+): Promise<void> {
+  return enqueueMediaFeedSave(() => saveMediaFeedsUnlocked(identity, endpoint, feeds));
 }
 
 export async function cachedMediaFeed(kind: MediaKind): Promise<MovieFeed | null> {

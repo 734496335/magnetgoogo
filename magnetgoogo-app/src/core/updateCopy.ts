@@ -29,7 +29,7 @@ const COPY: Record<Lang, UpdateCopy> = {
     downloading: '正在下载…',
     downloadComplete: '下载完成，正在安装…',
     downloadFailed: '下载失败',
-    downloadFailedMessage: '请使用浏览器下载安装',
+    downloadFailedMessage: '加速直链下载失败，请改用蓝奏云或 GitHub 下载。',
     openDownload: '前往下载',
   },
   en: {

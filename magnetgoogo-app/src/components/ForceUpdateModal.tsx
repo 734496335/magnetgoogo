@@ -1,10 +1,19 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Modal, View, Text, TouchableOpacity, Linking, StyleSheet, Platform, Alert } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import type { ConfigCheckResult } from '../core/configChecker';
 import { useLang } from '../core/LangContext';
 import { getUpdateCopy } from '../core/updateCopy';
+import { downloadApkFromCandidates } from '../core/updateDownload';
+import {
+  buildDirectDownloadCandidates,
+  getBrowserFallbacks,
+  getEmergencyBrowserFallbacks,
+  getUpdateErrorMessage,
+  getUpdateMirrorLabel,
+  orderUpdateMirrors,
+} from '../core/updateDownloadPolicy';
 
 interface Props {
   result: ConfigCheckResult;
@@ -17,32 +26,60 @@ export default function ForceUpdateModal({ result, visible }: Props) {
   const [downloading, setDownloading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('');
-  const downloadRef = useRef<FileSystem.DownloadResumable | null>(null);
+  const orderedMirrors = useMemo(() => orderUpdateMirrors(result.mirrors), [result.mirrors]);
+  const directCandidates = useMemo(
+    () => buildDirectDownloadCandidates(result.downloadUrl, orderedMirrors),
+    [result.downloadUrl, orderedMirrors],
+  );
+  const browserFallbacks = useMemo(
+    () => getBrowserFallbacks(result.downloadUrl, orderedMirrors),
+    [result.downloadUrl, orderedMirrors],
+  );
+  const emergencyFallbacks = useMemo(
+    () => getEmergencyBrowserFallbacks(orderedMirrors),
+    [orderedMirrors],
+  );
+
+  const openUrl = useCallback((url: string) => {
+    if (!url) return;
+    Linking.openURL(url).catch((error: unknown) => {
+      console.log('[UpdateDownload]', JSON.stringify({
+        rule_id: 'app_update_download',
+        stage: 'open_browser_failed',
+        error_code: 'linking_open_failed',
+        url,
+        message: getUpdateErrorMessage(error),
+      }));
+    });
+  }, []);
 
   const installApk = useCallback(async (fileUri: string) => {
     if (Platform.OS !== 'android') {
-      if (result.downloadUrl) Linking.openURL(result.downloadUrl).catch(() => {});
+      openUrl(browserFallbacks[0] || result.downloadUrl);
       return;
     }
     try {
       const contentUri = await FileSystem.getContentUriAsync(fileUri);
       await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
         data: contentUri,
-        flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+        flags: 1,
         type: 'application/vnd.android.package-archive',
       });
-    } catch (e: any) {
-      console.log('[Update] Install intent failed:', e.message);
-      // Fallback: open in browser
-      Linking.openURL(result.downloadUrl).catch(() => {});
+    } catch (error: unknown) {
+      console.log('[UpdateDownload]', JSON.stringify({
+        rule_id: 'app_update_install',
+        stage: 'launch_installer_failed',
+        error_code: 'install_intent_failed',
+        message: getUpdateErrorMessage(error),
+      }));
+      openUrl(browserFallbacks[0] || result.downloadUrl);
     }
-  }, [result.downloadUrl]);
+  }, [browserFallbacks, openUrl, result.downloadUrl]);
 
   const startDownload = useCallback(async () => {
     if (downloading) return;
-    const url = result.downloadUrl;
-    if (!url || Platform.OS !== 'android') {
-      Linking.openURL(url).catch(() => {});
+    if (Platform.OS !== 'android' || directCandidates.length === 0) {
+      openUrl(browserFallbacks[0] || result.downloadUrl);
       return;
     }
 
@@ -53,48 +90,57 @@ export default function ForceUpdateModal({ result, visible }: Props) {
     const fileUri = FileSystem.cacheDirectory + 'magnetgoogo-update.apk';
 
     try {
-      // Clean up old file
-      const info = await FileSystem.getInfoAsync(fileUri);
-      if (info.exists) await FileSystem.deleteAsync(fileUri, { idempotent: true });
-
-      const dl = FileSystem.createDownloadResumable(
-        url,
+      const downloaded = await downloadApkFromCandidates({
+        candidates: directCandidates,
         fileUri,
-        {},
-        (dp) => {
-          if (dp.totalBytesExpectedToWrite > 0) {
-            const pct = dp.totalBytesWritten / dp.totalBytesExpectedToWrite;
-            setProgress(pct);
-            const mb = (dp.totalBytesWritten / 1048576).toFixed(1);
-            const totalMb = (dp.totalBytesExpectedToWrite / 1048576).toFixed(1);
+        onAttempt: (_url, index, total) => {
+          setProgress(0);
+          setStatusText(total > 1 ? `${copy.downloading} (${index + 1}/${total})` : copy.downloading);
+        },
+        onProgress: ({ bytesWritten, totalBytes, ratio }) => {
+          setProgress(ratio);
+          if (totalBytes > 0) {
+            const mb = (bytesWritten / 1048576).toFixed(1);
+            const totalMb = (totalBytes / 1048576).toFixed(1);
             setStatusText(`${mb}MB / ${totalMb}MB`);
           }
         },
-      );
-      downloadRef.current = dl;
-
-      const result = await dl.downloadAsync();
-      if (result?.uri) {
-        setStatusText(copy.downloadComplete);
-        setProgress(1);
-        await installApk(result.uri);
-      }
-    } catch (e: any) {
-      console.log('[Update] Download failed:', e.message);
+      });
+      setStatusText(copy.downloadComplete);
+      setProgress(1);
+      await installApk(downloaded.uri);
+    } catch (error: unknown) {
+      console.log('[UpdateDownload]', JSON.stringify({
+        rule_id: 'app_update_download',
+        stage: 'all_candidates_failed',
+        error_code: 'all_download_candidates_failed',
+        message: getUpdateErrorMessage(error),
+      }));
       setStatusText(copy.downloadFailed);
-      Alert.alert(copy.downloadFailed, copy.downloadFailedMessage, [
-        { text: copy.openDownload, onPress: () => Linking.openURL(url).catch(() => {}) },
-      ]);
+      const buttons = emergencyFallbacks.map((url, index) => ({
+        text: getUpdateMirrorLabel(url, lang, index + 1),
+        onPress: () => openUrl(url),
+      }));
+      if (buttons.length === 0) {
+        buttons.push({ text: copy.openDownload, onPress: () => openUrl(result.downloadUrl) });
+      }
+      Alert.alert(copy.downloadFailed, copy.downloadFailedMessage, buttons);
     } finally {
       setDownloading(false);
     }
-  }, [result.downloadUrl, downloading, installApk, copy]);
+  }, [
+    browserFallbacks,
+    copy,
+    directCandidates,
+    downloading,
+    emergencyFallbacks,
+    installApk,
+    lang,
+    openUrl,
+    result.downloadUrl,
+  ]);
 
   const announcement = result.config?.announcement_i18n?.[lang] || result.announcement;
-
-  const openMirror = (url: string) => {
-    Linking.openURL(url).catch(() => {});
-  };
 
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
@@ -125,12 +171,12 @@ export default function ForceUpdateModal({ result, visible }: Props) {
             </TouchableOpacity>
           )}
 
-          {!downloading && result.mirrors.length > 0 && (
+          {!downloading && orderedMirrors.length > 0 && (
             <View style={s.mirrors}>
               <Text style={s.mirrorsLabel}>{copy.backupDownload}</Text>
-              {result.mirrors.map((url, i) => (
-                <TouchableOpacity key={i} onPress={() => openMirror(url)}>
-                  <Text style={s.mirrorLink}>{copy.backupLink(i + 1)}</Text>
+              {orderedMirrors.map((url, i) => (
+                <TouchableOpacity key={url} onPress={() => openUrl(url)}>
+                  <Text style={s.mirrorLink}>{getUpdateMirrorLabel(url, lang, i + 1)}</Text>
                 </TouchableOpacity>
               ))}
             </View>

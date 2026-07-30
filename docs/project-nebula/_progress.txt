@@ -1,26 +1,29 @@
-TASK: v0.2.2影视内容加载提速完整发布
-STATUS: RELEASE_LIVE / FULL_ROLLOUT / JSDELIVR_MAIN_CACHE_DEBT_ONLY
-DATE: 2026-07-29 UTC+8
+TASK: v0.2.3影视revision6缓存原子提交与国内更新候选
+STATUS: CANDIDATE_E2E_PASS / NOT_PUBLISHED
+DATE: 2026-07-30 UTC+8
 
 DONE:
-- 更新文案仅“大幅优化影视内容加载速度”。
-- 最终APK发布：0.2.2/versionCode 6，仅arm64-v8a，正式备案签名。
-- APK大小33,562,462字节；SHA256=2ceb675b6d85cb5341e41fa219b0629f7e2a104bee89960359c508fabd9248eb。
-- GitHub Release v0.2.2正式发布，资产回下载SHA一致。
-- 阿里云稳定APK已原子替换，公网回下载SHA一致。
-- 蓝奏云imCPX3zgpbkb密码8888，Chromium解锁显示正确文件和下载按钮。
-- mg-data提交2a76265dba1e91246e322d72fe98fd6f5fbd1635已推送。
-- 五个权威配置端点与不可变CDN提交均返回0.2.2、新文案和新镜像。
-- Cloudflare Pages与阿里云911页整站发布，旧蓝奏云链接零残留。
-- 阿里云回滚：/var/www/magnetgoogo-site.pre-v0.2.2-20260729T231338。
-- K30S旧版0.2.1收到正确更新弹窗，随后升级回0.2.2，Crash/ANR=0。
+- 从冻结提交77a48f7和短路径D:\lpproduct\m023继续，保留0.2.3/code7完整功能源码。
+- 合并R2主下载、蓝奏云优先、GitHub最后、多直链回退和APK完整性校验。
+- 加入REQUEST_INSTALL_PACKAGES；修正android.abis为buildArchs，仅构建arm64-v8a。
+- 正式包复验发现原修复仍有共享.index.json.backup并发竞态。
+- 将movie/series的Feed+共享index提交事务串行化；失败任务不阻塞后续提交。
+- revision6双端一致：498电影、469电视剧、3720资源，pointer SHA=5efaf37f00447bafa3ea17d977d7b3a35a20a46a32c803b5ea1c7f4443bf7197。
+- K30S正式包保数据0.2.2→0.2.3安装PASS。
+- K30S断网强杀后仍恢复非内置电影“超级少女”和非内置剧集“聪明镇”。
+- 最终过程无MEDIA_CACHE_COMMIT_FAILED、FileAlreadyExistsException、Fatal或ANR。
+
+ARTIFACT:
+- releases/magnetgoogo-v0.2.3.apk；38,486,986 bytes。
+- SHA256=bbbe9b5900d69262c903ef8153c0954466956d416934ad7504caf159d6ad960d
 
 VERIFIED:
-- TypeScript PASS；媒体缓存/安全/Release门禁PASS；App对抗52/52 PASS。
-- GitHub与阿里云APK大小及SHA完全一致。
-- 蓝奏云密码、文件名、显示大小和下载按钮PASS。
+- media-cache/network/security/resource-feed/update/release/TypeScript PASS。
+- App对抗52/52；流畅性17/17；clean signed arm64 Release PASS。
 
-KNOWN_DEBT:
-- jsDelivr @main仍缓存v0.2.1；非权威端点，不阻塞发布。
+BOUNDARY:
+- 0.2.2缺安装权限，升级0.2.3仍需一次浏览器安装兜底。
+- 0.2.3安装后，后续版本才具备完整App内安装基础。
+- 尚未发布GitHub、R2/阿里云、远程配置或官网。
 
-EVIDENCE: docs/project-nebula/TEST-RESULT-v0.2.2-FINAL-RELEASE-20260729.md
+EVIDENCE: docs/project-nebula/TEST-RESULT-20260730-v0.2.3缓存原子提交与国内更新候选.md

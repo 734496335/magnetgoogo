@@ -32,7 +32,10 @@
     "android": {
       "package": "com.magnetgoogo.app",
       "versionCode": 7,
-      "permissions": ["android.permission.POST_NOTIFICATIONS"],
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.REQUEST_INSTALL_PACKAGES"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#fffdfb"
@@ -58,7 +61,7 @@
         "expo-build-properties",
         {
           "android": {
-            "abis": ["arm64-v8a"]
+            "buildArchs": ["arm64-v8a"]
           }
         }
       ]

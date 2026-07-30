@@ -49,8 +49,14 @@ const appJson = JSON.parse(fs.readFileSync(path.resolve('app.json'), 'utf8'));
 assert.equal(appJson.expo.version, '0.2.3');
 assert.equal(appJson.expo.android.versionCode, 7);
 assert.equal(appJson.expo.android.package, 'com.magnetgoogo.app');
+assert.ok(appJson.expo.android.permissions.includes('android.permission.REQUEST_INSTALL_PACKAGES'));
 assert.ok(appJson.expo.plugins.includes('./plugins/with-release-signing'));
 assert.ok(appJson.expo.plugins.includes('./plugins/with-source-bootstrap'));
+const buildPropertiesPlugin = appJson.expo.plugins.find(
+  (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-build-properties',
+);
+assert.deepEqual(buildPropertiesPlugin?.[1]?.android?.buildArchs, ['arm64-v8a']);
+assert.equal(buildPropertiesPlugin?.[1]?.android?.abis, undefined);
 
 const canonicalSources = JSON.parse(fs.readFileSync(path.resolve('..', 'sources.json'), 'utf8'));
 const canonicalAudit = summarizeCanonical(canonicalSources);

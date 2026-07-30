@@ -1,4 +1,27 @@
 ---
+Date/Time: 2026-07-30 20:45 (UTC+8)
+Version: v0.2.3-cache-atomic-commit-and-update-candidate
+Scope: Close the revision-6 formal-App cache commit race, merge the China update path into the real v0.2.3 release branch, build the signed arm64 candidate and complete K30S retained-data plus offline acceptance
+Modules: magnetgoogo-app/{app.json,package.json,src/core/{asyncSerialQueue.ts,mediaReleaseCache.ts,updateDownload.ts,updateDownloadPolicy.ts},src/components/{ForceUpdateModal.tsx,OptionalUpdateModal.tsx},scripts/{media-cache-policy-tests.mjs,update-download-policy-tests.mjs,release-build-contract-tests.mjs}}, releases/magnetgoogo-v0.2.3.apk, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,TEST-RESULT-20260730-v0.2.3缓存原子提交与国内更新候选.md,DEV-LOG.md}
+
+### Cache closure
+- Confirmed the frozen `77a48f7` candidate still failed when movie and series synchronized concurrently: both transactions wrote shared `index.json` through `.index.json.backup`, producing `MEDIA_CACHE_COMMIT_FAILED / FileAlreadyExistsException`.
+- Added a failure-tolerant serial queue around complete `Feed + shared index` commits. Network downloads remain parallel, but cache commits are deterministic and a rejected task cannot block later work.
+- K30S formal candidate restored revision-6-only movie `超级少女` and series `聪明镇` after Wi-Fi/data disable plus process kill, with zero cache commit error, Fatal or ANR.
+
+### Update and build closure
+- Merged the tested R2-first multi-candidate downloader, APK size/ZIP guards, Lanzou-first/GitHub-last fallback labels and structured failures into the actual v0.2.3 branch.
+- Added `REQUEST_INSTALL_PACKAGES`. Existing v0.2.2 installations still require one browser-install migration because the old caller cannot acquire the target APK permission retroactively; subsequent upgrades from v0.2.3 can use the in-App path.
+- Corrected Expo build configuration from unsupported `android.abis` to `android.buildArchs`, yielding an arm64-only clean build.
+- Final candidate: `38,486,986` bytes, SHA-256 `bbbe9b5900d69262c903ef8153c0954466956d416934ad7504caf159d6ad960d`, package `com.magnetgoogo.app`, `0.2.3/code7`,备案 signer unchanged.
+
+### Verification and publication boundary
+- revision-6 network, media cache, media security, Resource Feed, update policy, Release contract and TypeScript gates passed; App adversarial `52/52`, fluency `17/17`.
+- K30S retained-data `0.2.2 → 0.2.3` install passed with first-install time retained.
+- No GitHub Release, R2/Aliyun APK replacement, remote config switch or website publication was performed.
+---
+
+---
 Date/Time: 2026-07-29 23:18 (UTC+8)
 Version: v0.2.2-full-production-release
 Scope: Publish the media-loading performance release to every App, download, configuration, website and release surface, replace all Lanzou mirrors, and complete public plus retained-data device acceptance
