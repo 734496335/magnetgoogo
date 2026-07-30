@@ -1,29 +1,30 @@
-TASK: v0.2.3影视revision6缓存原子提交与国内更新候选
-STATUS: CANDIDATE_E2E_PASS / NOT_PUBLISHED
+TASK: v0.2.3影视缓存修复与国内更新完整发布
+STATUS: RELEASE_LIVE / FULL_ROLLOUT_PASS
 DATE: 2026-07-30 UTC+8
 
 DONE:
-- 从冻结提交77a48f7和短路径D:\lpproduct\m023继续，保留0.2.3/code7完整功能源码。
-- 合并R2主下载、蓝奏云优先、GitHub最后、多直链回退和APK完整性校验。
-- 加入REQUEST_INSTALL_PACKAGES；修正android.abis为buildArchs，仅构建arm64-v8a。
-- 正式包复验发现原修复仍有共享.index.json.backup并发竞态。
-- 将movie/series的Feed+共享index提交事务串行化；失败任务不阻塞后续提交。
-- revision6双端一致：498电影、469电视剧、3720资源，pointer SHA=5efaf37f00447bafa3ea17d977d7b3a35a20a46a32c803b5ea1c7f4443bf7197。
-- K30S正式包保数据0.2.2→0.2.3安装PASS。
-- K30S断网强杀后仍恢复非内置电影“超级少女”和非内置剧集“聪明镇”。
-- 最终过程无MEDIA_CACHE_COMMIT_FAILED、FileAlreadyExistsException、Fatal或ANR。
+- 正式APK：0.2.3/versionCode7，仅arm64-v8a，备案签名一致。
+- APK大小38,486,986字节；SHA256=bbbe9b5900d69262c903ef8153c0954466956d416934ad7504caf159d6ad960d。
+- 缓存提交并发竞态关闭；revision6为498电影、469电视剧、3720资源。
+- K30S断网强杀后恢复“超级少女”和“聪明镇”，缓存异常/Fatal/ANR=0。
+- GitHub Release v0.2.3已发布，API digest与正式SHA一致。
+- R2国内主下载完整回下载SHA一致。
+- 阿里云稳定APK及版本APK SHA一致，保留0.2.2回滚文件。
+- 蓝奏云iDcyE3zn4rcf密码8888，K30S显示正确文件名和36.7M。
+- mg-data提交a7cc908已推送；六类公开配置端点均返回0.2.3。
+- Cloudflare Pages与阿里云911页官网已发布；全站主下载统一为R2。
+- 旧v0.2.2 GitHub链接、旧蓝奏云链接、阿里云主下载硬编码均为0。
+- K30S正式0.2.2收到v0.2.3及三条指定文案；备用链接顺序正确。
+- K30S最终恢复正式0.2.3/code7。
 
-ARTIFACT:
-- releases/magnetgoogo-v0.2.3.apk；38,486,986 bytes。
-- SHA256=bbbe9b5900d69262c903ef8153c0954466956d416934ad7504caf159d6ad960d
+KNOWN_BOUNDARY:
+- 0.2.2缺安装权限，本次升级仍可能需浏览器/蓝奏云完成一次迁移。
+- cn.magnetgoogo.com部分外部客户端TLS握手异常；主下载已切R2，不阻塞发布。
+- v0.2.3内不可变jsDelivr兜底仍固定旧提交，后续版本更新。
 
-VERIFIED:
-- media-cache/network/security/resource-feed/update/release/TypeScript PASS。
-- App对抗52/52；流畅性17/17；clean signed arm64 Release PASS。
+COMMITS:
+- App候选与缓存修复：01555ed
+- mg-data配置：a7cc908
+- 官网同步脚本：3cfe623
 
-BOUNDARY:
-- 0.2.2缺安装权限，升级0.2.3仍需一次浏览器安装兜底。
-- 0.2.3安装后，后续版本才具备完整App内安装基础。
-- 尚未发布GitHub、R2/阿里云、远程配置或官网。
-
-EVIDENCE: docs/project-nebula/TEST-RESULT-20260730-v0.2.3缓存原子提交与国内更新候选.md
+EVIDENCE: docs/project-nebula/TEST-RESULT-v0.2.3-FINAL-RELEASE-20260730.md

@@ -1,6 +1,6 @@
-# MagGoogo v0.2.3 发布候选
+# MagGoogo v0.2.3 正式发布
 
-状态：已完成正式构建与 K30S 验收，尚未公开发布。
+状态：已完成正式构建、K30S验收及全部公开渠道发布。
 
 ## 主要修复
 
@@ -28,6 +28,18 @@
 - 版本：`0.2.3`
 - versionCode：`7`
 - ABI：`arm64-v8a`
+
+## 更新说明
+
+- 优化国内更新下载速度。
+- 修复 App 内下载后无法安装的问题。
+- 提升影视加载和离线使用稳定性。
+
+## 下载
+
+- 国内主下载：`https://api.naoshiquan.com/download/v0.2.3/magnetgoogo-v0.2.3.apk`
+- 蓝奏云：`https://wwbdy.lanzn.com/iDcyE3zn4rcf`，密码`8888`
+- GitHub：`https://github.com/734496335/magnetgoogo/releases/download/v0.2.3/magnetgoogo-v0.2.3.apk`
 
 ## 升级说明
 

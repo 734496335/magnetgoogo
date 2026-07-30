@@ -1,4 +1,26 @@
 ---
+Date/Time: 2026-07-30 21:55 (UTC+8)
+Version: v0.2.3-full-production-release
+Scope: Publish the signed v0.2.3 cache-fix build to GitHub, R2, Aliyun, Lanzou, remote config and the complete website, then verify the real v0.2.2 user update path on K30S
+Modules: mg-data/config.json, magnetgoogo-site/**, scripts/{generate-i18n-pages.js,sync-download-mirrors.js}, releases/{magnetgoogo-v0.2.3.apk,RELEASE-v0.2.3.md}, docs/project-nebula/{APP-CHANGELOG.md,_progress.txt,TEST-RESULT-v0.2.3-FINAL-RELEASE-20260730.md,DEV-LOG.md}
+
+### Distribution closure
+- Published GitHub Release v0.2.3 with asset size `38,486,986` and GitHub digest matching SHA-256 `bbbe9b5900d69262c903ef8153c0954466956d416934ad7504caf159d6ad960d`.
+- Uploaded the same APK to R2 path `v0.2.3/magnetgoogo-v0.2.3.apk`; full public download matched the formal SHA. Atomically replaced Aliyun stable and versioned APK files and retained the v0.2.2 rollback file.
+- Verified Lanzou `iDcyE3zn4rcf` / password `8888` on K30S: correct filename and `36.7 M` download page.
+- Pushed mg-data commit `a7cc908`; Cloudflare Pages, GitHub Raw, both gateways, jsDelivr main and immutable commit converge on byte-identical v0.2.3 config.
+
+### Website and device closure
+- Generated/deployed all 911 pages to Cloudflare Pages and Aliyun. All primary download links now use the R2 custom domain; old v0.2.2, old Lanzou and hard-coded Aliyun primary links are zero.
+- K30S retained-data downgrade to formal v0.2.2 received v0.2.3 and the exact three requested announcement lines. Backup link 1 opened the new Lanzou URL; backup link 2 opened the v0.2.3 GitHub APK.
+- Restored K30S to formal v0.2.3/code7 with Fatal/ANR zero.
+
+### Boundaries
+- v0.2.2 lacks REQUEST_INSTALL_PACKAGES, so the first v0.2.3 migration may still require browser/Lanzou installation. This is an old-caller limitation.
+- `cn.magnetgoogo.com` still has intermittent TLS handshake failures for some external clients. App and website primary downloads no longer depend on it; server files are current and retained as a secondary path.
+---
+
+---
 Date/Time: 2026-07-30 20:45 (UTC+8)
 Version: v0.2.3-cache-atomic-commit-and-update-candidate
 Scope: Close the revision-6 formal-App cache commit race, merge the China update path into the real v0.2.3 release branch, build the signed arm64 candidate and complete K30S retained-data plus offline acceptance
