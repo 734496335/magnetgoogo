@@ -1,4 +1,29 @@
 ---
+Date/Time: 2026-07-30 22:45 (UTC+8)
+Version: media-new-sources-100-reliability-pass
+Scope: Close the 100-record reliability gate for 6v520 movie/series, DYTT8899 movie and Meijumi series, including qualified candidate selection, real cover verification, resource uniqueness, deterministic replay and final multi-source aggregation
+Modules: magnet/resource_index/adapters/{movie_registry.py,dytt,meijumi,sixv}, magnet/resource_index/pipeline/{movie_latest.py,dytt_maintenance.py,resource_maintenance.py,source_reliability.py,source_cover_probe.py,source_resource_probe.py}, magnet/resource_index/cli.py, deploy/resource-index/{run-media-offline.ps1,run-movies-safe.ps1,linux/media-daily.example.json}, magnet/tests/resource_index, docs/project-nebula/{RESOURCE-INDEX-NEW-SOURCE-100-RELIABILITY-20260730.md,TECH-CHALLENGES.md,_progress.txt,DEV-LOG.md}
+
+### Real 100-record closure
+- SixV movie, Meijumi series and SixV series each completed 100/100 durable records with zero failed/pending/running rows; final resource counts are 343, 3,174 and 808.
+- DYTT now scans 250 candidates and publishes the latest 100 records that have title, cover and magnet/cloud resources. The real run closed at 249 successful details, one permanent 404, 115 qualified candidates and 159 published magnets.
+- All four strict source reports passed with SQLite integrity `ok`, foreign-key errors zero, title/cover/resource omissions zero and cross-item duplicate resources zero.
+
+### Reliability hardening
+- Added production `publish_count` separate from discovery count; DYTT cannot fall back to FTP/HLS-only records when fewer than 100 publishable items exist.
+- DYTT HTTP 404 is now a terminal `NOT_FOUND`; transient transport and server failures retain retry behavior.
+- Content-identical replay no longer rewrites Feed `generated_at`, eliminating false revisions. All four sources reached zero-request replay with unchanged Feed SHA.
+- Full-cover probe now requires at least 90% unique content hashes, preventing a shared placeholder image from passing. All four final samples verified 100/100 covers with 100 unique hashes each.
+
+### Final multi-source evidence
+- Four 100-item source Feeds aggregated to 436 media entities: 199 movies, 237 season-aware series and 26 multi-source merges.
+- Final resources are 4,468/4,468 globally unique: 3,541 magnets and 927 cloud links; invalid and cross-media duplicate counts are zero.
+- Title, cover and zero-resource drops are all zero; 12 season-unknown resources were conservatively quarantined.
+- Verification: Resource Index `293 passed, 1 skipped`; compileall PASS; enum `rules=241 / ALL VALID`; PowerShell and Linux JSON deployment syntax PASS.
+- Final verdict: `AUDIT=PASS`. No production media revision or automatic timer was enabled in this batch.
+---
+
+---
 Date/Time: 2026-07-30 17:45 (UTC+8)
 Version: app-update-china-r2-fallback
 Scope: Prioritize Lanzou ahead of GitHub in the App update prompt, replace the unstable domestic APK primary with an R2-backed custom-domain path, and add deterministic multi-path download fallback for the next App release

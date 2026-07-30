@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { maxObjectBytesFor } from './worker.mjs';
+import { maxObjectBytesFor, validateCurrentCandidate } from './worker.mjs';
 
 const ONE_MIB = 1024 * 1024;
 const TWO_MIB = 2 * 1024 * 1024;
@@ -47,6 +47,41 @@ test('does not grant the manifest limit to a disguised path', () => {
       'application/json; charset=utf-8',
     ),
     ONE_MIB,
+  );
+});
+
+test('accepts a monotonic signed pointer shape for promotion', () => {
+  const candidate = {
+    schema_version: 'media-current/1',
+    release_id: '20260730T000000Z-1234abcd',
+    pointer_revision: 7,
+    manifest_path: '/v1/releases/20260730T000000Z-1234abcd/manifest.json',
+    manifest_sha256: 'a'.repeat(64),
+    min_app_version: '0.2.1',
+  };
+  const existing = {
+    ...candidate,
+    release_id: '20260729T000000Z-8765dcba',
+    pointer_revision: 6,
+    manifest_path: '/v1/releases/20260729T000000Z-8765dcba/manifest.json',
+    manifest_sha256: 'b'.repeat(64),
+  };
+  assert.equal(validateCurrentCandidate(candidate, existing), null);
+});
+
+test('rejects rollback and same-revision conflicts', () => {
+  const existing = {
+    schema_version: 'media-current/1',
+    release_id: '20260730T000000Z-1234abcd',
+    pointer_revision: 7,
+    manifest_path: '/v1/releases/20260730T000000Z-1234abcd/manifest.json',
+    manifest_sha256: 'a'.repeat(64),
+    min_app_version: '0.2.1',
+  };
+  assert.match(validateCurrentCandidate({ ...existing, pointer_revision: 6 }, existing), /rollback/);
+  assert.match(
+    validateCurrentCandidate({ ...existing, release_id: '20260730T010000Z-deadbeef', manifest_path: '/v1/releases/20260730T010000Z-deadbeef/manifest.json' }, existing),
+    /same revision/,
   );
 });
 

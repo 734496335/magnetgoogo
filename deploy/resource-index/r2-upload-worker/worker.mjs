@@ -2,6 +2,8 @@ const SHA256_RE = /^[0-9a-f]{64}$/;
 const MAX_OBJECT_BYTES = 1024 * 1024;
 const MAX_MANIFEST_BYTES = 2 * 1024 * 1024;
 const RELEASE_MANIFEST_KEY_RE = /^v1\/releases\/[^/]+\/manifest\.json$/;
+const RELEASE_ID_RE = /^\d{8}T\d{6}Z-[0-9a-f]{8}$/;
+const MAX_CURRENT_BYTES = 64 * 1024;
 
 export function maxObjectBytesFor(key, objectKind, contentType) {
   const normalizedType = String(contentType || "").split(";", 1)[0].trim().toLowerCase();
@@ -47,7 +49,7 @@ function parseKey(request, env) {
     if (!key.startsWith("m2-test/")) {
       return { error: "object key must remain under m2-test/" };
     }
-  } else if (mode === "production-data") {
+  } else if (mode === "production-data" || mode === "production-auto") {
     const allowed = key.startsWith("v1/objects/")
       || key.startsWith("v1/covers/")
       || key.startsWith("v1/releases/")
@@ -62,6 +64,85 @@ function parseKey(request, env) {
     return { error: "production current.json is forbidden" };
   }
   return { key };
+}
+
+export function validateCurrentCandidate(candidate, existing = null) {
+  if (!candidate || candidate.schema_version !== "media-current/1") return "current schema is invalid";
+  if (!RELEASE_ID_RE.test(String(candidate.release_id || ""))) return "release_id is invalid";
+  if (!Number.isSafeInteger(candidate.pointer_revision) || candidate.pointer_revision < 1) {
+    return "pointer_revision is invalid";
+  }
+  const expectedManifestPath = `/v1/releases/${candidate.release_id}/manifest.json`;
+  if (candidate.manifest_path !== expectedManifestPath) return "manifest_path does not match release_id";
+  if (!SHA256_RE.test(String(candidate.manifest_sha256 || ""))) return "manifest_sha256 is invalid";
+  if (typeof candidate.min_app_version !== "string" || !candidate.min_app_version.trim()) {
+    return "min_app_version is invalid";
+  }
+  if (existing) {
+    if (!Number.isSafeInteger(existing.pointer_revision)) return "existing pointer_revision is invalid";
+    if (candidate.pointer_revision < existing.pointer_revision) return "pointer revision rollback is forbidden";
+    if (candidate.pointer_revision === existing.pointer_revision) {
+      const same = candidate.release_id === existing.release_id
+        && candidate.manifest_sha256 === existing.manifest_sha256
+        && candidate.manifest_path === existing.manifest_path;
+      if (!same) return "same revision points to different release bytes";
+    }
+  }
+  return null;
+}
+
+async function promoteCurrent(request, env) {
+  if ((env.PUBLISH_MODE || "") !== "production-auto") {
+    return jsonResponse({ error: "current promotion is disabled" }, 403);
+  }
+  const expectedHash = (request.headers.get("x-media-sha256") || "").toLowerCase();
+  const expectedSize = Number(request.headers.get("x-media-size"));
+  if (!SHA256_RE.test(expectedHash) || !Number.isSafeInteger(expectedSize)
+      || expectedSize < 2 || expectedSize > MAX_CURRENT_BYTES) {
+    return jsonResponse({ error: "invalid current hash or size" }, 400);
+  }
+  const payload = await request.arrayBuffer();
+  if (payload.byteLength !== expectedSize) return jsonResponse({ error: "current body size mismatch" }, 400);
+  const actualHash = hex(await crypto.subtle.digest("SHA-256", payload));
+  if (actualHash !== expectedHash) return jsonResponse({ error: "current body hash mismatch" }, 400);
+  let candidate;
+  try {
+    candidate = JSON.parse(new TextDecoder().decode(payload));
+  } catch {
+    return jsonResponse({ error: "current body is not valid JSON" }, 400);
+  }
+  const existingObject = await env.MEDIA_BUCKET.get("v1/current.json");
+  let existing = null;
+  if (existingObject) {
+    try {
+      existing = JSON.parse(await existingObject.text());
+    } catch {
+      return jsonResponse({ error: "existing current.json is invalid" }, 409);
+    }
+  }
+  const validationError = validateCurrentCandidate(candidate, existing);
+  if (validationError) return jsonResponse({ error: validationError }, 409);
+  const manifestKey = candidate.manifest_path.replace(/^\//, "");
+  const manifest = await env.MEDIA_BUCKET.head(manifestKey);
+  if (!manifest || manifest.customMetadata?.sha256 !== candidate.manifest_sha256) {
+    return jsonResponse({ error: "candidate manifest is missing or mismatched" }, 409);
+  }
+  if (existing && candidate.pointer_revision === existing.pointer_revision) {
+    return jsonResponse({ promoted: false, reused: true, pointerRevision: candidate.pointer_revision });
+  }
+  await env.MEDIA_BUCKET.put("v1/current.json", payload, {
+    httpMetadata: {
+      contentType: "application/json; charset=utf-8",
+      cacheControl: "public, max-age=60, must-revalidate",
+    },
+    customMetadata: {
+      sha256: expectedHash,
+      releaseId: candidate.release_id,
+      objectKind: "current-pointer",
+    },
+    sha256: expectedHash,
+  });
+  return jsonResponse({ promoted: true, reused: false, pointerRevision: candidate.pointer_revision }, 201);
 }
 
 function objectHeaders(object) {
@@ -140,9 +221,23 @@ export default {
       await env.MEDIA_BUCKET.list({ prefix: "__m2_healthcheck_never__", limit: 1 });
       return jsonResponse({
         status: "ok",
-        currentPromotion: false,
+        currentPromotion: (env.PUBLISH_MODE || "") === "production-auto",
         publishMode: env.PUBLISH_MODE || "m2-test",
       });
+    }
+    if (url.pathname === "/promote" && request.method === "PUT") {
+      return promoteCurrent(request, env);
+    }
+    if (url.pathname === "/current" && (request.method === "GET" || request.method === "HEAD")) {
+      const object = request.method === "HEAD"
+        ? await env.MEDIA_BUCKET.head("v1/current.json")
+        : await env.MEDIA_BUCKET.get("v1/current.json");
+      if (!object) {
+        return new Response(null, { status: 404, headers: { "x-media-bridge": "1", "cache-control": "no-store" } });
+      }
+      return request.method === "HEAD"
+        ? new Response(null, { status: 200, headers: objectHeaders(object) })
+        : new Response(object.body, { status: 200, headers: objectHeaders(object) });
     }
     if (url.pathname !== "/object") {
       return jsonResponse({ error: "not found" }, 404);

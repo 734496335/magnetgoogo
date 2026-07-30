@@ -13,7 +13,14 @@ from magnet.resource_index.adapters.dytt.parser import (
     parse_movie_detail,
 )
 from magnet.resource_index.domain.movie_models import MovieDetail, MovieListingCandidate
-from magnet.resource_index.errors import CONFIG_ERROR, LIVE_EMPTY_RESULT, LIVE_URL_REJECTED, ResourceIndexError
+from magnet.resource_index.errors import (
+    CONFIG_ERROR,
+    LIVE_EMPTY_RESULT,
+    LIVE_HTTP_ERROR,
+    LIVE_URL_REJECTED,
+    NOT_FOUND,
+    ResourceIndexError,
+)
 
 
 class DyttLiveCrawler:
@@ -48,8 +55,8 @@ class DyttLiveCrawler:
     def crawl_latest_candidates(
         self,
         *,
-        limit: int = 25,
-        max_listing_pages: int = 2,
+        limit: int = 100,
+        max_listing_pages: int = 6,
     ) -> list[MovieListingCandidate]:
         if limit <= 0 or max_listing_pages <= 0:
             raise ResourceIndexError(
@@ -110,10 +117,19 @@ class DyttLiveCrawler:
                 "DYTT detail URL is outside the allowed public movie path",
                 {"detail_url": candidate.detail_url},
             )
-        response = self.client.get(
-            candidate.detail_url,
-            referer=f"{self.origin}/html/gndy/dyzz/index.html",
-        )
+        try:
+            response = self.client.get(
+                candidate.detail_url,
+                referer=f"{self.origin}/html/gndy/dyzz/index.html",
+            )
+        except ResourceIndexError as exc:
+            if exc.error_code == LIVE_HTTP_ERROR and int(exc.context.get("status") or 0) == 404:
+                raise ResourceIndexError(
+                    NOT_FOUND,
+                    "DYTT detail page no longer exists",
+                    {"detail_url": candidate.detail_url, "status": 404},
+                ) from exc
+            raise
         return parse_movie_detail(
             response.text,
             candidate=candidate,

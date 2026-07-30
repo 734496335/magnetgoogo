@@ -190,8 +190,9 @@ def test_cli_lists_movie_brands_and_gates_live_probe() -> None:
     source_payload = json.loads(sources.stdout)
     assert {"sixv", "dytt8899", "sixv-series", "meijumi"} <= set(source_payload)
     assert source_payload["sixv"]["default_count"] == 100
-    assert source_payload["dytt8899"]["default_count"] == 50
-    assert source_payload["sixv-series"]["default_count"] == 50
+    assert source_payload["dytt8899"]["default_count"] == 250
+    assert source_payload["dytt8899"]["publish_count"] == 100
+    assert source_payload["sixv-series"]["default_count"] == 100
     assert source_payload["meijumi"]["default_count"] == 100
     assert source_payload["meijumi"]["content_kind"] == "series"
 

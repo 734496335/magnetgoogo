@@ -39,8 +39,8 @@ class SixVLiveCrawler:
     def crawl_latest_candidates(
         self,
         *,
-        limit: int = 50,
-        max_listing_pages: int = 4,
+        limit: int = 100,
+        max_listing_pages: int = 6,
     ) -> list[SixVListingCandidate]:
         if limit <= 0 or max_listing_pages <= 0:
             raise ResourceIndexError(

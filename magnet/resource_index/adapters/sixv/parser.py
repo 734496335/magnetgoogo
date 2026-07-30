@@ -327,6 +327,15 @@ def _parse_date(value: str | None) -> date | None:
         return None
 
 
+def _normalize_external_url(url: str) -> str:
+    value = url.strip()
+    if value.casefold().startswith("ttps://"):
+        return "h" + value
+    if value.casefold().startswith("ttp://"):
+        return "h" + value
+    return value
+
+
 def _provider_for(url: str) -> str | None:
     host = (urlparse(url).hostname or "").casefold()
     if host in _CLOUD_PROVIDERS:
@@ -356,7 +365,7 @@ def _resources(end_text: Tag) -> tuple[SixVMovieResource, ...]:
     resources: list[SixVMovieResource] = []
     seen: set[str] = set()
     for anchor in end_text.find_all("a", href=True):
-        raw_url = str(anchor["href"]).strip()
+        raw_url = _normalize_external_url(str(anchor["href"]))
         display_title = normalize_whitespace(anchor.get_text(" ", strip=True)) or raw_url
         if raw_url.startswith("magnet:?"):
             try:
@@ -366,9 +375,10 @@ def _resources(end_text: Tag) -> tuple[SixVMovieResource, ...]:
                 )
             except Exception:
                 continue
-            if normalized in seen:
+            identity = f"hash:{info_hash}"
+            if identity in seen:
                 continue
-            seen.add(normalized)
+            seen.add(identity)
             resources.append(
                 SixVMovieResource(
                     resource_type="magnet",

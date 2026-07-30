@@ -258,29 +258,41 @@ def _partition_series_item(
     ]
     explicit_season = _integer(item.get("season_number"))
     if explicit_season is not None:
-        item["season_number"] = explicit_season
-        item["title"], item["series_title"] = normalize_series_item_titles(item)
-        accepted: list[dict[str, Any]] = []
-        for resource in normalized_resources:
-            resource_season = _integer(resource.get("season_number"))
-            if resource_season == explicit_season:
-                accepted.append(resource)
+        known_seasons = sorted(
+            {
+                explicit_season,
+                *(
+                    season
+                    for resource in normalized_resources
+                    if (season := _integer(resource.get("season_number"))) is not None
+                ),
+            }
+        )
+        original_movie_id = normalize_whitespace(str(item.get("movie_id") or ""))
+        output: list[dict[str, Any]] = []
+        for season in known_seasons:
+            partition = deepcopy(item)
+            partition["season_number"] = season
+            partition["title"], partition["series_title"] = normalize_series_item_titles(partition)
+            partition_resources: list[dict[str, Any]] = []
+            for resource in normalized_resources:
+                resource_season = _integer(resource.get("season_number"))
+                if resource_season == season:
+                    partition_resources.append(deepcopy(resource))
+                elif resource_season is None and season == explicit_season:
+                    inherited = deepcopy(resource)
+                    inherited["season_number"] = explicit_season
+                    inherited["title_source"] = inherited.get("title_source") or "item_context"
+                    partition_resources.append(inherited)
+            if not partition_resources:
                 continue
-            if resource_season is None:
-                resource["season_number"] = explicit_season
-                resource["title_source"] = resource.get("title_source") or "item_context"
-                accepted.append(resource)
-                continue
-            quarantine.append(
-                _quarantine_entry(
-                    item=item,
-                    resource=resource,
-                    reason="season_mismatch",
-                    target_season_number=explicit_season,
-                )
-            )
-        item["resources"] = accepted
-        return [item]
+            partition["resources"] = partition_resources
+            if original_movie_id and season != explicit_season:
+                partition["source_movie_id"] = original_movie_id
+                partition["movie_id"] = f"{original_movie_id}:season:{season}"
+            partition["season_partitioned"] = len(known_seasons) > 1
+            output.append(partition)
+        return output
 
     known_seasons = sorted(
         {

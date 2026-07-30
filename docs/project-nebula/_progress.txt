@@ -1,26 +1,27 @@
-TASK: App国内更新下载链路优化
-STATUS: REMOTE_CONFIG_LIVE / R2_PRIMARY_PASS / NEXT_APP_FALLBACK_READY
+TASK: 三站/四入口影视爬虫100条可靠性闭环
+STATUS: PASS / CODE_AND_DATA_VERIFIED / NOT_PUBLISHED
 DATE: 2026-07-30 UTC+8
 
 DONE:
-- 正式0.2.2 APK上传至R2：api.naoshiquan.com/download/v0.2.2/magnetgoogo-v0.2.2.apk。
-- 公网完整回下载：33,562,462字节，SHA-256与正式APK一致。
-- 远程主下载切换R2；备用顺序固定为蓝奏云第一、GitHub最后。
-- mg-data提交并推送：f7b945ee8365c0f2932909ca4ad7ec56ebeb437b。
-- 阿里云、CF Pages、Raw、两个网关、固定CDN配置收敛。
-- CF配置增加no-store/no-cache，消除旧配置边缘缓存。
-- App新增顺序归一、直链自动重试、APK大小/ZIP头校验和失败浏览器回退。
+- 6v520电影、Meijumi剧集、6v520剧集均完成100/100真实持久抓取。
+- DYTT改为250候选筛最新100条标题+封面+磁力/网盘合格记录。
+- DYTT真实结果：249成功详情、1个永久404、115合格候选、正式100条/159磁力。
+- 四入口严格可靠性报告全部PASS；SQLite完整、标题/封面/资源缺失0、跨影视重复0。
+- 400张封面全部真实下载解码；每站100个唯一图片哈希，唯一率100%。
+- 四源聚合：436影视、4468资源；3541磁力、927网盘；非法/重复0。
+- 零网络重放和Feed SHA稳定全部通过；内容不变不再重写generated_at。
+- 永久404一次耗尽；DYTT FTP/HLS-only候选不进入正式Feed。
 
 VERIFIED:
-- TypeScript：PASS。
-- update-download策略测试：PASS。
-- release-build契约：PASS。
-- App adversarial：52/52 PASS。
-- R2 APK完整字节校验：PASS。
+- Resource Index：293 passed，1 skipped。
+- compileall：PASS。
+- Enum：241 rules / ALL VALID。
+- Windows部署脚本与Linux JSON配置语法：PASS。
+
+EVIDENCE:
+- docs/project-nebula/RESOURCE-INDEX-NEW-SOURCE-100-RELIABILITY-20260730.md
+- D:\lpproduct\magnet-reliability-100-20260730
 
 BOUNDARY:
-- 客户端自动重试代码需随下一版APK生效；当前旧版已即时获得R2主地址和备用顺序。
-- K30S本轮未连接，未做真机点击验证。
-- cn.magnetgoogo.com证书至2026-08-02；续期timer已恢复active，但HTTP-01仍403/重置，未关闭。
-
-EVIDENCE: docs/project-nebula/APP-UPDATE-DOWNLOAD-CHINA-OPTIMIZATION-20260730.md
+- 本轮未发布新的线上媒体revision。
+- 本轮未启用阿里云自动定时器。

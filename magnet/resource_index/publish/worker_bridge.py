@@ -124,6 +124,7 @@ class WorkerR2PublisherBackend(PublisherBackend):
         prefix: str,
         transport: Transport | None = None,
         allow_production_root: bool = False,
+        allow_current_promotion: bool = False,
         max_attempts: int = 3,
         retry_base_seconds: float = 0.5,
         sleeper: Callable[[float], None] = time.sleep,
@@ -138,6 +139,7 @@ class WorkerR2PublisherBackend(PublisherBackend):
             _fail(PUBLISH_CONFIG_ERROR, "Worker bridge max_attempts must be between 1 and 8")
         self.worker_url = worker_url.rstrip("/")
         self.allow_production_root = allow_production_root
+        self.allow_current_promotion = allow_current_promotion
         self.prefix = _normalize_prefix(prefix, allow_production_root=allow_production_root)
         self._token = upload_token
         self._transport = transport or _default_transport
@@ -157,7 +159,8 @@ class WorkerR2PublisherBackend(PublisherBackend):
         return (
             "WorkerR2PublisherBackend("
             f"worker_url={self.worker_url!r}, prefix={self.prefix!r}, "
-            f"allow_production_root={self.allow_production_root!r}, token=<redacted>)"
+            f"allow_production_root={self.allow_production_root!r}, "
+            f"allow_current_promotion={self.allow_current_promotion!r}, token=<redacted>)"
         )
 
     def _remote_key(self, key: str) -> str:
@@ -224,8 +227,56 @@ class WorkerR2PublisherBackend(PublisherBackend):
             payload = json.loads(response.body.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             _fail(PUBLISH_REMOTE_ERROR, "Worker bridge healthcheck returned invalid JSON", error=type(exc).__name__)
-        if not isinstance(payload, dict) or payload.get("status") != "ok" or payload.get("currentPromotion") is not False:
+        if (
+            not isinstance(payload, dict)
+            or payload.get("status") != "ok"
+            or bool(payload.get("currentPromotion")) is not self.allow_current_promotion
+        ):
             _fail(PUBLISH_REMOTE_ERROR, "Worker bridge healthcheck contract mismatch")
+
+    def promote_current(self, current_path: str | Path) -> PublishedObject:
+        if not self.allow_current_promotion:
+            _fail(PUBLISH_CONFIG_ERROR, "Worker bridge current promotion is disabled")
+        path = Path(current_path)
+        if not path.is_file():
+            _fail(PUBLISH_CONFIG_ERROR, "current pointer candidate is missing", path=str(path))
+        body = path.read_bytes()
+        expected_hash = hashlib.sha256(body).hexdigest()
+        response = self._request(
+            "PUT",
+            "/promote",
+            body=body,
+            headers={
+                "content-type": "application/json; charset=utf-8",
+                "x-media-sha256": expected_hash,
+                "x-media-size": str(len(body)),
+            },
+        )
+        if response.status not in {200, 201}:
+            _fail(
+                PUBLISH_REMOTE_ERROR,
+                "Worker bridge current promotion failed",
+                status=response.status,
+                response=response.body[:500].decode("utf-8", errors="replace"),
+            )
+        verified = self._request("GET", "/current")
+        if verified.status != 200:
+            _fail(PUBLISH_REMOTE_ERROR, "Worker bridge current verification failed", status=verified.status)
+        actual_hash = hashlib.sha256(verified.body).hexdigest()
+        if verified.body != body or actual_hash != expected_hash:
+            _fail(
+                PUBLISH_VERIFICATION_FAILED,
+                "Worker bridge promoted current bytes do not match candidate",
+                expected_hash=expected_hash,
+                actual_hash=actual_hash,
+            )
+        return PublishedObject(
+            key="v1/current.json",
+            size=len(body),
+            sha256=expected_hash,
+            etag=None,
+            metadata=None,
+        )
 
     def head(self, key: str) -> PublishedObject | None:
         remote_key = self._remote_key(key)

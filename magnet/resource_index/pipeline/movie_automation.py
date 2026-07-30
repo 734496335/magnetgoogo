@@ -25,7 +25,7 @@ Clock = Callable[[], datetime]
 
 _LEGACY_EXPANDED_DB_COUNTS = {
     ("sixv", 100): 50,
-    ("dytt8899", 50): 25,
+    ("dytt8899", 250): 25,
     ("meijumi", 100): 50,
 }
 

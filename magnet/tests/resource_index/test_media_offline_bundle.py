@@ -189,6 +189,32 @@ def test_app_bundle_rejects_missing_required_cover(tmp_path: Path) -> None:
         )
 
 
+def test_app_bundle_can_isolate_failed_cover_without_blocking_other_items(tmp_path: Path) -> None:
+    feed = tmp_path / "movie.json"
+    bundle = tmp_path / "bundle"
+    _write_feed(feed, kind="movie", count=2)
+
+    def fetch(url: str, _referer: str | None) -> bytes:
+        if url.endswith("0.png"):
+            raise ResourceIndexError(CONFIG_ERROR, "broken cover", {})
+        return _image_bytes()
+
+    result = build_media_app_bundle(
+        feed_path=feed,
+        output_dir=bundle,
+        content_kind="movie",
+        fetcher=fetch,
+        skip_failed_covers=True,
+    )
+
+    assert result.item_count == 1
+    assert result.failed == 1
+    payload = json.loads((bundle / "feed.json").read_text(encoding="utf-8"))
+    assert payload["items"][0]["rank"] == 1
+    failures = json.loads((bundle / "cover_failures.json").read_text(encoding="utf-8"))
+    assert failures["failed_count"] == 1
+
+
 def test_app_bundle_filters_unsupported_download_player_resources(tmp_path: Path) -> None:
     feed = tmp_path / "movie.json"
     bundle = tmp_path / "bundle"

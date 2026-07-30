@@ -1,0 +1,11 @@
+[Unit]
+Description=Run MagnetGoogo media update every day
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 Asia/Shanghai
+RandomizedDelaySec=5m
+Persistent=true
+Unit=magnet-media-daily.service
+
+[Install]
+WantedBy=timers.target

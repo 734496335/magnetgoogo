@@ -47,6 +47,7 @@ class MovieSourceSpec:
     parser_variant: str | None = None
     catalog_role: str = "supplemental"
     metadata_priority: int = 0
+    publish_count: int | None = None
 
 
 _SPECS: dict[str, MovieSourceSpec] = {}
@@ -82,6 +83,7 @@ def list_movie_sources() -> dict[str, dict[str, object]]:
             "parser_variant": spec.parser_variant,
             "catalog_role": spec.catalog_role,
             "metadata_priority": spec.metadata_priority,
+            "publish_count": spec.publish_count,
         }
         for source_id, spec in sorted(_SPECS.items())
     }
@@ -126,15 +128,15 @@ def _ensure_builtin_movie_sources() -> None:
             MovieSourceSpec(
                 source_id="sixv-series",
                 snapshot_schema="media-latest/sixv-series/1",
-                default_count=50,
+                default_count=100,
                 minimum_delay_seconds=10.0,
                 minimum_check_interval_hours=12,
-                daily_request_budget=70,
-                default_batch_size=5,
+                daily_request_budget=120,
+                default_batch_size=10,
                 automatic_max_batches=2,
-                snapshot_max_requests=3,
+                snapshot_max_requests=8,
                 batch_max_requests=12,
-                max_listing_pages=1,
+                max_listing_pages=8,
                 robots_url=None,
                 allowed_origins=(
                     "https://www.6v520.com",
@@ -164,8 +166,8 @@ def _ensure_builtin_movie_sources() -> None:
                 default_count=100,
                 minimum_delay_seconds=12.0,
                 minimum_check_interval_hours=12,
-                daily_request_budget=70,
-                default_batch_size=5,
+                daily_request_budget=120,
+                default_batch_size=10,
                 automatic_max_batches=2,
                 snapshot_max_requests=2,
                 batch_max_requests=12,
@@ -192,15 +194,15 @@ def _ensure_builtin_movie_sources() -> None:
             MovieSourceSpec(
                 source_id="dytt8899",
                 snapshot_schema="movie-latest/dytt8899/1",
-                default_count=50,
+                default_count=250,
                 minimum_delay_seconds=15.0,
                 minimum_check_interval_hours=12,
-                daily_request_budget=50,
-                default_batch_size=5,
+                daily_request_budget=300,
+                default_batch_size=10,
                 automatic_max_batches=2,
-                snapshot_max_requests=6,
+                snapshot_max_requests=12,
                 batch_max_requests=12,
-                max_listing_pages=2,
+                max_listing_pages=10,
                 robots_url="https://www.dytt8899.com/robots.txt",
                 allowed_origins=("https://www.dytt8899.com",),
                 allowed_path_prefixes=("/html/gndy/dyzz/", "/i/"),
@@ -214,5 +216,6 @@ def _ensure_builtin_movie_sources() -> None:
                 parser_variant="dytt_empire",
                 catalog_role="supplemental",
                 metadata_priority=200,
+                publish_count=100,
             )
         )

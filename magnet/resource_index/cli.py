@@ -30,6 +30,8 @@ from magnet.resource_index.pipeline.latest_crawl import (
     select_best_latest_database,
 )
 from magnet.resource_index.pipeline.media_aggregate import aggregate_media_feeds
+from magnet.resource_index.pipeline.media_daily import load_media_daily_config, run_media_daily
+from magnet.resource_index.pipeline.media_library import export_source_library_feed
 from magnet.resource_index.pipeline.media_offline_bundle import (
     audit_media_app_bundle,
     build_media_app_bundle,
@@ -40,6 +42,9 @@ from magnet.resource_index.pipeline.movie_automation import (
 )
 from magnet.resource_index.pipeline.movie_brand_probe import probe_movie_brands
 from magnet.resource_index.pipeline.movie_latest import MovieLatestRunner
+from magnet.resource_index.pipeline.source_cover_probe import probe_source_covers
+from magnet.resource_index.pipeline.source_reliability import audit_source_reliability
+from magnet.resource_index.pipeline.source_resource_probe import probe_source_resources
 from magnet.resource_index.store.sqlite_repository import SqliteResourceRepository
 
 
@@ -286,6 +291,41 @@ def cmd_aggregate_media_feeds(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_media_daily(args: argparse.Namespace) -> int:
+    try:
+        result = run_media_daily(
+            load_media_daily_config(args.config),
+            publish=not args.no_publish,
+            skip_crawl=args.skip_crawl,
+            force_publish=args.force_publish,
+        )
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        if exc.context:
+            print(f"context={json.dumps(exc.context, ensure_ascii=False, sort_keys=True)}", file=sys.stderr)
+        return 1
+    _print_json(result, pretty=True)
+    return 0
+
+
+def cmd_export_source_library(args: argparse.Namespace) -> int:
+    try:
+        payload = export_source_library_feed(
+            db_path=args.db,
+            source_id=args.source,
+            output_path=args.output,
+        )
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        if exc.context:
+            print(f"context={json.dumps(exc.context, ensure_ascii=False, sort_keys=True)}", file=sys.stderr)
+        return 1
+    _print_json(payload["summary"], pretty=True)
+    return 0
+
+
 def cmd_build_media_app_bundle(args: argparse.Namespace) -> int:
     if not args.yes:
         print("error_code=LIVE_POLICY_NOT_ACKNOWLEDGED", file=sys.stderr)
@@ -321,6 +361,72 @@ def cmd_audit_media_app_bundle(args: argparse.Namespace) -> int:
     except ResourceIndexError as exc:
         print(f"error_code={exc.error_code}", file=sys.stderr)
         print(f"message={exc.message}", file=sys.stderr)
+        return 1
+    _print_json(report, pretty=True)
+    return 0 if report["status"] == "pass" else 1
+
+
+def cmd_probe_source_resources(args: argparse.Namespace) -> int:
+    if not args.yes:
+        print("error_code=LIVE_POLICY_NOT_ACKNOWLEDGED", file=sys.stderr)
+        print("message=pass --yes to acknowledge online resource sampling", file=sys.stderr)
+        return 1
+    try:
+        result = probe_source_resources(
+            feed_path=args.feed,
+            output_path=args.output,
+            max_per_provider=args.max_per_provider,
+            delay_seconds=args.delay,
+        )
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        if exc.context:
+            print(f"context={json.dumps(exc.context, ensure_ascii=False, sort_keys=True)}", file=sys.stderr)
+        return 1
+    _print_json(result.__dict__, pretty=True)
+    return 0 if result.status == "pass" else 1
+
+
+def cmd_probe_source_covers(args: argparse.Namespace) -> int:
+    if not args.yes:
+        print("error_code=LIVE_POLICY_NOT_ACKNOWLEDGED", file=sys.stderr)
+        print("message=pass --yes to acknowledge full source cover downloads", file=sys.stderr)
+        return 1
+    try:
+        result = probe_source_covers(
+            feed_path=args.feed,
+            output_dir=args.output_dir,
+            expected_count=args.expected_count,
+            delay_seconds=args.delay,
+            timeout_seconds=args.timeout,
+            minimum_unique_ratio=args.minimum_unique_ratio,
+        )
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        if exc.context:
+            print(f"context={json.dumps(exc.context, ensure_ascii=False, sort_keys=True)}", file=sys.stderr)
+        return 1
+    _print_json(result.__dict__, pretty=True)
+    return 0 if result.status == "pass" else 1
+
+
+def cmd_audit_source_reliability(args: argparse.Namespace) -> int:
+    try:
+        report = audit_source_reliability(
+            source_id=args.source,
+            db_path=args.db,
+            feed_path=args.feed,
+            expected_count=args.expected_count,
+            output_path=args.output,
+            require_app_resources=args.require_app_resources,
+        )
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        if exc.context:
+            print(f"context={json.dumps(exc.context, ensure_ascii=False, sort_keys=True)}", file=sys.stderr)
         return 1
     _print_json(report, pretty=True)
     return 0 if report["status"] == "pass" else 1
@@ -981,6 +1087,25 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(func=cmd_aggregate_media_feeds)
 
     s = sub.add_parser(
+        "media-daily",
+        help="Run one unattended multi-source media update and optional production publication",
+    )
+    s.add_argument("--config", required=True)
+    s.add_argument("--no-publish", action="store_true")
+    s.add_argument("--skip-crawl", action="store_true")
+    s.add_argument("--force-publish", action="store_true")
+    s.set_defaults(func=cmd_media_daily)
+
+    s = sub.add_parser(
+        "export-source-library",
+        help="Export every durable item from one source database, not only the latest window",
+    )
+    s.add_argument("--source", required=True)
+    s.add_argument("--db", required=True)
+    s.add_argument("--output", required=True)
+    s.set_defaults(func=cmd_export_source_library)
+
+    s = sub.add_parser(
         "build-media-app-bundle",
         help="Download verified covers and build a fully offline movie/series App bundle",
     )
@@ -1001,6 +1126,42 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--content-kind", choices=("movie", "series"), required=True)
     s.add_argument("--expected-count", type=int, default=None)
     s.set_defaults(func=cmd_audit_media_app_bundle)
+
+    s = sub.add_parser(
+        "probe-source-resources",
+        help="Online-sample non-magnet resources from one completed source feed",
+    )
+    s.add_argument("--feed", required=True)
+    s.add_argument("--output", required=True)
+    s.add_argument("--max-per-provider", type=int, default=20)
+    s.add_argument("--delay", type=float, default=0.5)
+    s.add_argument("--yes", action="store_true")
+    s.set_defaults(func=cmd_probe_source_resources)
+
+    s = sub.add_parser(
+        "probe-source-covers",
+        help="Download and decode every cover in one completed source feed",
+    )
+    s.add_argument("--feed", required=True)
+    s.add_argument("--output-dir", required=True)
+    s.add_argument("--expected-count", type=int, default=100)
+    s.add_argument("--delay", type=float, default=1.0)
+    s.add_argument("--timeout", type=float, default=30.0)
+    s.add_argument("--minimum-unique-ratio", type=float, default=0.9)
+    s.add_argument("--yes", action="store_true")
+    s.set_defaults(func=cmd_probe_source_covers)
+
+    s = sub.add_parser(
+        "audit-source-reliability",
+        help="Audit one completed durable source crawl and its App-usable resources",
+    )
+    s.add_argument("--source", required=True)
+    s.add_argument("--db", required=True)
+    s.add_argument("--feed", required=True)
+    s.add_argument("--expected-count", type=int, default=100)
+    s.add_argument("--output", default=None)
+    s.add_argument("--require-app-resources", action="store_true")
+    s.set_defaults(func=cmd_audit_source_reliability)
 
     s = sub.add_parser(
         "doctor",

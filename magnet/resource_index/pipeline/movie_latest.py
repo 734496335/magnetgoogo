@@ -27,6 +27,7 @@ from magnet.resource_index.errors import (
     LIVE_RATE_LIMITED,
     LIVE_REQUEST_BUDGET_EXHAUSTED,
     LIVE_URL_REJECTED,
+    NOT_FOUND,
     ResourceIndexError,
 )
 from magnet.resource_index.pipeline.latest_crawl import (
@@ -45,6 +46,23 @@ CrawlerBuilder = Callable[..., MovieCrawler]
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _qualified_publish_item(feed_item: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+    if not normalize_whitespace(str(feed_item.get("title") or "")):
+        return None, "missing_title"
+    if not normalize_whitespace(str(feed_item.get("cover_source_url") or "")):
+        return None, "missing_cover"
+    publishable_resources = [
+        resource
+        for resource in feed_item.get("resources") or []
+        if str(resource.get("resource_type") or "") in {"magnet", "cloud"}
+    ]
+    if not publishable_resources:
+        return None, "missing_publishable_resources"
+    qualified = dict(feed_item)
+    qualified["resources"] = publishable_resources
+    return qualified, None
 
 
 @dataclass(frozen=True)
@@ -653,6 +671,11 @@ class MovieLatestRunner:
                         m.genres_json = '[]'
                         OR m.synopsis IS NULL
                         OR TRIM(m.synopsis) = ''
+                        OR NOT EXISTS (
+                            SELECT 1 FROM movie_resources mr WHERE mr.movie_id = m.movie_id
+                        ) AND NOT EXISTS (
+                            SELECT 1 FROM movie_external_resources mer WHERE mer.movie_id = m.movie_id
+                        )
                         OR (
                             m.content_kind = 'series'
                             AND (m.season_number IS NULL OR m.episode_number IS NULL)
@@ -732,13 +755,25 @@ class MovieLatestRunner:
                     status = "failed"
                     error_code = errors.get(rank, "UNEXPECTED")
                     failed += 1
+                terminal_failure = error_code == NOT_FOUND
                 self.repo.conn.execute(
                     """
                     UPDATE latest_crawl_items
-                    SET status = ?, last_run_id = ?, last_error_code = ?, updated_at = ?
+                    SET status = ?, last_run_id = ?, last_error_code = ?,
+                        attempts = CASE WHEN ? THEN ? ELSE attempts END,
+                        updated_at = ?
                     WHERE job_id = ? AND rank = ?
                     """,
-                    (status, run_id, error_code, now_s, job_id, rank),
+                    (
+                        status,
+                        run_id,
+                        error_code,
+                        int(terminal_failure),
+                        self.max_attempts,
+                        now_s,
+                        job_id,
+                        rank,
+                    ),
                 )
             self.repo.conn.execute(
                 """
@@ -755,8 +790,26 @@ class MovieLatestRunner:
         return succeeded, failed
 
     def _export_feed(self, job_id: str, snapshot: dict[str, Any]) -> dict[str, Any]:
+        if self.source_id == "dytt8899":
+            from magnet.resource_index.pipeline.dytt_maintenance import normalize_dytt_player_resources
+
+            normalize_dytt_player_resources(self.repo, source_id=self.source_id)
+        from magnet.resource_index.pipeline.resource_maintenance import normalize_durable_resources
+
+        normalize_durable_resources(self.repo, source_id=self.source_id)
+        spec = get_movie_source(self.source_id)
+        publish_count = (
+            spec.publish_count
+            if spec.publish_count is not None and self.target_count >= spec.publish_count
+            else None
+        )
         items: list[dict[str, Any]] = []
         missing_urls: list[str] = []
+        disqualified_counts = {
+            "missing_title": 0,
+            "missing_cover": 0,
+            "missing_publishable_resources": 0,
+        }
         for snapshot_item in snapshot["items"]:
             feed_item = self.movie_repo.feed_item(
                 source_id=self.source_id,
@@ -767,7 +820,17 @@ class MovieLatestRunner:
             if feed_item is None:
                 missing_urls.append(snapshot_item["detail_url"])
                 continue
+            if publish_count is not None:
+                feed_item, disqualified_reason = _qualified_publish_item(feed_item)
+                if feed_item is None:
+                    assert disqualified_reason is not None
+                    disqualified_counts[disqualified_reason] += 1
+                    continue
             items.append(feed_item)
+            if publish_count is not None and len(items) >= publish_count:
+                break
+        for rank, item in enumerate(items, start=1):
+            item["rank"] = rank
         counts = self.movie_repo.counts(source_id=self.source_id)
         job = self.job_store.get_job(job_id)
         assert job is not None
@@ -779,7 +842,10 @@ class MovieLatestRunner:
             "items": items,
             "summary": {
                 "record_count": len(items),
-                "target_count": self.target_count,
+                "target_count": publish_count or self.target_count,
+                "discovery_target_count": self.target_count,
+                "disqualified_counts": disqualified_counts,
+                "qualified_shortfall": max(0, (publish_count or self.target_count) - len(items)),
                 "recommended_count": sum(1 for item in items if item["recommended"]),
                 "resource_count": sum(len(item["resources"]) for item in items),
                 "missing_urls": missing_urls,
@@ -788,6 +854,16 @@ class MovieLatestRunner:
                 "database_movie_count": counts["movies"],
             },
         }
+        if self.paths.feed_path.exists():
+            try:
+                existing = json.loads(self.paths.feed_path.read_text(encoding="utf-8-sig"))
+            except (OSError, json.JSONDecodeError):
+                existing = None
+            if isinstance(existing, dict):
+                existing_semantic = {key: value for key, value in existing.items() if key != "generated_at"}
+                payload_semantic = {key: value for key, value in payload.items() if key != "generated_at"}
+                if existing_semantic == payload_semantic:
+                    return existing
         _atomic_write_json(self.paths.feed_path, payload)
         return payload
 
@@ -985,8 +1061,18 @@ class MovieLatestRunner:
                     break
 
             summary = self.job_store.summary(job_id)
+            feed = self._export_feed(job_id, snapshot)
+            source_publish_count = get_movie_source(self.source_id).publish_count
+            publish_count = (
+                source_publish_count
+                if source_publish_count is not None and self.target_count >= source_publish_count
+                else None
+            )
+            qualified_count = int(feed["summary"]["record_count"])
             if stopped_by_policy:
                 status = "paused"
+            elif publish_count is not None and summary["pending_count"] == 0:
+                status = "success" if qualified_count >= publish_count else "partial"
             elif summary["covered_count"] == self.target_count:
                 status = "success"
             elif summary["exhausted_count"] > 0 and summary["pending_count"] == 0:
@@ -994,5 +1080,4 @@ class MovieLatestRunner:
             else:
                 status = "pending"
             self.job_store.set_job_status(job_id, status=status, now=self.clock())
-            feed = self._export_feed(job_id, snapshot)
             return self._result(job_id, status, feed)

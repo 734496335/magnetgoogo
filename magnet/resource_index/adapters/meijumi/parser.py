@@ -274,9 +274,10 @@ def _resources(container: Tag) -> tuple[MovieResource, ...]:
                 normalized, info_hash = normalize_magnet_uri(raw_url, fallback_dn=display_title)
             except Exception:
                 continue
-            if normalized in seen:
+            identity = f"hash:{info_hash}"
+            if identity in seen:
                 continue
-            seen.add(normalized)
+            seen.add(identity)
             output.append(
                 MovieResource(
                     resource_type="magnet",

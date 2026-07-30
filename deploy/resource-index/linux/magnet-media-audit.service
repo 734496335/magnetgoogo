@@ -1,0 +1,21 @@
+[Unit]
+Description=MagnetGoogo weekly media integrity audit
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/magnet-media/app
+ExecStart=/opt/magnet-media/app/deploy/resource-index/linux/run-media-daily.sh audit
+TimeoutStartSec=3h
+Nice=15
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/magnet-media /run /var/log

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run MagnetGoogo media integrity audit weekly
+
+[Timer]
+OnCalendar=Sun *-*-* 02:30:00 Asia/Shanghai
+RandomizedDelaySec=10m
+Persistent=true
+Unit=magnet-media-audit.service
+
+[Install]
+WantedBy=timers.target

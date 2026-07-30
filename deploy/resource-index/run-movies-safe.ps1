@@ -54,8 +54,8 @@ $Arguments = @(
 $SourceList = @()
 $DefaultCounts = @{
     "sixv" = 100
-    "dytt8899" = 50
-    "sixv-series" = 50
+    "dytt8899" = 250
+    "sixv-series" = 100
     "meijumi" = 100
 }
 foreach ($Source in ($Sources -split ",")) {

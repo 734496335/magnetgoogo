@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 from datetime import date
-from urllib.parse import parse_qs, urljoin, urlparse
+from urllib.parse import parse_qs, unquote, urljoin, urlparse
 
 from bs4 import BeautifulSoup, Tag
 
@@ -18,7 +18,7 @@ from magnet.resource_index.normalize.magnets import normalize_magnet_uri
 from magnet.resource_index.normalize.text import normalize_whitespace
 
 SOURCE_ID = "dytt8899"
-PARSER_VERSION = "dytt-parser/1.0.0"
+PARSER_VERSION = "dytt-parser/1.1.0"
 ORIGIN = "https://www.dytt8899.com"
 
 _FIELD_ALIASES = {
@@ -243,6 +243,42 @@ def _extraction_code(url: str) -> str | None:
     return None
 
 
+def unwrap_jianpian_url(url: str) -> str | None:
+    marker = "&path="
+    index = url.casefold().find(marker)
+    if not url.casefold().startswith("jianpian://") or index < 0:
+        return None
+    target = unquote(url[index + len(marker) :]).strip()
+    parsed = urlparse(target)
+    if parsed.scheme not in {"http", "https", "ftp"} or not parsed.hostname:
+        return None
+    return target
+
+
+def _embedded_media_target(url: str) -> str | None:
+    candidates = [url]
+    if "$" in url:
+        candidates.insert(0, url.rsplit("$", 1)[-1])
+    for candidate in candidates:
+        target = unquote(candidate).strip()
+        parsed = urlparse(target)
+        if parsed.scheme in {"http", "https", "ftp"} and parsed.hostname:
+            return target
+    return None
+
+
+def direct_resource_kind(url: str) -> tuple[str, str]:
+    parsed = urlparse(url)
+    path = parsed.path.casefold()
+    if path.endswith(".m3u8"):
+        return "player", "m3u8"
+    if parsed.scheme.casefold() == "ftp":
+        return "download", "ftp"
+    if path.endswith((".mp4", ".mkv", ".avi", ".ts", ".mov", ".wmv")):
+        return "download", "direct"
+    return "player", "direct"
+
+
 def _resources(soup: BeautifulSoup, container: Tag) -> tuple[MovieResource, ...]:
     resources: list[MovieResource] = []
     seen: set[str] = set()
@@ -276,14 +312,37 @@ def _resources(soup: BeautifulSoup, container: Tag) -> tuple[MovieResource, ...]
             continue
         scheme = urlparse(raw_url).scheme.casefold()
         if scheme == "jianpian":
-            if raw_url in seen:
+            target = unwrap_jianpian_url(raw_url)
+            normalized_url = target or raw_url
+            resource_type, provider_name = (
+                direct_resource_kind(target) if target else ("player", "jianpian")
+            )
+            if normalized_url in seen:
                 continue
-            seen.add(raw_url)
+            seen.add(normalized_url)
             resources.append(
                 MovieResource(
-                    resource_type="player",
-                    provider="jianpian",
-                    resource_url=raw_url,
+                    resource_type=resource_type,
+                    provider=provider_name,
+                    resource_url=normalized_url,
+                    info_hash=None,
+                    display_title=display_title,
+                    extraction_code=None,
+                    quality_tags=extract_quality_tags(display_title),
+                )
+            )
+            continue
+        embedded = _embedded_media_target(raw_url)
+        if embedded is not None and embedded != raw_url:
+            resource_type, provider_name = direct_resource_kind(embedded)
+            if embedded in seen:
+                continue
+            seen.add(embedded)
+            resources.append(
+                MovieResource(
+                    resource_type=resource_type,
+                    provider=provider_name,
+                    resource_url=embedded,
                     info_hash=None,
                     display_title=display_title,
                     extraction_code=None,

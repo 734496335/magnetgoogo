@@ -504,7 +504,7 @@ def test_aggregate_missing_season_is_order_independent_when_multiple_seasons_exi
     }
 
 
-def test_xmen_explicit_second_season_filters_first_and_unknown_resources(tmp_path: Path) -> None:
+def test_xmen_explicit_second_season_partitions_first_and_inherits_unknown_resources(tmp_path: Path) -> None:
     feed = tmp_path / "xmen.json"
     xmen = _item(
         source_id="meijumi",
@@ -552,11 +552,15 @@ def test_xmen_explicit_second_season_filters_first_and_unknown_resources(tmp_pat
         quality_output_path=quality_path,
     )
 
-    assert result["summary"]["record_count"] == 1
-    item = result["items"][0]
+    assert result["summary"]["record_count"] == 2
+    by_season = {item["season_number"]: item for item in result["items"]}
+    assert set(by_season) == {1, 2}
+    assert by_season[1]["title"] == "X战警97 第一季"
+    assert len(by_season[1]["resources"]) == 1
+    assert by_season[1]["resources"][0]["episode_label"] == "S01E04"
+    item = by_season[2]
     assert item["title"] == "X战警97 第二季"
     assert item["series_title"] == "X战警97"
-    assert item["season_number"] == 2
     assert len(item["resources"]) == 2
     assert {resource["season_number"] for resource in item["resources"]} == {2}
     assert any(resource["episode_label"] == "S02E03" for resource in item["resources"])
@@ -564,7 +568,7 @@ def test_xmen_explicit_second_season_filters_first_and_unknown_resources(tmp_pat
     assert result["quality"]["accepted_cross_season_count"] == 0
     assert result["quality"]["weak_episode_title_count"] == 0
     quarantine = json.loads(quarantine_path.read_text(encoding="utf-8"))
-    assert quarantine["reason_counts"] == {"season_mismatch": 1}
+    assert quarantine["reason_counts"] == {}
     assert json.loads(quality_path.read_text(encoding="utf-8"))["status"] == "pass"
 
 

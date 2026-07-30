@@ -36,6 +36,21 @@
 | [CH-005](#challenge-005--域名漂移--死链发现滞后) | 域名漂移 / 死链发现滞后 | medium | open | — |
 | [CH-006](#challenge-006--resource-index-live-抓取可复现性与数据不退化) | Resource Index live 抓取可复现性与数据不退化 | **blocker** | solved ✅ | 2026-07-25 R6 complete; independent re-review pending |
 | [CH-007](#challenge-007--resource-index-跨电脑长任务编排与恢复) | Resource Index 跨电脑长任务编排与恢复 | **blocker** | solved in implementation | 2026-07-25 portable latest runner complete |
+| [CH-008](#challenge-008--dytt旧资源域名失效导致100条资源可靠性不足) | DYTT旧资源域名失效导致100条资源可靠性不足 | **high** | open | 2026-07-30 100条在线审计FAIL |
+
+---
+
+## CHALLENGE-008 — DYTT旧资源域名失效导致100条资源可靠性不足
+
+- **严重程度**：high
+- **状态**：open
+- **首次记录**：2026-07-30
+- **业务影响**：DYTT可以稳定抓取100条标题和封面，但大量旧条目依赖`a.gbl.114s.com` FTP资源；国内系统DNS无法解析，阿里公共DNS返回Status=3。该入口不能作为100条可靠电影资源补充源自动晋级。
+- **当前方案 & 缺陷**：新页面M3U8和HTTP直链已正确还原并可用；旧FTP地址也能从Jianpian包装中提取，但资源主机不可达。仅修解析器不能修复上游资源失效。
+- **已尝试**：完成100条抓取、400封面验证、20条M3U8在线验证、20条FTP桌面探针、K30S国内DNS和阿里DoH复核；另外抽检DYTT其他电影分类，仍以相同FTP为主。
+- **候选方案**：将DYTT降级为元数据/HLS观察源；接入另一个经过100条同门槛验证的电影资源补充站；或等待DYTT更换可解析资源域名后重新资格审计。
+- **下一步**：禁止DYTT旧FTP计入可靠资源数，不做正式资源源晋级；下一候选站必须执行100条结构、封面、在线资源和零网络重放全门禁。
+- **更新日志**：2026-07-30 —— `AUDIT=HOLD_WITH_3_OF_4_ENTRIES_PASS`，详见`RESOURCE-INDEX-NEW-SOURCE-100-RELIABILITY-20260730.md`。
 
 ---
 
@@ -303,6 +318,17 @@
 - Automated evidence: R6 adversarial 22 passed, resource_index 88 passed, all magnet non-integration 151 passed / 2 deselected.
 - Live evidence: budget=2 stopped at exactly 2 requests; SSIS-960 used 3 requests and returned 1/21/2/9; SSIS limit=2 used 6 requests and returned 2/44.
 - Evidence: `RESOURCE-INDEX-JAVBUS-LIVE-R6-CLOSEOUT-2026-07-25.md`.
+
+### CHALLENGE-006 multi-source 100-record update — 2026-07-30
+
+- **Status**: solved ✅ for the four production media entries.
+- SixV movie, Meijumi series and SixV series each passed 100 real records with title/cover/resource omissions zero, 100 unique decoded covers and zero-request deterministic replay.
+- DYTT cannot use its latest 100 pages directly because older records are dominated by unreachable FTP or player-only resources. The production strategy now scans 250 candidates and emits the latest 100 records with title, cover and magnet/cloud resources.
+- Real DYTT evidence: 249 details succeeded, one stale page returned permanent 404, 115 candidates qualified, and the final 100 records contain 159 unique magnets with no cross-item duplication.
+- Explicit 404 maps to terminal `NOT_FOUND`; content-identical Feed replay preserves file bytes and cannot create a false revision through timestamp churn.
+- Four-source final aggregation passed with 436 entities and 4,468 globally unique resources; title/cover/empty-resource drops and invalid resources are zero.
+- Verification: Resource Index 293 passed / 1 skipped; enum 241 rules / ALL VALID.
+- Evidence: `RESOURCE-INDEX-NEW-SOURCE-100-RELIABILITY-20260730.md`.
 
 ---
 

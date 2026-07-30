@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "magnetgoogo-media-auto-uploader",
+  "main": "../r2-upload-worker/worker.mjs",
+  "compatibility_date": "2026-07-30",
+  "workers_dev": true,
+  "vars": {
+    "PUBLISH_MODE": "production-auto"
+  },
+  "r2_buckets": [
+    {
+      "binding": "MEDIA_BUCKET",
+      "bucket_name": "magnetgoogo-media"
+    }
+  ]
+}

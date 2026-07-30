@@ -70,12 +70,12 @@ $Sources = @(
         SnapshotRequests = 12; BatchRequests = 12; ListingPages = 4
     },
     @{
-        Source = "dytt8899"; Count = 50; LegacyCount = 25; Delay = 15.0;
-        SnapshotRequests = 6; BatchRequests = 12; ListingPages = 2
+        Source = "dytt8899"; Count = 250; LegacyCount = 25; Delay = 15.0;
+        SnapshotRequests = 12; BatchRequests = 12; ListingPages = 10
     },
     @{
-        Source = "sixv-series"; Count = 50; LegacyCount = 0; Delay = 10.0;
-        SnapshotRequests = 3; BatchRequests = 12; ListingPages = 1
+        Source = "sixv-series"; Count = 100; LegacyCount = 0; Delay = 10.0;
+        SnapshotRequests = 8; BatchRequests = 12; ListingPages = 8
     },
     @{
         Source = "meijumi"; Count = 100; LegacyCount = 50; Delay = 12.0;
@@ -130,8 +130,8 @@ try {
 
     $FeedArguments = @(
         "--feed", (Join-Path $OutputDir "sixv_latest_100_feed.json"),
-        "--feed", (Join-Path $OutputDir "dytt8899_latest_50_feed.json"),
-        "--feed", (Join-Path $OutputDir "sixv-series_latest_50_feed.json"),
+        "--feed", (Join-Path $OutputDir "dytt8899_latest_250_feed.json"),
+        "--feed", (Join-Path $OutputDir "sixv-series_latest_100_feed.json"),
         "--feed", (Join-Path $OutputDir "meijumi_latest_100_feed.json")
     )
 

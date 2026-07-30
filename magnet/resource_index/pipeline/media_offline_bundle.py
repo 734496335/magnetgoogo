@@ -179,6 +179,7 @@ def build_media_app_bundle(
     delay_seconds: float = 1.5,
     timeout_seconds: float = 30.0,
     fetcher: CoverFetcher | None = None,
+    skip_failed_covers: bool = False,
 ) -> MediaAppBundleResult:
     """Build a content-addressed offline bundle from a strict media-feed/1 catalog."""
     if content_kind not in {"movie", "series"}:
@@ -345,7 +346,17 @@ def build_media_app_bundle(
         else:
             resolved[index] = selected
 
-    if failures:
+    failure_path = target / "cover_failures.json"
+    _atomic_write_json(
+        failure_path,
+        {
+            "schema_version": "media-cover-failures/1",
+            "content_kind": content_kind,
+            "failed_count": len(failures),
+            "items": failures,
+        },
+    )
+    if failures and not skip_failed_covers:
         raise ResourceIndexError(
             CONFIG_ERROR,
             "offline media covers are incomplete",
@@ -354,9 +365,11 @@ def build_media_app_bundle(
 
     app_items: list[dict[str, Any]] = []
     for index, raw_item in enumerate(items):
-        asset = resolved[index]
+        asset = resolved.get(index)
+        if asset is None:
+            continue
         item = dict(raw_item)
-        item["rank"] = index + 1
+        item["rank"] = len(app_items) + 1
         item["content_kind"] = content_kind
         item["cover_asset_path"] = asset["path"]
         item["cover_width"] = asset["width"]
@@ -391,7 +404,7 @@ def build_media_app_bundle(
         resource_count=app_feed["summary"]["resource_count"],
         downloaded=downloaded,
         reused=reused,
-        failed=0,
+        failed=len(failures),
         http_requests=budget.used if fetcher is None else downloaded,
         feed_path=str(feed_output),
         cover_dir=str(cover_dir),

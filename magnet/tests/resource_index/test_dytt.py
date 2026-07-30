@@ -28,7 +28,7 @@ from magnet.resource_index.domain.movie_models import (
     MovieListingCandidate,
     MovieResource,
 )
-from magnet.resource_index.errors import LIVE_URL_REJECTED, ResourceIndexError
+from magnet.resource_index.errors import LIVE_HTTP_ERROR, LIVE_URL_REJECTED, NOT_FOUND, ResourceIndexError
 from magnet.resource_index.pipeline.latest_crawl import (
     LatestCrawlPaths,
     run_deployment_doctor,
@@ -37,7 +37,7 @@ from magnet.resource_index.pipeline.movie_automation import (
     SafeMovieSourceResult,
     run_safe_movie_source,
 )
-from magnet.resource_index.pipeline.movie_latest import MovieLatestRunner
+from magnet.resource_index.pipeline.movie_latest import MovieLatestRunner, _qualified_publish_item
 from magnet.resource_index.store.migrations import file_checksum
 from magnet.resource_index.store.movie_source_state import MovieSourceStateStore
 from magnet.resource_index.store.sqlite_repository import SqliteResourceRepository
@@ -191,10 +191,60 @@ def test_dytt_detail_extracts_metadata_and_public_resources() -> None:
     assert movie.synopsis == "一段电影简介。"
     assert movie.cover_source_url == "https://img.example/poster.jpg"
     assert {(item.resource_type, item.provider) for item in movie.resources} == {
-        ("player", "jianpian"),
+        ("player", "m3u8"),
         ("magnet", "magnet"),
     }
+    player = next(item for item in movie.resources if item.resource_type == "player")
+    assert player.resource_url == "https://video.example/a.m3u8"
     assert all(item.resource_url != "1" for item in movie.resources)
+
+
+def test_dytt_crawler_maps_detail_404_to_not_found() -> None:
+    class _NotFoundClient:
+        def get(self, _url: str, **_kwargs):
+            raise ResourceIndexError(LIVE_HTTP_ERROR, "HTTP status 404", {"status": 404})
+
+    crawler = DyttLiveCrawler(
+        policy=LiveFetchPolicy(
+            enabled=True,
+            acknowledged=True,
+            max_pages=1,
+            request_delay_seconds=15,
+            concurrency=1,
+        ),
+        client=_NotFoundClient(),
+    )
+    with pytest.raises(ResourceIndexError) as exc:
+        crawler.crawl_movie_detail(_candidate(1))
+    assert exc.value.error_code == NOT_FOUND
+    assert exc.value.context["status"] == 404
+
+
+def test_dytt_qualified_publish_item_keeps_only_app_resources() -> None:
+    item = {
+        "title": "合格电影",
+        "cover_source_url": "https://images.example/poster.jpg",
+        "resources": [
+            {"resource_type": "download", "provider": "ftp", "resource_url": "ftp://dead.example/a.mp4"},
+            {"resource_type": "player", "provider": "m3u8", "resource_url": "https://video.example/a.m3u8"},
+            {"resource_type": "magnet", "provider": "magnet", "resource_url": "magnet:?xt=urn:btih:" + "1" * 40},
+            {"resource_type": "cloud", "provider": "quark", "resource_url": "https://pan.quark.cn/s/example"},
+        ],
+    }
+    qualified, reason = _qualified_publish_item(item)
+    assert reason is None
+    assert qualified is not None
+    assert [resource["resource_type"] for resource in qualified["resources"]] == ["magnet", "cloud"]
+
+    missing, reason = _qualified_publish_item(
+        {
+            "title": "仅失效下载",
+            "cover_source_url": "https://images.example/poster.jpg",
+            "resources": item["resources"][:2],
+        }
+    )
+    assert missing is None
+    assert reason == "missing_publishable_resources"
 
 
 def test_dytt_crawler_rejects_nonpublic_detail_path() -> None:
@@ -276,11 +326,13 @@ def test_generic_movie_runner_resumes_and_replays_zero_network(tmp_path: Path) -
     second = runner.run(refresh=False)
     assert second.status == "success"
     assert second.invocation_http_requests == 1
+    feed_hash = file_checksum(paths.feed_path)
     before = dict(calls)
     third = runner.run(refresh=False)
     assert third.status == "success"
     assert third.invocation_http_requests == 0
     assert calls == before
+    assert file_checksum(paths.feed_path) == feed_hash
     feed = json.loads(paths.feed_path.read_text(encoding="utf-8"))
     assert [item["rank"] for item in feed["items"]] == [1, 2]
     repo.close()
@@ -668,6 +720,128 @@ def test_safe_automation_skips_immediate_repeat_and_resumes_snapshot(
     assert checked.snapshot_changed is False
     assert checked.invocation_http_requests == 1
     assert calls == {"snapshot": 2, "detail": 2}
+
+
+def test_runner_does_not_retry_permanent_not_found_candidate(tmp_path: Path) -> None:
+    paths = LatestCrawlPaths.for_output_dir(
+        tmp_path / "out",
+        source_id="dytt8899",
+        target_count=2,
+    )
+    repo = SqliteResourceRepository(paths.db_path)
+    candidates = [_candidate(1), _candidate(2)]
+    calls = {"snapshot": 0, "detail": 0}
+
+    class _NotFoundCrawler(_FakeCrawler):
+        def crawl_movie_detail(self, candidate: MovieListingCandidate):
+            self.calls["detail"] += 1
+            self.http_requests += 1
+            if candidate.rank == 1:
+                raise ResourceIndexError(NOT_FOUND, "missing", {"status": 404})
+            return _detail(candidate)
+
+    runner = MovieLatestRunner(
+        repo=repo,
+        paths=paths,
+        source_id="dytt8899",
+        target_count=2,
+        batch_size=2,
+        max_attempts=3,
+        snapshot_max_requests=1,
+        batch_max_requests=2,
+        max_listing_pages=1,
+        crawler_builder=lambda _policy: _NotFoundCrawler(candidates, calls),
+    )
+    first = runner.run(refresh=True)
+    assert first.status == "partial"
+    row = repo.conn.execute(
+        "SELECT status, attempts, last_error_code FROM latest_crawl_items WHERE job_id = ? AND rank = 1",
+        (first.job_id,),
+    ).fetchone()
+    assert dict(row) == {"status": "failed", "attempts": 3, "last_error_code": NOT_FOUND}
+    before = dict(calls)
+    second = runner.run(refresh=False)
+    assert second.status == "partial"
+    assert second.invocation_http_requests == 0
+    assert calls == before
+    repo.close()
+
+
+def test_runner_publishes_qualified_subset_from_larger_discovery_window(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from magnet.resource_index.adapters import movie_registry
+
+    source_id = "test-qualified-window"
+    candidates = [_candidate(1), _candidate(2), _candidate(3)]
+    calls = {"snapshot": 0, "detail": 0}
+
+    class _QualifiedCrawler(_FakeCrawler):
+        def crawl_movie_detail(self, candidate: MovieListingCandidate):
+            self.calls["detail"] += 1
+            self.http_requests += 1
+            detail = _detail(candidate, source_id=source_id)
+            if candidate.rank == 1:
+                return detail
+            resource = MovieResource(
+                resource_type="magnet",
+                provider="magnet",
+                resource_url=f"magnet:?xt=urn:btih:{candidate.rank:040x}",
+                info_hash=f"{candidate.rank:040x}",
+                display_title=f"测试电影{candidate.rank}",
+                extraction_code=None,
+                quality_tags=(),
+            )
+            return replace(detail, resources=(resource,))
+
+    spec = MovieSourceSpec(
+        source_id=source_id,
+        snapshot_schema="movie-latest/qualified/1",
+        default_count=3,
+        minimum_delay_seconds=0,
+        minimum_check_interval_hours=0,
+        daily_request_budget=10,
+        default_batch_size=3,
+        automatic_max_batches=1,
+        snapshot_max_requests=1,
+        batch_max_requests=3,
+        max_listing_pages=1,
+        robots_url=None,
+        allowed_origins=("https://www.dytt8899.com",),
+        allowed_path_prefixes=("/i/",),
+        crawler_factory=lambda _policy: _QualifiedCrawler(candidates, calls, source_id=source_id),
+        publish_count=2,
+    )
+    monkeypatch.setitem(movie_registry._SPECS, source_id, spec)
+    paths = LatestCrawlPaths.for_output_dir(tmp_path / "out", source_id=source_id, target_count=3)
+    repo = SqliteResourceRepository(paths.db_path)
+    runner = MovieLatestRunner(
+        repo=repo,
+        paths=paths,
+        source_id=source_id,
+        target_count=3,
+        batch_size=3,
+        snapshot_max_requests=1,
+        batch_max_requests=3,
+        max_listing_pages=1,
+        crawler_builder=lambda _policy: _QualifiedCrawler(candidates, calls, source_id=source_id),
+    )
+    result = runner.run(refresh=True)
+    assert result.status == "success"
+    assert result.covered_count == 3
+    assert result.movie_count == 2
+    payload = json.loads(paths.feed_path.read_text(encoding="utf-8"))
+    assert [item["rank"] for item in payload["items"]] == [1, 2]
+    assert payload["summary"]["target_count"] == 2
+    assert payload["summary"]["discovery_target_count"] == 3
+    assert payload["summary"]["disqualified_counts"] == {
+        "missing_title": 0,
+        "missing_cover": 0,
+        "missing_publishable_resources": 1,
+    }
+    assert all(resource["resource_type"] == "magnet" for item in payload["items"] for resource in item["resources"])
+    repo.close()
 
 
 def test_generic_runner_rejects_candidate_outside_registered_boundary(tmp_path: Path) -> None:

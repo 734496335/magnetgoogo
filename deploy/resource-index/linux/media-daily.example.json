@@ -1,0 +1,21 @@
+{
+  "state_root": "/var/lib/magnet-media",
+  "public_root": "/var/lib/magnet-media/public",
+  "private_key_path": "/etc/magnet-media/media-ed25519-private.pem",
+  "public_key_path": "/etc/magnet-media/media-ed25519-public.pem",
+  "worker_url": "https://magnetgoogo-media-auto-uploader.example.workers.dev",
+  "worker_token_env": "R2_UPLOAD_WORKER_TOKEN",
+  "r2_public_base": "https://media.magnetgoogo.com",
+  "aliyun_public_base": "https://cn.magnetgoogo.com/media",
+  "min_app_version": "0.2.1",
+  "min_movies": 400,
+  "min_series": 350,
+  "page_size": 50,
+  "max_workers": 8,
+  "sources": [
+    {"source_id": "sixv", "count": 500},
+    {"source_id": "dytt8899", "count": 250},
+    {"source_id": "meijumi", "count": 100},
+    {"source_id": "sixv-series", "count": 500}
+  ]
+}
