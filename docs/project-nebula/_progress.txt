@@ -1,27 +1,23 @@
-TASK: v0.2.2影视内容加载提速完整发布
-STATUS: RELEASE_LIVE / FULL_ROLLOUT / NO_BLOCKING_DEBT
-DATE: 2026-07-29 UTC+8
+TASK: 项目根目录清理与可恢复回收归档
+STATUS: ROOT_CLEANUP_PASS / NO_DELETE / 30_DAY_OBSERVATION
+DATE: 2026-07-30 UTC+8
 
 DONE:
-- 更新弹窗仅保留“大幅优化影视内容加载速度”。
-- 正式APK：0.2.2/versionCode 6，仅arm64-v8a，备案签名。
-- APK大小33,562,462字节；SHA256=2ceb675b6d85cb5341e41fa219b0629f7e2a104bee89960359c508fabd9248eb。
-- GitHub Release v0.2.2正式发布，完整回下载SHA一致。
-- 阿里云稳定APK与版本APK发布，服务器文件及公开HTTPS回下载SHA一致。
-- 蓝奏云imCPX3zgpbkb密码8888，Chromium解锁显示正确文件、32.0M及下载操作。
-- mg-data提交2a76265dba1e91246e322d72fe98fd6f5fbd1635已推送，工作树干净。
-- Cloudflare、自定义网关、GitHub Raw、国内配置、不可变CDN及jsDelivr @main均为0.2.2。
-- Cloudflare Pages与阿里云整站发布；182个含下载入口页面使用新蓝奏云，活动旧链接残留0。
-- Cloudflare代表页7/7 PASS；阿里云代表页3/3 PASS。
-- K30S正式包安装、冷启动、资源页、详情、本地复开及断网复用PASS，Crash/ANR=0。
+- 创建本地回收站：.recycle/2026-07-30。
+- 移动822个根文件和14个根目录，约294.05 MiB；未删除任何内容。
+- 分类归档：一次性脚本251、探测结果423、网页快照30、调试日志14、设备产物17、源备份42、临时文件42、旧APK 3、临时目录14。
+- 完整恢复索引：.recycle/2026-07-30/cleanup-index.md。
+- 有效源发布清单移至 docs/project-nebula/SOURCE-RELEASE-CHECKLIST.md，未进入回收站。
+- 保留正式源码/数据/站点/发布仓、签名备份、凭证、候选池、品牌画像和正式入口。
 
 VERIFIED:
-- TypeScript PASS；媒体缓存/安全/Release门禁PASS；App对抗52/52 PASS。
-- GitHub与阿里云APK大小和SHA完全一致。
-- jsDelivr @main缓存已清理并收敛，无CDN旧配置债务。
+- validate_enum.py：ALL VALID（既有4个brand警告）。
+- crawler_v3：73 passed，2 deselected。
+- App TypeScript：PASS。
+- source_discovery.py --help：PASS；release.py --help：PASS。
 
-LIMIT:
-- 蓝奏云动态反自动化中转阻止自动完整字节回读，不声称蓝奏云SHA一致；GitHub与阿里云为字节权威。
-- 本机Schannel对国内域名存在既有TLS兼容问题，国内公开HTTPS由阿里云服务器侧回读验证。
+BOUNDARY:
+- NUL因Windows保留设备名语义未强制移动。
+- 回收站建议观察至少30天，再单独评估永久删除。
 
-EVIDENCE: docs/project-nebula/TEST-RESULT-v0.2.2-FINAL-RELEASE-20260729.md
+EVIDENCE: docs/project-nebula/目录清理回收归档-20260730.md

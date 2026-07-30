@@ -1,4 +1,26 @@
 ---
+Date/Time: 2026-07-30 08:22 (UTC+8)
+Version: root-cleanup-reversible-recycle
+Scope: Review the cluttered project root item by item, move confirmed obsolete development artifacts into a reversible local recycle bin, preserve operational inputs and create a deterministic restoration index
+Modules: .gitignore, .recycle/2026-07-30, docs/project-nebula/{SOURCE-RELEASE-CHECKLIST.md,目录清理回收归档-20260730.md,_progress.txt,DEV-LOG.md}
+
+### Cleanup and classification
+- Moved 822 root files and 14 root directories, approximately 294.05 MiB, into `.recycle/2026-07-30`; no file was deleted and no recycled item was renamed.
+- Classified 251 one-off scripts, 423 probe/test/result artifacts, 30 site snapshots, 14 debug logs, 17 K30S artifacts, 42 source backups, 42 temporary files, three root-level old APKs and 14 temporary directories.
+- The recycle index records the original-root mapping, category rationale, exact directory list, retained items and recovery procedure.
+
+### Protection and relocation
+- Preserved production source/data/site repositories, official `releases/`, signing backup, credentials, current candidate pools, brand/site profiles, formal launchers and the clean GitHub operations clone.
+- Relocated the still-valid `_publish_sources_checklist.md` to `docs/project-nebula/SOURCE-RELEASE-CHECKLIST.md` instead of recycling it.
+- Kept the Windows reserved-name `NUL` item unresolved rather than forcing an unsafe operation; local AI tool state remains under observation.
+
+### Verification
+- `python validate_enum.py` returned `ALL VALID` with the existing four missing-brand warnings.
+- Crawler v3 unit gate passed `73 passed, 2 deselected`; App TypeScript passed; `source_discovery.py --help` and `release.py --help` both passed.
+- Recommended retention is at least 30 days before a separate permanent-deletion review.
+---
+
+---
 Date/Time: 2026-07-29 23:30 (UTC+8)
 Version: v0.2.2-full-production-release
 Scope: Publish the media-loading performance release to every App, download, configuration, website and release surface, replace all Lanzou mirrors, and complete public plus retained-data device acceptance

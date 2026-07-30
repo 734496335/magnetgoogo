@@ -140,3 +140,6 @@ analytics-server/data/
 *.resource.db-*
 resource_index_*.db
 resource_index_run.log
+
+# ── Local recycle bin for reviewed obsolete artifacts ──
+/.recycle/
