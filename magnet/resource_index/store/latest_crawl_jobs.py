@@ -74,14 +74,15 @@ class LatestCrawlJobStore:
                 self.conn.execute(
                     """
                     INSERT INTO latest_crawl_items(
-                        job_id, rank, detail_url, content_code, listing_title,
-                        status, attempts, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, 'pending', 0, ?)
+                        job_id, rank, detail_url, source_item_key, content_code,
+                        listing_title, status, attempts, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?)
                     """,
                     (
                         job_id,
                         int(item["rank"]),
                         item["detail_url"],
+                        item.get("source_item_key"),
                         item.get("content_code"),
                         item.get("listing_title"),
                         now_s,

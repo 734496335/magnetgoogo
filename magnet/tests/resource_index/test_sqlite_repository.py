@@ -109,7 +109,7 @@ def test_migration_idempotent(tmp_path):
     r = SqliteResourceRepository(db)
     v1 = r.init_schema()
     v2 = r.init_schema()
-    assert v1 == v2 == "0005"
+    assert v1 == v2 == "0008"
     r.close()
 
 

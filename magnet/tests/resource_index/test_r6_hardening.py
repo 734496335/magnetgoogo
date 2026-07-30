@@ -18,6 +18,7 @@ from magnet.resource_index.errors import (
     INGEST_CANCELLED,
     LIVE_HTTP_ERROR,
     LIVE_RATE_LIMITED,
+    LIVE_REQUEST_BUDGET_EXHAUSTED,
     LIVE_URL_REJECTED,
     STALE_INGEST_RECOVERED,
     LivePolicyError,
@@ -107,7 +108,7 @@ def test_physical_request_budget_counts_retries() -> None:
     with pytest.raises(LivePolicyError) as exc:
         client.get("https://www.javbus.com/")
 
-    assert exc.value.error_code == LIVE_RATE_LIMITED
+    assert exc.value.error_code == LIVE_REQUEST_BUDGET_EXHAUSTED
     assert session.calls == 1
     assert budget.used == 1
 
@@ -476,7 +477,7 @@ def test_higher_priority_source_switches_canonical_as_a_whole(
 
 def test_schema_v2_backfills_content_observations(tmp_path: Path) -> None:
     repo = SqliteResourceRepository(tmp_path / "schema.db")
-    assert repo.init_schema() == "0005"
+    assert repo.init_schema() == "0008"
     repo.upsert_bundle(_bundle(resources=[]), now=NOW)
 
     count = repo.conn.execute("SELECT COUNT(*) FROM content_observations").fetchone()[0]
@@ -626,6 +627,7 @@ def test_ingest_run_persists_physical_request_count(monkeypatch, tmp_path: Path)
 def test_crawl_exit_codes_distinguish_partial_and_cancelled() -> None:
     assert _crawl_exit_code("success") == 0
     assert _crawl_exit_code("failed") == 1
+    assert _crawl_exit_code("pending") == 2
     assert _crawl_exit_code("partial") == 2
     assert _crawl_exit_code("cancelled") == 130
 
@@ -684,7 +686,7 @@ def test_existing_v1_database_upgrades_and_backfills(tmp_path: Path) -> None:
     conn.close()
 
     repo = SqliteResourceRepository(db)
-    assert repo.init_schema() == "0005"
+    assert repo.init_schema() == "0008"
     row = repo.conn.execute(
         "SELECT source_id, source_title, detail_url FROM content_observations"
     ).fetchone()

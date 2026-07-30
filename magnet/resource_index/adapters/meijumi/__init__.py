@@ -1,0 +1,1 @@
+"""Meijumi latest-series adapter."""

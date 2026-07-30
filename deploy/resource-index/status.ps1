@@ -1,8 +1,8 @@
 [CmdletBinding()]
 param(
-    [ValidateSet("javbus", "sixv")]
+    [ValidateSet("javbus", "sixv", "dytt8899", "sixv-series", "meijumi")]
     [string]$Source = "javbus",
-    [int]$Count = 100,
+    [int]$Count = 0,
     [string]$VenvPath = "",
     [string]$OutputDir = "",
     [string]$Database = ""
@@ -35,9 +35,11 @@ $Arguments = @(
     "-m", "magnet.resource_index.cli",
     "latest-status",
     "--source", $Source,
-    "--count", $Count,
     "--output-dir", $OutputDir
 )
+if ($Count -gt 0) {
+    $Arguments += @("--count", $Count)
+}
 if (-not [string]::IsNullOrWhiteSpace($Database)) {
     $Arguments += @("--db", $Database)
 }

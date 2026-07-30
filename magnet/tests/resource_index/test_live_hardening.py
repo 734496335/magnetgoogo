@@ -21,6 +21,7 @@ from magnet.resource_index.errors import (
     LIVE_FETCH_DISABLED,
     LIVE_HTTP_ERROR,
     LIVE_RATE_LIMITED,
+    LIVE_REQUEST_BUDGET_EXHAUSTED,
     LIVE_URL_REJECTED,
     LivePolicyError,
     ResourceIndexError,
@@ -36,9 +37,11 @@ class _SequenceSession:
         self.responses = list(responses)
         self.calls = 0
         self.cookies = {}
+        self.request_kwargs: list[dict] = []
 
     def request(self, *_args, **_kwargs):
         self.calls += 1
+        self.request_kwargs.append(dict(_kwargs))
         item = self.responses[min(self.calls - 1, len(self.responses) - 1)]
         if isinstance(item, Exception):
             raise item
@@ -133,7 +136,7 @@ def test_page_budget_counts_session_requests():
     crawler = JavBusLiveCrawler(policy=_allowed_policy(max_pages=1), client=client)  # type: ignore[arg-type]
     with pytest.raises(LivePolicyError) as exc:
         crawler.ensure_session()
-    assert exc.value.error_code == LIVE_RATE_LIMITED
+    assert exc.value.error_code == LIVE_REQUEST_BUDGET_EXHAUSTED
     assert len(client.calls) == 1
 
 
@@ -152,6 +155,20 @@ def test_http_retries_5xx_then_succeeds():
     response = client.get("https://www.javbus.com/")
     assert response.status_code == 200
     assert client._session.calls == 3
+
+
+def test_http_client_forwards_explicit_http_version():
+    client = LiveHttpClient(
+        request_delay_seconds=0,
+        max_retries=0,
+        http_version="v1",
+        allowed_origins={"https://www.javbus.com:443"},
+        dns_resolver=_public_resolver,
+    )
+    session = _SequenceSession([_response(200, "ok")])
+    client._session = session
+    client.get("https://www.javbus.com/")
+    assert session.request_kwargs[0]["http_version"] == "v1"
 
 
 def test_http_5xx_exhaustion_is_structured_error():

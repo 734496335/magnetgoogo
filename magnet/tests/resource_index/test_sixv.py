@@ -238,6 +238,39 @@ def test_detail_parser_splits_compact_multifield_paragraph() -> None:
     assert movie.synopsis == "一段简介。"
 
 
+def test_detail_parser_stops_synopsis_before_download_and_footer_sections() -> None:
+    html = """
+    <html><body><h1>美剧《示例剧》第一季全</h1><div id="endText">
+      <p>◎标　　题　示例剧</p>
+      <p>◎年　　代　2023</p>
+      <p>◎简　　介</p>
+      <p>这是一段应当保留的剧情简介。</p>
+      <p>【下载地址】</p>
+      <p><a href="magnet:?xt=urn:btih:4444444444444444444444444444444444444444">磁力：S01全集</a></p>
+      <div class="tps">上一篇 旧剧 下一篇 新剧</div>
+      <div class="tps">下载帮助：本站所有资源完全免费。</div>
+      <div class="downtps">示例剧网友评论：</div>
+    </div></body></html>
+    """
+    movie = parse_movie_detail(html, candidate=_candidate(1))
+    assert movie.synopsis == "这是一段应当保留的剧情简介。"
+    assert len(movie.resources) == 1
+
+
+def test_detail_parser_truncates_inline_download_marker_from_synopsis() -> None:
+    html = """
+    <html><body><h1>列表标题</h1><div id="endText">
+      <p>◎标　　题　内联标志示例</p>
+      <p>◎简　　介</p>
+      <p>真实简介内容。 【下载地址】 磁力：不应进入简介</p>
+      <a href="magnet:?xt=urn:btih:5555555555555555555555555555555555555555">1080p</a>
+    </div></body></html>
+    """
+    movie = parse_movie_detail(html, candidate=_candidate(1))
+    assert movie.synopsis == "真实简介内容。"
+    assert len(movie.resources) == 1
+
+
 def test_detail_parser_falls_back_to_listing_genres_when_source_omits_category() -> None:
     html = """
     <html><body><h1>2026剧情《天空依旧》1080p.HD国语中字</h1>
@@ -256,14 +289,72 @@ def test_detail_parser_falls_back_to_listing_genres_when_source_omits_category()
     assert movie.genres == ("剧情",)
 
 
-def test_schema_0005_adds_movie_and_cover_tables(tmp_path: Path) -> None:
+def test_schema_0007_adds_media_brand_identity(tmp_path: Path) -> None:
     repo = SqliteResourceRepository(tmp_path / "movie.db")
-    assert repo.init_schema() == "0005"
+    assert repo.init_schema() == "0008"
     tables = {
         row[0]
         for row in repo.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
     }
-    assert {"movie_items", "movie_resources", "movie_cover_assets"} <= tables
+    assert {
+        "movie_items",
+        "movie_resources",
+        "movie_cover_assets",
+        "movie_external_resources",
+        "movie_source_state",
+    } <= tables
+    columns = {
+        row[1]
+        for row in repo.conn.execute("PRAGMA table_info(movie_items)")
+    }
+    assert {
+        "content_kind",
+        "series_title",
+        "brand_id",
+        "endpoint_origin",
+        "rotten_tomatoes_rating",
+        "rotten_tomatoes_rating_text",
+        "rotten_tomatoes_url",
+        "bangumi_rating",
+        "bangumi_rating_text",
+        "bangumi_subject_id",
+        "bangumi_url",
+    } <= columns
+    repo.close()
+
+
+def test_external_rating_placeholders_survive_null_crawler_updates(tmp_path: Path) -> None:
+    repo = SqliteResourceRepository(tmp_path / "ratings.db")
+    assert repo.init_schema() == "0008"
+    store = MovieRepository(repo)
+    candidate = _candidate(1)
+    rated = replace(
+        _detail(candidate),
+        rotten_tomatoes_rating=86,
+        rotten_tomatoes_rating_text="86%",
+        rotten_tomatoes_url="https://www.rottentomatoes.com/m/test_movie",
+        bangumi_rating=7.8,
+        bangumi_rating_text="7.8/10",
+        bangumi_subject_id="123456",
+        bangumi_url="https://bgm.tv/subject/123456",
+    )
+    store.upsert(rated, now=NOW)
+    store.upsert(_detail(candidate), now=NOW)
+
+    item = store.feed_item(
+        source_id="sixv",
+        detail_url=candidate.detail_url,
+        rank=1,
+        source_item_key=candidate.source_item_key,
+    )
+    assert item is not None
+    assert item["rotten_tomatoes_rating"] == 86
+    assert item["rotten_tomatoes_rating_text"] == "86%"
+    assert item["rotten_tomatoes_url"].endswith("/m/test_movie")
+    assert item["bangumi_rating"] == 7.8
+    assert item["bangumi_rating_text"] == "7.8/10"
+    assert item["bangumi_subject_id"] == "123456"
+    assert item["bangumi_url"].endswith("/subject/123456")
     repo.close()
 
 

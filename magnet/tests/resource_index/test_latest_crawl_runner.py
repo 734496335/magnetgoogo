@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import socket
 import sqlite3
 from dataclasses import replace
@@ -13,7 +14,7 @@ from urllib.parse import urlparse
 import pytest
 
 from magnet.resource_index.domain.models import ContentCandidate
-from magnet.resource_index.errors import CONFIG_ERROR, ResourceIndexError
+from magnet.resource_index.errors import CONFIG_ERROR, ResourceIndexError, StorageError
 from magnet.resource_index.pipeline.ingest import IngestResult
 from magnet.resource_index.pipeline.latest_crawl import (
     LatestCrawlPaths,
@@ -22,6 +23,7 @@ from magnet.resource_index.pipeline.latest_crawl import (
     _pid_is_alive,
     read_latest_status,
     run_deployment_doctor,
+    select_best_latest_database,
 )
 from magnet.resource_index.store.migrations import file_checksum
 from magnet.resource_index.store.sqlite_repository import SqliteResourceRepository
@@ -286,6 +288,153 @@ def test_lock_rejects_live_owner_and_recovers_stale_owner(tmp_path: Path) -> Non
     assert recovered.recovered_stale is True
     recovered.release()
     assert not path.exists()
+
+
+def _write_latest_database(
+    path: Path,
+    *,
+    source_id: str,
+    target_count: int,
+    covered_count: int,
+    status: str,
+) -> None:
+    repo = SqliteResourceRepository(path)
+    repo.init_schema()
+    job_id = f"job-{path.stem}"
+    now = "2026-07-26T00:00:00Z"
+    repo.conn.execute(
+        """
+        INSERT INTO latest_crawl_jobs(
+            job_id, source_id, target_count, batch_size, max_attempts,
+            snapshot_hash, snapshot_json, snapshot_path, feed_path,
+            status, created_at, updated_at
+        ) VALUES (?, ?, ?, 5, 3, ?, '{}', ?, ?, ?, ?, ?)
+        """,
+        (
+            job_id,
+            source_id,
+            target_count,
+            path.stem,
+            f"{path}.snapshot.json",
+            f"{path}.feed.json",
+            status,
+            now,
+            now,
+        ),
+    )
+    repo.conn.executemany(
+        """
+        INSERT INTO latest_crawl_items(
+            job_id, rank, detail_url, source_item_key, listing_title,
+            status, attempts, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, 0, ?)
+        """,
+        [
+            (
+                job_id,
+                rank,
+                f"https://example.test/{rank}",
+                f"/{rank}",
+                f"Item {rank}",
+                "success" if rank <= covered_count else "pending",
+                now,
+            )
+            for rank in range(1, target_count + 1)
+        ],
+    )
+    repo.conn.commit()
+    repo.close()
+
+
+def test_database_selector_prefers_complete_legacy_over_incomplete_exact(tmp_path: Path) -> None:
+    exact = tmp_path / "sixv_latest_100.db"
+    legacy = tmp_path / "sixv_latest_50.db"
+    _write_latest_database(
+        exact,
+        source_id="sixv",
+        target_count=3,
+        covered_count=1,
+        status="paused",
+    )
+    _write_latest_database(
+        legacy,
+        source_id="sixv",
+        target_count=3,
+        covered_count=3,
+        status="success",
+    )
+
+    selected = select_best_latest_database(
+        [exact, legacy],
+        source_id="sixv",
+        target_count=3,
+    )
+    assert selected["selected_path"] == str(legacy.resolve())
+    assert selected["selected_existing"] is True
+
+
+def test_database_selector_prefers_first_candidate_when_evidence_ties(tmp_path: Path) -> None:
+    exact = tmp_path / "sixv_latest_100.db"
+    legacy = tmp_path / "sixv_latest_50.db"
+    for path in (exact, legacy):
+        _write_latest_database(
+            path,
+            source_id="sixv",
+            target_count=2,
+            covered_count=2,
+            status="success",
+        )
+
+    selected = select_best_latest_database(
+        [exact, legacy],
+        source_id="sixv",
+        target_count=2,
+    )
+    assert selected["selected_path"] == str(exact.resolve())
+
+
+def test_database_selector_falls_back_from_corrupt_candidate(tmp_path: Path) -> None:
+    corrupt = tmp_path / "sixv_latest_100.db"
+    healthy = tmp_path / "sixv_latest_50.db"
+    corrupt.write_bytes(b"not a sqlite database")
+    _write_latest_database(
+        healthy,
+        source_id="sixv",
+        target_count=2,
+        covered_count=2,
+        status="success",
+    )
+
+    selected = select_best_latest_database(
+        [corrupt, healthy],
+        source_id="sixv",
+        target_count=2,
+    )
+    assert selected["selected_path"] == str(healthy.resolve())
+    assert selected["candidates"][0]["healthy"] is False
+
+
+def test_database_selector_rejects_any_live_candidate_lock(tmp_path: Path) -> None:
+    exact = tmp_path / "sixv_latest_100.db"
+    legacy = tmp_path / "sixv_latest_50.db"
+    _write_latest_database(
+        legacy,
+        source_id="sixv",
+        target_count=2,
+        covered_count=2,
+        status="success",
+    )
+    exact.with_suffix(".lock").write_text(
+        json.dumps({"pid": os.getpid(), "hostname": socket.gethostname()}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ResourceIndexError, match="already in use"):
+        select_best_latest_database(
+            [exact, legacy],
+            source_id="sixv",
+            target_count=2,
+        )
 
 
 def test_snapshot_preserves_duplicate_codes_but_deduplicates_urls(tmp_path: Path) -> None:
@@ -643,9 +792,9 @@ def test_doctor_checks_minimal_runtime_and_writable_paths(tmp_path: Path) -> Non
     assert report["checks"]["source_registry"]["ok"] is True
 
 
-def test_schema_0005_contains_latest_job_tables(tmp_path: Path) -> None:
+def test_schema_0007_contains_latest_job_tables(tmp_path: Path) -> None:
     repo = SqliteResourceRepository(tmp_path / "m.db")
-    assert repo.init_schema() == "0005"
+    assert repo.init_schema() == "0008"
     tables = {
         row[0]
         for row in repo.conn.execute(
@@ -653,6 +802,75 @@ def test_schema_0005_contains_latest_job_tables(tmp_path: Path) -> None:
         )
     }
     assert {"latest_crawl_jobs", "latest_crawl_items"} <= tables
+    repo.close()
+
+
+def _create_schema_through_0006(db: Path) -> None:
+    sql_dir = Path(__file__).resolve().parents[2] / "resource_index" / "store" / "sql"
+    connection = sqlite3.connect(db)
+    for version in range(1, 7):
+        path = next(sql_dir.glob(f"{version:04d}_*.sql"))
+        connection.executescript(path.read_text(encoding="utf-8"))
+        connection.execute(
+            "INSERT OR REPLACE INTO schema_migrations(version, applied_at, checksum) VALUES (?, ?, ?)",
+            (f"{version:04d}", "2026-07-25T00:00:00Z", file_checksum(path)),
+        )
+    connection.commit()
+    connection.close()
+
+
+def test_legacy_0007_imdb_collision_is_structurally_verified_and_reconciled(tmp_path: Path) -> None:
+    db = tmp_path / "legacy-imdb-0007.db"
+    _create_schema_through_0006(db)
+    connection = sqlite3.connect(db)
+    connection.execute("ALTER TABLE movie_items ADD COLUMN imdb_rating REAL")
+    connection.execute("ALTER TABLE movie_items ADD COLUMN imdb_rating_text TEXT")
+    connection.execute(
+        "INSERT INTO schema_migrations(version, applied_at, checksum) VALUES (?, ?, ?)",
+        (
+            "0007",
+            "2026-07-26T00:00:00Z",
+            "9316572ec726f5910e4ad3bae98aebd40d9c5e5dc1b72bb4d0c63bb2013c8fa9",
+        ),
+    )
+    connection.commit()
+    connection.close()
+
+    repo = SqliteResourceRepository(db)
+    assert repo.init_schema() == "0008"
+    movie_columns = {row[1] for row in repo.conn.execute("PRAGMA table_xinfo(movie_items)")}
+    latest_columns = {row[1] for row in repo.conn.execute("PRAGMA table_xinfo(latest_crawl_items)")}
+    indexes = {
+        row[0]
+        for row in repo.conn.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
+    }
+    assert {"imdb_rating", "imdb_rating_text", "content_kind", "brand_id", "season_number"} <= movie_columns
+    assert "source_item_key" in latest_columns
+    assert {"idx_movie_items_kind_update", "idx_latest_crawl_items_source_key"} <= indexes
+    versions = {row[0] for row in repo.conn.execute("SELECT version FROM schema_migrations")}
+    assert {"0007", "0008", "0007_legacy_imdb_rating_9316572e"} <= versions
+    assert repo.init_schema() == "0008"
+    repo.close()
+
+
+def test_legacy_0007_checksum_without_approved_structure_is_rejected(tmp_path: Path) -> None:
+    db = tmp_path / "invalid-legacy-0007.db"
+    _create_schema_through_0006(db)
+    connection = sqlite3.connect(db)
+    connection.execute(
+        "INSERT INTO schema_migrations(version, applied_at, checksum) VALUES (?, ?, ?)",
+        (
+            "0007",
+            "2026-07-26T00:00:00Z",
+            "9316572ec726f5910e4ad3bae98aebd40d9c5e5dc1b72bb4d0c63bb2013c8fa9",
+        ),
+    )
+    connection.commit()
+    connection.close()
+
+    repo = SqliteResourceRepository(db)
+    with pytest.raises(StorageError, match="approved fingerprint"):
+        repo.init_schema()
     repo.close()
 
 
@@ -700,7 +918,7 @@ def test_existing_schema_0002_upgrades_without_content_loss(tmp_path: Path) -> N
     connection.close()
 
     repo = SqliteResourceRepository(db)
-    assert repo.init_schema() == "0005"
+    assert repo.init_schema() == "0008"
     assert repo.conn.execute("SELECT COUNT(*) FROM content_items").fetchone()[0] == 1
     assert repo.conn.execute(
         "SELECT COUNT(*) FROM latest_crawl_jobs"

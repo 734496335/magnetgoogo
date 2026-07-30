@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from magnet.resource_index.adapters.sixv.models import SixVMovieDetail
+from magnet.resource_index.domain.movie_models import MovieDetail, MovieListingCandidate
 from magnet.resource_index.store.sqlite_repository import SqliteResourceRepository, _iso
 
 
@@ -36,7 +36,7 @@ class MovieRepository:
         self.repo = repo
         self.conn = repo.conn
 
-    def upsert(self, movie: SixVMovieDetail, *, now: datetime) -> MovieUpsertStats:
+    def upsert(self, movie: MovieDetail, *, now: datetime) -> MovieUpsertStats:
         now_s = _iso(now)
         assert now_s is not None
         movie_id = movie_id_for(movie.source_id, movie.source_item_key)
@@ -52,21 +52,35 @@ class MovieRepository:
                 """
                 INSERT INTO movie_items(
                     movie_id, source_id, source_item_key, detail_url,
-                    listing_title, title, original_title, year, update_date,
+                    listing_title, content_kind, series_title, season_number,
+                    episode_number, episode_label, update_status, brand_id,
+                    endpoint_origin, title, original_title, year, update_date,
                     release_date, duration_minutes, countries_json, genres_json,
                     languages_json, directors_json, actors_json, imdb_id,
                     douban_rating, douban_rating_text, douban_url,
+                    rotten_tomatoes_rating, rotten_tomatoes_rating_text,
+                    rotten_tomatoes_url, bangumi_rating, bangumi_rating_text,
+                    bangumi_subject_id, bangumi_url,
                     cover_source_url, synopsis, recommended,
                     highlight_labels_json, quality_tags_json, parser_version,
                     raw_document_hash, first_seen_at, last_seen_at,
                     created_at, updated_at
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
                 ON CONFLICT(movie_id) DO UPDATE SET
                     detail_url = excluded.detail_url,
                     listing_title = excluded.listing_title,
+                    content_kind = excluded.content_kind,
+                    series_title = COALESCE(excluded.series_title, movie_items.series_title),
+                    season_number = COALESCE(excluded.season_number, movie_items.season_number),
+                    episode_number = COALESCE(excluded.episode_number, movie_items.episode_number),
+                    episode_label = COALESCE(excluded.episode_label, movie_items.episode_label),
+                    update_status = COALESCE(excluded.update_status, movie_items.update_status),
+                    brand_id = COALESCE(excluded.brand_id, movie_items.brand_id),
+                    endpoint_origin = COALESCE(excluded.endpoint_origin, movie_items.endpoint_origin),
                     title = excluded.title,
                     original_title = COALESCE(excluded.original_title, movie_items.original_title),
                     year = COALESCE(excluded.year, movie_items.year),
@@ -97,6 +111,28 @@ class MovieRepository:
                     douban_rating = COALESCE(excluded.douban_rating, movie_items.douban_rating),
                     douban_rating_text = COALESCE(excluded.douban_rating_text, movie_items.douban_rating_text),
                     douban_url = COALESCE(excluded.douban_url, movie_items.douban_url),
+                    rotten_tomatoes_rating = COALESCE(
+                        excluded.rotten_tomatoes_rating,
+                        movie_items.rotten_tomatoes_rating
+                    ),
+                    rotten_tomatoes_rating_text = COALESCE(
+                        excluded.rotten_tomatoes_rating_text,
+                        movie_items.rotten_tomatoes_rating_text
+                    ),
+                    rotten_tomatoes_url = COALESCE(
+                        excluded.rotten_tomatoes_url,
+                        movie_items.rotten_tomatoes_url
+                    ),
+                    bangumi_rating = COALESCE(excluded.bangumi_rating, movie_items.bangumi_rating),
+                    bangumi_rating_text = COALESCE(
+                        excluded.bangumi_rating_text,
+                        movie_items.bangumi_rating_text
+                    ),
+                    bangumi_subject_id = COALESCE(
+                        excluded.bangumi_subject_id,
+                        movie_items.bangumi_subject_id
+                    ),
+                    bangumi_url = COALESCE(excluded.bangumi_url, movie_items.bangumi_url),
                     cover_source_url = COALESCE(excluded.cover_source_url, movie_items.cover_source_url),
                     synopsis = COALESCE(excluded.synopsis, movie_items.synopsis),
                     recommended = excluded.recommended,
@@ -116,6 +152,14 @@ class MovieRepository:
                     movie.source_item_key,
                     movie.detail_url,
                     movie.listing_title,
+                    movie.content_kind,
+                    movie.series_title,
+                    movie.season_number,
+                    movie.episode_number,
+                    movie.episode_label,
+                    movie.update_status,
+                    movie.brand_id,
+                    movie.endpoint_origin,
                     movie.title,
                     movie.original_title,
                     movie.year,
@@ -131,6 +175,13 @@ class MovieRepository:
                     movie.douban_rating,
                     movie.douban_rating_text,
                     movie.douban_url,
+                    movie.rotten_tomatoes_rating,
+                    movie.rotten_tomatoes_rating_text,
+                    movie.rotten_tomatoes_url,
+                    movie.bangumi_rating,
+                    movie.bangumi_rating_text,
+                    movie.bangumi_subject_id,
+                    movie.bangumi_url,
                     movie.cover_source_url,
                     movie.synopsis,
                     int(movie.recommended),
@@ -146,44 +197,79 @@ class MovieRepository:
             )
             for resource in movie.resources:
                 resource_id = movie_resource_id_for(movie_id, resource.resource_url)
-                existed = self.conn.execute(
-                    "SELECT 1 FROM movie_resources WHERE resource_id = ?",
-                    (resource_id,),
-                ).fetchone()
-                self.conn.execute(
-                    """
-                    INSERT INTO movie_resources(
-                        resource_id, movie_id, resource_type, provider,
-                        resource_url, info_hash, display_title, extraction_code,
-                        quality_tags_json, first_seen_at, last_seen_at,
-                        created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(resource_id) DO UPDATE SET
-                        resource_type = excluded.resource_type,
-                        provider = excluded.provider,
-                        info_hash = excluded.info_hash,
-                        display_title = excluded.display_title,
-                        extraction_code = COALESCE(excluded.extraction_code, movie_resources.extraction_code),
-                        quality_tags_json = excluded.quality_tags_json,
-                        last_seen_at = excluded.last_seen_at,
-                        updated_at = excluded.updated_at
-                    """,
-                    (
-                        resource_id,
-                        movie_id,
-                        resource.resource_type,
-                        resource.provider,
-                        resource.resource_url,
-                        resource.info_hash,
-                        resource.display_title,
-                        resource.extraction_code,
-                        json.dumps(resource.quality_tags, ensure_ascii=False),
-                        now_s,
-                        now_s,
-                        now_s,
-                        now_s,
-                    ),
-                )
+                if resource.resource_type in {"download", "player"}:
+                    existed = self.conn.execute(
+                        "SELECT 1 FROM movie_external_resources WHERE resource_id = ?",
+                        (resource_id,),
+                    ).fetchone()
+                    self.conn.execute(
+                        """
+                        INSERT INTO movie_external_resources(
+                            resource_id, movie_id, resource_type, provider,
+                            resource_url, display_title, quality_tags_json,
+                            first_seen_at, last_seen_at, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(resource_id) DO UPDATE SET
+                            resource_type = excluded.resource_type,
+                            provider = excluded.provider,
+                            display_title = excluded.display_title,
+                            quality_tags_json = excluded.quality_tags_json,
+                            last_seen_at = excluded.last_seen_at,
+                            updated_at = excluded.updated_at
+                        """,
+                        (
+                            resource_id,
+                            movie_id,
+                            resource.resource_type,
+                            resource.provider,
+                            resource.resource_url,
+                            resource.display_title,
+                            json.dumps(resource.quality_tags, ensure_ascii=False),
+                            now_s,
+                            now_s,
+                            now_s,
+                            now_s,
+                        ),
+                    )
+                else:
+                    existed = self.conn.execute(
+                        "SELECT 1 FROM movie_resources WHERE resource_id = ?",
+                        (resource_id,),
+                    ).fetchone()
+                    self.conn.execute(
+                        """
+                        INSERT INTO movie_resources(
+                            resource_id, movie_id, resource_type, provider,
+                            resource_url, info_hash, display_title, extraction_code,
+                            quality_tags_json, first_seen_at, last_seen_at,
+                            created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(resource_id) DO UPDATE SET
+                            resource_type = excluded.resource_type,
+                            provider = excluded.provider,
+                            info_hash = excluded.info_hash,
+                            display_title = excluded.display_title,
+                            extraction_code = COALESCE(excluded.extraction_code, movie_resources.extraction_code),
+                            quality_tags_json = excluded.quality_tags_json,
+                            last_seen_at = excluded.last_seen_at,
+                            updated_at = excluded.updated_at
+                        """,
+                        (
+                            resource_id,
+                            movie_id,
+                            resource.resource_type,
+                            resource.provider,
+                            resource.resource_url,
+                            resource.info_hash,
+                            resource.display_title,
+                            resource.extraction_code,
+                            json.dumps(resource.quality_tags, ensure_ascii=False),
+                            now_s,
+                            now_s,
+                            now_s,
+                            now_s,
+                        ),
+                    )
                 if existed is None:
                     resources_created += 1
                 else:
@@ -199,12 +285,76 @@ class MovieRepository:
             resources_updated=resources_updated,
         )
 
-    def exists(self, *, source_id: str, detail_url: str) -> bool:
+    def exists(
+        self,
+        *,
+        source_id: str,
+        detail_url: str | None = None,
+        source_item_key: str | None = None,
+    ) -> bool:
+        if source_item_key:
+            row = self.conn.execute(
+                "SELECT 1 FROM movie_items WHERE source_id = ? AND source_item_key = ? LIMIT 1",
+                (source_id, source_item_key),
+            ).fetchone()
+            if row is not None:
+                return True
+        if not detail_url:
+            return False
         row = self.conn.execute(
             "SELECT 1 FROM movie_items WHERE source_id = ? AND detail_url = ? LIMIT 1",
             (source_id, detail_url),
         ).fetchone()
         return row is not None
+
+    def refresh_from_candidate(
+        self,
+        *,
+        source_id: str,
+        candidate: MovieListingCandidate,
+        now: datetime,
+    ) -> bool:
+        now_s = _iso(now)
+        assert now_s is not None
+        cursor = self.conn.execute(
+            """
+            UPDATE movie_items SET
+                detail_url = ?, listing_title = ?, update_date = COALESCE(?, update_date),
+                recommended = ?, highlight_labels_json = ?,
+                quality_tags_json = CASE WHEN ? <> '[]' THEN ? ELSE quality_tags_json END,
+                content_kind = ?, series_title = COALESCE(?, series_title),
+                season_number = COALESCE(?, season_number),
+                episode_number = COALESCE(?, episode_number),
+                episode_label = COALESCE(?, episode_label),
+                update_status = COALESCE(?, update_status),
+                brand_id = COALESCE(?, brand_id),
+                endpoint_origin = COALESCE(?, endpoint_origin),
+                last_seen_at = ?, updated_at = ?
+            WHERE source_id = ? AND source_item_key = ?
+            """,
+            (
+                candidate.detail_url,
+                candidate.listing_title,
+                candidate.update_date.isoformat() if candidate.update_date else None,
+                int(candidate.recommended),
+                json.dumps(candidate.highlight_labels, ensure_ascii=False),
+                json.dumps(candidate.quality_tags, ensure_ascii=False),
+                json.dumps(candidate.quality_tags, ensure_ascii=False),
+                candidate.content_kind,
+                candidate.series_title,
+                candidate.season_number,
+                candidate.episode_number,
+                candidate.episode_label,
+                candidate.update_status,
+                candidate.brand_id,
+                candidate.endpoint_origin,
+                now_s,
+                now_s,
+                source_id,
+                candidate.source_item_key,
+            ),
+        )
+        return int(cursor.rowcount or 0) > 0
 
     def cover_targets(self, *, source_id: str) -> list[dict[str, Any]]:
         rows = self.conn.execute(
@@ -296,11 +446,16 @@ class MovieRepository:
         ).fetchone()[0]
         resources = self.conn.execute(
             """
-            SELECT COUNT(*) FROM movie_resources r
-            JOIN movie_items m ON m.movie_id = r.movie_id
-            WHERE m.source_id = ?
+            SELECT
+                (SELECT COUNT(*) FROM movie_resources r
+                 JOIN movie_items m ON m.movie_id = r.movie_id
+                 WHERE m.source_id = ?)
+                +
+                (SELECT COUNT(*) FROM movie_external_resources r
+                 JOIN movie_items m ON m.movie_id = r.movie_id
+                 WHERE m.source_id = ?)
             """,
-            (source_id,),
+            (source_id, source_id),
         ).fetchone()[0]
         recommended = self.conn.execute(
             "SELECT COUNT(*) FROM movie_items WHERE source_id = ? AND recommended = 1",
@@ -312,11 +467,25 @@ class MovieRepository:
             "recommended": int(recommended),
         }
 
-    def feed_item(self, *, source_id: str, detail_url: str, rank: int) -> dict[str, Any] | None:
-        row = self.conn.execute(
-            "SELECT * FROM movie_items WHERE source_id = ? AND detail_url = ?",
-            (source_id, detail_url),
-        ).fetchone()
+    def feed_item(
+        self,
+        *,
+        source_id: str,
+        detail_url: str,
+        rank: int,
+        source_item_key: str | None = None,
+    ) -> dict[str, Any] | None:
+        row = None
+        if source_item_key:
+            row = self.conn.execute(
+                "SELECT * FROM movie_items WHERE source_id = ? AND source_item_key = ?",
+                (source_id, source_item_key),
+            ).fetchone()
+        if row is None:
+            row = self.conn.execute(
+                "SELECT * FROM movie_items WHERE source_id = ? AND detail_url = ?",
+                (source_id, detail_url),
+            ).fetchone()
         if row is None:
             return None
         resources = self.conn.execute(
@@ -325,9 +494,14 @@ class MovieRepository:
                    display_title, extraction_code, quality_tags_json
             FROM movie_resources
             WHERE movie_id = ?
+            UNION ALL
+            SELECT resource_type, provider, resource_url, NULL AS info_hash,
+                   display_title, NULL AS extraction_code, quality_tags_json
+            FROM movie_external_resources
+            WHERE movie_id = ?
             ORDER BY resource_type, provider, display_title, resource_url
             """,
-            (row["movie_id"],),
+            (row["movie_id"], row["movie_id"]),
         ).fetchall()
         return {
             "rank": rank,
@@ -336,6 +510,14 @@ class MovieRepository:
             "source_item_key": row["source_item_key"],
             "detail_url": row["detail_url"],
             "listing_title": row["listing_title"],
+            "content_kind": row["content_kind"],
+            "series_title": row["series_title"],
+            "season_number": row["season_number"],
+            "episode_number": row["episode_number"],
+            "episode_label": row["episode_label"],
+            "update_status": row["update_status"],
+            "brand_id": row["brand_id"],
+            "endpoint_origin": row["endpoint_origin"],
             "title": row["title"],
             "original_title": row["original_title"],
             "year": row["year"],
@@ -351,6 +533,13 @@ class MovieRepository:
             "douban_rating": row["douban_rating"],
             "douban_rating_text": row["douban_rating_text"],
             "douban_url": row["douban_url"],
+            "rotten_tomatoes_rating": row["rotten_tomatoes_rating"],
+            "rotten_tomatoes_rating_text": row["rotten_tomatoes_rating_text"],
+            "rotten_tomatoes_url": row["rotten_tomatoes_url"],
+            "bangumi_rating": row["bangumi_rating"],
+            "bangumi_rating_text": row["bangumi_rating_text"],
+            "bangumi_subject_id": row["bangumi_subject_id"],
+            "bangumi_url": row["bangumi_url"],
             "cover_source_url": row["cover_source_url"],
             "synopsis": row["synopsis"],
             "recommended": bool(row["recommended"]),

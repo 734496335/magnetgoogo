@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from magnet.resource_index.acquisition.policy import LiveFetchPolicy
+from magnet.resource_index.adapters.movie_brand_registry import list_movie_brands
+from magnet.resource_index.adapters.movie_registry import get_movie_source, list_movie_sources
 from magnet.resource_index.adapters.registry import list_sources
 from magnet.resource_index.errors import ResourceIndexError
 from magnet.resource_index.observability.events import log_event, setup_logging
@@ -25,8 +27,19 @@ from magnet.resource_index.pipeline.latest_crawl import (
     LatestCrawlRunner,
     read_latest_status,
     run_deployment_doctor,
+    select_best_latest_database,
 )
-from magnet.resource_index.pipeline.sixv_latest import SixVLatestRunner
+from magnet.resource_index.pipeline.media_aggregate import aggregate_media_feeds
+from magnet.resource_index.pipeline.media_offline_bundle import (
+    audit_media_app_bundle,
+    build_media_app_bundle,
+)
+from magnet.resource_index.pipeline.movie_automation import (
+    run_safe_movie_source,
+    safe_movie_source_status,
+)
+from magnet.resource_index.pipeline.movie_brand_probe import probe_movie_brands
+from magnet.resource_index.pipeline.movie_latest import MovieLatestRunner
 from magnet.resource_index.store.sqlite_repository import SqliteResourceRepository
 
 
@@ -40,11 +53,48 @@ def _print_json(data: Any, pretty: bool) -> None:
 def _crawl_exit_code(status: str) -> int:
     if status == "success":
         return 0
-    if status == "partial":
+    if status in {"pending", "partial"}:
         return 2
     if status == "cancelled":
         return 130
     return 1
+
+
+def _latest_count(source_id: str, value: int | None) -> int:
+    if value is not None:
+        return int(value)
+    if source_id in list_movie_sources():
+        return get_movie_source(source_id).default_count
+    return 100
+
+
+def _source_count_arg(value: str) -> tuple[str, int]:
+    source_id, separator, raw_count = value.partition("=")
+    source_id = source_id.strip()
+    if not separator or not source_id:
+        raise argparse.ArgumentTypeError("source count must use SOURCE=COUNT")
+    try:
+        count = int(raw_count)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("source count must be an integer") from exc
+    if count <= 0:
+        raise argparse.ArgumentTypeError("source count must be positive")
+    if source_id not in list_movie_sources():
+        raise argparse.ArgumentTypeError(f"unknown movie source: {source_id}")
+    return source_id, count
+
+
+def _source_count_map(values: list[tuple[str, int]] | None) -> dict[str, int]:
+    result: dict[str, int] = {}
+    for source_id, count in values or []:
+        if source_id in result:
+            raise ResourceIndexError(
+                "CONFIG_ERROR",
+                "duplicate per-source count override",
+                {"source_id": source_id},
+            )
+        result[source_id] = count
+    return result
 
 
 def cmd_init_db(args: argparse.Namespace) -> int:
@@ -188,11 +238,100 @@ def cmd_list_sources(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_list_movie_sources(_args: argparse.Namespace) -> int:
+    _print_json(list_movie_sources(), pretty=True)
+    return 0
+
+
+def cmd_list_movie_brands(_args: argparse.Namespace) -> int:
+    _print_json(list_movie_brands(), pretty=True)
+    return 0
+
+
+def cmd_probe_movie_brands(args: argparse.Namespace) -> int:
+    if not args.yes:
+        print("error_code=LIVE_POLICY_NOT_ACKNOWLEDGED", file=sys.stderr)
+        print("message=pass --yes to acknowledge low-frequency brand endpoint probes", file=sys.stderr)
+        return 1
+    report = probe_movie_brands(
+        brand_ids=args.brand,
+        include_candidates=args.include_candidates,
+        delay_seconds=args.delay,
+    )
+    _print_json(report, pretty=True)
+    return 0
+
+
+def cmd_aggregate_media_feeds(args: argparse.Namespace) -> int:
+    try:
+        payload = aggregate_media_feeds(
+            args.feed,
+            output_path=args.output,
+            movie_output_path=args.movie_output,
+            series_output_path=args.series_output,
+            quarantine_output_path=args.quarantine_output,
+            quality_output_path=args.quality_output,
+            limit=args.limit,
+            movie_limit=args.movie_limit,
+            series_limit=args.series_limit,
+            strict_kind_limits=args.strict_kind_limits,
+        )
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        if exc.context:
+            print(f"context={json.dumps(exc.context, ensure_ascii=False, sort_keys=True)}", file=sys.stderr)
+        return 1
+    _print_json(payload["summary"], pretty=True)
+    return 0
+
+
+def cmd_build_media_app_bundle(args: argparse.Namespace) -> int:
+    if not args.yes:
+        print("error_code=LIVE_POLICY_NOT_ACKNOWLEDGED", file=sys.stderr)
+        print("message=pass --yes to acknowledge offline cover downloads", file=sys.stderr)
+        return 1
+    try:
+        result = build_media_app_bundle(
+            feed_path=args.feed,
+            output_dir=args.output_dir,
+            content_kind=args.content_kind,
+            expected_count=args.expected_count,
+            delay_seconds=args.delay,
+            timeout_seconds=args.timeout,
+        )
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        if exc.context:
+            print(f"context={json.dumps(exc.context, ensure_ascii=False, sort_keys=True)}", file=sys.stderr)
+        return 1
+    _print_json(result.__dict__, pretty=True)
+    return 0
+
+
+def cmd_audit_media_app_bundle(args: argparse.Namespace) -> int:
+    try:
+        report = audit_media_app_bundle(
+            bundle_dir=args.bundle_dir,
+            content_kind=args.content_kind,
+            expected_count=args.expected_count,
+            raise_on_error=False,
+        )
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        return 1
+    _print_json(report, pretty=True)
+    return 0 if report["status"] == "pass" else 1
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
+    count = _latest_count(args.source, args.count)
     paths = LatestCrawlPaths.for_output_dir(
         args.output_dir,
         source_id=args.source,
-        target_count=args.count,
+        target_count=count,
         db_path=args.db,
     )
     report = run_deployment_doctor(
@@ -205,10 +344,11 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
 
 def cmd_latest_status(args: argparse.Namespace) -> int:
+    count = _latest_count(args.source, args.count)
     paths = LatestCrawlPaths.for_output_dir(
         args.output_dir,
         source_id=args.source,
-        target_count=args.count,
+        target_count=count,
         db_path=args.db,
     )
     repo = SqliteResourceRepository(paths.db_path)
@@ -217,7 +357,7 @@ def cmd_latest_status(args: argparse.Namespace) -> int:
             repo=repo,
             paths=paths,
             source_id=args.source,
-            target_count=args.count,
+            target_count=count,
         )
         _print_json(status, pretty=True)
         return 0
@@ -237,26 +377,33 @@ def cmd_crawl_latest(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
+    count = _latest_count(args.source, args.count)
     paths = LatestCrawlPaths.for_output_dir(
         args.output_dir,
         source_id=args.source,
-        target_count=args.count,
+        target_count=count,
         db_path=args.db,
     )
     logger = setup_logging(args.log or paths.log_path, append=True)
     repo = SqliteResourceRepository(paths.db_path)
     try:
-        if args.source == "sixv":
-            runner = SixVLatestRunner(
+        movie_sources = list_movie_sources()
+        if args.source in movie_sources:
+            spec = get_movie_source(args.source)
+            runner = MovieLatestRunner(
                 repo=repo,
                 paths=paths,
-                target_count=args.count,
+                source_id=args.source,
+                target_count=count,
                 batch_size=args.batch_size,
                 max_attempts=args.max_attempts,
                 delay_seconds=args.delay,
                 snapshot_max_requests=args.snapshot_max_requests,
                 batch_max_requests=args.batch_max_requests,
                 max_listing_pages=args.max_listing_pages,
+                crawler_builder=spec.crawler_factory,
+                snapshot_schema=spec.snapshot_schema,
+                minimum_delay_seconds=spec.minimum_delay_seconds,
                 logger=logger,
             )
             result = runner.run(
@@ -268,14 +415,14 @@ def cmd_crawl_latest(args: argparse.Namespace) -> int:
             if args.reparse_incomplete:
                 raise ResourceIndexError(
                     "CONFIG_ERROR",
-                    "--reparse-incomplete is only supported for source=sixv",
+                    "--reparse-incomplete is supported only for movie sources",
                     {"source_id": args.source},
                 )
             runner = LatestCrawlRunner(
                 repo=repo,
                 source_id=args.source,
                 paths=paths,
-                target_count=args.count,
+                target_count=count,
                 batch_size=args.batch_size,
                 max_attempts=args.max_attempts,
                 delay_seconds=args.delay,
@@ -351,6 +498,115 @@ def cmd_export_movie_app_bundle(args: argparse.Namespace) -> int:
         repo.close()
 
 
+
+def cmd_crawl_movies_safe(args: argparse.Namespace) -> int:
+    if not args.yes:
+        print("error_code=LIVE_POLICY_NOT_ACKNOWLEDGED", file=sys.stderr)
+        print("message=pass --yes to acknowledge safe movie-source checks", file=sys.stderr)
+        return 1
+    source_ids = args.source or ["sixv", "dytt8899", "sixv-series", "meijumi"]
+    try:
+        source_counts = _source_count_map(getattr(args, "source_count", None))
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        return 1
+    unexpected = sorted(set(source_counts) - set(source_ids))
+    if unexpected:
+        print("error_code=CONFIG_ERROR", file=sys.stderr)
+        print(f"message=source-count overrides are not selected: {unexpected}", file=sys.stderr)
+        return 1
+    logger = setup_logging(args.log, append=True)
+    results = []
+    had_error = False
+    for source_id in source_ids:
+        try:
+            result = run_safe_movie_source(
+                source_id=source_id,
+                output_dir=args.output_dir,
+                target_count=source_counts.get(source_id, args.count),
+                logger=logger,
+            )
+            results.append(result.__dict__)
+        except (ResourceIndexError, RuntimeError, ValueError) as exc:
+            had_error = True
+            if isinstance(exc, ResourceIndexError):
+                error_code = exc.error_code
+                message = exc.message
+            else:
+                error_code = "MOVIE_AUTOMATION_ERROR"
+                message = str(exc)
+            results.append(
+                {
+                    "source_id": source_id,
+                    "status": "error",
+                    "error_code": error_code,
+                    "message": message,
+                }
+            )
+    _print_json(results, pretty=True)
+    return 1 if had_error else 0
+
+
+def cmd_select_latest_database(args: argparse.Namespace) -> int:
+    try:
+        result = select_best_latest_database(
+            args.candidate,
+            source_id=args.source,
+            target_count=args.count,
+        )
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        if exc.context:
+            print(f"context={json.dumps(exc.context, ensure_ascii=False, sort_keys=True)}", file=sys.stderr)
+        return 1
+    if args.path_only:
+        print(result["selected_path"])
+    else:
+        _print_json(result, pretty=True)
+    return 0
+
+
+def cmd_movie_sources_status(args: argparse.Namespace) -> int:
+    source_ids = args.source or ["sixv", "dytt8899", "sixv-series", "meijumi"]
+    try:
+        source_counts = _source_count_map(getattr(args, "source_count", None))
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        return 1
+    unexpected = sorted(set(source_counts) - set(source_ids))
+    if unexpected:
+        print("error_code=CONFIG_ERROR", file=sys.stderr)
+        print(f"message=source-count overrides are not selected: {unexpected}", file=sys.stderr)
+        return 1
+    status: dict[str, object] = {}
+    had_error = False
+    for source_id in source_ids:
+        try:
+            status[source_id] = safe_movie_source_status(
+                source_id=source_id,
+                output_dir=args.output_dir,
+                target_count=source_counts.get(source_id, args.count),
+            )
+        except (ResourceIndexError, RuntimeError, ValueError) as exc:
+            had_error = True
+            if isinstance(exc, ResourceIndexError):
+                error_code = exc.error_code
+                message = exc.message
+            else:
+                error_code = "MOVIE_STATUS_ERROR"
+                message = str(exc)
+            status[source_id] = {
+                "status": "error",
+                "error_code": error_code,
+                "message": message,
+            }
+    _print_json(status, pretty=True)
+    return 1 if had_error else 0
+
+
 def _print_media_dependency_error(exc: ModuleNotFoundError) -> int:
     print("error_code=CONFIG_ERROR", file=sys.stderr)
     print(
@@ -365,10 +621,7 @@ def cmd_init_media_signing_key(args: argparse.Namespace) -> int:
     try:
         from magnet.resource_index.release.protocol import generate_ed25519_keypair
 
-        result = generate_ed25519_keypair(
-            args.private_key,
-            args.public_key,
-        )
+        result = generate_ed25519_keypair(args.private_key, args.public_key)
         _print_json({"status": result.get("key_state", "ready"), **result}, pretty=True)
         return 0
     except ModuleNotFoundError as exc:
@@ -549,10 +802,7 @@ def cmd_publish_media_r2_staging(args: argparse.Namespace) -> int:
                 session_token=temporary.session_token,
             )
         else:
-            backend = R2PublisherBackend.from_environment(
-                bucket=args.bucket,
-                prefix=args.prefix,
-            )
+            backend = R2PublisherBackend.from_environment(bucket=args.bucket, prefix=args.prefix)
         result = publish_media_release(backend, publish_config)
         _print_json(result.__dict__, pretty=True)
         return 0
@@ -688,12 +938,76 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("list-sources")
     s.set_defaults(func=cmd_list_sources)
 
+    s = sub.add_parser("list-movie-sources")
+    s.set_defaults(func=cmd_list_movie_sources)
+
+    s = sub.add_parser("list-movie-brands")
+    s.set_defaults(func=cmd_list_movie_brands)
+
+    s = sub.add_parser(
+        "select-latest-database",
+        help="Select the healthiest and most complete durable database for one source target",
+    )
+    s.add_argument("--source", required=True)
+    s.add_argument("--count", type=int, required=True)
+    s.add_argument("--candidate", action="append", required=True)
+    s.add_argument("--path-only", action="store_true")
+    s.set_defaults(func=cmd_select_latest_database)
+
+    s = sub.add_parser(
+        "probe-movie-brands",
+        help="Manually probe registered movie brand endpoints without changing config",
+    )
+    s.add_argument("--brand", action="append", default=None)
+    s.add_argument("--include-candidates", action="store_true")
+    s.add_argument("--delay", type=float, default=2.0)
+    s.add_argument("--yes", action="store_true")
+    s.set_defaults(func=cmd_probe_movie_brands)
+
+    s = sub.add_parser(
+        "aggregate-media-feeds",
+        help="Merge independent movie/series feeds into deterministic per-kind catalogs",
+    )
+    s.add_argument("--feed", action="append", required=True)
+    s.add_argument("--output", required=True)
+    s.add_argument("--movie-output", default=None)
+    s.add_argument("--series-output", default=None)
+    s.add_argument("--quarantine-output", default=None)
+    s.add_argument("--quality-output", default=None)
+    s.add_argument("--limit", type=int, default=200)
+    s.add_argument("--movie-limit", type=int, default=None)
+    s.add_argument("--series-limit", type=int, default=None)
+    s.add_argument("--strict-kind-limits", action="store_true")
+    s.set_defaults(func=cmd_aggregate_media_feeds)
+
+    s = sub.add_parser(
+        "build-media-app-bundle",
+        help="Download verified covers and build a fully offline movie/series App bundle",
+    )
+    s.add_argument("--feed", required=True)
+    s.add_argument("--output-dir", required=True)
+    s.add_argument("--content-kind", choices=("movie", "series"), required=True)
+    s.add_argument("--expected-count", type=int, default=None)
+    s.add_argument("--delay", type=float, default=1.5)
+    s.add_argument("--timeout", type=float, default=30.0)
+    s.add_argument("--yes", action="store_true")
+    s.set_defaults(func=cmd_build_media_app_bundle)
+
+    s = sub.add_parser(
+        "audit-media-app-bundle",
+        help="Audit offline cover files and media semantic invariants without network",
+    )
+    s.add_argument("--bundle-dir", required=True)
+    s.add_argument("--content-kind", choices=("movie", "series"), required=True)
+    s.add_argument("--expected-count", type=int, default=None)
+    s.set_defaults(func=cmd_audit_media_app_bundle)
+
     s = sub.add_parser(
         "doctor",
         help="Check the portable resource-index runtime and output paths",
     )
     s.add_argument("--source", default="javbus")
-    s.add_argument("--count", type=int, default=100)
+    s.add_argument("--count", type=int, default=None)
     s.add_argument("--output-dir", default="data/resource_index")
     s.add_argument("--db", default=None)
     s.set_defaults(func=cmd_doctor)
@@ -703,7 +1017,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show durable progress for the current latest-list snapshot",
     )
     s.add_argument("--source", default="javbus")
-    s.add_argument("--count", type=int, default=100)
+    s.add_argument("--count", type=int, default=None)
     s.add_argument("--output-dir", default="data/resource_index")
     s.add_argument("--db", default=None)
     s.set_defaults(func=cmd_latest_status)
@@ -713,7 +1027,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Snapshot and resumably ingest the latest source records",
     )
     s.add_argument("--source", default="javbus")
-    s.add_argument("--count", type=int, default=100)
+    s.add_argument("--count", type=int, default=None)
     s.add_argument("--output-dir", default="data/resource_index")
     s.add_argument("--db", default=None)
     s.add_argument("--batch-size", type=int, default=5)
@@ -736,7 +1050,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument(
         "--reparse-incomplete",
         action="store_true",
-        help="For source=sixv, re-fetch current items missing genres or synopsis",
+        help="For movie sources, re-fetch current items missing genres or synopsis",
     )
     s.add_argument("--yes", action="store_true")
     s.add_argument("--log", default=None)
@@ -863,6 +1177,28 @@ def build_parser() -> argparse.ArgumentParser:
     )
     s.add_argument("--yes", action="store_true")
     s.set_defaults(func=cmd_publish_media_r2_staging)
+
+    s = sub.add_parser(
+        "crawl-movies-safe",
+        help="Run conservative scheduled checks for one or more movie sources",
+    )
+    s.add_argument("--source", action="append", default=None)
+    s.add_argument("--count", type=int, default=None)
+    s.add_argument("--source-count", action="append", type=_source_count_arg, default=None)
+    s.add_argument("--output-dir", default="data/resource_index")
+    s.add_argument("--yes", action="store_true")
+    s.add_argument("--log", default=None)
+    s.set_defaults(func=cmd_crawl_movies_safe)
+
+    s = sub.add_parser(
+        "movie-sources-status",
+        help="Show low-frequency budget and durable movie-source status",
+    )
+    s.add_argument("--source", action="append", default=None)
+    s.add_argument("--count", type=int, default=None)
+    s.add_argument("--source-count", action="append", type=_source_count_arg, default=None)
+    s.add_argument("--output-dir", default="data/resource_index")
+    s.set_defaults(func=cmd_movie_sources_status)
 
     s = sub.add_parser(
         "crawl",

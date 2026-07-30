@@ -17,6 +17,7 @@ class SixVLiveCrawler:
         *,
         policy: LiveFetchPolicy | None = None,
         origin: str = ORIGIN,
+        allowed_origins: tuple[str, ...] | None = None,
         client: LiveHttpClient | None = None,
     ) -> None:
         self.origin = origin.rstrip("/")
@@ -24,7 +25,10 @@ class SixVLiveCrawler:
         self.request_budget = PhysicalRequestBudget(self.policy.max_pages)
         self.client = client or LiveHttpClient(
             request_delay_seconds=self.policy.request_delay_seconds,
-            allowed_origins={normalized_origin(self.origin)},
+            allowed_origins={
+                normalized_origin(value)
+                for value in (allowed_origins or (self.origin,))
+            },
             request_budget=self.request_budget,
         )
 

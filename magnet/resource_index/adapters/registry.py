@@ -69,7 +69,3 @@ def _ensure_builtin_crawlers() -> None:
         from magnet.resource_index.adapters.javbus.live_crawler import JavBusLiveCrawler
 
         register_crawler("javbus", JavBusLiveCrawler)
-    if "sixv" not in _CRAWLERS:
-        from magnet.resource_index.adapters.sixv.live_crawler import SixVLiveCrawler
-
-        register_crawler("sixv", SixVLiveCrawler)

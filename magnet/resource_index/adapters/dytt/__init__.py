@@ -1,0 +1,1 @@
+"""DYTT movie source adapter."""

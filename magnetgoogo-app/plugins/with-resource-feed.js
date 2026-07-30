@@ -1,4 +1,5 @@
 const { withDangerousMod } = require('@expo/config-plugins');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -7,61 +8,37 @@ const MOVIE_TARGET_RELATIVE = path.join(ASSET_ROOT, 'sixv');
 const SERIES_TARGET_RELATIVE = path.join(ASSET_ROOT, 'series');
 const LEGACY_ADULT_FEED_RELATIVE = path.join(ASSET_ROOT, 'javbus_latest_100_feed.json');
 
-const EMPTY_MOVIE_FEED = {
-  schema_version: 'movie-app-feed/1',
-  source_id: 'sixv',
-  generated_at: '1970-01-01T00:00:00.000Z',
-  snapshot_captured_at: null,
-  items: [],
-  summary: {
-    record_count: 0,
-    target_count: 0,
-    recommended_count: 0,
-    resource_count: 0,
-    missing_urls: [],
-    snapshot_http_requests: 0,
-    detail_http_requests: 0,
-    database_movie_count: 0,
-    cover_count: 0,
-    offline_ready: true,
-  },
-};
-
-const EMPTY_SERIES_FEED = {
-  schema_version: 'media-app-feed/1',
-  source_id: 'series-offline',
-  content_kind: 'series',
-  generated_at: '1970-01-01T00:00:00.000Z',
-  snapshot_captured_at: null,
-  items: [],
-  summary: {
-    record_count: 0,
-    target_count: 0,
-    recommended_count: 0,
-    resource_count: 0,
-    missing_urls: [],
-    snapshot_http_requests: 0,
-    detail_http_requests: 0,
-    database_movie_count: 0,
-    cover_count: 0,
-    offline_ready: true,
-  },
-};
-
-function resolveMovieSource(projectRoot) {
-  const configured = process.env.MOVIE_APP_BUNDLE_PATH || process.env.RESOURCE_FEED_PATH;
-  if (configured) {
-    return path.isAbsolute(configured) ? configured : path.resolve(projectRoot, configured);
-  }
-  return path.resolve(projectRoot, '..', 'data', 'resource_index', 'sixv_app_bundle');
+function emptyFeed(kind) {
+  return {
+    schema_version: 'media-app-feed/1',
+    source_id: `${kind}-offline`,
+    content_kind: kind,
+    generated_at: '1970-01-01T00:00:00.000Z',
+    snapshot_captured_at: null,
+    items: [],
+    summary: {
+      record_count: 0,
+      target_count: 0,
+      recommended_count: 0,
+      resource_count: 0,
+      missing_urls: [],
+      snapshot_http_requests: 0,
+      detail_http_requests: 0,
+      database_movie_count: 0,
+      cover_count: 0,
+      offline_ready: true,
+    },
+  };
 }
 
-function resolveSeriesSource(projectRoot) {
-  const configured = process.env.SERIES_APP_FEED_PATH;
+function resolveBundleSource(projectRoot, kind) {
+  const configured = kind === 'movie'
+    ? process.env.MOVIE_APP_BUNDLE_PATH || process.env.RESOURCE_FEED_PATH
+    : process.env.SERIES_APP_BUNDLE_PATH || process.env.SERIES_APP_FEED_PATH;
   if (configured) {
     return path.isAbsolute(configured) ? configured : path.resolve(projectRoot, configured);
   }
-  return path.resolve(projectRoot, '..', 'data', 'resource_index', 'series_latest_100_feed.json');
+  return path.resolve(projectRoot, '..', 'data', 'resource_index', `${kind}_app_bundle`);
 }
 
 function readJson(filePath, label) {
@@ -72,193 +49,150 @@ function readJson(filePath, label) {
   }
 }
 
-function readAndValidateMovieFeed(sourceDir) {
+function safeAssetPath(sourceDir, relativePath, context) {
+  if (typeof relativePath !== 'string' || !relativePath.trim()) {
+    throw new Error(`[with-resource-feed] ${context}.cover_asset_path is required`);
+  }
+  const resolved = path.resolve(sourceDir, relativePath);
+  const relative = path.relative(sourceDir, resolved);
+  if (relative.startsWith('..') || path.isAbsolute(relative) || !fs.existsSync(resolved)) {
+    throw new Error(`[with-resource-feed] missing or unsafe cover for ${context}`);
+  }
+  return resolved;
+}
+
+function hasDirtyLabel(value) {
+  return (
+    typeof value !== 'string'
+    || !value.trim()
+    || /^\s*[:：]/.test(value)
+    || /<[^>]*>|\\?["']?\s*>/.test(value)
+    || /\S\s+片(?:$|\s)/.test(value)
+  );
+}
+
+function isGenericResourceTitle(value) {
+  return /^\s*(?:2160p|1080p|720p|4k|uhd|fhd|hd|bd|蓝光|磁力资源|下载|资源)\s*$/i.test(
+    String(value || ''),
+  );
+}
+
+function readAndValidateMediaBundle(sourceDir, kind) {
   const feedPath = path.join(sourceDir, 'feed.json');
-  const payload = readJson(feedPath, 'movie feed');
+  const payload = readJson(feedPath, `${kind} feed`);
   if (
-    payload?.schema_version !== 'movie-app-feed/1'
-    || payload?.source_id !== 'sixv'
+    payload?.schema_version !== 'media-app-feed/1'
+    || payload?.source_id !== `${kind}-offline`
+    || payload?.content_kind !== kind
     || !Array.isArray(payload.items)
     || !payload.summary
   ) {
-    throw new Error(`[with-resource-feed] SixV movie feed identity mismatch at ${feedPath}`);
+    throw new Error(`[with-resource-feed] ${kind} feed identity mismatch at ${feedPath}`);
   }
   if (
     payload.summary.record_count !== payload.items.length
     || payload.summary.cover_count !== payload.items.length
     || payload.summary.offline_ready !== true
   ) {
-    throw new Error('[with-resource-feed] movie/cover counts are not offline-ready');
+    throw new Error(`[with-resource-feed] ${kind} feed is not fully offline-ready`);
   }
+
+  const movieIds = new Set();
   let recommended = 0;
   let resources = 0;
   payload.items.forEach((item, index) => {
+    const context = `${kind}[${index}]`;
     if (
       !item
       || item.rank !== index + 1
       || typeof item.movie_id !== 'string'
+      || !item.movie_id
+      || movieIds.has(item.movie_id)
+      || item.content_kind !== kind
       || typeof item.title !== 'string'
-      || typeof item.cover_asset_path !== 'string'
+      || !item.title.trim()
       || !Array.isArray(item.resources)
+      || item.resources.length === 0
     ) {
-      throw new Error(`[with-resource-feed] invalid movie at index ${index}`);
+      throw new Error(`[with-resource-feed] invalid ${context}`);
     }
+    movieIds.add(item.movie_id);
     if ('content_code' in item || 'adult' in item || 'people' in item) {
-      throw new Error(`[with-resource-feed] legacy adult field at index ${index}`);
+      throw new Error(`[with-resource-feed] legacy adult field in ${context}`);
     }
-    const coverPath = path.resolve(sourceDir, item.cover_asset_path);
-    const relative = path.relative(sourceDir, coverPath);
-    if (relative.startsWith('..') || path.isAbsolute(relative) || !fs.existsSync(coverPath)) {
-      throw new Error(`[with-resource-feed] missing or unsafe cover at index ${index}`);
+    for (const field of ['genres', 'countries']) {
+      if (!Array.isArray(item[field]) || item[field].some(hasDirtyLabel)) {
+        throw new Error(`[with-resource-feed] dirty ${field} in ${context}`);
+      }
     }
+
+    const coverPath = safeAssetPath(sourceDir, item.cover_asset_path, context);
+    const cover = fs.readFileSync(coverPath);
+    const digest = crypto.createHash('sha256').update(cover).digest('hex');
+    if (
+      typeof item.cover_content_hash !== 'string'
+      || digest !== item.cover_content_hash
+      || item.cover_byte_size !== cover.length
+      || !Number.isInteger(item.cover_width)
+      || item.cover_width <= 0
+      || !Number.isInteger(item.cover_height)
+      || item.cover_height <= 0
+    ) {
+      throw new Error(`[with-resource-feed] cover metadata mismatch in ${context}`);
+    }
+
+    item.resources.forEach((resource, resourceIndex) => {
+      if (
+        !resource
+        || !['magnet', 'cloud'].includes(resource.resource_type)
+        || typeof resource.url !== 'string'
+        || typeof resource.display_title !== 'string'
+        || !resource.display_title.trim()
+      ) {
+        throw new Error(`[with-resource-feed] invalid ${context}.resources[${resourceIndex}]`);
+      }
+      if (
+        kind === 'series'
+        && Number.isInteger(item.season_number)
+        && resource.season_number !== item.season_number
+      ) {
+        throw new Error(`[with-resource-feed] cross-season resource in ${context}`);
+      }
+      if (resource.episode_label && isGenericResourceTitle(resource.display_title)) {
+        throw new Error(`[with-resource-feed] episode identity lost in ${context}`);
+      }
+    });
     if (item.recommended) recommended += 1;
     resources += item.resources.length;
   });
+
   if (
     payload.summary.recommended_count !== recommended
     || payload.summary.resource_count !== resources
   ) {
-    throw new Error('[with-resource-feed] summary does not match movie items');
+    throw new Error(`[with-resource-feed] summary does not match ${kind} items`);
   }
   return payload;
 }
 
-function cleanString(value) {
-  return typeof value === 'string' && value.trim() ? value.trim() : null;
-}
-
-function cleanStringArray(value) {
-  if (!Array.isArray(value)) return [];
-  return value.filter((entry) => typeof entry === 'string' && entry.trim()).map((entry) => entry.trim());
-}
-
-function cleanInteger(value, minimum = 0) {
-  return Number.isInteger(value) && value >= minimum ? value : null;
-}
-
-function cleanRating(value) {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 10
-    ? value
-    : null;
-}
-
-function normalizeMagnetResource(resource) {
-  if (
-    !resource
-    || resource.resource_type !== 'magnet'
-    || typeof resource.url !== 'string'
-    || !resource.url.startsWith('magnet:?')
-  ) {
-    return null;
-  }
-  return {
-    resource_type: 'magnet',
-    provider: 'magnet',
-    url: resource.url,
-    info_hash: cleanString(resource.info_hash),
-    display_title: cleanString(resource.display_title) || '磁力资源',
-    extraction_code: null,
-    quality_tags: cleanStringArray(resource.quality_tags),
-  };
-}
-
-function normalizeSeriesFeed(sourcePath) {
-  const payload = readJson(sourcePath, 'series feed');
-  if (
-    payload?.schema_version !== 'media-feed/1'
-    || payload?.content_kind_filter !== 'series'
-    || !Array.isArray(payload.items)
-    || payload?.summary?.record_count !== payload.items.length
-  ) {
-    throw new Error(`[with-resource-feed] series feed identity mismatch at ${sourcePath}`);
-  }
-
-  const items = payload.items.map((item, index) => {
-    if (
-      !item
-      || item.content_kind !== 'series'
-      || typeof item.movie_id !== 'string'
-      || typeof item.source_id !== 'string'
-      || typeof item.source_item_key !== 'string'
-      || typeof item.detail_url !== 'string'
-      || typeof item.listing_title !== 'string'
-      || typeof item.title !== 'string'
-      || !Array.isArray(item.resources)
-    ) {
-      throw new Error(`[with-resource-feed] invalid series at index ${index}`);
+function bundleOrEmpty({ sourceDir, targetDir, kind }) {
+  fs.rmSync(targetDir, { recursive: true, force: true });
+  fs.mkdirSync(targetDir, { recursive: true });
+  if (!fs.existsSync(path.join(sourceDir, 'feed.json'))) {
+    if (process.env.ALLOW_EMPTY_RESOURCE_FEED === '1') {
+      fs.writeFileSync(path.join(targetDir, 'feed.json'), JSON.stringify(emptyFeed(kind)), 'utf8');
+      console.warn(`[with-resource-feed] ${kind} bundle not found; explicit empty-feed override is active. Expected ${sourceDir}`);
+      return;
     }
-    if ('content_code' in item || 'adult' in item || 'people' in item) {
-      throw new Error(`[with-resource-feed] legacy adult field in series at index ${index}`);
-    }
-    const resources = item.resources.map(normalizeMagnetResource).filter(Boolean);
-    return {
-      rank: index + 1,
-      movie_id: item.movie_id,
-      source_id: item.source_id,
-      source_item_key: item.source_item_key,
-      detail_url: item.detail_url,
-      listing_title: item.listing_title,
-      content_kind: 'series',
-      series_title: cleanString(item.series_title) || item.title,
-      season_number: cleanInteger(item.season_number, 1),
-      episode_number: cleanInteger(item.episode_number, 0),
-      episode_label: cleanString(item.episode_label),
-      update_status: cleanString(item.update_status),
-      title: item.title.trim(),
-      original_title: cleanString(item.original_title),
-      year: cleanInteger(item.year),
-      update_date: cleanString(item.update_date),
-      release_date: cleanString(item.release_date),
-      duration_minutes: cleanInteger(item.duration_minutes),
-      countries: cleanStringArray(item.countries),
-      genres: cleanStringArray(item.genres),
-      languages: cleanStringArray(item.languages),
-      directors: cleanStringArray(item.directors),
-      actors: cleanStringArray(item.actors),
-      imdb_id: cleanString(item.imdb_id),
-      imdb_rating: cleanRating(item.imdb_rating),
-      imdb_rating_text: cleanString(item.imdb_rating_text),
-      douban_rating: cleanRating(item.douban_rating),
-      douban_rating_text: cleanString(item.douban_rating_text),
-      douban_url: cleanString(item.douban_url),
-      cover_source_url: cleanString(item.cover_source_url),
-      cover_asset_path: null,
-      cover_width: null,
-      cover_height: null,
-      synopsis: cleanString(item.synopsis),
-      recommended: Boolean(item.recommended),
-      highlight_labels: cleanStringArray(item.highlight_labels),
-      quality_tags: cleanStringArray(item.quality_tags),
-      resources,
-    };
-  });
-
-  const recommendedCount = items.filter((item) => item.recommended).length;
-  const resourceCount = items.reduce((sum, item) => sum + item.resources.length, 0);
-  const snapshotCapturedAt = Array.isArray(payload.sources)
-    ? payload.sources.map((source) => cleanString(source?.snapshot_captured_at)).find(Boolean) || null
-    : null;
-
-  return {
-    schema_version: 'media-app-feed/1',
-    source_id: 'series-offline',
-    content_kind: 'series',
-    generated_at: cleanString(payload.generated_at) || new Date(0).toISOString(),
-    snapshot_captured_at: snapshotCapturedAt,
-    items,
-    summary: {
-      record_count: items.length,
-      target_count: items.length,
-      recommended_count: recommendedCount,
-      resource_count: resourceCount,
-      missing_urls: [],
-      snapshot_http_requests: 0,
-      detail_http_requests: 0,
-      database_movie_count: items.length,
-      cover_count: 0,
-      offline_ready: true,
-    },
-  };
+    throw new Error(
+      `[with-resource-feed] required ${kind} offline bundle is missing at ${sourceDir}. Run deploy\\resource-index\\run-media-offline.bat first.`,
+    );
+  }
+  const payload = readAndValidateMediaBundle(sourceDir, kind);
+  fs.cpSync(sourceDir, targetDir, { recursive: true });
+  console.log(
+    `[with-resource-feed] bundled ${payload.items.length} ${kind} entries, ${payload.summary.resource_count} resources and ${payload.summary.cover_count} verified offline covers`,
+  );
 }
 
 module.exports = function withResourceFeed(config) {
@@ -266,40 +200,15 @@ module.exports = function withResourceFeed(config) {
     'android',
     async (modConfig) => {
       const projectRoot = modConfig.modRequest.projectRoot;
-      const movieSourceDir = resolveMovieSource(projectRoot);
-      const seriesSourcePath = resolveSeriesSource(projectRoot);
+      const movieSourceDir = resolveBundleSource(projectRoot, 'movie');
+      const seriesSourceDir = resolveBundleSource(projectRoot, 'series');
       const movieTargetDir = path.resolve(projectRoot, MOVIE_TARGET_RELATIVE);
       const seriesTargetDir = path.resolve(projectRoot, SERIES_TARGET_RELATIVE);
       const legacyAdultFeed = path.resolve(projectRoot, LEGACY_ADULT_FEED_RELATIVE);
 
       fs.rmSync(legacyAdultFeed, { force: true });
-      fs.rmSync(movieTargetDir, { recursive: true, force: true });
-      fs.rmSync(seriesTargetDir, { recursive: true, force: true });
-      fs.mkdirSync(movieTargetDir, { recursive: true });
-      fs.mkdirSync(seriesTargetDir, { recursive: true });
-
-      if (fs.existsSync(path.join(movieSourceDir, 'feed.json'))) {
-        const moviePayload = readAndValidateMovieFeed(movieSourceDir);
-        fs.cpSync(movieSourceDir, movieTargetDir, { recursive: true });
-        console.log(
-          `[with-resource-feed] bundled ${moviePayload.items.length} movies, ${moviePayload.summary.recommended_count} recommended and ${moviePayload.summary.cover_count} offline covers`,
-        );
-      } else {
-        fs.writeFileSync(path.join(movieTargetDir, 'feed.json'), JSON.stringify(EMPTY_MOVIE_FEED), 'utf8');
-        console.warn(`[with-resource-feed] movie bundle not found; bundled empty feed. Expected ${movieSourceDir}`);
-      }
-
-      if (fs.existsSync(seriesSourcePath)) {
-        const seriesPayload = normalizeSeriesFeed(seriesSourcePath);
-        fs.writeFileSync(path.join(seriesTargetDir, 'feed.json'), JSON.stringify(seriesPayload), 'utf8');
-        console.log(
-          `[with-resource-feed] bundled ${seriesPayload.items.length} series entries and ${seriesPayload.summary.resource_count} magnet resources; remote covers use App cache until local cover assets are supplied`,
-        );
-      } else {
-        fs.writeFileSync(path.join(seriesTargetDir, 'feed.json'), JSON.stringify(EMPTY_SERIES_FEED), 'utf8');
-        console.warn(`[with-resource-feed] series feed not found; bundled empty feed. Expected ${seriesSourcePath}`);
-      }
-
+      bundleOrEmpty({ sourceDir: movieSourceDir, targetDir: movieTargetDir, kind: 'movie' });
+      bundleOrEmpty({ sourceDir: seriesSourceDir, targetDir: seriesTargetDir, kind: 'series' });
       return modConfig;
     },
   ]);

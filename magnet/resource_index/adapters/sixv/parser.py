@@ -42,6 +42,10 @@ _FIELD_LABELS = (
     "演员",
     "简介",
 )
+_SYNOPSIS_STOP_RE = re.compile(
+    r"(?:【?\s*下载地址\s*】?|磁力\s*[:：]|上一篇|下一篇|下载帮助|网友评论)"
+)
+
 _FIELD_ALIASES = {
     "中文名": "标题",
     "主演": "演员",
@@ -257,8 +261,11 @@ def _metadata(end_text: Tag) -> dict[str, list[str]]:
             break
         if child.name not in {"div", "p"}:
             continue
-        if set(child.get("class") or ()) & {"fl", "fr", "cr"}:
+        child_classes = set(child.get("class") or ())
+        if child_classes & {"fl", "fr", "cr"}:
             continue
+        if current == "简介" and child_classes & {"tps", "downtps"}:
+            break
         raw_text = child.get_text("\n", strip=True)
         if child.find("img") is not None and not raw_text.strip():
             continue
@@ -272,6 +279,13 @@ def _metadata(end_text: Tag) -> dict[str, list[str]]:
                 if normalize_whitespace(segment)
             ]
             for text in segments:
+                if current == "简介":
+                    stop_match = _SYNOPSIS_STOP_RE.search(text)
+                    if stop_match is not None:
+                        prefix = normalize_whitespace(text[: stop_match.start()])
+                        if prefix:
+                            result.setdefault(current, []).append(prefix)
+                        return result
                 matched = _field_match(text)
                 if matched is not None:
                     current, value = matched
