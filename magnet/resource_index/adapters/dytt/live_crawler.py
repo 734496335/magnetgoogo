@@ -36,6 +36,7 @@ class DyttLiveCrawler:
         }
         self.client = client or LiveHttpClient(
             request_delay_seconds=self.policy.request_delay_seconds,
+            http_version="v1",
             allowed_origins=self.allowed_origins,
             request_budget=self.request_budget,
         )

@@ -37,9 +37,11 @@ class _SequenceSession:
         self.responses = list(responses)
         self.calls = 0
         self.cookies = {}
+        self.request_kwargs: list[dict] = []
 
     def request(self, *_args, **_kwargs):
         self.calls += 1
+        self.request_kwargs.append(dict(_kwargs))
         item = self.responses[min(self.calls - 1, len(self.responses) - 1)]
         if isinstance(item, Exception):
             raise item
@@ -153,6 +155,20 @@ def test_http_retries_5xx_then_succeeds():
     response = client.get("https://www.javbus.com/")
     assert response.status_code == 200
     assert client._session.calls == 3
+
+
+def test_http_client_forwards_explicit_http_version():
+    client = LiveHttpClient(
+        request_delay_seconds=0,
+        max_retries=0,
+        http_version="v1",
+        allowed_origins={"https://www.javbus.com:443"},
+        dns_resolver=_public_resolver,
+    )
+    session = _SequenceSession([_response(200, "ok")])
+    client._session = session
+    client.get("https://www.javbus.com/")
+    assert session.request_kwargs[0]["http_version"] == "v1"
 
 
 def test_http_5xx_exhaustion_is_structured_error():

@@ -232,7 +232,12 @@ def test_movie_sources_are_not_exposed_through_the_legacy_crawler_protocol(
     with pytest.raises(ResourceIndexError):
         get_crawler_factory("dytt8899")
     movie_sources = list_movie_sources()
-    assert {"sixv", "dytt8899"} <= set(movie_sources)
+    assert {"sixv", "dytt8899", "meijumi", "sixv-series"} <= set(movie_sources)
+    assert movie_sources["sixv"]["catalog_role"] == "primary"
+    assert movie_sources["sixv"]["metadata_priority"] == 300
+    assert movie_sources["dytt8899"]["catalog_role"] == "supplemental"
+    assert movie_sources["meijumi"]["catalog_role"] == "primary"
+    assert movie_sources["sixv-series"]["catalog_role"] == "supplemental"
     report = run_deployment_doctor(
         output_dir=tmp_path / "doctor",
         db_path=tmp_path / "doctor" / "dytt.db",

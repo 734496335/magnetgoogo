@@ -45,6 +45,8 @@ class MovieSourceSpec:
     brand_id: str | None = None
     content_kind: str = "movie"
     parser_variant: str | None = None
+    catalog_role: str = "supplemental"
+    metadata_priority: int = 0
 
 
 _SPECS: dict[str, MovieSourceSpec] = {}
@@ -78,6 +80,8 @@ def list_movie_sources() -> dict[str, dict[str, object]]:
             "brand_id": spec.brand_id,
             "content_kind": spec.content_kind,
             "parser_variant": spec.parser_variant,
+            "catalog_role": spec.catalog_role,
+            "metadata_priority": spec.metadata_priority,
         }
         for source_id, spec in sorted(_SPECS.items())
     }
@@ -111,6 +115,8 @@ def _ensure_builtin_movie_sources() -> None:
                 brand_id="sixv",
                 content_kind="movie",
                 parser_variant="sixv_legacy",
+                catalog_role="primary",
+                metadata_priority=300,
             )
         )
     if "sixv-series" not in _SPECS:
@@ -144,6 +150,8 @@ def _ensure_builtin_movie_sources() -> None:
                 brand_id="sixv",
                 content_kind="series",
                 parser_variant="sixv_legacy",
+                catalog_role="supplemental",
+                metadata_priority=200,
             )
         )
     if "meijumi" not in _SPECS:
@@ -173,6 +181,8 @@ def _ensure_builtin_movie_sources() -> None:
                 brand_id="meijumi",
                 content_kind="series",
                 parser_variant="meijumi_wordpress",
+                catalog_role="primary",
+                metadata_priority=300,
             )
         )
     if "dytt8899" not in _SPECS:
@@ -202,5 +212,7 @@ def _ensure_builtin_movie_sources() -> None:
                 brand_id="dytt8899",
                 content_kind="movie",
                 parser_variant="dytt_empire",
+                catalog_role="supplemental",
+                metadata_priority=200,
             )
         )

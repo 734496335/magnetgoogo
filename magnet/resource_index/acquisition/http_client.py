@@ -252,6 +252,7 @@ class LiveHttpClient:
         impersonate: str = "chrome124",
         max_retries: int = 2,
         max_redirects: int = 5,
+        http_version: str | None = None,
         allowed_origins: set[str] | None = None,
         request_budget: PhysicalRequestBudget | None = None,
         dns_resolver: DnsResolver | None = _resolve_host_addresses,
@@ -269,6 +270,7 @@ class LiveHttpClient:
         self.impersonate = impersonate
         self.max_retries = max(0, int(max_retries))
         self.max_redirects = max(0, int(max_redirects))
+        self.http_version = http_version
         self.allowed_origins = {
             normalized_origin(item) for item in (allowed_origins or set())
         }
@@ -369,6 +371,7 @@ class LiveHttpClient:
                     data=current_data,
                     timeout=self.timeout_seconds,
                     allow_redirects=False,
+                    http_version=self.http_version,
                 )
             except Exception as exc:
                 last_err = exc

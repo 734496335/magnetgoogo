@@ -8,7 +8,9 @@ from copy import deepcopy
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Iterable
+from urllib.parse import urlparse
 
+from magnet.resource_index.adapters.movie_registry import get_movie_source
 from magnet.resource_index.errors import CONFIG_ERROR, ResourceIndexError
 from magnet.resource_index.normalize.media import (
     is_generic_resource_title,
@@ -28,6 +30,43 @@ _CHINESE_NUMBER = "零〇一二两三四五六七八九十百"
 def _normalized_title(value: object) -> str:
     text = normalize_whitespace(str(value or "")).casefold()
     return re.sub(r"[\s·•:：,，.。!！?？'\"《》()（）\[\]【】\-_/\\]+", "", text)
+
+
+def _source_policy(item: dict[str, Any]) -> tuple[str, int]:
+    source_id = str(item.get("source_id") or "")
+    try:
+        spec = get_movie_source(source_id)
+    except ResourceIndexError:
+        return "supplemental", 0
+    return spec.catalog_role, spec.metadata_priority
+
+
+def _valid_cover_url(value: object) -> bool:
+    text = normalize_whitespace(str(value or ""))
+    if not text:
+        return False
+    parsed = urlparse(text)
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+def _has_cover_candidate(item: dict[str, Any]) -> bool:
+    if _valid_cover_url(item.get("cover_source_url")):
+        return True
+    return any(
+        isinstance(candidate, dict) and _valid_cover_url(candidate.get("url"))
+        for candidate in item.get("cover_candidates") or []
+    )
+
+
+def _required_field_reasons(item: dict[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    if not normalize_whitespace(str(item.get("title") or item.get("series_title") or "")):
+        reasons.append("missing_title")
+    if not _has_cover_candidate(item):
+        reasons.append("missing_cover")
+    if not item.get("resources"):
+        reasons.append("missing_resources")
+    return reasons
 
 
 def _integer(value: object) -> int | None:
@@ -95,9 +134,12 @@ def _completeness(item: dict[str, Any]) -> int:
 
 
 def _source_variant(item: dict[str, Any]) -> dict[str, Any]:
+    role, priority = _source_policy(item)
     return {
         "source_id": item.get("source_id"),
         "brand_id": item.get("brand_id"),
+        "source_role": role,
+        "metadata_priority": priority,
         "source_item_key": item.get("source_item_key"),
         "detail_url": item.get("detail_url"),
         "endpoint_origin": item.get("endpoint_origin"),
@@ -224,12 +266,16 @@ def _partition_series_item(
             if resource_season == explicit_season:
                 accepted.append(resource)
                 continue
-            reason = "season_unknown" if resource_season is None else "season_mismatch"
+            if resource_season is None:
+                resource["season_number"] = explicit_season
+                resource["title_source"] = resource.get("title_source") or "item_context"
+                accepted.append(resource)
+                continue
             quarantine.append(
                 _quarantine_entry(
                     item=item,
                     resource=resource,
-                    reason=reason,
+                    reason="season_mismatch",
                     target_season_number=explicit_season,
                 )
             )
@@ -249,15 +295,22 @@ def _partition_series_item(
         return [item]
 
     output: list[dict[str, Any]] = []
+    single_known_season = known_seasons[0] if len(known_seasons) == 1 else None
     for season in known_seasons:
         partition = deepcopy(item)
         partition["season_number"] = season
         partition["title"], partition["series_title"] = normalize_series_item_titles(partition)
-        partition["resources"] = [
-            resource
-            for resource in normalized_resources
-            if _integer(resource.get("season_number")) == season
-        ]
+        partition_resources: list[dict[str, Any]] = []
+        for resource in normalized_resources:
+            resource_season = _integer(resource.get("season_number"))
+            if resource_season == season:
+                partition_resources.append(resource)
+            elif resource_season is None and single_known_season == season:
+                inherited = deepcopy(resource)
+                inherited["season_number"] = season
+                inherited["title_source"] = inherited.get("title_source") or "item_context"
+                partition_resources.append(inherited)
+        partition["resources"] = partition_resources
         original_movie_id = normalize_whitespace(str(item.get("movie_id") or ""))
         if original_movie_id:
             partition["source_movie_id"] = original_movie_id
@@ -265,17 +318,18 @@ def _partition_series_item(
         partition["season_partitioned"] = True
         output.append(partition)
 
-    for resource in normalized_resources:
-        if _integer(resource.get("season_number")) is None:
-            quarantine.append(
-                _quarantine_entry(
-                    item=item,
-                    resource=resource,
-                    reason="season_unknown",
-                    target_season_number=None,
-                    inferred_seasons=known_seasons,
+    if single_known_season is None:
+        for resource in normalized_resources:
+            if _integer(resource.get("season_number")) is None:
+                quarantine.append(
+                    _quarantine_entry(
+                        item=item,
+                        resource=resource,
+                        reason="season_unknown",
+                        target_season_number=None,
+                        inferred_seasons=known_seasons,
+                    )
                 )
-            )
     return output
 
 
@@ -323,11 +377,17 @@ def _enforce_final_season_resources(
         if resource_season == target_season:
             accepted.append(resource)
             continue
+        if resource_season is None:
+            inherited = deepcopy(resource)
+            inherited["season_number"] = target_season
+            inherited["title_source"] = inherited.get("title_source") or "item_context"
+            accepted.append(inherited)
+            continue
         quarantine.append(
             _quarantine_entry(
                 item=item,
                 resource=resource,
-                reason="season_unknown" if resource_season is None else "season_mismatch",
+                reason="season_mismatch",
                 target_season_number=target_season,
             )
         )
@@ -374,6 +434,7 @@ def _quality_report(
     items: list[dict[str, Any]],
     quarantine: list[dict[str, Any]],
     dropped_zero_resource_count: int,
+    dropped_items: list[dict[str, Any]],
 ) -> dict[str, Any]:
     bad_labels: list[dict[str, Any]] = []
     accepted_cross_season: list[dict[str, Any]] = []
@@ -422,6 +483,10 @@ def _quality_report(
     for entry in quarantine:
         reason = str(entry.get("reason") or "unknown")
         reasons[reason] = reasons.get(reason, 0) + 1
+    dropped_reason_counts: dict[str, int] = {}
+    for entry in dropped_items:
+        for reason in entry.get("reasons") or []:
+            dropped_reason_counts[str(reason)] = dropped_reason_counts.get(str(reason), 0) + 1
     errors = {
         "bad_label_count": len(bad_labels),
         "accepted_cross_season_count": len(accepted_cross_season),
@@ -433,7 +498,13 @@ def _quality_report(
         "status": "pass" if not any(errors.values()) else "fail",
         "record_count": len(items),
         "resource_count": sum(len(item.get("resources") or []) for item in items),
+        "required_fields": ["title", "cover", "resources"],
+        "rating_required": False,
+        "dropped_item_count": len(dropped_items),
+        "dropped_missing_title_count": dropped_reason_counts.get("missing_title", 0),
+        "dropped_missing_cover_count": dropped_reason_counts.get("missing_cover", 0),
         "dropped_zero_resource_count": dropped_zero_resource_count,
+        "dropped_item_reason_counts": dropped_reason_counts,
         "quarantined_resource_count": len(quarantine),
         "quarantine_reason_counts": reasons,
         **errors,
@@ -442,6 +513,7 @@ def _quality_report(
             "accepted_cross_season": accepted_cross_season[:20],
             "weak_episode_titles": weak_episode_titles[:20],
             "empty_resource_items": empty_resource_items[:20],
+            "dropped_items": dropped_items[:20],
         },
     }
 
@@ -484,18 +556,26 @@ def _merge_variants(*collections: Iterable[dict[str, Any]]) -> list[dict[str, An
 def _merge_item(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
     existing_freshness = (_date_key(existing.get("update_date")), _integer(existing.get("episode_number")) or 0)
     incoming_freshness = (_date_key(incoming.get("update_date")), _integer(incoming.get("episode_number")) or 0)
-    incoming_is_preferred = (
+    incoming_is_fresher = (
         incoming_freshness > existing_freshness
         or (
             incoming_freshness == existing_freshness
             and _completeness(incoming) > _completeness(existing)
         )
     )
-    preferred = incoming if incoming_is_preferred else existing
-    secondary = existing if incoming_is_preferred else incoming
-    merged = deepcopy(preferred)
+    fresh_preferred = incoming if incoming_is_fresher else existing
+    fresh_secondary = existing if incoming_is_fresher else incoming
+    existing_priority = _source_policy(existing)[1]
+    incoming_priority = _source_policy(incoming)[1]
+    if incoming_priority > existing_priority:
+        metadata_preferred, metadata_secondary = incoming, existing
+    elif incoming_priority < existing_priority:
+        metadata_preferred, metadata_secondary = existing, incoming
+    else:
+        metadata_preferred, metadata_secondary = fresh_preferred, fresh_secondary
+
+    merged = deepcopy(fresh_preferred)
     for field in (
-        "original_title",
         "year",
         "release_date",
         "duration_minutes",
@@ -510,25 +590,40 @@ def _merge_item(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[str,
         "bangumi_rating_text",
         "bangumi_subject_id",
         "bangumi_url",
-        "cover_source_url",
-        "synopsis",
-        "series_title",
         "season_number",
         "episode_number",
         "episode_label",
         "update_status",
     ):
-        if not merged.get(field) and secondary.get(field):
-            merged[field] = secondary[field]
+        if not merged.get(field) and fresh_secondary.get(field):
+            merged[field] = fresh_secondary[field]
+    for field in ("title", "original_title", "cover_source_url", "synopsis", "series_title"):
+        value = metadata_preferred.get(field) or metadata_secondary.get(field)
+        if value:
+            merged[field] = value
+    for field in (
+        "source_id",
+        "brand_id",
+        "source_item_key",
+        "detail_url",
+        "endpoint_origin",
+        "listing_title",
+        "rank",
+    ):
+        value = metadata_preferred.get(field)
+        if value is not None:
+            merged[field] = value
+    merged["primary_source_id"] = metadata_preferred.get("source_id")
+    merged["source_role"], merged["metadata_priority"] = _source_policy(metadata_preferred)
     for field in ("countries", "genres", "languages", "directors", "actors", "quality_tags", "highlight_labels"):
-        merged[field] = _merge_unique(merged.get(field) or [], secondary.get(field) or [])
+        merged[field] = _merge_unique(merged.get(field) or [], fresh_secondary.get(field) or [])
     merged["resources"] = _merge_resources(
         existing.get("resources") or [],
         incoming.get("resources") or [],
     )
     merged["cover_candidates"] = _merge_unique(
-        merged.get("cover_candidates") or [],
-        secondary.get("cover_candidates") or [],
+        metadata_preferred.get("cover_candidates") or [],
+        metadata_secondary.get("cover_candidates") or [],
     )
     variants = _merge_variants(
         existing.get("source_variants") or [_source_variant(existing)],
@@ -770,6 +865,8 @@ def aggregate_media_feeds(
                 item["source_variants"] = [_source_variant(item)]
                 item["source_count"] = 1
                 item["brand_count"] = 1
+                item["primary_source_id"] = item.get("source_id")
+                item["source_role"], item["metadata_priority"] = _source_policy(item)
                 item["media_identity"] = media_identity(item)
                 raw_items.append(item)
 
@@ -777,9 +874,29 @@ def aggregate_media_feeds(
     for item in deduplicated:
         _enforce_final_season_resources(item, quarantine=quarantine)
     _quarantine_cross_media_duplicate_resources(deduplicated, quarantine=quarantine)
-    before_resource_gate = len(deduplicated)
-    deduplicated = [item for item in deduplicated if item.get("resources")]
-    dropped_zero_resource_count = before_resource_gate - len(deduplicated)
+    dropped_items: list[dict[str, Any]] = []
+    accepted_items: list[dict[str, Any]] = []
+    for item in deduplicated:
+        reasons = _required_field_reasons(item)
+        if not reasons:
+            accepted_items.append(item)
+            continue
+        dropped_items.append(
+            {
+                "media_identity": item.get("media_identity"),
+                "title": item.get("title"),
+                "content_kind": item.get("content_kind"),
+                "primary_source_id": item.get("primary_source_id") or item.get("source_id"),
+                "source_variants": deepcopy(item.get("source_variants") or []),
+                "cover_candidates": deepcopy(item.get("cover_candidates") or []),
+                "resource_count": len(item.get("resources") or []),
+                "reasons": reasons,
+            }
+        )
+    deduplicated = accepted_items
+    dropped_zero_resource_count = sum(
+        1 for item in dropped_items if "missing_resources" in (item.get("reasons") or [])
+    )
     deduplicated.sort(key=_item_sort_key, reverse=True)
     movie_items = [item for item in deduplicated if _identity_parts(item)[0] == "movie"]
     series_items = [item for item in deduplicated if _identity_parts(item)[0] == "series"]
@@ -805,6 +922,7 @@ def aggregate_media_feeds(
         items=selected,
         quarantine=quarantine,
         dropped_zero_resource_count=dropped_zero_resource_count,
+        dropped_items=dropped_items,
     )
     if quality["status"] != "pass":
         raise ResourceIndexError(
@@ -839,7 +957,13 @@ def aggregate_media_feeds(
     }
     payload["summary"].update(
         {
+            "required_fields": ["title", "cover", "resources"],
+            "rating_required": False,
+            "dropped_item_count": len(dropped_items),
+            "dropped_missing_title_count": quality["dropped_missing_title_count"],
+            "dropped_missing_cover_count": quality["dropped_missing_cover_count"],
             "dropped_zero_resource_count": dropped_zero_resource_count,
+            "dropped_item_reason_counts": quality["dropped_item_reason_counts"],
             "quarantined_resource_count": len(quarantine),
             "quarantine_reason_counts": quality["quarantine_reason_counts"],
         }
@@ -850,6 +974,9 @@ def aggregate_media_feeds(
         "record_count": len(quarantine),
         "reason_counts": quality["quarantine_reason_counts"],
         "items": quarantine,
+        "dropped_item_count": len(dropped_items),
+        "dropped_item_reason_counts": quality["dropped_item_reason_counts"],
+        "dropped_items": dropped_items,
     }
     if output_path is not None:
         _atomic_write_json(Path(output_path), payload)

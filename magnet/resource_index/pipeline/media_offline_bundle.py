@@ -204,6 +204,18 @@ def build_media_app_bundle(
     for raw_item in feed["items"]:
         if not isinstance(raw_item, dict) or str(raw_item.get("content_kind") or "movie") != content_kind:
             continue
+        if not str(raw_item.get("title") or raw_item.get("series_title") or "").strip():
+            raise ResourceIndexError(
+                CONFIG_ERROR,
+                "media feed item is missing required title",
+                {"movie_id": raw_item.get("movie_id"), "content_kind": content_kind},
+            )
+        if not _cover_candidates(raw_item):
+            raise ResourceIndexError(
+                CONFIG_ERROR,
+                "media feed item is missing required cover",
+                {"movie_id": raw_item.get("movie_id"), "content_kind": content_kind},
+            )
         supported_resources = [
             dict(resource)
             for resource in raw_item.get("resources") or []
@@ -417,6 +429,8 @@ def audit_media_app_bundle(
             errors.append({"code": "ITEM_INVALID", "index": index})
             continue
         movie_id = str(item.get("movie_id") or "")
+        if not str(item.get("title") or item.get("series_title") or "").strip():
+            errors.append({"code": "TITLE_MISSING", "index": index})
         if not movie_id or movie_id in seen_ids:
             errors.append({"code": "MOVIE_ID_INVALID_OR_DUPLICATE", "index": index, "movie_id": movie_id})
         seen_ids.add(movie_id)

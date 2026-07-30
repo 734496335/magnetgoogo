@@ -38,6 +38,8 @@ def _item(
     season: int | None = None,
     episode: int | None = None,
     resource: str,
+    cover_url: str | None = "https://covers.example/default.jpg",
+    synopsis: str | None = None,
 ) -> dict:
     resource_url = resource
     info_hash = resource.rsplit(":", 1)[-1].split("&", 1)[0]
@@ -73,8 +75,8 @@ def _item(
         "douban_rating": None,
         "douban_rating_text": None,
         "douban_url": None,
-        "cover_source_url": None,
-        "synopsis": None,
+        "cover_source_url": cover_url,
+        "synopsis": synopsis,
         "recommended": False,
         "highlight_labels": [],
         "quality_tags": [],
@@ -112,6 +114,113 @@ def test_aggregate_merges_same_movie_across_brands_and_resources(tmp_path: Path)
     assert item["brand_count"] == 2
     assert len(item["resources"]) == 2
     assert {variant["source_id"] for variant in item["source_variants"]} == {"sixv", "dytt8899"}
+
+
+def test_aggregate_requires_title_cover_and_resource_but_not_rating(tmp_path: Path) -> None:
+    feed = tmp_path / "required.json"
+    valid = _item(
+        source_id="sixv",
+        brand_id="sixv",
+        title="有封面的电影",
+        year=2026,
+        resource="magnet:?xt=urn:btih:AAA",
+    )
+    missing_cover = _item(
+        source_id="dytt8899",
+        brand_id="dytt8899",
+        title="缺封面的电影",
+        year=2026,
+        resource="magnet:?xt=urn:btih:BBB",
+        cover_url=None,
+    )
+    _write_feed(feed, "mixed", [valid, missing_cover])
+
+    result = aggregate_media_feeds([feed])
+
+    assert result["summary"]["record_count"] == 1
+    assert result["items"][0]["title"] == "有封面的电影"
+    assert result["items"][0]["douban_rating"] is None
+    assert result["summary"]["dropped_missing_cover_count"] == 1
+    assert result["summary"]["dropped_missing_title_count"] == 0
+    assert result["summary"]["dropped_zero_resource_count"] == 0
+
+
+def test_aggregate_uses_source_priority_for_title_cover_and_synopsis(tmp_path: Path) -> None:
+    sixv = tmp_path / "sixv-priority.json"
+    dytt = tmp_path / "dytt-priority.json"
+    primary = _item(
+        source_id="sixv",
+        brand_id="sixv",
+        title="寒战 1994",
+        year=2026,
+        update_date="2026-07-20",
+        resource="magnet:?xt=urn:btih:AAA",
+        cover_url="https://sixv.example/cover.jpg",
+        synopsis="SixV简介",
+    )
+    supplemental = _item(
+        source_id="dytt8899",
+        brand_id="dytt8899",
+        title="寒战1994",
+        year=2026,
+        update_date="2026-07-30",
+        resource="magnet:?xt=urn:btih:BBB",
+        cover_url="https://dytt.example/cover.jpg",
+        synopsis="DYTT简介",
+    )
+    supplemental["actors"] = ["演员甲", "演员乙"]
+    _write_feed(sixv, "sixv", [primary])
+    _write_feed(dytt, "dytt8899", [supplemental])
+
+    result = aggregate_media_feeds([dytt, sixv])
+    merged = result["items"][0]
+
+    assert merged["primary_source_id"] == "sixv"
+    assert merged["title"] == "寒战 1994"
+    assert merged["cover_source_url"] == "https://sixv.example/cover.jpg"
+    assert merged["synopsis"] == "SixV简介"
+    assert len(merged["resources"]) == 2
+    assert merged["actors"] == ["演员甲", "演员乙"]
+
+
+def test_aggregate_primary_source_can_borrow_missing_cover_from_supplement(tmp_path: Path) -> None:
+    sixv = tmp_path / "sixv-no-cover.json"
+    dytt = tmp_path / "dytt-cover.json"
+    _write_feed(
+        sixv,
+        "sixv",
+        [
+            _item(
+                source_id="sixv",
+                brand_id="sixv",
+                title="互补电影",
+                year=2026,
+                resource="magnet:?xt=urn:btih:AAA",
+                cover_url=None,
+            )
+        ],
+    )
+    _write_feed(
+        dytt,
+        "dytt8899",
+        [
+            _item(
+                source_id="dytt8899",
+                brand_id="dytt8899",
+                title="互补电影",
+                year=2026,
+                resource="magnet:?xt=urn:btih:BBB",
+                cover_url="https://dytt.example/fallback.jpg",
+            )
+        ],
+    )
+
+    result = aggregate_media_feeds([sixv, dytt])
+    merged = result["items"][0]
+
+    assert merged["primary_source_id"] == "sixv"
+    assert merged["cover_source_url"] == "https://dytt.example/fallback.jpg"
+    assert len(merged["resources"]) == 2
 
 
 def test_aggregate_quarantines_cross_media_duplicate_resources(tmp_path: Path) -> None:
@@ -240,8 +349,9 @@ def test_aggregate_series_strips_season_suffix_and_does_not_require_imdb_on_both
     assert merged["season_number"] == 19
     assert merged["episode_number"] == 10
     assert merged["source_count"] == 2
-    assert len(merged["resources"]) == 1
-    assert result["summary"]["quarantine_reason_counts"]["season_unknown"] == 1
+    assert len(merged["resources"]) == 2
+    assert all(resource["season_number"] == 19 for resource in merged["resources"])
+    assert result["summary"]["quarantine_reason_counts"].get("season_unknown", 0) == 0
 
 
 def test_aggregate_enforces_independent_movie_and_series_quotas(tmp_path: Path) -> None:
@@ -447,12 +557,14 @@ def test_xmen_explicit_second_season_filters_first_and_unknown_resources(tmp_pat
     assert item["title"] == "X战警97 第二季"
     assert item["series_title"] == "X战警97"
     assert item["season_number"] == 2
-    assert [resource["episode_label"] for resource in item["resources"]] == ["S02E03"]
-    assert item["resources"][0]["display_title"] == "S02E03 · 1080P"
+    assert len(item["resources"]) == 2
+    assert {resource["season_number"] for resource in item["resources"]} == {2}
+    assert any(resource["episode_label"] == "S02E03" for resource in item["resources"])
+    assert any(resource["provider"] == "quark" for resource in item["resources"])
     assert result["quality"]["accepted_cross_season_count"] == 0
     assert result["quality"]["weak_episode_title_count"] == 0
     quarantine = json.loads(quarantine_path.read_text(encoding="utf-8"))
-    assert quarantine["reason_counts"] == {"season_mismatch": 1, "season_unknown": 1}
+    assert quarantine["reason_counts"] == {"season_mismatch": 1}
     assert json.loads(quality_path.read_text(encoding="utf-8"))["status"] == "pass"
 
 

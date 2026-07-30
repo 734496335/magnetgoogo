@@ -5,6 +5,7 @@ from io import BytesIO
 from pathlib import Path
 
 from PIL import Image
+import pytest
 
 from magnet.resource_index.errors import CONFIG_ERROR, ResourceIndexError
 from magnet.resource_index.pipeline.media_offline_bundle import (
@@ -151,6 +152,41 @@ def test_build_and_reuse_fully_offline_series_bundle(tmp_path: Path) -> None:
     assert second.downloaded == 0
     assert second.reused == 2
     assert calls == []
+
+
+def test_app_bundle_rejects_missing_required_title(tmp_path: Path) -> None:
+    feed = tmp_path / "missing-title.json"
+    bundle = tmp_path / "bundle"
+    _write_feed(feed, kind="movie", count=1)
+    payload = json.loads(feed.read_text(encoding="utf-8"))
+    payload["items"][0]["title"] = ""
+    feed.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    with pytest.raises(ResourceIndexError, match="missing required title"):
+        build_media_app_bundle(
+            feed_path=feed,
+            output_dir=bundle,
+            content_kind="movie",
+            fetcher=lambda _url, _referer: _image_bytes(),
+        )
+
+
+def test_app_bundle_rejects_missing_required_cover(tmp_path: Path) -> None:
+    feed = tmp_path / "missing-cover.json"
+    bundle = tmp_path / "bundle"
+    _write_feed(feed, kind="movie", count=1)
+    payload = json.loads(feed.read_text(encoding="utf-8"))
+    payload["items"][0]["cover_source_url"] = None
+    payload["items"][0]["cover_candidates"] = []
+    feed.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    with pytest.raises(ResourceIndexError, match="missing required cover"):
+        build_media_app_bundle(
+            feed_path=feed,
+            output_dir=bundle,
+            content_kind="movie",
+            fetcher=lambda _url, _referer: _image_bytes(),
+        )
 
 
 def test_app_bundle_filters_unsupported_download_player_resources(tmp_path: Path) -> None:
