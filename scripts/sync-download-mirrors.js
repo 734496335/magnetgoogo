@@ -40,9 +40,11 @@ if (!fs.existsSync(configPath)) {
 }
 
 const config = loadJson(configPath);
+const primaryUrl = typeof config.download_url === 'string' ? config.download_url.trim() : '';
 const backups = Array.isArray(config.backup_downloads) ? config.backup_downloads : [];
 const github = backups.find((item) => item && item.label === 'GitHub');
 const lanzou = backups.find((item) => item && item.label === '蓝奏云');
+if (!primaryUrl) throw new Error('site-config.json is missing the primary download URL');
 if (!github?.url) throw new Error('site-config.json is missing the GitHub backup URL');
 if (!lanzou?.url) throw new Error('site-config.json is missing the Lanzou backup URL');
 const password = String(lanzou.password || '8888');
@@ -56,6 +58,7 @@ let missingFiles = 0;
 for (const file of htmlFiles) {
   const original = fs.readFileSync(file, 'utf8');
   let updated = original
+    .replace(/https:\/\/cn\.magnetgoogo\.com\/download\/magnetgoogo\.apk/g, primaryUrl)
     .replace(/https:\/\/github\.com\/734496335\/magnetgoogo\/releases\/download\/v[^"'<>/]+\/magnetgoogo-v[^"'<>/]+\.apk/g, github.url)
     .replace(/https:\/\/wwbdy\.lanzn\.com\/[A-Za-z0-9]+/g, lanzou.url)
     .replace(/蓝奏云（密码：\d+）/g, `蓝奏云（密码：${password}）`)
@@ -88,6 +91,7 @@ const summary = {
   missingFiles,
   changedFiles,
   insertedLinks,
+  primaryUrl,
   lanzouUrl: lanzou.url,
   password,
 };
