@@ -67,14 +67,28 @@ chmod 0600 "$CONFIG_ROOT/media-ed25519-private.pem"
 chmod 0644 "$CONFIG_ROOT/media-ed25519-public.pem"
 
 if [[ -n "$MEDIA_SEED_ROOT" ]]; then
-  python3 "$APP_ROOT/deploy/resource-index/install-media-candidate-seed.py" \
-    --seed-root "$MEDIA_SEED_ROOT" \
-    --state-root "$STATE_ROOT"
+  docker run --rm \
+    --cap-drop ALL \
+    --security-opt no-new-privileges:true \
+    -v "$MEDIA_SEED_ROOT:/seed:ro" \
+    -v "$STATE_ROOT:/var/lib/magnet-media" \
+    --entrypoint python \
+    "$IMAGE" \
+    /app/deploy/resource-index/install-media-candidate-seed.py \
+    --seed-root /seed \
+    --state-root /var/lib/magnet-media
 fi
 
-python3 "$APP_ROOT/deploy/resource-index/prepare-nginx-media-root.py" \
-  --source "$LIVE_MEDIA_ROOT" \
-  --target "$STATE_ROOT/public"
+docker run --rm \
+  --cap-drop ALL \
+  --security-opt no-new-privileges:true \
+  -v "$LIVE_MEDIA_ROOT:/live-media:ro" \
+  -v "$STATE_ROOT:/var/lib/magnet-media" \
+  --entrypoint python \
+  "$IMAGE" \
+  /app/deploy/resource-index/prepare-nginx-media-root.py \
+  --source /live-media \
+  --target /var/lib/magnet-media/public
 
 install -m 0644 "$APP_ROOT/deploy/resource-index/linux/magnet-media-daily.service" /etc/systemd/system/magnet-media-daily.service
 install -m 0644 "$APP_ROOT/deploy/resource-index/linux/magnet-media-daily.timer" /etc/systemd/system/magnet-media-daily.timer
@@ -105,9 +119,15 @@ rollback_nginx() {
 }
 trap rollback_nginx ERR
 
-python3 "$APP_ROOT/deploy/resource-index/install-nginx-media-include.py" \
+docker run --rm \
+  --cap-drop ALL \
+  --security-opt no-new-privileges:true \
+  -v /etc/nginx:/etc/nginx \
+  --entrypoint python \
+  "$IMAGE" \
+  /app/deploy/resource-index/install-nginx-media-include.py \
   --config "$NGINX_CONFIG" \
-  --snippet-source "$APP_ROOT/deploy/resource-index/linux/nginx-media-alias.conf" \
+  --snippet-source /app/deploy/resource-index/linux/nginx-media-alias.conf \
   --snippet-target "$NGINX_SNIPPET"
 nginx -t
 systemctl reload nginx

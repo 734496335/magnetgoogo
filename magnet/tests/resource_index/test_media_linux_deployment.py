@@ -67,6 +67,11 @@ def test_installer_seeds_media_before_nginx_cutover_and_keeps_timers_opt_in() ->
     assert '--build-arg "PIP_INDEX_URL=$PIP_INDEX_URL"' in script
     assert "install-media-candidate-seed.py" in script
     assert "MEDIA_SEED_ROOT" in script
+    assert script.count("--entrypoint python") >= 3
+    assert 'python3 "$APP_ROOT/deploy/resource-index' not in script
+    assert '-v "$MEDIA_SEED_ROOT:/seed:ro"' in script
+    assert '-v "$LIVE_MEDIA_ROOT:/live-media:ro"' in script
+    assert "-v /etc/nginx:/etc/nginx" in script
 
 
 def test_example_config_has_retention_and_disk_guards() -> None:
