@@ -1,23 +1,22 @@
-TASK: 阿里云影视资源自动运行与容量审计
-STATUS: HOLD / STATIC_SERVING_PASS / AUTO_PUBLISH_NOT_READY
+TASK: 阿里云证书续期修复与自动化前置审计
+STATUS: CERTIFICATE_PASS / STATIC_SERVING_PASS / AUTO_PUBLISH_STILL_HOLD
 DATE: 2026-07-31 UTC+8
 
 DONE:
-- 实查阿里云实例ecs.e-c1m1.large：2核、1.8GiB内存、约461MiB可用、Swap已用约541MiB、磁盘余18GiB。
-- 静态媒体目录仅约27MiB，Nginx负载低，继续承担R2备用静态镜像无压力。
-- 确认正式media timer/service尚未安装，当前revision 7未受自动任务影响。
-- 审计发现media-daily尚未内置仅磁力过滤，自动运行可能重新发布网盘资源。
-- 自动流程仍逐条运行四路评分，不符合当前产品边界且首次可能产生上千请求。
-- 外层media-daily.lock无死PID恢复；异常退出后可能永久阻塞。
-- 示例配置min_movies=400、min_series=350、min_app_version=0.2.1，与revision 7不一致。
-- 无runs/releases/objects/log保留策略；单release约27MiB，日更约9.6GiB/年。
-- 周审计02:30与每日发布03:30可能重叠，审计也不是纯轻量只读任务。
-- 安装脚本会把Nginx媒体根从当前/var/www切到空的/var/lib目录，存在正式404风险。
-- cn.magnetgoogo.com证书2026-08-02到期，certbot今日两次HTTP-01 403续期失败。
+- 定位HTTP-01失败根因：服务器本机是Nginx 301，但外网80端口被上游Beaver返回403。
+- 确认DNS托管在Cloudflare；不继续依赖HTTP-01或需要DNS写权限的方案。
+- 从acme.sh官方仓库固定提交2feb392b部署v3.1.5。
+- 使用Let’s Encrypt TLS-ALPN-01从443端口成功签发新证书。
+- 新证书有效期：2026-07-31至2026-10-29；外网TLSv1.3 authorized=true。
+- 新证书安装到/etc/nginx/ssl/cn.magnetgoogo.com，Nginx配置已切换。
+- 证书公钥和私钥公钥SHA一致；私钥权限600，完整链权限644。
+- 新增acme-cn-magnetgoogo-renew.service/timer，每日04:20检查并随机延迟30分钟。
+- 自动续期服务实跑SUCCESS，ARI下一续期时间为2026-09-28T17:23:55Z。
+- 旧certbot-renew.timer已disabled/inactive，避免继续HTTP-01失败。
+- Nginx active，nginx -t PASS；国内媒体current HTTP 200，revision 7未变化。
 
-DECISION:
-- 当前机器静态承载PASS；现版本正式自动发布FAIL，禁止直接启用timer。
-- 推荐独立/升级到2C4G+60GB；未来评分或浏览器任务建议4C8G。
-- 当前2C2G仅可在全部P0修复后，以640-768MiB、无评分、candidate模式连续试跑7天。
+BOUNDARY:
+- 证书阻塞已关闭。
+- 阿里云正式自动抓取/发布仍HOLD：仅磁力接入、关闭评分、死锁恢复、保留策略、目录迁移和容量限制尚待修复。
 
-EVIDENCE: docs/project-nebula/MEDIA-ALIYUN-AUTOMATION-CAPACITY-AUDIT-20260731.md
+EVIDENCE: docs/project-nebula/ALIYUN-CERTIFICATE-RENEWAL-FIX-20260731.md

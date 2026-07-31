@@ -1,4 +1,25 @@
 ---
+Date/Time: 2026-07-31 21:50 (UTC+8)
+Version: aliyun-certificate-tls-alpn-renewal-fix
+Scope: Replace the externally blocked HTTP-01 renewal path with trusted TLS-ALPN issuance and a tested automatic renewal timer
+Modules: Aliyun Nginx/certificate/systemd runtime, docs/project-nebula/{ALIYUN-CERTIFICATE-RENEWAL-FIX-20260731.md,TECH-CHALLENGES.md,_progress.txt,DEV-LOG.md}
+
+### Root cause and issuance
+- Confirmed that local port 80 reached Nginx, while external port 80 returned `Server: Beaver / HTTP 403`; Let’s Encrypt therefore could not validate Certbot HTTP-01 regardless of the temporary Nginx challenge location.
+- Deployed official acme.sh v3.1.5 pinned to commit `2feb392bd0e3964d9bf68871ae804578d9d5ca80` and issued through Let’s Encrypt TLS-ALPN-01 on port 443.
+- The new certificate is trusted externally, covers `cn.magnetgoogo.com`, and is valid from 2026-07-31 to 2026-10-29. The public key derived from the certificate and private key matches exactly.
+
+### Production switch and renewal
+- Installed the key/full chain under `/etc/nginx/ssl/cn.magnetgoogo.com`, switched the live Nginx config, passed `nginx -t`, reloaded successfully and retained the previous config and Certbot files for rollback.
+- Added and enabled `acme-cn-magnetgoogo-renew.service/timer`: daily 04:20 Asia/Shanghai check, 30-minute randomized delay, persistent scheduling, ALPN stop/start hooks and Nginx reload after installation.
+- The timer service was executed immediately and returned SUCCESS; ARI selected the next renewal window at `2026-09-28T17:23:55Z`. The failed HTTP-01 `certbot-renew.timer` is disabled/inactive.
+
+### Verification
+- External Node TLS reported `authorized=true`, TLS 1.3, Let’s Encrypt YR1 and expiry `2026-10-29 12:46:27 UTC`.
+- Nginx remains active, the Aliyun media endpoint returns HTTP 200, and formal media revision 7 is unchanged.
+---
+
+---
 Date/Time: 2026-07-31 21:20 (UTC+8)
 Version: media-aliyun-automation-capacity-audit
 Scope: Audit whether the signed media pipeline can safely run and auto-publish on the existing Aliyun host
