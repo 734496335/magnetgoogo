@@ -1,5 +1,5 @@
 TASK: v0.2.3正式版与影视Revision 7生产状态
-STATUS: APP_RELEASE_LIVE / MEDIA_REVISION7_LIVE
+STATUS: APP_RELEASE_LIVE / MEDIA_REVISION7_LIVE / PASSWORD_NOTICE_HOTFIX_LIVE
 DATE: 2026-07-31 UTC+8
 
 APP:
@@ -19,10 +19,12 @@ DEPLOY FIX:
 - 阿里云媒体部署脚本改为POSIX set -eu。
 - PowerShell远程命令在SSH前统一CRLF→LF，远程探针及正式发布PASS。
 
+NOTICE: v0.2.3公告已补充“蓝奏云下载密码：8888”（mg-data 9edb4b7）；Pages、Raw、两个Gateway、jsDelivr已确认，K30S当前未连接。
+
 BOUNDARY:
 - K30S本轮未连接，未补做Revision 7真机点击；此前0.2.3协议与缓存已完成真机验收。
-- 评分展示留待下一App版本；未修改APK、版本号或更新公告。
+- 评分展示留待下一App版本；未修改APK或版本号。
 
 EVIDENCE:
-- D:\lpproduct\magnet-revision7-magnet-only-20260731
+- docs/project-nebula/TEST-RESULT-20260731-v0.2.2蓝奏云密码提示热修复.md
 - feature/media-daily-automation: docs/project-nebula/MEDIA-REVISION7-MAGNET-ONLY-PUBLICATION-20260731.md
