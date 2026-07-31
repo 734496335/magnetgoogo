@@ -463,8 +463,10 @@
 - **运维阻塞**：国内镜像证书在2026-08-02到期，`certbot-renew.timer`虽enabled但inactive且无下一次触发；必须在到期前修复和实测续期。
 - **免费容量裁决**：资源页与搜索不经过中心服务器；当前Worker/R2事件模型下保守支持3,000—5,000 DAU，正常使用约8,000—10,000 DAU；现有约100 DAU远低于容量。
 - **容量放大项**：每次启动配置和源规则各竞速6端点且不取消输家，缓存有效仍后台同步，客户端发送`no-cache`，分析每批写一个永久R2对象；这些行为将免费容量压缩约2—4倍。
-- **下一步**：先修证书；安装并验证计划任务、WakeToRun和heartbeat；建立远程manifest/Feed/封面发布；合并请求与ETag缓存；分析改为会话/每日聚合并加强滥用防护；APK主下载迁移R2直连；增加独立影视来源。
-- **证据**：`RESOURCE-INDEX-STABILITY-CAPACITY-REVIEW-2026-07-26.md`
+- **2026-07-31阿里云复审**：正式Revision 7虽已完成双端发布，但当前`media-daily`仍未内置仅磁力过滤，仍执行四路评分，外层锁无死PID恢复，无历史保留策略，示例门槛/最低App版本与Revision 7不一致；安装脚本还会在数据未引入前把Nginx从现有`/var/www`目录切到空的`/var/lib`目录。
+- **2026-07-31服务器实查**：`ecs.e-c1m1.large`，2核/1.8GiB，约461MiB可用，Swap已用约541MiB，磁盘余约18GiB；静态镜像PASS，正式自动发布HOLD。证书2026-08-02到期，7月31日两次自动续期均因HTTP-01 403失败。
+- **下一步**：先修证书；将仅磁力、无评分、死锁恢复、历史清理、正确门槛和原子Nginx迁移纳入正式流程；在当前2C2G仅运行7天candidate soak，生产建议独立2C4G/60GB；再增加heartbeat与双端Pointer告警。
+- **证据**：`RESOURCE-INDEX-STABILITY-CAPACITY-REVIEW-2026-07-26.md`、`MEDIA-ALIYUN-AUTOMATION-CAPACITY-AUDIT-20260731.md`
 
 ---
 

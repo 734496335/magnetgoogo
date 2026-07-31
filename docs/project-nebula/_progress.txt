@@ -1,27 +1,23 @@
-TASK: 四源可靠数据仅磁力Revision 7正式发布
-STATUS: RELEASE_LIVE / V0.2.3_COMPATIBILITY_PASS
+TASK: 阿里云影视资源自动运行与容量审计
+STATUS: HOLD / STATIC_SERVING_PASS / AUTO_PUBLISH_NOT_READY
 DATE: 2026-07-31 UTC+8
 
 DONE:
-- 将四源聚合重裁为仅磁力：199电影、220电视剧、3541磁力、0网盘。
-- 删除17个移除网盘后无磁力的剧集；3541 info-hash全局唯一。
-- 复用此前400张真实验证封面，419条影视封面完整，构建网络请求0。
-- Revision 7签名完成：release=20260730T000000Z-5c299304。
-- pointer SHA=0068f832ee016fa22d35939d5250d711f1aa40f60d121e4ad6501fe1f6c80f93。
-- Manifest SHA=83f38186a06457a8e5bb8ddcda7587b9accbfa1f93bd477b15213b2bff8f02e8。
-- 0.2.3真实协议解析419详情/资源对象及3541磁力全部PASS。
-- R2首轮759上传/467复用，第二轮1226全复用/0上传。
-- 阿里云首轮1226复制，第二轮1226全复用；Nginx及公开对象验证PASS。
-- R2与阿里云current已原子提升Revision 7，双端pointer字节一致。
+- 实查阿里云实例ecs.e-c1m1.large：2核、1.8GiB内存、约461MiB可用、Swap已用约541MiB、磁盘余18GiB。
+- 静态媒体目录仅约27MiB，Nginx负载低，继续承担R2备用静态镜像无压力。
+- 确认正式media timer/service尚未安装，当前revision 7未受自动任务影响。
+- 审计发现media-daily尚未内置仅磁力过滤，自动运行可能重新发布网盘资源。
+- 自动流程仍逐条运行四路评分，不符合当前产品边界且首次可能产生上千请求。
+- 外层media-daily.lock无死PID恢复；异常退出后可能永久阻塞。
+- 示例配置min_movies=400、min_series=350、min_app_version=0.2.1，与revision 7不一致。
+- 无runs/releases/objects/log保留策略；单release约27MiB，日更约9.6GiB/年。
+- 周审计02:30与每日发布03:30可能重叠，审计也不是纯轻量只读任务。
+- 安装脚本会把Nginx媒体根从当前/var/www切到空的/var/lib目录，存在正式404风险。
+- cn.magnetgoogo.com证书2026-08-02到期，certbot今日两次HTTP-01 403续期失败。
 
-VERIFIED:
-- Resource Index：300 passed，1 skipped；compileall PASS；enum ALL VALID。
-- App Resource Feed、Media Security、Media Cache、TypeScript：PASS。
-- 发布后双端App协议：199电影、220剧集、3541资源，PASS。
+DECISION:
+- 当前机器静态承载PASS；现版本正式自动发布FAIL，禁止直接启用timer。
+- 推荐独立/升级到2C4G+60GB；未来评分或浏览器任务建议4C8G。
+- 当前2C2G仅可在全部P0修复后，以640-768MiB、无评分、candidate模式连续试跑7天。
 
-BOUNDARY:
-- 0.2.3可见398部影视/3312磁力；21部其他国家剧集/229磁力无Tab入口，用户已接受。
-- 烂番茄/Bangumi评分留待下一App版本展示。
-- K30S未连接，未补做本轮真机点击；未修改APK或App版本。
-
-EVIDENCE: docs/project-nebula/MEDIA-REVISION7-MAGNET-ONLY-PUBLICATION-20260731.md
+EVIDENCE: docs/project-nebula/MEDIA-ALIYUN-AUTOMATION-CAPACITY-AUDIT-20260731.md

@@ -1,4 +1,28 @@
 ---
+Date/Time: 2026-07-31 21:20 (UTC+8)
+Version: media-aliyun-automation-capacity-audit
+Scope: Audit whether the signed media pipeline can safely run and auto-publish on the existing Aliyun host
+Modules: deploy/resource-index/linux, magnet/resource_index/pipeline/media_daily.py, docs/project-nebula/{MEDIA-ALIYUN-AUTOMATION-CAPACITY-AUDIT-20260731.md,_progress.txt,DEV-LOG.md}
+
+### Live host capacity
+- The host is `ecs.e-c1m1.large`: 2 vCPU, 1.8 GiB RAM, about 461 MiB available RAM, 541 MiB Swap already used, and about 18 GiB disk free.
+- Static Nginx media serving remains low-load and safe; the host is not a safe target for the current 1.5 GiB / 1.75 CPU unattended container alongside OpenClaw, Node and SearXNG.
+- No `magnet-media-daily` service or timer is installed, so revision 7 remains unaffected by automation.
+
+### Production blockers
+- `media_daily.py` does not call the revision-7 magnet-only filter and can reintroduce cloud resources.
+- The automatic path still performs four-provider rating lookup for every incomplete item, despite ratings being outside the current product scope.
+- The outer lock has no dead-PID recovery; runs/releases/objects/logs have no retention policy; the weekly audit can overlap the daily run.
+- Example thresholds and version gate remain `400/350` and `0.2.1`, inconsistent with revision 7's `199/220` and minimum app `0.2.3`.
+- The installer would switch Nginx from the live `/var/www/magnetgoogo-site/media` tree to an empty `/var/lib/magnet-media/public` alias before seeding data.
+- The certificate expires on 2026-08-02; two automatic renewals on 2026-07-31 failed because the HTTP-01 challenge returned 403.
+
+### Decision
+- Static serving PASS; enabling production auto-publish now FAIL/HOLD.
+- Recommended minimum is a separate or upgraded 2C4G/60GB task environment. The current 2C2G host may only run a 7-day, no-rating, candidate-only soak after all P0 fixes, with a 640-768 MiB cap and no pointer promotion.
+---
+
+---
 Date/Time: 2026-07-31 11:12 (UTC+8)
 Version: media-revision7-magnet-only-production
 Scope: Rebuild the four-source reliable media catalog as magnet-only, prove v0.2.3 display compatibility, and publish signed revision 7 atomically to R2 and Aliyun
