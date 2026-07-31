@@ -11,6 +11,18 @@ ROOT = Path(__file__).resolve().parents[3]
 LINUX = ROOT / "deploy" / "resource-index" / "linux"
 
 
+def test_linux_deployment_files_use_lf_line_endings() -> None:
+    suffixes = {".sh", ".service", ".timer", ".conf", ".json", ".pem"}
+    paths = [
+        path
+        for path in LINUX.iterdir()
+        if path.name == "Dockerfile" or path.suffix in suffixes
+    ]
+    assert paths
+    for path in paths:
+        assert b"\r\n" not in path.read_bytes(), path
+
+
 def test_daily_runner_defaults_to_bounded_candidate_mode() -> None:
     script = (LINUX / "run-media-daily.sh").read_text(encoding="utf-8")
     assert 'MODE="${1:-${MAGNET_MEDIA_MODE:-candidate}}"' in script

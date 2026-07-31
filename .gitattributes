@@ -1,0 +1,7 @@
+deploy/resource-index/linux/*.sh text eol=lf
+deploy/resource-index/linux/*.service text eol=lf
+deploy/resource-index/linux/*.timer text eol=lf
+deploy/resource-index/linux/*.conf text eol=lf
+deploy/resource-index/linux/*.json text eol=lf
+deploy/resource-index/linux/*.pem text eol=lf
+deploy/resource-index/linux/Dockerfile text eol=lf
