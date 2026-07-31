@@ -1,30 +1,28 @@
-TASK: v0.2.3影视缓存修复与国内更新完整发布
-STATUS: RELEASE_LIVE / FULL_ROLLOUT_PASS
-DATE: 2026-07-30 UTC+8
+TASK: v0.2.3正式版与影视Revision 7生产状态
+STATUS: APP_RELEASE_LIVE / MEDIA_REVISION7_LIVE
+DATE: 2026-07-31 UTC+8
 
-DONE:
+APP:
 - 正式APK：0.2.3/versionCode7，仅arm64-v8a，备案签名一致。
-- APK大小38,486,986字节；SHA256=bbbe9b5900d69262c903ef8153c0954466956d416934ad7504caf159d6ad960d。
-- 缓存提交并发竞态关闭；revision6为498电影、469电视剧、3720资源。
-- K30S断网强杀后恢复“超级少女”和“聪明镇”，缓存异常/Fatal/ANR=0。
-- GitHub Release v0.2.3已发布，API digest与正式SHA一致。
-- R2国内主下载完整回下载SHA一致。
-- 阿里云稳定APK及版本APK SHA一致，保留0.2.2回滚文件。
-- 蓝奏云iDcyE3zn4rcf密码8888，K30S显示正确文件名和36.7M。
-- mg-data公告热修复提交9a246ce已推送；五个权威配置端点字节一致返回新提示。
-- Cloudflare Pages与阿里云911页官网已发布；全站主下载统一为R2。
-- 旧v0.2.2 GitHub链接、旧蓝奏云链接、阿里云主下载硬编码均为0。
-- K30S正式0.2.2明确显示“不要点击立即更新，请点备用链接1从蓝奏云安装”；点击后打开新蓝奏云。
-- K30S最终恢复正式0.2.3/code7。
+- APK SHA256=bbbe9b5900d69262c903ef8153c0954466956d416934ad7504caf159d6ad960d。
+- 缓存提交串行化、国内更新和安装权限已随0.2.3发布。
 
-KNOWN_BOUNDARY:
-- 0.2.2缺安装权限，本次升级仍可能需浏览器/蓝奏云完成一次迁移。
-- cn.magnetgoogo.com部分外部客户端TLS握手异常；主下载已切R2，不阻塞发布。
-- 0.2.2内置jsDelivr不可变兜底仍固定旧提交，但仅在五个权威端点全部失败时使用。
+MEDIA REVISION 7:
+- release=20260730T000000Z-5c299304；pointer revision=7。
+- 199电影、220电视剧、3541磁力、0网盘。
+- pointer SHA=0068f832ee016fa22d35939d5250d711f1aa40f60d121e4ad6501fe1f6c80f93。
+- Manifest SHA=83f38186a06457a8e5bb8ddcda7587b9accbfa1f93bd477b15213b2bff8f02e8。
+- R2与阿里云current字节一致，0.2.3双端协议测试PASS。
+- 0.2.3可见398部影视/3312磁力；21部其他国家剧集无Tab入口，用户已接受。
 
-COMMITS:
-- App候选与缓存修复：01555ed
-- mg-data正式配置：a7cc908；迁移提示热修复：9a246ce
-- 官网同步脚本：3cfe623
+DEPLOY FIX:
+- 阿里云媒体部署脚本改为POSIX set -eu。
+- PowerShell远程命令在SSH前统一CRLF→LF，远程探针及正式发布PASS。
 
-EVIDENCE: docs/project-nebula/TEST-RESULT-v0.2.3-FINAL-RELEASE-20260730.md
+BOUNDARY:
+- K30S本轮未连接，未补做Revision 7真机点击；此前0.2.3协议与缓存已完成真机验收。
+- 评分展示留待下一App版本；未修改APK、版本号或更新公告。
+
+EVIDENCE:
+- D:\lpproduct\magnet-revision7-magnet-only-20260731
+- feature/media-daily-automation: docs/project-nebula/MEDIA-REVISION7-MAGNET-ONLY-PUBLICATION-20260731.md

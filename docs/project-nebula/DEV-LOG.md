@@ -1,4 +1,24 @@
 ---
+Date/Time: 2026-07-31 11:12 (UTC+8)
+Version: v0.2.3-media-revision7-production-support
+Scope: Verify the formal v0.2.3 client against a magnet-only media release, repair Aliyun remote-shell portability and promote signed revision 7 to both production data planes
+Modules: deploy/resource-index/publish-media-aliyun-data.ps1, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### v0.2.3 compatibility and publication
+- Parsed the actual signed revision 7 candidate with the formal v0.2.3 TypeScript protocol: 199 movies, 220 series, 3,541 magnets, zero cloud resources, 419 details and 419 resource objects.
+- Resource Feed, Media Security, Media Cache, TypeScript and dual-endpoint live protocol gates passed. Both endpoints now return revision 7 with pointer SHA `0068f832ee016fa22d35939d5250d711f1aa40f60d121e4ad6501fe1f6c80f93`.
+- The current page shows 398 media and 3,312 magnets across Movie and CN/US/UK/KR/JP series tabs. Twenty-one other-country series remain without a Tab by accepted product decision.
+
+### Aliyun deployment portability
+- The immutable mirror initially stopped before remote mutation because the server shell rejected `pipefail`, then because CRLF contaminated the multiline command.
+- Replaced the shell preamble with POSIX `set -eu` and normalized PowerShell CRLF to LF before SSH. A minimal remote probe and the complete 1,226-file two-pass mirror promotion both passed.
+- R2 and Aliyun immutable data were verified before current promotion; pointer promotion was atomic and both public current files are byte-identical.
+
+### Boundary
+- No App source behavior, version, APK or update notice changed. K30S was not connected for a new revision-7 click test; the formal 0.2.3 protocol/cache path had already passed prior device acceptance.
+---
+
+---
 Date/Time: 2026-07-30 22:33 (UTC+8)
 Version: v0.2.3-v0.2.2-migration-notice-hotfix
 Scope: Prevent formal v0.2.2 users from repeatedly attempting the known-broken in-App installer by explicitly directing them to Lanzou backup link 1

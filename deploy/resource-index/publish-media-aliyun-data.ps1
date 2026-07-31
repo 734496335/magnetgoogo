@@ -91,7 +91,7 @@ try {
     }
 
     $RemoteCommand = @"
-set -euo pipefail
+set -eu
 rm -rf '$RemoteStage'
 mkdir -p '$RemoteStage'
 tar -xzf '$RemoteArchive' -C '$RemoteStage'
@@ -104,6 +104,7 @@ sudo -n systemctl reload nginx
 sudo -n rm -rf '$RemoteRoot/staging'
 rm -rf '$RemoteStage' '$RemoteArchive'
 "@
+    $RemoteCommand = ($RemoteCommand -replace "`r`n", "`n").Trim()
     $RemoteOutput = @(& ssh -o BatchMode=yes -o LogLevel=ERROR $Server $RemoteCommand 2>&1)
     if ($LASTEXITCODE -ne 0) {
         $RemoteOutput | Out-Host
