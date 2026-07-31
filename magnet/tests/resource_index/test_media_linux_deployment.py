@@ -50,7 +50,9 @@ def test_installer_seeds_media_before_nginx_cutover_and_keeps_timers_opt_in() ->
     assert "init-media-signing-key" in script
     assert "media-production-ed25519-public.pem" in script
     assert "MAGNET_MEDIA_PYTHON_IMAGE" in script
+    assert "MAGNET_MEDIA_PIP_INDEX_URL" in script
     assert '--build-arg "PYTHON_IMAGE=$PYTHON_IMAGE"' in script
+    assert '--build-arg "PIP_INDEX_URL=$PIP_INDEX_URL"' in script
     assert "install-media-candidate-seed.py" in script
     assert "MEDIA_SEED_ROOT" in script
 
