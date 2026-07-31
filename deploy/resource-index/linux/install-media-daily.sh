@@ -15,6 +15,7 @@ NGINX_SNIPPET=${NGINX_SNIPPET:-/etc/nginx/snippets/magnetgoogo-media.conf}
 ENABLE_TIMERS=${ENABLE_TIMERS:-0}
 MEDIA_SEED_ROOT=${MEDIA_SEED_ROOT:-}
 IMAGE=${MAGNET_MEDIA_IMAGE:-magnet-media-daily:latest}
+PYTHON_IMAGE=${MAGNET_MEDIA_PYTHON_IMAGE:-python:3.11.9-slim-bookworm}
 
 install -d -m 0755 /opt/magnet-media "$APP_ROOT" "$STATE_ROOT"
 install -d -m 0700 "$CONFIG_ROOT"
@@ -45,6 +46,7 @@ chmod 0755 \
 
 docker build \
   --pull \
+  --build-arg "PYTHON_IMAGE=$PYTHON_IMAGE" \
   -f "$APP_ROOT/deploy/resource-index/linux/Dockerfile" \
   -t "$IMAGE" \
   "$APP_ROOT"
