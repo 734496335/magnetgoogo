@@ -1,4 +1,29 @@
 ---
+Date/Time: 2026-07-31 11:12 (UTC+8)
+Version: media-revision7-magnet-only-production
+Scope: Rebuild the four-source reliable media catalog as magnet-only, prove v0.2.3 display compatibility, and publish signed revision 7 atomically to R2 and Aliyun
+Modules: magnet/resource_index/{cli.py,pipeline/magnet_only.py,release/builder.py}, magnet/tests/resource_index/{test_magnet_only.py,test_media_release.py}, deploy/resource-index/publish-media-aliyun-data.ps1, docs/project-nebula/{MEDIA-REVISION7-MAGNET-ONLY-PUBLICATION-20260731.md,_progress.txt,DEV-LOG.md}
+
+### Magnet-only release set
+- Removed all 927 cloud resources and dropped 17 series left without magnets. The signed catalog contains 199 movies, 220 series and 3,541 globally unique magnets; cloud count is zero.
+- Reused the four previously decoded and SHA-verified cover caches. All 419 media items have covers with zero new cover requests; the release contains 368 unique cover objects, 419 detail objects, 419 resource objects and 19 catalog objects.
+- Added deterministic magnet URI/info-hash validation, cross-kind duplicate rejection, zero-magnet item removal and verified-cover cache seeding with permanent tests.
+- Added Chinese `季全` recognition to the series identity gate. The valid `英雄四季全` collection no longer causes an unknown-series regression; final unknown and cross-season counts are zero.
+
+### v0.2.3 compatibility
+- Parsed the actual revision 7 current, Manifest, 19 catalogs, 419 details and 419 resource documents with the formal v0.2.3 TypeScript protocol implementation.
+- Resource Feed, Media Security, Media Cache and TypeScript gates passed. Published dual-endpoint protocol tests returned 199 movies, 220 series and 3,541 resources.
+- Current visible UI scope is 199 movies plus 199 CN/US/UK/KR/JP series, 398 media and 3,312 magnets. Twenty-one other-country series with 229 magnets have no current Tab, an explicitly accepted product boundary.
+
+### Production publication
+- R2 first run uploaded 759 and reused 467 files; the second run reused all 1,226 files with zero upload. The temporary upload Worker was deleted.
+- Aliyun first copied all 1,226 files and the second pass reused all 1,226. Fixed remote-shell portability by using POSIX `set -eu` and normalizing PowerShell CRLF to LF before SSH execution.
+- Atomically promoted pointer revision 7 to both data planes. Pointer SHA is `0068f832ee016fa22d35939d5250d711f1aa40f60d121e4ad6501fe1f6c80f93`; Manifest SHA is `83f38186a06457a8e5bb8ddcda7587b9accbfa1f93bd477b15213b2bff8f02e8`.
+- Verification: Resource Index 300 passed / 1 skipped; compileall PASS; enum 241 / ALL VALID; both public endpoints return byte-identical revision 7 and complete live chains.
+- K30S was not connected, so no new device click test was run. No App version, APK or update announcement changed.
+---
+
+---
 Date/Time: 2026-07-31 09:13 (UTC+8)
 Version: media-new-sources-100-independent-reverify
 Scope: Independently replay the four-source 100-record evidence, verify zero-network determinism and online resource samples, and fix the magnet-only resource-probe false negative

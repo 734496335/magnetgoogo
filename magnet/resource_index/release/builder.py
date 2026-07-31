@@ -35,7 +35,7 @@ _RELEASE_ID_RE = re.compile(r"^\d{8}T\d{6}Z-[0-9a-f]{8}$")
 _SERIES_IDENTITY_HINT = re.compile(
     r"(?:S\d{1,2}\s*E\d{1,3}|(?:^|[^0-9])E\d{1,3}(?:[^0-9]|$)|"
     r"^\D{0,8}\d{1,3}(?:\s*[-~\u81f3]\s*\d{1,3})?(?:\.|\s|\u96c6|$)|"
-    r"\u7b2c\s*\d{1,3}\s*\u96c6|\u5168\s*(?:\u96c6|\u5b63)|"
+    r"\u7b2c\s*\d{1,3}\s*\u96c6|\u5168\s*(?:\u96c6|\u5b63)|\u5b63\s*\u5168|"
     r"complete\s+season|season\s+pack)",
     re.IGNORECASE,
 )

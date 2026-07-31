@@ -1,27 +1,27 @@
-TASK: 三站/四入口影视爬虫100条可靠性闭环独立复验
-STATUS: PASS / FALSE_NEGATIVE_GATE_FIXED / NOT_PUBLISHED
+TASK: 四源可靠数据仅磁力Revision 7正式发布
+STATUS: RELEASE_LIVE / V0.2.3_COMPATIBILITY_PASS
 DATE: 2026-07-31 UTC+8
 
 DONE:
-- 6v520电影、Meijumi剧集、6v520剧集100/100真实持久抓取继续PASS。
-- DYTT 250候选筛100条标题+封面+App资源，249成功、1永久404、159磁力继续PASS。
-- 四入口可靠性CLI复验：标题/封面/资源缺失0，非法/跨影视重复0，SQLite完整。
-- 400张封面全部复用已验证资产，verified=400、unique=400、HTTP请求0。
-- 四入口重复运行HTTP请求0，Feed SHA前后完全一致。
-- 在线网盘复验：6v 60/60、Meijumi 84/84、6v剧集60/60。
-- 修复DYTT磁力-only Feed被非磁力在线抽检器误报FAIL；无非磁力时跳过网络并PASS。
-- 新增磁力-only PASS与真正空资源FAIL两个反例。
+- 将四源聚合重裁为仅磁力：199电影、220电视剧、3541磁力、0网盘。
+- 删除17个移除网盘后无磁力的剧集；3541 info-hash全局唯一。
+- 复用此前400张真实验证封面，419条影视封面完整，构建网络请求0。
+- Revision 7签名完成：release=20260730T000000Z-5c299304。
+- pointer SHA=0068f832ee016fa22d35939d5250d711f1aa40f60d121e4ad6501fe1f6c80f93。
+- Manifest SHA=83f38186a06457a8e5bb8ddcda7587b9accbfa1f93bd477b15213b2bff8f02e8。
+- 0.2.3真实协议解析419详情/资源对象及3541磁力全部PASS。
+- R2首轮759上传/467复用，第二轮1226全复用/0上传。
+- 阿里云首轮1226复制，第二轮1226全复用；Nginx及公开对象验证PASS。
+- R2与阿里云current已原子提升Revision 7，双端pointer字节一致。
 
 VERIFIED:
-- Resource Index：295 passed，1 skipped。
-- compileall：PASS。
-- Enum：241 rules / ALL VALID。
-- 四源聚合质量：436影视、4468资源、质量报告PASS。
-
-EVIDENCE:
-- docs/project-nebula/RESOURCE-INDEX-NEW-SOURCE-100-RELIABILITY-20260730.md
-- D:\lpproduct\magnet-reliability-100-20260730
+- Resource Index：300 passed，1 skipped；compileall PASS；enum ALL VALID。
+- App Resource Feed、Media Security、Media Cache、TypeScript：PASS。
+- 发布后双端App协议：199电影、220剧集、3541资源，PASS。
 
 BOUNDARY:
-- 代码位于feature/media-daily-automation，尚未并入存在大量并行改动的主工作区。
-- 未发布新的线上媒体revision，未启用自动定时器。
+- 0.2.3可见398部影视/3312磁力；21部其他国家剧集/229磁力无Tab入口，用户已接受。
+- 烂番茄/Bangumi评分留待下一App版本展示。
+- K30S未连接，未补做本轮真机点击；未修改APK或App版本。
+
+EVIDENCE: docs/project-nebula/MEDIA-REVISION7-MAGNET-ONLY-PUBLICATION-20260731.md

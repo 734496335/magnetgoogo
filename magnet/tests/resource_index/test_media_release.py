@@ -437,6 +437,22 @@ def test_episode_range_title_is_not_counted_as_unknown(tmp_path: Path) -> None:
     assert result.quality["title_inferred_series_resources"] == 1
 
 
+def test_chinese_season_complete_title_is_not_counted_as_unknown(tmp_path: Path) -> None:
+    config = _setup(tmp_path)
+    series = json.loads(config.series_feed_path.read_text(encoding="utf-8"))
+    resource = series["items"][0]["resources"][0]
+    resource["season_number"] = None
+    resource["episode_start"] = None
+    resource["episode_end"] = None
+    resource["episode_label"] = None
+    resource["display_title"] = "四季全.1080p.mkv"
+    _write_json(config.series_feed_path, series)
+
+    result = build_media_release(config)
+    assert result.quality["unknown_series_resources"] == 0
+    assert result.quality["title_inferred_series_resources"] == 1
+
+
 def test_unknown_series_resource_increase_is_a_regression(tmp_path: Path) -> None:
     config = _setup(tmp_path)
     series = json.loads(config.series_feed_path.read_text(encoding="utf-8"))

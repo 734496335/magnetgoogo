@@ -32,6 +32,10 @@ from magnet.resource_index.pipeline.latest_crawl import (
 from magnet.resource_index.pipeline.media_aggregate import aggregate_media_feeds
 from magnet.resource_index.pipeline.media_daily import load_media_daily_config, run_media_daily
 from magnet.resource_index.pipeline.media_library import export_source_library_feed
+from magnet.resource_index.pipeline.magnet_only import (
+    build_magnet_only_media_feeds,
+    seed_media_cover_bundle_cache,
+)
 from magnet.resource_index.pipeline.media_offline_bundle import (
     audit_media_app_bundle,
     build_media_app_bundle,
@@ -288,6 +292,40 @@ def cmd_aggregate_media_feeds(args: argparse.Namespace) -> int:
             print(f"context={json.dumps(exc.context, ensure_ascii=False, sort_keys=True)}", file=sys.stderr)
         return 1
     _print_json(payload["summary"], pretty=True)
+    return 0
+
+
+def cmd_build_magnet_only_feeds(args: argparse.Namespace) -> int:
+    try:
+        result = build_magnet_only_media_feeds(
+            movie_feed_path=args.movie_feed,
+            series_feed_path=args.series_feed,
+            output_dir=args.output_dir,
+        )
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        if exc.context:
+            print(f"context={json.dumps(exc.context, ensure_ascii=False, sort_keys=True)}", file=sys.stderr)
+        return 1
+    _print_json(result, pretty=True)
+    return 0
+
+
+def cmd_seed_media_cover_cache(args: argparse.Namespace) -> int:
+    try:
+        result = seed_media_cover_bundle_cache(
+            feed_path=args.feed,
+            output_dir=args.output_dir,
+            probe_dirs=args.probe_dir,
+        )
+    except ResourceIndexError as exc:
+        print(f"error_code={exc.error_code}", file=sys.stderr)
+        print(f"message={exc.message}", file=sys.stderr)
+        if exc.context:
+            print(f"context={json.dumps(exc.context, ensure_ascii=False, sort_keys=True)}", file=sys.stderr)
+        return 1
+    _print_json(result, pretty=True)
     return 0
 
 
@@ -1085,6 +1123,24 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--series-limit", type=int, default=None)
     s.add_argument("--strict-kind-limits", action="store_true")
     s.set_defaults(func=cmd_aggregate_media_feeds)
+
+    s = sub.add_parser(
+        "build-magnet-only-feeds",
+        help="Remove cloud resources and drop media without any magnet resource",
+    )
+    s.add_argument("--movie-feed", required=True)
+    s.add_argument("--series-feed", required=True)
+    s.add_argument("--output-dir", required=True)
+    s.set_defaults(func=cmd_build_magnet_only_feeds)
+
+    s = sub.add_parser(
+        "seed-media-cover-cache",
+        help="Seed a media bundle from previously verified source cover caches",
+    )
+    s.add_argument("--feed", required=True)
+    s.add_argument("--output-dir", required=True)
+    s.add_argument("--probe-dir", action="append", required=True)
+    s.set_defaults(func=cmd_seed_media_cover_cache)
 
     s = sub.add_parser(
         "media-daily",
