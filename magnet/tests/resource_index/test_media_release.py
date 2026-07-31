@@ -504,6 +504,36 @@ def test_unknown_series_resource_increase_is_a_regression(tmp_path: Path) -> Non
         build_media_release(blocked)
 
 
+def test_candidate_signing_key_can_differ_from_trusted_previous_key(tmp_path: Path) -> None:
+    config = _setup(tmp_path)
+    previous_private = tmp_path / "production-key" / "private.pem"
+    previous_public = tmp_path / "production-key" / "public.pem"
+    generate_ed25519_keypair(previous_private, previous_public)
+    previous = tmp_path / "production-manifest.json"
+    _write_signed_json(
+        previous,
+        {
+            "schema_version": "media-manifest/1",
+            "counts": {"movie": 1, "series": 1, "resources": 2, "covers": 2},
+            "quality": {"unknown_series_resources": 0},
+        },
+        previous_private,
+    )
+
+    with pytest.raises(ResourceIndexError, match="signature_key_id"):
+        build_media_release(MediaReleaseConfig(**{**config.__dict__, "previous_manifest_path": previous}))
+
+    candidate = MediaReleaseConfig(
+        **{
+            **config.__dict__,
+            "previous_manifest_path": previous,
+            "previous_public_key_path": previous_public,
+        }
+    )
+    result = build_media_release(candidate)
+    assert result.quality["regression_gate"]["compared_to_previous"] is True
+
+
 def test_tampered_previous_manifest_cannot_drive_regression_gate(tmp_path: Path) -> None:
     config = _setup(tmp_path)
     previous = tmp_path / "tampered-previous-manifest.json"

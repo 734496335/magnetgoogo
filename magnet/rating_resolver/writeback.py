@@ -223,6 +223,8 @@ def enrich_feed_file(
     *,
     overwrite: bool = False,
     limit: int | None = None,
+    lookup_limit: int | None = None,
+    start_offset: int = 0,
     dry_run: bool = False,
 ) -> dict[str, Any]:
     if not path.exists():
@@ -234,9 +236,16 @@ def enrich_feed_file(
         return {"path": str(path), "status": "invalid", "error": "no items array"}
 
     work = items if limit is None else items[:limit]
+    normalized_offset = start_offset % len(work) if work else 0
+    order = list(range(normalized_offset, len(work))) + list(range(0, normalized_offset))
     stats = {
         "path": str(path),
         "total": len(work),
+        "lookup_limit": lookup_limit,
+        "start_offset": normalized_offset,
+        "next_offset": normalized_offset,
+        "visited": 0,
+        "lookup_attempts": 0,
         "looked_up": 0,
         "changed_items": 0,
         "filled_douban": 0,
@@ -248,7 +257,13 @@ def enrich_feed_file(
         "samples": [],
     }
 
-    for item in work:
+    last_index: int | None = None
+    for index in order:
+        if lookup_limit is not None and stats["lookup_attempts"] >= lookup_limit:
+            break
+        item = work[index]
+        last_index = index
+        stats["visited"] += 1
         if not isinstance(item, dict):
             continue
         _ensure_rating_keys(item)
@@ -270,6 +285,7 @@ def enrich_feed_file(
             stats["unchanged"] += 1
             continue
 
+        stats["lookup_attempts"] += 1
         try:
             report = resolver.lookup(
                 title or (item.get("title") or ""),
@@ -308,6 +324,9 @@ def enrich_feed_file(
                 stats["samples"].append(
                     {"title": item.get("title"), "error": f"{type(exc).__name__}: {exc}"}
                 )
+
+    if last_index is not None and work:
+        stats["next_offset"] = (last_index + 1) % len(work)
 
     if not dry_run:
         backup = path.with_suffix(path.suffix + f".bak-{datetime.now().strftime('%Y%m%d%H%M%S')}")

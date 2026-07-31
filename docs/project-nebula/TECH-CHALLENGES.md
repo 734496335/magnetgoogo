@@ -452,7 +452,7 @@
 ## CHALLENGE-012 — 本地爬虫无人值守、自动发布与免费容量闭环
 
 - **严重程度**：blocker
-- **状态**：open；爬虫内核PASS，运行与发布闭环未完成
+- **状态**：open；本地candidate无人值守实现PASS，阿里云首轮运行与7日Soak未完成
 - **首次记录**：2026-07-26
 - **业务影响**：爬虫失败恢复和数据质量已经可靠，但当前电脑未安装计划任务、睡眠时不会唤醒、生成的Bundle不会自动下发到已安装App，因此不能把“手动一键稳定”误判为“无人值守持续更新”。
 - **内核证据**：Resource Index 178 passed；全magnet非集成241 passed / 2 deselected；中断恢复、请求预算、镜像切换、质量和离线Bundle专项56 passed；四正式任务分别100/100、50/50、50/50、100/100，均无pending/running/failed。
@@ -463,11 +463,12 @@
 - **证书闭环**：2026-07-31确认HTTP-01被外网上游`Beaver / 403`阻断；已改用Let’s Encrypt TLS-ALPN-01签发，新证书有效至2026-10-29。`acme-cn-magnetgoogo-renew.timer`已enabled/active并实跑SUCCESS，旧`certbot-renew.timer`已停用。
 - **免费容量裁决**：资源页与搜索不经过中心服务器；当前Worker/R2事件模型下保守支持3,000—5,000 DAU，正常使用约8,000—10,000 DAU；现有约100 DAU远低于容量。
 - **容量放大项**：每次启动配置和源规则各竞速6端点且不取消输家，缓存有效仍后台同步，客户端发送`no-cache`，分析每批写一个永久R2对象；这些行为将免费容量压缩约2—4倍。
-- **2026-07-31自动流水线进展**：`media-daily`已正式接入仅磁力过滤和四评分持久状态；评分源失败降级为warning且不清空旧值；Release Catalog/Detail完整保留四评分；示例门槛和最低App版本已对齐Revision 7。Revision 7真实回放恢复584/584个有效评分/身份字段。
+- **2026-07-31自动流水线进展**：`media-daily`已接入仅磁力、四评分持久状态、每日40+40限额轮转、完整签名candidate、死PID/跨重启锁恢复、7/30/3/30历史保留、磁盘门禁和7日Soak计数；评分源失败降级且不清空旧值。Revision 7真实回放恢复584/584个有效评分/身份字段。
 - **2026-07-31服务器实查**：`ecs.e-c1m1.large`，2核/1.8GiB，约461MiB可用，Swap已用约541MiB，磁盘余约18GiB；静态镜像PASS，正式自动发布HOLD。证书阻塞已通过TLS-ALPN和独立systemd续期Timer关闭。
-- **剩余阻塞**：外层锁仍无死PID恢复；runs/releases/receipts/缓存无保留策略；容器资源上限仍不适配2C2G；安装脚本仍需原子Nginx目录迁移；尚无candidate heartbeat与双端Pointer告警。0.2.4还需升级或失效旧Detail缓存schema以立即展示烂番茄/Bangumi。
-- **下一步**：完成锁恢复、历史清理、640—768MiB资源限制和Nginx原子迁移；随后在当前2C2G运行7天candidate-only soak，不提升current；通过后再决定正式Timer或迁移到独立2C4G/60GB任务机。
-- **证据**：`RESOURCE-INDEX-STABILITY-CAPACITY-REVIEW-2026-07-26.md`、`MEDIA-ALIYUN-AUTOMATION-CAPACITY-AUDIT-20260731.md`、`ALIYUN-CERTIFICATE-RENEWAL-FIX-20260731.md`、`MEDIA-DAILY-MAGNET-ONLY-FOUR-RATING-20260731.md`
+- **2026-07-31候选部署加固**：容器已限制为768MiB/1 CPU/1280MiB含Swap/256 PID；Nginx切换会逐对象验证revision 7并原子迁移；候选使用非生产私钥、上一Manifest独立使用0.2.3正式公钥；冷启种子417文件/37,583,895字节，四库integrity=ok，二次候选封面请求0。真实候选为214电影、220剧集、3561磁力、0 cloud且无上一版回归。
+- **剩余阻塞**：尚未在阿里云构建镜像和执行首轮手动candidate；7日Soak未开始；尚无外部heartbeat与双端Pointer告警。当前2C2G仍只批准candidate，不批准持生产私钥自动发布；0.2.4还需升级或失效旧Detail缓存schema以立即展示烂番茄/Bangumi。
+- **下一步**：在阿里云安装已验证种子和candidate-only服务，手动运行一次并检查内存、Swap、磁盘、耗时与revision 7不变；通过后仅启用candidate timers开始7日Soak。正式发布继续HOLD，生产建议独立2C4G/60GB任务机。
+- **证据**：`RESOURCE-INDEX-STABILITY-CAPACITY-REVIEW-2026-07-26.md`、`MEDIA-ALIYUN-AUTOMATION-CAPACITY-AUDIT-20260731.md`、`ALIYUN-CERTIFICATE-RENEWAL-FIX-20260731.md`、`MEDIA-DAILY-MAGNET-ONLY-FOUR-RATING-20260731.md`、`MEDIA-DAILY-CANDIDATE-SOAK-HARDENING-20260731.md`
 
 ---
 

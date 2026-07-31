@@ -22,6 +22,36 @@ Modules: magnet/resource_index/pipeline/{media_daily.py,media_rating_state.py}, 
 ---
 
 ---
+Date/Time: 2026-07-31 22:38 (UTC+8)
+Version: media-daily-candidate-soak-hardening
+Scope: Close stale lock, retention, disk/resource, candidate semantics, Nginx migration, cold seed and bounded rating blockers before Aliyun soak
+Modules: magnet/resource_index/pipeline/{media_daily.py,media_maintenance.py}, magnet/rating_resolver/writeback.py, magnet/resource_index/release/builder.py, deploy/resource-index/{linux,prepare-nginx-media-root.py,install-media-candidate-seed.py}, tests, docs/project-nebula
+
+### Runtime safety
+- Added PID/boot/token-aware stale-lock recovery; lock conflicts no longer overwrite active shared status.
+- Added bounded retention for runs/status/releases/receipts and pre-run disk guards at 80% usage or below 2 GiB free.
+- Candidate mode now builds and verifies a complete signed release; daily systemd remains candidate-only and cannot promote current.
+- Limited Docker to 768 MiB memory, 1280 MiB memory+swap, 1 CPU and 256 PIDs with reduced capabilities.
+
+### Trust, migration and cold start
+- Split local untrusted candidate signing from formal revision-7 public-key verification; no production private key or R2 promotion token is required for soak.
+- Added full-object revision validation and atomic Nginx media-root bootstrap with rollback.
+- Built and verified `D:\lpproduct\magnet-candidate-seed-20260731`: 417 files, 37,583,895 bytes, four SQLite integrity checks PASS and zero second-run cover requests.
+- Added SHA/SQLite verified atomic seed installer; SQLite immutable verification prevents WAL/SHM mutation.
+
+### Bounded rating and soak evidence
+- Added persistent rotating rating offsets with a default 40 movie + 40 series attempts per day; complete items do not consume budget and errors advance the cursor.
+- Added natural-day 7-day candidate soak evidence; duplicate days do not increment and any daily candidate failure resets the streak.
+- Real candidate audit: 214 movies, 220 series, 3,561 magnets, 1,295 cloud resources removed, no revision-7 regressions.
+- Real bounded rating run: 5+5 attempts, zero errors, zero cover HTTP and signed candidate PASS.
+
+### Verification
+- Python full suite: 424 passed / 1 skipped; compileall PASS; enum 241 / ALL VALID; Shell syntax and diff-check PASS.
+- Real revision-7 Nginx migration: 1,225 objects and 24,236,771 bytes verified; second invocation idempotent.
+- Local machine has no Docker CLI; image build and first candidate runtime remain the next Aliyun-only verification.
+---
+
+---
 Date/Time: 2026-07-31 21:50 (UTC+8)
 Version: aliyun-certificate-tls-alpn-renewal-fix
 Scope: Replace the externally blocked HTTP-01 renewal path with trusted TLS-ALPN issuance and a tested automatic renewal timer

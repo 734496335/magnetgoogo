@@ -53,10 +53,19 @@ from magnet.resource_index.store.sqlite_repository import SqliteResourceReposito
 
 
 def _print_json(data: Any, pretty: bool) -> None:
-    if pretty:
-        print(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True))
+    payload = json.dumps(
+        data,
+        ensure_ascii=True,
+        indent=2 if pretty else None,
+        sort_keys=True,
+    ) + "\n"
+    buffer = getattr(sys.stdout, "buffer", None)
+    if buffer is not None:
+        buffer.write(payload.encode("utf-8"))
+        buffer.flush()
     else:
-        print(json.dumps(data, ensure_ascii=False, sort_keys=True))
+        sys.stdout.write(payload)
+        sys.stdout.flush()
 
 
 def _crawl_exit_code(status: str) -> int:
@@ -335,6 +344,7 @@ def cmd_media_daily(args: argparse.Namespace) -> int:
             load_media_daily_config(args.config),
             publish=not args.no_publish,
             skip_crawl=args.skip_crawl,
+            skip_ratings=args.skip_ratings,
             force_publish=args.force_publish,
         )
     except ResourceIndexError as exc:
@@ -795,6 +805,9 @@ def cmd_build_media_release(args: argparse.Namespace) -> int:
             min_series=args.min_series,
             max_object_bytes=args.max_object_bytes,
             previous_manifest_path=Path(args.previous_manifest) if args.previous_manifest else None,
+            previous_public_key_path=(
+                Path(args.previous_public_key) if args.previous_public_key else None
+            ),
             allow_regression_reason=args.allow_regression,
         )
         result = build_media_release(config)
@@ -1149,6 +1162,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--config", required=True)
     s.add_argument("--no-publish", action="store_true")
     s.add_argument("--skip-crawl", action="store_true")
+    s.add_argument("--skip-ratings", action="store_true")
     s.add_argument("--force-publish", action="store_true")
     s.set_defaults(func=cmd_media_daily)
 
@@ -1331,6 +1345,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--min-series", type=int, default=100)
     s.add_argument("--max-object-bytes", type=int, default=524288)
     s.add_argument("--previous-manifest", default=None)
+    s.add_argument("--previous-public-key", default=None)
     s.add_argument(
         "--allow-regression",
         default=None,

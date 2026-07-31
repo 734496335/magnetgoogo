@@ -1,27 +1,29 @@
-TASK: 影视每日流水线仅磁力与四评分持久化
-STATUS: IMPLEMENTATION_PASS / PRODUCTION_TIMER_NOT_ENABLED
+TASK: 阿里云影视每日流水线candidate-only无人值守加固
+STATUS: IMPLEMENTATION_PASS / ALIYUN_DEPLOYMENT_READY / PRODUCTION_PUBLISH_DISABLED
 DATE: 2026-07-31 UTC+8
 
 DONE:
-- media-daily正式接入仅磁力过滤，后续评分、封面、签名和发布均不再处理网盘资源。
-- 新增media-rating-state/1，以movie_id持久保存豆瓣、IMDb、烂番茄、Bangumi评分、文本、URL和身份字段。
-- 每轮聚合先恢复历史评分，再补抓四评分，再原子持久化；失败不清空旧值。
-- 四评分提供方异常降级为warning，标题/封面/磁力候选仍可生成。
-- 状态损坏、类型碰撞和写入失败继续硬停。
-- Release Catalog/Detail已验证完整保存四评分。
-- 0.2.3已验证安全忽略烂番茄/Bangumi未来字段；正式协议文件与测试分支字节一致。
-- 0.2.4必须升级或失效旧Detail缓存，Catalog原始缓存无需迁移。
-- Revision 7真实回放：287条含评分数据，584个有效字段删除后584/584恢复一致。
-- 真实网络：豆瓣、IMDb、烂番茄、Bangumi四通道均有成功样本，误匹配保守拒绝。
+- 死PID和跨重启残锁可安全恢复；并发任务拿锁前不覆盖latest状态。
+- Candidate模式现完整构建并验证签名release，不上传、不提升current。
+- 候选签名密钥与正式生产公钥分离；服务器不部署生产私钥和R2提升令牌。
+- 评分改为每日电影40+剧集40限额轮转，游标持久化，错误也推进，避免全量尖峰。
+- runs/status/releases/receipts保留上限为7/30/3/30；磁盘80%或低于2GiB时硬停。
+- Docker上限768MiB、1 CPU、1280MiB含Swap、256 PID；daily与audit容器名分离。
+- weekly audit移至周日14:30并跳过抓取/评分；daily仍03:30 candidate-only。
+- Nginx切换前逐对象校验revision 7并原子迁移；失败自动回滚配置。
+- 冷启种子417文件/37,583,895字节，四库integrity=ok，第二次候选封面请求0。
+- 真实候选：214电影、220剧集、3561磁力、0 cloud、无revision 7回归。
+- 7日Soak按自然日自动计数，失败清零，达到7天也不会自动发布。
 
 VERIFIED:
-- Python全量：381 passed，1 skipped；compileall PASS。
-- Resource Index：306 passed，1 skipped；枚举241/ALL VALID。
-- 0.2.3 Media Cache、Resource Feed、Media Security、TypeScript：PASS。
-- diff-check：PASS。
+- Python全量424 passed，1 skipped；compileall PASS。
+- enum 241/ALL VALID；Shell语法与diff-check PASS。
+- 真实revision 7迁移：1225对象/24,236,771字节PASS。
+- 真实限额评分：电影5、剧集5，0错误，候选验证PASS。
 
-BOUNDARY:
-- 未发布revision 8，未安装或启用生产media timer。
-- 下一批：死PID锁恢复、历史清理、资源硬限制、Nginx原子迁移、candidate soak和双端告警。
+NEXT:
+- 提交代码；在阿里云Docker构建并安装种子/Nginx迁移。
+- 手动执行首轮candidate并检查内存、Swap、磁盘、耗时和revision 7不变。
+- 稳定后仅启用candidate timers，开始7日Soak；正式发布仍禁止。
 
-EVIDENCE: docs/project-nebula/MEDIA-DAILY-MAGNET-ONLY-FOUR-RATING-20260731.md
+EVIDENCE: docs/project-nebula/MEDIA-DAILY-CANDIDATE-SOAK-HARDENING-20260731.md

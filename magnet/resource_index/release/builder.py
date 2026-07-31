@@ -64,6 +64,7 @@ class MediaReleaseConfig:
     min_series: int = 100
     max_object_bytes: int = 512 * 1024
     previous_manifest_path: Path | None = None
+    previous_public_key_path: Path | None = None
     allow_regression_reason: str | None = None
 
 
@@ -1147,7 +1148,7 @@ def build_media_release(config: MediaReleaseConfig) -> MediaReleaseBuildResult:
             cover_count=len(cover_refs),
             unknown_series_resources=quality["unknown_series_resources"],
             allow_reason=config.allow_regression_reason,
-            public_key_path=config.public_key_path,
+            public_key_path=config.previous_public_key_path or config.public_key_path,
         )
         quality["cover_complete"] = True
         build_quality = {**quality, "regression_gate": regression}

@@ -1,5 +1,5 @@
 [Unit]
-Description=MagnetGoogo weekly media integrity audit
+Description=MagnetGoogo weekly media integrity candidate audit
 After=docker.service network-online.target
 Wants=network-online.target
 Requires=docker.service
@@ -10,7 +10,7 @@ User=root
 Group=root
 WorkingDirectory=/opt/magnet-media/app
 ExecStart=/opt/magnet-media/app/deploy/resource-index/linux/run-media-daily.sh audit
-TimeoutStartSec=3h
+TimeoutStartSec=2h
 Nice=15
 IOSchedulingClass=best-effort
 IOSchedulingPriority=7
