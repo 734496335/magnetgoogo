@@ -1,5 +1,5 @@
 ---
-Date/Time: 2026-07-31 21:26 (UTC+8)
+Date/Time: 2026-07-31 21:36 (UTC+8)
 Version: v0.2.3-lanzou-password-notice-hotfix
 Scope: Add the missing LanzouCloud password to the live v0.2.3 migration notice for users upgrading from formal v0.2.2
 Modules: mg-data/config.json, magnetgoogo-site/config.json, docs/project-nebula/{_progress.txt,DEV-LOG.md}
@@ -8,7 +8,8 @@ Modules: mg-data/config.json, magnetgoogo-site/config.json, docs/project-nebula/
 - Confirmed the previous migration notice instructed v0.2.2 users to use Backup link 1 but omitted the required LanzouCloud password.
 - Added the explicit line `蓝奏云下载密码：8888。` to Chinese and equivalent password lines to all other announcement locales without changing version or download ordering.
 - Published mg-data commit `9edb4b7`; Cloudflare Pages, GitHub Raw, both gateways and jsDelivr main all return the password line. Aliyun server config also contains it.
-- K30S was not connected during this final recheck, so no new device screenshot was captured; the change is remote-config-only and requires no APK rebuild.
+- K30S retained-data downgrade to formal v0.2.2 displayed the complete password notice, including `蓝奏云下载密码：8888。`; tapping Backup link 1 opened `https://wwbdy.lanzn.com/iDcyE3zn4rcf`.
+- Restored K30S to formal v0.2.3/code7 after verification; Fatal, ANR and media-cache commit errors remained zero. The hotfix is remote-config-only and required no APK rebuild.
 ---
 
 ---

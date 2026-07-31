@@ -19,10 +19,10 @@ DEPLOY FIX:
 - 阿里云媒体部署脚本改为POSIX set -eu。
 - PowerShell远程命令在SSH前统一CRLF→LF，远程探针及正式发布PASS。
 
-NOTICE: v0.2.3公告已补充“蓝奏云下载密码：8888”（mg-data 9edb4b7）；Pages、Raw、两个Gateway、jsDelivr已确认，K30S当前未连接。
+NOTICE: v0.2.3公告已补充“蓝奏云下载密码：8888”（mg-data 9edb4b7）；公网端点及K30S正式0.2.2弹窗均PASS，备用链接1打开新蓝奏云。
 
 BOUNDARY:
-- K30S本轮未连接，未补做Revision 7真机点击；此前0.2.3协议与缓存已完成真机验收。
+- 本轮仅验证更新通知与蓝奏云跳转；Revision 7真机频道点击仍沿用协议测试结论。
 - 评分展示留待下一App版本；未修改APK或版本号。
 
 EVIDENCE:
