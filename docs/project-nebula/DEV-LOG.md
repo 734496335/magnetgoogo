@@ -12,6 +12,23 @@ Modules: mg-data/config.json, magnetgoogo-site/config.json, docs/project-nebula/
 ---
 
 ---
+Date/Time: 2026-07-31 21:25 (UTC+8)
+Version: v0.2.3-lanzou-password-notice-hotfix
+Scope: Add the missing Lanzou download password to the live v0.2.2 migration notice without changing the APK, version or download routes
+Modules: mg-data/config.json, magnetgoogo-site/config.json, docs/project-nebula/{_progress.txt,TEST-RESULT-20260731-v0.2.2蓝奏云密码提示热修复.md,DEV-LOG.md}
+
+### Notice correction
+- Split the migration warning into clear lines and added the standalone text `蓝奏云下载密码：8888。` so formal v0.2.2 users can complete the browser-based migration.
+- Added equivalent password text to all ten announcement languages; primary and mirror order remain R2 → Lanzou → GitHub.
+- Rebased safely over the concurrent encrypted-source refresh and pushed mg-data commit `9edb4b7`.
+
+### Deployment and verification
+- Deployed Cloudflare Pages, synchronized Aliyun config and purged jsDelivr `@main` plus immutable `9edb4b7` paths.
+- Cloudflare Pages, GitHub Raw, both gateways and both jsDelivr paths return v0.2.3 with password `8888`; Aliyun server file also parses the password line correctly.
+- K30S was not connected in this session, so no new device screenshot was captured. The APK and all download URLs remain unchanged.
+---
+
+---
 Date/Time: 2026-07-31 11:12 (UTC+8)
 Version: v0.2.3-media-revision7-production-support
 Scope: Verify the formal v0.2.3 client against a magnet-only media release, repair Aliyun remote-shell portability and promote signed revision 7 to both production data planes
