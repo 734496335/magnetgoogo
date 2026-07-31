@@ -7,15 +7,15 @@
   "worker_token_env": "R2_UPLOAD_WORKER_TOKEN",
   "r2_public_base": "https://media.magnetgoogo.com",
   "aliyun_public_base": "https://cn.magnetgoogo.com/media",
-  "min_app_version": "0.2.1",
-  "min_movies": 400,
-  "min_series": 350,
+  "min_app_version": "0.2.3",
+  "min_movies": 190,
+  "min_series": 200,
   "page_size": 50,
   "max_workers": 8,
   "sources": [
-    {"source_id": "sixv", "count": 500},
+    {"source_id": "sixv", "count": 100},
     {"source_id": "dytt8899", "count": 250},
     {"source_id": "meijumi", "count": 100},
-    {"source_id": "sixv-series", "count": 500}
+    {"source_id": "sixv-series", "count": 100}
   ]
 }

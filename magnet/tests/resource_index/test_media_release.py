@@ -55,6 +55,19 @@ def _item(
         "languages": ["中文"],
         "directors": ["Director"],
         "actors": ["Actor"],
+        "imdb_id": "tt1234567",
+        "imdb_rating": 7.8,
+        "imdb_rating_text": "7.8/10",
+        "douban_rating": 8.1,
+        "douban_rating_text": "8.1/10",
+        "douban_url": "https://movie.douban.com/subject/123/",
+        "rotten_tomatoes_rating": 91,
+        "rotten_tomatoes_rating_text": "91%",
+        "rotten_tomatoes_url": "https://www.rottentomatoes.com/m/test_movie",
+        "bangumi_rating": 7.4,
+        "bangumi_rating_text": "7.4/10",
+        "bangumi_subject_id": "456",
+        "bangumi_url": "https://bgm.tv/subject/456",
         "synopsis": "A full synopsis that belongs in detail only.",
         "recommended": kind == "movie",
         "highlight_labels": ["推荐"] if kind == "movie" else [],
@@ -240,6 +253,18 @@ def test_builds_signed_content_addressed_release_and_verifies(tmp_path: Path) ->
     assert "source_id" not in card
     assert card["detail_object"]["hash"]
     assert card["cover"]["hash"]
+    assert card["imdb_rating"] == 7.8
+    assert card["douban_rating"] == 8.1
+    assert card["rotten_tomatoes_rating"] == 91
+    assert card["bangumi_rating"] == 7.4
+
+    detail_path = Path(result.release_dir) / card["detail_object"]["path"].lstrip("/")
+    detail = json.loads(detail_path.read_text(encoding="utf-8"))
+    assert detail["imdb_rating"] == 7.8
+    assert detail["douban_rating"] == 8.1
+    assert detail["rotten_tomatoes_rating"] == 91
+    assert detail["bangumi_rating"] == 7.4
+    assert detail["bangumi_subject_id"] == "456"
 
 
 def test_identical_build_reuses_the_same_immutable_release(tmp_path: Path) -> None:

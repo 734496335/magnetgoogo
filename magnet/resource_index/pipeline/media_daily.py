@@ -20,10 +20,15 @@ from magnet.rating_resolver.service import RatingResolver
 from magnet.rating_resolver.writeback import enrich_feed_file
 from magnet.resource_index.errors import CONFIG_ERROR, ResourceIndexError
 from magnet.resource_index.pipeline.media_aggregate import aggregate_media_feeds
+from magnet.resource_index.pipeline.magnet_only import build_magnet_only_media_feeds
 from magnet.resource_index.pipeline.media_library import export_source_library_feed
 from magnet.resource_index.pipeline.media_offline_bundle import (
     audit_media_app_bundle,
     build_media_app_bundle,
+)
+from magnet.resource_index.pipeline.media_rating_state import (
+    apply_media_rating_state,
+    persist_media_rating_state,
 )
 from magnet.resource_index.pipeline.movie_automation import run_safe_movie_source
 from magnet.resource_index.publish.filesystem import FilesystemPublisherBackend
@@ -104,7 +109,7 @@ def load_media_daily_config(path: str | Path) -> MediaDailyConfig:
         worker_token_env=str(source.get("worker_token_env") or "R2_UPLOAD_WORKER_TOKEN"),
         r2_public_base=str(source.get("r2_public_base") or "https://media.magnetgoogo.com").rstrip("/"),
         aliyun_public_base=str(source.get("aliyun_public_base") or "https://cn.magnetgoogo.com/media").rstrip("/"),
-        min_app_version=str(source.get("min_app_version") or "0.2.1"),
+        min_app_version=str(source.get("min_app_version") or "0.2.3"),
         sources=tuple(sources),
         min_movies=int(source.get("min_movies") or 1),
         min_series=int(source.get("min_series") or 1),
@@ -196,6 +201,55 @@ def _filter_feed_to_bundle(feed_path: Path, bundle_dir: Path, output_path: Path)
     filtered["quality"] = quality
     _write_json(output_path, filtered)
     return filtered
+
+
+def _run_rating_stage(
+    *,
+    movie_feed: Path,
+    series_feed: Path,
+    root: Path,
+) -> dict[str, Any]:
+    rating_state_path = root / "ratings" / "media-ratings.json"
+    restored = apply_media_rating_state(
+        feed_paths=(movie_feed, series_feed),
+        state_path=rating_state_path,
+    )
+    rating_result: dict[str, Any]
+    try:
+        resolver = RatingResolver(
+            cache_dir=root / "rating-cache",
+            sources=("douban", "imdb", "rotten_tomatoes", "bangumi"),
+            max_workers=4,
+        )
+        movie_rating = enrich_feed_file(movie_feed, resolver, dry_run=False)
+        series_rating = enrich_feed_file(series_feed, resolver, dry_run=False)
+        error_count = int(movie_rating.get("errors") or 0) + int(series_rating.get("errors") or 0)
+        rating_result = {
+            "status": "pass" if error_count == 0 else "warning",
+            "error_count": error_count,
+            "movie": movie_rating,
+            "series": series_rating,
+        }
+    except Exception as exc:  # rating providers are optional publication enrichment
+        rating_result = {
+            "status": "warning",
+            "error_count": 1,
+            "error": {
+                "type": type(exc).__name__,
+                "message": str(exc),
+            },
+        }
+    persisted = persist_media_rating_state(
+        feed_paths=(movie_feed, series_feed),
+        state_path=rating_state_path,
+    )
+    return {
+        "status": rating_result["status"],
+        "sources": ["douban", "imdb", "rotten_tomatoes", "bangumi"],
+        "restored": restored,
+        "lookup": rating_result,
+        "persisted": persisted,
+    }
 
 
 def _content_fingerprint(movie_bundle: Path, series_bundle: Path) -> str:
@@ -304,10 +358,21 @@ def run_media_daily(
             status["stages"]["aggregate"] = aggregate["summary"]
             _write_json(latest_status, status)
 
-            resolver = RatingResolver(cache_dir=root / "rating-cache")
-            movie_rating = enrich_feed_file(movie_feed, resolver, dry_run=False)
-            series_rating = enrich_feed_file(series_feed, resolver, dry_run=False)
-            status["stages"]["rating"] = {"movie": movie_rating, "series": series_rating}
+            magnet_only = build_magnet_only_media_feeds(
+                movie_feed_path=movie_feed,
+                series_feed_path=series_feed,
+                output_dir=aggregate_dir / "magnet-only",
+            )
+            movie_feed = Path(magnet_only["movie_feed"])
+            series_feed = Path(magnet_only["series_feed"])
+            status["stages"]["magnet_only"] = magnet_only
+            _write_json(latest_status, status)
+
+            status["stages"]["rating"] = _run_rating_stage(
+                movie_feed=movie_feed,
+                series_feed=series_feed,
+                root=root,
+            )
             _write_json(latest_status, status)
 
             bundle_root = root / "bundles"

@@ -1,4 +1,27 @@
 ---
+Date/Time: 2026-07-31 22:02 (UTC+8)
+Version: media-daily-magnet-only-four-rating-persistence
+Scope: Integrate magnet-only filtering and durable four-provider rating enrichment into the unattended media pipeline without breaking v0.2.3
+Modules: magnet/resource_index/pipeline/{media_daily.py,media_rating_state.py}, magnet/tests/resource_index/{test_media_daily.py,test_media_rating_state.py,test_media_release.py}, magnetgoogo-app/scripts/media-release-security-tests.mjs, deploy/resource-index/linux/media-daily.example.json, docs/project-nebula/{MEDIA-DAILY-MAGNET-ONLY-FOUR-RATING-20260731.md,_progress.txt,DEV-LOG.md,TECH-CHALLENGES.md}
+
+### Pipeline and persistence
+- Moved the formal daily path to aggregate → magnet-only → restore rating state → enrich four providers → atomically persist rating state → cover bundle → signed release.
+- Added `media-rating-state/1`, keyed by stable `movie_id`, preserving valid scores plus IMDb/Bangumi IDs and provider URLs even when a score is temporarily absent. Empty/failing updates never clear old values.
+- Rating provider failures now degrade to `warning` and do not block a title/cover/magnet candidate; corrupted state, identity collisions and persistence failures remain hard errors.
+- Updated the Linux example and config fallback to minimum App `0.2.3`, 190 movies / 200 series, and the verified four-source crawl sizes.
+
+### Compatibility and real evidence
+- Release tests read generated Catalog and Detail objects and confirmed all four score fields survive signing. The byte-identical formal v0.2.3 protocol safely ignores RT/Bangumi fields while retaining IMDb/Douban behavior.
+- Catalog cache preserves raw bytes. v0.2.4 must invalidate or bump the parsed Detail cache schema so already-opened v0.2.3 details immediately expose the two future fields.
+- Revision 7 replay persisted 287 media records and restored 584/584 trusted score/identity fields exactly. Live smoke returned Douban 9.4, IMDb 8.8 and Rotten Tomatoes 86 for Inception, plus Bangumi 8.3 for Frieren; the match gate correctly rejected an unrelated Bangumi result for Inception.
+
+### Verification and boundary
+- Final Python gate: 381 passed / 1 skipped; Resource Index 306 passed / 1 skipped; compileall PASS; enum 241 / ALL VALID.
+- Formal v0.2.3 Media Cache, Resource Feed, Media Security and TypeScript all PASS. Forward-field compatibility test PASS.
+- No revision 8 was built or published and no production media timer was enabled. Dead-lock recovery, retention, resource caps, atomic Nginx migration and candidate soak remain the next batch.
+---
+
+---
 Date/Time: 2026-07-31 21:50 (UTC+8)
 Version: aliyun-certificate-tls-alpn-renewal-fix
 Scope: Replace the externally blocked HTTP-01 renewal path with trusted TLS-ALPN issuance and a tested automatic renewal timer

@@ -6,18 +6,24 @@ import {
   assertMediaPointerTransition,
   mediaPointerIdentity,
   MediaReleaseValidationError,
+  parseCatalog,
+  parseDetail,
   selectMediaCurrentCandidate,
 } from '../src/core/mediaReleaseProtocol.ts';
 
-const repoRoot = path.resolve(process.cwd(), '..');
 const releaseId = '20260726T000000Z-b8c702d5';
-const pointerPath = path.join(
-  repoRoot,
-  'data/resource_index/media_releases_m1_final/staging/pointers',
-  `00000000000000000004-${releaseId}.json`,
-);
-const pointerBytes = fs.readFileSync(pointerPath);
-const pointer = JSON.parse(pointerBytes.toString('utf8'));
+const pointer = {
+  schema_version: 'media-current/1',
+  pointer_revision: 4,
+  release_id: releaseId,
+  manifest_path: `/v1/releases/${releaseId}/manifest.json`,
+  manifest_sha256: '4'.repeat(64),
+  min_app_version: '0.2.1',
+  published_at: '2026-07-26T00:00:00Z',
+  signature_key_id: 'media-ed25519-test',
+  signature: 'test-signature',
+};
+const pointerBytes = Buffer.from(JSON.stringify(pointer), 'utf8');
 const pointerSha = crypto.createHash('sha256').update(pointerBytes).digest('hex');
 const alternateSha = 'f'.repeat(64) === pointerSha ? 'e'.repeat(64) : 'f'.repeat(64);
 
@@ -100,6 +106,68 @@ assert.match(clientSource, /cachedMediaPointerIdentity\(\)/);
 assert.match(clientSource, /Promise\.race\(\[request, timeout\]\)/);
 assert.match(clientSource, /MEDIA_CACHE_COMMIT_FAILED/);
 
+const objectRef = {
+  path: `/v1/objects/${'a'.repeat(64)}.json`,
+  hash: 'a'.repeat(64),
+  size: 128,
+};
+const catalogWithFutureRatings = parseCatalog({
+  schema_version: 'media-catalog/1',
+  channel: 'movie',
+  role: 'latest',
+  page: 1,
+  count: 1,
+  items: [{
+    media_id: 'movie:test',
+    content_kind: 'movie',
+    title: 'Test Movie',
+    countries: ['US'],
+    genres: ['Drama'],
+    imdb_rating: 7.8,
+    douban_rating: 8.1,
+    rotten_tomatoes_rating: 91,
+    bangumi_rating: 7.4,
+    recommended: false,
+    highlight_labels: [],
+    quality_tags: [],
+    resource_count: 1,
+    cover: { ...objectRef, path: `/v1/covers/${'a'.repeat(64)}.jpg`, mime_type: 'image/jpeg' },
+    detail_object: objectRef,
+  }],
+});
+assert.equal(catalogWithFutureRatings.items[0].imdb_rating, 7.8);
+assert.equal(catalogWithFutureRatings.items[0].douban_rating, 8.1);
+assert.equal('rotten_tomatoes_rating' in catalogWithFutureRatings.items[0], false);
+assert.equal('bangumi_rating' in catalogWithFutureRatings.items[0], false);
+
+const detailWithFutureRatings = parseDetail({
+  schema_version: 'media-detail/1',
+  media_id: 'movie:test',
+  content_kind: 'movie',
+  title: 'Test Movie',
+  countries: ['US'],
+  genres: ['Drama'],
+  languages: ['English'],
+  directors: [],
+  actors: [],
+  imdb_rating: 7.8,
+  imdb_rating_text: '7.8/10',
+  douban_rating: 8.1,
+  douban_rating_text: '8.1/10',
+  rotten_tomatoes_rating: 91,
+  rotten_tomatoes_rating_text: '91%',
+  rotten_tomatoes_url: 'https://www.rottentomatoes.com/m/test_movie',
+  bangumi_rating: 7.4,
+  bangumi_rating_text: '7.4/10',
+  bangumi_subject_id: '123',
+  bangumi_url: 'https://bgm.tv/subject/123',
+  resource_object: { ...objectRef, encrypted: false },
+});
+assert.equal(detailWithFutureRatings.imdb_rating, 7.8);
+assert.equal(detailWithFutureRatings.douban_rating, 8.1);
+assert.equal('rotten_tomatoes_rating' in detailWithFutureRatings, false);
+assert.equal('bangumi_rating' in detailWithFutureRatings, false);
+
 console.log(JSON.stringify({
   status: 'PASS',
   mirrored_same_revision: true,
@@ -108,4 +176,5 @@ console.log(JSON.stringify({
   single_endpoint_higher_revision_accepted: true,
   cache_identity_fields: true,
   atomic_backup_contract: true,
+  future_rating_fields_ignored_safely_by_v023: true,
 }));

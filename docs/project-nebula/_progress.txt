@@ -1,22 +1,27 @@
-TASK: 阿里云证书续期修复与自动化前置审计
-STATUS: CERTIFICATE_PASS / STATIC_SERVING_PASS / AUTO_PUBLISH_STILL_HOLD
+TASK: 影视每日流水线仅磁力与四评分持久化
+STATUS: IMPLEMENTATION_PASS / PRODUCTION_TIMER_NOT_ENABLED
 DATE: 2026-07-31 UTC+8
 
 DONE:
-- 定位HTTP-01失败根因：服务器本机是Nginx 301，但外网80端口被上游Beaver返回403。
-- 确认DNS托管在Cloudflare；不继续依赖HTTP-01或需要DNS写权限的方案。
-- 从acme.sh官方仓库固定提交2feb392b部署v3.1.5。
-- 使用Let’s Encrypt TLS-ALPN-01从443端口成功签发新证书。
-- 新证书有效期：2026-07-31至2026-10-29；外网TLSv1.3 authorized=true。
-- 新证书安装到/etc/nginx/ssl/cn.magnetgoogo.com，Nginx配置已切换。
-- 证书公钥和私钥公钥SHA一致；私钥权限600，完整链权限644。
-- 新增acme-cn-magnetgoogo-renew.service/timer，每日04:20检查并随机延迟30分钟。
-- 自动续期服务实跑SUCCESS，ARI下一续期时间为2026-09-28T17:23:55Z。
-- 旧certbot-renew.timer已disabled/inactive，避免继续HTTP-01失败。
-- Nginx active，nginx -t PASS；国内媒体current HTTP 200，revision 7未变化。
+- media-daily正式接入仅磁力过滤，后续评分、封面、签名和发布均不再处理网盘资源。
+- 新增media-rating-state/1，以movie_id持久保存豆瓣、IMDb、烂番茄、Bangumi评分、文本、URL和身份字段。
+- 每轮聚合先恢复历史评分，再补抓四评分，再原子持久化；失败不清空旧值。
+- 四评分提供方异常降级为warning，标题/封面/磁力候选仍可生成。
+- 状态损坏、类型碰撞和写入失败继续硬停。
+- Release Catalog/Detail已验证完整保存四评分。
+- 0.2.3已验证安全忽略烂番茄/Bangumi未来字段；正式协议文件与测试分支字节一致。
+- 0.2.4必须升级或失效旧Detail缓存，Catalog原始缓存无需迁移。
+- Revision 7真实回放：287条含评分数据，584个有效字段删除后584/584恢复一致。
+- 真实网络：豆瓣、IMDb、烂番茄、Bangumi四通道均有成功样本，误匹配保守拒绝。
+
+VERIFIED:
+- Python全量：381 passed，1 skipped；compileall PASS。
+- Resource Index：306 passed，1 skipped；枚举241/ALL VALID。
+- 0.2.3 Media Cache、Resource Feed、Media Security、TypeScript：PASS。
+- diff-check：PASS。
 
 BOUNDARY:
-- 证书阻塞已关闭。
-- 阿里云正式自动抓取/发布仍HOLD：仅磁力接入、关闭评分、死锁恢复、保留策略、目录迁移和容量限制尚待修复。
+- 未发布revision 8，未安装或启用生产media timer。
+- 下一批：死PID锁恢复、历史清理、资源硬限制、Nginx原子迁移、candidate soak和双端告警。
 
-EVIDENCE: docs/project-nebula/ALIYUN-CERTIFICATE-RENEWAL-FIX-20260731.md
+EVIDENCE: docs/project-nebula/MEDIA-DAILY-MAGNET-ONLY-FOUR-RATING-20260731.md
