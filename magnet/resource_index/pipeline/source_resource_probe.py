@@ -158,12 +158,15 @@ def probe_source_resources(
         bucket = summary_by_provider.setdefault(key, {"selected": 0, "passed": 0, "failed": 0})
         bucket["selected"] += 1
         bucket["passed" if item["passed"] else "failed"] += 1
+    has_probeable_resources = bool(selected)
+    has_valid_probe_scope = has_probeable_resources or skipped_magnets > 0
     report = {
         "schema_version": "source-resource-probe/1",
         "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-        "status": "pass" if selected and failed == 0 else "fail",
+        "status": "pass" if has_valid_probe_scope and failed == 0 else "fail",
         "source_id": source_id,
         "max_per_provider": max_per_provider,
+        "network_probe_applicable": has_probeable_resources,
         "selected_count": len(selected),
         "passed_count": passed,
         "failed_count": failed,

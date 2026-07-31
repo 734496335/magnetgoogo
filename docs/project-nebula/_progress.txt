@@ -1,27 +1,27 @@
-TASK: 三站/四入口影视爬虫100条可靠性闭环
-STATUS: PASS / CODE_AND_DATA_VERIFIED / NOT_PUBLISHED
-DATE: 2026-07-30 UTC+8
+TASK: 三站/四入口影视爬虫100条可靠性闭环独立复验
+STATUS: PASS / FALSE_NEGATIVE_GATE_FIXED / NOT_PUBLISHED
+DATE: 2026-07-31 UTC+8
 
 DONE:
-- 6v520电影、Meijumi剧集、6v520剧集均完成100/100真实持久抓取。
-- DYTT改为250候选筛最新100条标题+封面+磁力/网盘合格记录。
-- DYTT真实结果：249成功详情、1个永久404、115合格候选、正式100条/159磁力。
-- 四入口严格可靠性报告全部PASS；SQLite完整、标题/封面/资源缺失0、跨影视重复0。
-- 400张封面全部真实下载解码；每站100个唯一图片哈希，唯一率100%。
-- 四源聚合：436影视、4468资源；3541磁力、927网盘；非法/重复0。
-- 零网络重放和Feed SHA稳定全部通过；内容不变不再重写generated_at。
-- 永久404一次耗尽；DYTT FTP/HLS-only候选不进入正式Feed。
+- 6v520电影、Meijumi剧集、6v520剧集100/100真实持久抓取继续PASS。
+- DYTT 250候选筛100条标题+封面+App资源，249成功、1永久404、159磁力继续PASS。
+- 四入口可靠性CLI复验：标题/封面/资源缺失0，非法/跨影视重复0，SQLite完整。
+- 400张封面全部复用已验证资产，verified=400、unique=400、HTTP请求0。
+- 四入口重复运行HTTP请求0，Feed SHA前后完全一致。
+- 在线网盘复验：6v 60/60、Meijumi 84/84、6v剧集60/60。
+- 修复DYTT磁力-only Feed被非磁力在线抽检器误报FAIL；无非磁力时跳过网络并PASS。
+- 新增磁力-only PASS与真正空资源FAIL两个反例。
 
 VERIFIED:
-- Resource Index：293 passed，1 skipped。
+- Resource Index：295 passed，1 skipped。
 - compileall：PASS。
 - Enum：241 rules / ALL VALID。
-- Windows部署脚本与Linux JSON配置语法：PASS。
+- 四源聚合质量：436影视、4468资源、质量报告PASS。
 
 EVIDENCE:
 - docs/project-nebula/RESOURCE-INDEX-NEW-SOURCE-100-RELIABILITY-20260730.md
 - D:\lpproduct\magnet-reliability-100-20260730
 
 BOUNDARY:
-- 本轮未发布新的线上媒体revision。
-- 本轮未启用阿里云自动定时器。
+- 代码位于feature/media-daily-automation，尚未并入存在大量并行改动的主工作区。
+- 未发布新的线上媒体revision，未启用自动定时器。

@@ -327,7 +327,8 @@
 - Real DYTT evidence: 249 details succeeded, one stale page returned permanent 404, 115 candidates qualified, and the final 100 records contain 159 unique magnets with no cross-item duplication.
 - Explicit 404 maps to terminal `NOT_FOUND`; content-identical Feed replay preserves file bytes and cannot create a false revision through timestamp churn.
 - Four-source final aggregation passed with 436 entities and 4,468 globally unique resources; title/cover/empty-resource drops and invalid resources are zero.
-- Verification: Resource Index 293 passed / 1 skipped; enum 241 rules / ALL VALID.
+- Verification: 2026-07-31 independent replay reached Resource Index 295 passed / 1 skipped; enum 241 rules / ALL VALID.
+- The non-magnet online probe now treats a magnet-only qualified Feed as network-not-applicable PASS while an actually empty resource scope remains FAIL, closing a false-negative gate found during independent re-verification.
 - Evidence: `RESOURCE-INDEX-NEW-SOURCE-100-RELIABILITY-20260730.md`.
 
 ---

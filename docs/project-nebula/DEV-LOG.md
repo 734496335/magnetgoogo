@@ -1,4 +1,27 @@
 ---
+Date/Time: 2026-07-31 09:13 (UTC+8)
+Version: media-new-sources-100-independent-reverify
+Scope: Independently replay the four-source 100-record evidence, verify zero-network determinism and online resource samples, and fix the magnet-only resource-probe false negative
+Modules: magnet/resource_index/pipeline/source_resource_probe.py, magnet/tests/resource_index/test_source_resource_probe.py, docs/project-nebula/{RESOURCE-INDEX-NEW-SOURCE-100-RELIABILITY-20260730.md,TECH-CHALLENGES.md,_progress.txt,DEV-LOG.md}
+
+### Independent evidence replay
+- Re-ran strict reliability audits against the isolated real databases and Feeds: SixV movie, Meijumi series, SixV series and DYTT all remain PASS with SQLite integrity ok, missing title/cover/resource zero, invalid resources zero and cross-item duplicates zero.
+- Re-ran all four crawlers without refresh. Every invocation used zero HTTP requests and preserved the exact Feed SHA-256.
+- Re-verified 400 decoded cover assets from cache: 100/100 per entry, 100 unique hashes per entry and zero HTTP requests.
+- Online non-magnet probes remained PASS at SixV 60/60, Meijumi 84/84 and SixV series 60/60.
+
+### Gate correction
+- Found that the non-magnet online probe reported FAIL for DYTT's valid magnet-only Feed because selected non-magnet samples were zero even though 159 strict-format magnets were present.
+- Changed the probe to return PASS when the Feed has magnets but no network-probeable resources, while retaining FAIL for a genuinely empty resource scope.
+- Added explicit magnet-only/no-network and empty-scope counterexamples. DYTT now reports selected=0, skipped_magnet=159, network not applicable and PASS.
+
+### Verification and boundary
+- Targeted probe tests: 4 passed. Resource Index full gate: 295 passed, 1 skipped. compileall PASS. Enum: 241 rules / ALL VALID.
+- Four-source aggregate quality remains PASS at 436 entities and 4,468 resources.
+- No production media revision or timer was changed. The completed code remains on feature/media-daily-automation because the main checkout has extensive parallel uncommitted work.
+---
+
+---
 Date/Time: 2026-07-30 22:45 (UTC+8)
 Version: media-new-sources-100-reliability-pass
 Scope: Close the 100-record reliability gate for 6v520 movie/series, DYTT8899 movie and Meijumi series, including qualified candidate selection, real cover verification, resource uniqueness, deterministic replay and final multi-source aggregation

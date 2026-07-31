@@ -232,3 +232,16 @@ Linux media-daily.example.json：PASS
 - 6v520电视剧综合补充入口。
 
 本轮只完成爬取工具和数据可靠性闭环，没有发布新的线上媒体revision，也没有启用阿里云每日自动定时任务。
+
+## 2026-07-31独立复验补充
+
+对提交`a5131c2`和隔离证据目录重新执行了独立复验：
+
+- 四入口可靠性CLI全部再次PASS，SQLite完整性、标题、封面、资源和重复门禁结果未变化；
+- 400张封面全部从已验证本地资产复用，四入口均`verified=100`、`unique=100`、`http_requests=0`；
+- 四入口重复运行均`invocation_http_requests=0`，Feed前后SHA-256完全一致；
+- 6v520电影、Meijumi和6v520剧集在线网盘抽检分别60/60、84/84、60/60通过；
+- DYTT正式Feed仅包含159个磁力，本身不存在需要联网抽检的非磁力资源。原抽检器会把“0个非磁力样本”误报为FAIL，已修为：存在磁力且无非磁力时明确跳过网络抽检并PASS；真正没有任何资源时仍FAIL；
+- 新增磁力-only和空资源范围两个反例，Resource Index全量门禁更新为`295 passed，1 skipped`；compileall与`241 rules / ALL VALID`继续通过。
+
+该修正不改变任何抓取数据、Feed内容或线上revision，只修复统一自动化审计的假失败边界。

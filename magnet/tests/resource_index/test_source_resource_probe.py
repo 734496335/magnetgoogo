@@ -66,6 +66,72 @@ def test_resource_probe_checks_non_magnets_and_skips_magnet_network(tmp_path: Pa
     assert result.skipped_magnet_count == 1
 
 
+def test_resource_probe_passes_magnet_only_feed_without_network(tmp_path: Path) -> None:
+    feed = tmp_path / "feed.json"
+    output = tmp_path / "report.json"
+    feed.write_text(
+        json.dumps(
+            {
+                "schema_version": "movie-feed/1",
+                "source_id": "magnet-only",
+                "items": [
+                    {
+                        "movie_id": "movie:1",
+                        "title": "Fixture",
+                        "resources": [
+                            {
+                                "resource_type": "magnet",
+                                "provider": "magnet",
+                                "url": "magnet:?xt=urn:btih:1111111111111111111111111111111111111111",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def unexpected_transport(_url: str, _kind: str) -> ResourceProbeResponse:
+        raise AssertionError("magnet-only probe must not use network")
+
+    result = probe_source_resources(
+        feed_path=feed,
+        output_path=output,
+        delay_seconds=0,
+        transport=unexpected_transport,
+    )
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert result.status == "pass"
+    assert result.selected_count == 0
+    assert result.skipped_magnet_count == 1
+    assert report["network_probe_applicable"] is False
+
+
+def test_resource_probe_rejects_empty_probe_scope(tmp_path: Path) -> None:
+    feed = tmp_path / "feed.json"
+    output = tmp_path / "report.json"
+    feed.write_text(
+        json.dumps(
+            {
+                "schema_version": "movie-feed/1",
+                "source_id": "empty",
+                "items": [{"movie_id": "movie:1", "title": "Fixture", "resources": []}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = probe_source_resources(
+        feed_path=feed,
+        output_path=output,
+        delay_seconds=0,
+        transport=lambda _url, _kind: ResourceProbeResponse(200, "text/html", b"ok"),
+    )
+    assert result.status == "fail"
+    assert result.selected_count == 0
+    assert result.skipped_magnet_count == 0
+
+
 def test_resource_probe_rejects_non_playlist_m3u8(tmp_path: Path) -> None:
     feed = tmp_path / "feed.json"
     _feed(feed)
