@@ -37,10 +37,11 @@ def test_daily_runner_defaults_to_bounded_candidate_mode() -> None:
     assert "--cpus 1.75" not in script
 
 
-def test_daily_service_cannot_promote_current_pointer() -> None:
+def test_daily_service_runs_production_publish_mode() -> None:
     service = (LINUX / "magnet-media-daily.service").read_text(encoding="utf-8")
-    assert "run-media-daily.sh candidate" in service
-    assert "run-media-daily.sh publish" not in service
+    assert "run-media-daily.sh publish" in service
+    assert "run-media-daily.sh candidate" not in service
+    assert "daily media production publish" in service
 
 
 def test_weekly_audit_is_separated_from_daily_window() -> None:
@@ -69,9 +70,23 @@ def test_installer_seeds_media_before_nginx_cutover_and_keeps_timers_opt_in() ->
     assert "MEDIA_SEED_ROOT" in script
     assert script.count("--entrypoint python") >= 3
     assert 'python3 "$APP_ROOT/deploy/resource-index' not in script
+    assert 'mode=automatic-production-publish' in script
     assert '-v "$MEDIA_SEED_ROOT:/seed:ro"' in script
     assert '-v "$LIVE_MEDIA_ROOT:/live-media:ro"' in script
     assert "-v /etc/nginx:/etc/nginx" in script
+
+
+def test_auto_publish_worker_uses_the_domestic_reachable_custom_domain() -> None:
+    config = json.loads(
+        (ROOT / "deploy/resource-index/r2-auto-worker/wrangler.jsonc").read_text(encoding="utf-8")
+    )
+    assert config["vars"]["PUBLISH_MODE"] == "production-auto"
+    assert config["routes"] == [
+        {
+            "pattern": "media-auto-publisher.magnetgoogo.com",
+            "custom_domain": True,
+        }
+    ]
 
 
 def test_example_config_has_retention_and_disk_guards() -> None:

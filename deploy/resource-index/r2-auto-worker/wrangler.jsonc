@@ -4,6 +4,12 @@
   "main": "../r2-upload-worker/worker.mjs",
   "compatibility_date": "2026-07-30",
   "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "media-auto-publisher.magnetgoogo.com",
+      "custom_domain": true
+    }
+  ],
   "vars": {
     "PUBLISH_MODE": "production-auto"
   },

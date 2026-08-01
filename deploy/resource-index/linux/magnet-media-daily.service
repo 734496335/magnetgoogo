@@ -1,5 +1,5 @@
 [Unit]
-Description=MagnetGoogo daily media candidate build and verification
+Description=MagnetGoogo daily media production publish
 After=docker.service network-online.target
 Wants=network-online.target
 Requires=docker.service
@@ -9,7 +9,7 @@ Type=oneshot
 User=root
 Group=root
 WorkingDirectory=/opt/magnet-media/app
-ExecStart=/opt/magnet-media/app/deploy/resource-index/linux/run-media-daily.sh candidate
+ExecStart=/opt/magnet-media/app/deploy/resource-index/linux/run-media-daily.sh publish
 TimeoutStartSec=4h
 Nice=10
 IOSchedulingClass=best-effort

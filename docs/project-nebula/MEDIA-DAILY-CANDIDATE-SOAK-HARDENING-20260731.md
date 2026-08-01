@@ -6,11 +6,15 @@
 
 `REAL_REVISION7_REHEARSAL=PASS`
 
-`ALIYUN_CANDIDATE_DEPLOYMENT=READY`
+`ALIYUN_CANDIDATE_DEPLOYMENT=PASS`
 
-`PRODUCTION_AUTO_PUBLISH=DISABLED`
+`SOAK_DAY1=PASS`
 
-本批关闭死锁、历史膨胀、2GB主机资源失控、空目录切换Nginx、伪candidate、评分全量尖峰和冷启动重抓等阻塞。正式revision 7与R2/阿里云current均未修改。
+`CANDIDATE_TIMERS=ACTIVE`
+
+`PRODUCTION_AUTO_PUBLISH=SUPERSEDED_BY_REVISION8_RELEASE`
+
+本批关闭死锁、历史膨胀、2GB主机资源失控、空目录切换Nginx、伪candidate、评分全量尖峰和冷启动重抓等阻塞，并完成阿里云candidate-only部署和首轮真实运行。本文记录候选阶段历史状态；后续正式自动发布结论见`MEDIA-DAILY-AUTO-PUBLISH-REVISION8-20260801.md`。
 
 ## 运行锁与共享状态
 
@@ -154,6 +158,58 @@ Docker默认上限：
 - weekly audit不计入；
 - 达到7天后仅输出`ready_for_promotion=true`，不会自动提升current。
 
+## 阿里云正式Candidate-Only部署
+
+部署于现有`ecs.e-c1m1.large`主机，未部署生产私钥和R2上传令牌。
+
+- Docker镜像ID：`sha256:694d13a70b72a3bdec5aa4e0bbb5b10e72c03f94e261ea5661a030d4ee15a7c8`；
+- 镜像大小：291,317,206字节；
+- 构建期间最低可用内存约483MiB，Swap未持续增加；
+- 种子417文件、37,583,895字节安装成功；
+- revision 7的1225对象、24,236,771字节原子迁移成功；
+- Nginx配置测试PASS；
+- 公网current与新状态目录current SHA均为`0068f832ee016fa22d35939d5250d711f1aa40f60d121e4ad6501fe1f6c80f93`；
+- 公网仍为revision 7、release `20260730T000000Z-5c299304`。
+
+部署过程中额外关闭：
+
+- Docker Hub不可达：使用固定摘要的国内镜像代理基础镜像；
+- 默认PyPI异常：构建参数显式指定阿里云PyPI；
+- Windows `git archive`导出CRLF：新增`.gitattributes`和归档级LF门禁；
+- 宿主Python 3.6：部署辅助脚本统一在Python 3.11容器执行。
+
+## 首轮真实Candidate
+
+运行时间：2026-08-01 00:16:34—00:41:11（UTC+8），约24分37秒。
+
+结果：
+
+- `status=success`；
+- `candidate_verified=true`；
+- candidate revision：8；
+- 电影217；
+- 剧集227；
+- 磁力3597；
+- cloud 0；
+- release ID：`20260731T000000Z-67da50cd`；
+- 内容SHA：`f18dd760cca273a01d16d72c495bcb2bff3d7cbd3b7a83d9dda5a4b0177ce946`；
+- 无正式数据回归；
+- 电影封面新增3张、剧集新增7张，其余全部复用；
+- 四源抓取HTTP请求共37次；
+- 评分严格限制为电影40次、剧集40次，双方0错误；
+- 新增/补全豆瓣33、IMDb25、烂番茄28，Bangumi本轮无可靠匹配；
+- 无OOM、无内核杀进程、无容器资源限制失败；
+- 运行后主机可用内存约463MiB、Swap约491MiB。
+
+Soak状态：
+
+- 成功日期：2026-08-01；
+- `consecutive_days=1`；
+- `ready_for_promotion=false`；
+- daily candidate Timer和weekly audit Timer均已enabled/active；
+- 下一次daily candidate：2026-08-02 03:34:20 UTC+8；
+- 下一次weekly audit：2026-08-02 14:35:49 UTC+8。
+
 ## 测试
 
 - Python全量：424 passed，1 skipped；
@@ -164,11 +220,14 @@ Docker默认上限：
 - 锁、清理、磁盘、Soak、候选密钥分权、Nginx迁移、种子安装、评分轮转和CLI跨区域编码均有永久反例；
 - 本地无Docker命令，容器构建必须在阿里云现有Docker环境完成。
 
-## 尚未完成
+## 后续状态
 
-- 尚未在阿里云构建新Docker镜像；
-- 尚未安装candidate service/timer；
-- 尚未执行服务器首轮手动candidate；
-- 尚未开始7日Soak；
-- 尚未增加外部heartbeat和双端Pointer告警；
-- 正式自动发布继续禁止。
+2026-08-01经用户明确授权并完成独立候选审计后，候选阶段已结束：
+
+- 正式revision 8已发布；
+- 服务器已安装正式签名链和root权限上传令牌；
+- 每日Timer已切换为production publish；
+- R2与阿里云current/Manifest字节一致；
+- 当前剩余事项为外部heartbeat、失败告警和双端Pointer漂移告警。
+
+完整证据见`MEDIA-DAILY-AUTO-PUBLISH-REVISION8-20260801.md`。

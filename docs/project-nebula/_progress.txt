@@ -1,29 +1,26 @@
-TASK: 阿里云影视每日流水线candidate-only无人值守加固
-STATUS: IMPLEMENTATION_PASS / ALIYUN_DEPLOYMENT_READY / PRODUCTION_PUBLISH_DISABLED
-DATE: 2026-07-31 UTC+8
+TASK: 阿里云影视每日自动抓取与自动发布
+STATUS: PRODUCTION_AUTO_PUBLISH_ENABLED / REVISION8_PASS
+DATE: 2026-08-01 UTC+8
 
 DONE:
-- 死PID和跨重启残锁可安全恢复；并发任务拿锁前不覆盖latest状态。
-- Candidate模式现完整构建并验证签名release，不上传、不提升current。
-- 候选签名密钥与正式生产公钥分离；服务器不部署生产私钥和R2提升令牌。
-- 评分改为每日电影40+剧集40限额轮转，游标持久化，错误也推进，避免全量尖峰。
-- runs/status/releases/receipts保留上限为7/30/3/30；磁盘80%或低于2GiB时硬停。
-- Docker上限768MiB、1 CPU、1280MiB含Swap、256 PID；daily与audit容器名分离。
-- weekly audit移至周日14:30并跳过抓取/评分；daily仍03:30 candidate-only。
-- Nginx切换前逐对象校验revision 7并原子迁移；失败自动回滚配置。
-- 冷启种子417文件/37,583,895字节，四库integrity=ok，第二次候选封面请求0。
-- 真实候选：214电影、220剧集、3561磁力、0 cloud、无revision 7回归。
-- 7日Soak按自然日自动计数，失败清零，达到7天也不会自动发布。
+- 每日影视任务已从candidate切换为publish模式，Timer enabled/active。
+- 每天03:30 Asia/Shanghai运行，随机延迟0—5分钟，Persistent=true。
+- 正式revision 8已发布：217电影、227剧集、3597磁力、0 cloud。
+- 双端current与Manifest字节一致，R2/阿里云均为revision 8。
+- 专用Worker绑定media-auto-publisher.magnetgoogo.com，未授权401、授权200。
+- 正式私钥与0.2.3内置公钥一致；临时令牌和候选密钥已清理。
+- 每日评分限制电影40+剧集40；Docker 768MiB/1CPU/1280MiB含Swap。
+- 无内容变化不生成新revision；签名/回归/双端验证任一步失败则不成功。
 
-VERIFIED:
-- Python全量424 passed，1 skipped；compileall PASS。
-- enum 241/ALL VALID；Shell语法与diff-check PASS。
-- 真实revision 7迁移：1225对象/24,236,771字节PASS。
-- 真实限额评分：电影5、剧集5，0错误，候选验证PASS。
+CURRENT:
+- pointer revision: 8
+- release ID: 20260731T000000Z-06b2c7ff
+- pointer SHA: 36cd24b62a2d2041c3a2f045bb4186193886bd0d5e9c1f4da1bdac5edd454ab6
+- Manifest SHA: 83b9763f59d8759e9a1a699032b6671cabfce6738e32b694aac6eb1deecaa5c6
+- next automatic run: 2026-08-02 03:32:47 UTC+8
 
 NEXT:
-- 提交代码；在阿里云Docker构建并安装种子/Nginx迁移。
-- 手动执行首轮candidate并检查内存、Swap、磁盘、耗时和revision 7不变。
-- 稳定后仅启用candidate timers，开始7日Soak；正式发布仍禁止。
+- 观察下一次自然Timer自动发布结果和no-change行为。
+- 0.2.4升级Detail缓存schema并展示烂番茄/Bangumi。
 
-EVIDENCE: docs/project-nebula/MEDIA-DAILY-CANDIDATE-SOAK-HARDENING-20260731.md
+EVIDENCE: docs/project-nebula/MEDIA-DAILY-AUTO-PUBLISH-REVISION8-20260801.md

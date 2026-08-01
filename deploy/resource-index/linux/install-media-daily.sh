@@ -141,7 +141,7 @@ if [[ "$ENABLE_TIMERS" == "1" ]]; then
 fi
 
 echo "MEDIA_DAILY_INSTALL_READY"
-echo "mode=candidate-only"
+echo "mode=automatic-production-publish"
 echo "config=$CONFIG_ROOT/media-daily.json"
 echo "environment=$CONFIG_ROOT/media.env"
 echo "status=$APP_ROOT/deploy/resource-index/linux/media-status.sh"

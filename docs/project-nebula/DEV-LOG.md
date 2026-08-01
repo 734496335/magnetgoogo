@@ -1,4 +1,48 @@
 ---
+Date/Time: 2026-08-01 12:30 (UTC+8)
+Version: media-daily-production-auto-publish-revision8
+Scope: Approve the audited media crawler output, deploy the permanent authenticated R2 promotion channel, publish revision 8 and switch the Aliyun daily timer to production auto-publish
+Modules: deploy/resource-index/{r2-auto-worker,linux}, Aliyun/Cloudflare runtime, magnet/tests/resource_index/test_media_linux_deployment.py, docs/project-nebula/{MEDIA-DAILY-AUTO-PUBLISH-REVISION8-20260801.md,TECH-CHALLENGES.md,_progress.txt,DEV-LOG.md}
+
+### Publication approval and Worker channel
+- Independently audited the latest candidate: 217 movies, 227 series, 3,597 unique valid magnets, zero cloud, zero missing/duplicate/invalid resource identities, complete covers and no release regression.
+- Deployed `magnetgoogo-media-auto-uploader` in `production-auto` mode with the domestic-reachable custom domain `media-auto-publisher.magnetgoogo.com`. Unauthorized health is 401; the Aliyun authorized health contract is 200 with current promotion enabled.
+- Installed the formal Ed25519 key matching the v0.2.3 embedded public key and stored the 64-character random upload token only in Cloudflare Secret and the root-only server environment file.
+
+### Safe transition and revision 8
+- The first production attempt was correctly blocked because a candidate-key-signed local release shared the content identity. Revision 7 remained unchanged; the candidate artifacts were isolated instead of bypassing signature validation.
+- Rebuilt with the production key from the already refreshed databases and rating state, then published revision 8: release `20260731T000000Z-06b2c7ff`, pointer SHA `36cd24b62a2d2041c3a2f045bb4186193886bd0d5e9c1f4da1bdac5edd454ab6`, Manifest SHA `83b9763f59d8759e9a1a699032b6671cabfce6738e32b694aac6eb1deecaa5c6`.
+- Aliyun uploaded 208/reused 1,095 objects; R2 uploaded 183/reused 1,120. Both current and Manifest files are byte-identical. Independent production-key verification passed all 1,302 objects.
+
+### Automatic production mode
+- Daily systemd service now executes `run-media-daily.sh publish`; timer remains enabled/active for 03:30 Asia/Shanghai with up to five minutes randomized delay. Weekly audit remains read-only.
+- Temporary token/key files, candidate private-key backups and candidate-signed release artifacts were deleted after successful verification. Production secret permissions remain 0600.
+- Deployment policy tests passed 9/9, Worker security tests passed 7/7 and Shell syntax passed.
+---
+
+---
+Date/Time: 2026-08-01 11:15 (UTC+8)
+Version: media-candidate-soak-day1-aliyun
+Scope: Complete Aliyun candidate-only deployment, first real candidate run and start the seven-day soak without enabling production publication
+Modules: Aliyun Docker/Nginx/systemd runtime, docs/project-nebula/{MEDIA-DAILY-CANDIDATE-SOAK-HARDENING-20260731.md,TECH-CHALLENGES.md,_progress.txt,DEV-LOG.md}
+
+### Deployment and runtime
+- Built the Python 3.11 media image on Aliyun with a pinned mirrored base image and explicit Aliyun PyPI. Final image ID is `sha256:694d13a70b72a3bdec5aa4e0bbb5b10e72c03f94e261ea5661a030d4ee15a7c8`, about 291 MB.
+- Installed the 417-file verified seed, validated all four SQLite databases and atomically migrated the complete revision-7 media tree into `/var/lib/magnet-media/public`.
+- Nginx validation passed; public current remains byte-identical revision 7 with SHA `0068f832ee016fa22d35939d5250d711f1aa40f60d121e4ad6501fe1f6c80f93`.
+
+### First real candidate
+- The first run completed in about 24m37s with `candidate_verified=true`: 217 movies, 227 series, 3,597 magnets, zero cloud resources and no regression against revision 7.
+- Four crawlers used 37 HTTP requests. Rating enrichment was bounded at 40 movie + 40 series attempts, both with zero errors; durable state now contains 161 Douban, 25 IMDb and 28 Rotten Tomatoes scores.
+- No OOM, kernel kill or container resource-limit failure occurred. The server still has no production private key and no R2 promotion token, so the candidate cannot promote current.
+
+### Soak activation
+- Candidate soak day 1 is recorded for 2026-08-01 with `consecutive_days=1` and `ready_for_promotion=false`.
+- Enabled the daily candidate timer and weekly read-only audit timer. Next runs are 2026-08-02 03:34 and 14:35 UTC+8.
+- Production automatic publication remains disabled pending six more consecutive successful days and an independent promotion audit.
+---
+
+---
 Date/Time: 2026-07-31 22:02 (UTC+8)
 Version: media-daily-magnet-only-four-rating-persistence
 Scope: Integrate magnet-only filtering and durable four-provider rating enrichment into the unattended media pipeline without breaking v0.2.3

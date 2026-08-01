@@ -451,13 +451,13 @@
 
 ## CHALLENGE-012 — 本地爬虫无人值守、自动发布与免费容量闭环
 
-- **严重程度**：blocker
-- **状态**：open；本地candidate无人值守实现PASS，阿里云首轮运行与7日Soak未完成
+- **严重程度**：major（原blocker已关闭）
+- **状态**：resolved / production monitoring；阿里云每日自动抓取与双端自动发布已启用
 - **首次记录**：2026-07-26
-- **业务影响**：爬虫失败恢复和数据质量已经可靠，但当前电脑未安装计划任务、睡眠时不会唤醒、生成的Bundle不会自动下发到已安装App，因此不能把“手动一键稳定”误判为“无人值守持续更新”。
+- **业务影响**：核心无人值守阻塞已关闭；影视数据由阿里云每日抓取并在全部质量、签名、回归和双端验证通过后自动成为客户端可见revision。当前剩余风险转为生产监控、源多样性和2C2G容量余量。
 - **内核证据**：Resource Index 178 passed；全magnet非集成241 passed / 2 deselected；中断恢复、请求预算、镜像切换、质量和离线Bundle专项56 passed；四正式任务分别100/100、50/50、50/50、100/100，均无pending/running/failed。
 - **运行阻塞**：Windows任务`MagnetGoogo Movie Sources Safe Crawl`实查未安装；模板`StartWhenAvailable=true`但`WakeToRun=false`；个人电脑关机、睡眠或断网会推迟更新。
-- **发布链进展**：App已支持签名远程revision、内容寻址Catalog/Detail/Resource和长期本地缓存；Revision 7已在R2/阿里云双端上线。当前阻塞已从“客户端不能消费”转为“服务端无人值守提升current尚未完成运维门禁”。
+- **发布链进展**：App已支持签名远程revision、内容寻址Catalog/Detail/Resource和长期本地缓存；Revision 8已在R2/阿里云双端上线。专用production-auto Worker和正式签名链已完成无人值守提升current。
 - **来源边界**：SixV电影和剧集共享品牌/模板，DYTT备用仍依赖同一主站，美剧迷只有单正式端点；核心来源故障时旧目录不会损坏，但可能无法形成新一轮100+100。
 - **服务器实查**：2核CPU负载极低，但约2GB内存仅约514MB可用且已使用约501MB Swap；静态Nginx余量大，不适合继续增加常驻爬虫、数据库或动态搜索服务。
 - **证书闭环**：2026-07-31确认HTTP-01被外网上游`Beaver / 403`阻断；已改用Let’s Encrypt TLS-ALPN-01签发，新证书有效至2026-10-29。`acme-cn-magnetgoogo-renew.timer`已enabled/active并实跑SUCCESS，旧`certbot-renew.timer`已停用。
@@ -466,9 +466,10 @@
 - **2026-07-31自动流水线进展**：`media-daily`已接入仅磁力、四评分持久状态、每日40+40限额轮转、完整签名candidate、死PID/跨重启锁恢复、7/30/3/30历史保留、磁盘门禁和7日Soak计数；评分源失败降级且不清空旧值。Revision 7真实回放恢复584/584个有效评分/身份字段。
 - **2026-07-31服务器实查**：`ecs.e-c1m1.large`，2核/1.8GiB，约461MiB可用，Swap已用约541MiB，磁盘余约18GiB；静态镜像PASS，正式自动发布HOLD。证书阻塞已通过TLS-ALPN和独立systemd续期Timer关闭。
 - **2026-07-31候选部署加固**：容器已限制为768MiB/1 CPU/1280MiB含Swap/256 PID；Nginx切换会逐对象验证revision 7并原子迁移；候选使用非生产私钥、上一Manifest独立使用0.2.3正式公钥；冷启种子417文件/37,583,895字节，四库integrity=ok，二次候选封面请求0。真实候选为214电影、220剧集、3561磁力、0 cloud且无上一版回归。
-- **剩余阻塞**：尚未在阿里云构建镜像和执行首轮手动candidate；7日Soak未开始；尚无外部heartbeat与双端Pointer告警。当前2C2G仍只批准candidate，不批准持生产私钥自动发布；0.2.4还需升级或失效旧Detail缓存schema以立即展示烂番茄/Bangumi。
-- **下一步**：在阿里云安装已验证种子和candidate-only服务，手动运行一次并检查内存、Swap、磁盘、耗时与revision 7不变；通过后仅启用candidate timers开始7日Soak。正式发布继续HOLD，生产建议独立2C4G/60GB任务机。
-- **证据**：`RESOURCE-INDEX-STABILITY-CAPACITY-REVIEW-2026-07-26.md`、`MEDIA-ALIYUN-AUTOMATION-CAPACITY-AUDIT-20260731.md`、`ALIYUN-CERTIFICATE-RENEWAL-FIX-20260731.md`、`MEDIA-DAILY-MAGNET-ONLY-FOUR-RATING-20260731.md`、`MEDIA-DAILY-CANDIDATE-SOAK-HARDENING-20260731.md`
+- **2026-08-01正式自动发布**：候选审计确认217电影、227剧集、3597唯一磁力、0 cloud、0非法/重复hash和0回归；部署`media-auto-publisher.magnetgoogo.com`专用Worker，未授权401、授权200；正式私钥与0.2.3公钥一致。Revision 8已双端发布，pointer SHA=`36cd24b62a2d2041c3a2f045bb4186193886bd0d5e9c1f4da1bdac5edd454ab6`，Manifest SHA=`83b9763f59d8759e9a1a699032b6671cabfce6738e32b694aac6eb1deecaa5c6`，1,302对象独立复验PASS。
+- **剩余风险**：尚无外部heartbeat与主动告警；2C2G只批准当前每日一次、40+40评分和现有来源规模；核心来源仍存在品牌/主站相关性。0.2.4还需升级或失效旧Detail缓存schema以立即展示烂番茄/Bangumi。
+- **下一步**：观察下一次自然Timer的自动发布/no-change结果；增加失败告警和双端Pointer漂移告警；继续监控耗时、内存、Swap、磁盘和R2调用量。
+- **证据**：`RESOURCE-INDEX-STABILITY-CAPACITY-REVIEW-2026-07-26.md`、`MEDIA-ALIYUN-AUTOMATION-CAPACITY-AUDIT-20260731.md`、`ALIYUN-CERTIFICATE-RENEWAL-FIX-20260731.md`、`MEDIA-DAILY-MAGNET-ONLY-FOUR-RATING-20260731.md`、`MEDIA-DAILY-CANDIDATE-SOAK-HARDENING-20260731.md`、`MEDIA-DAILY-AUTO-PUBLISH-REVISION8-20260801.md`
 
 ---
 
