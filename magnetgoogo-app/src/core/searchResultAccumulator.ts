@@ -1,10 +1,16 @@
 import type { DedupedResult } from './dedup';
+import {
+  resolveResourceSizeConsensus,
+  upsertResourceSizeObservation,
+  type ResourceSizeObservation,
+} from './resourceSize.ts';
 import type { ResultCardModel, SearchResult } from './types';
 
 const HIGH_RELEVANCE_THRESHOLD = 30;
 
 type AccumulatedResult = DedupedResult & {
   _sizeBytes: number;
+  _sizeObservations: ResourceSizeObservation[];
   _videoQ: number;
   _relevance: number;
   _dirty?: boolean;
@@ -103,6 +109,7 @@ export function mergePendingSearchResults(
         sourceNames: [sourceName],
         bestSeeders: result.seeders || 0,
         _sizeBytes: deps.parseSizeBytes(result.size),
+        _sizeObservations: upsertResourceSizeObservation(undefined, result.size, sourceName),
         _videoQ: videoQuality(result.title),
         _relevance: deps.computeRelevance(result.title, query),
       });
@@ -118,6 +125,7 @@ export function mergePendingSearchResults(
         sourceNames: [sourceName],
         bestSeeders: result.seeders || 0,
         _sizeBytes: deps.parseSizeBytes(result.size),
+        _sizeObservations: upsertResourceSizeObservation(undefined, result.size, sourceName),
         _videoQ: videoQuality(result.title),
         _relevance: deps.computeRelevance(result.title, query),
       });
@@ -140,12 +148,16 @@ export function mergePendingSearchResults(
       existing.source = result.source;
       existingChanged = true;
     }
-    const incomingSizeBytes = deps.parseSizeBytes(result.size);
-    // Identical info hashes describe the same torrent. The total torrent size
-    // is at least as large as any sample/file size exposed by another source.
-    if (incomingSizeBytes > existing._sizeBytes) {
-      existing.size = result.size;
-      existing._sizeBytes = incomingSizeBytes;
+    existing._sizeObservations = upsertResourceSizeObservation(
+      existing._sizeObservations,
+      result.size,
+      sourceName,
+    );
+    const consensusSize = resolveResourceSizeConsensus(existing._sizeObservations);
+    const consensusBytes = deps.parseSizeBytes(consensusSize);
+    if (consensusSize && (consensusSize !== existing.size || consensusBytes !== existing._sizeBytes)) {
+      existing.size = consensusSize;
+      existing._sizeBytes = consensusBytes;
       existingChanged = true;
     }
     if ((result.seeders || 0) > existing.bestSeeders) {

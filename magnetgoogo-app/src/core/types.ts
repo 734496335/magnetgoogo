@@ -1,9 +1,11 @@
 /** Shared types for the MagnetGoogo RN app. */
 import type { Translations } from './i18n';
+import { parseResourceDateLabel } from './resourceDate.ts';
 import {
   formatResourceSize,
   parseResourceSizeBytes,
   parseResourceSizeLabel,
+  type ResourceSizeObservation,
 } from './resourceSize.ts';
 
 export interface SearchResult {
@@ -17,6 +19,8 @@ export interface SearchResult {
   seeders?: number;
   leechers?: number;
   site_name?: string;
+  /** Internal same-hash size evidence retained across background snapshots. */
+  _sizeObservations?: ResourceSizeObservation[];
 }
 
 // ── Two-tier Kind system ──
@@ -289,25 +293,8 @@ export function computeRelevance(title: string, query: string): number {
   return Math.round(ratio * 80) + lenPenalty;
 }
 
-/** Validate and clean a date string. Extract only the first valid date. */
-function cleanDateLabel(raw?: string): string {
-  if (!raw) return '';
-  // Flatten newlines to spaces
-  const s = raw.replace(/[\r\n]+/g, ' ').trim();
-  // Reject pure numbers (seeders/leechers/fileCount leaking in)
-  if (/^\d{1,4}$/.test(s)) return '';
-  // Reject time-only (HH:MM or HH:MM:SS)
-  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) return '';
-  // Extract first YYYY-MM-DD or M/D/YYYY pattern
-  const isoDate = s.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
-  if (isoDate) return isoDate[1];
-  const usDate = s.match(/(\d{1,2}[-/]\d{1,2}[-/]\d{4})/);
-  if (usDate) return usDate[1];
-  // English month name
-  const enDate = s.match(/((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\.?\s+\d{1,2},?\s+\d{4})/i);
-  if (enDate) return enDate[1];
-  return '';
-}
+/** Validate and normalize a date string using the shared parser. */
+const cleanDateLabel = parseResourceDateLabel;
 
 /** Detect video quality from title — returns a stable score. */
 const _QUALITY_PATS: [RegExp, number][] = [
@@ -330,12 +317,7 @@ export function toResultCardModel(r: SearchResult, index: number, query?: string
   const dateLabel = cleanDateLabel(r.date);
   const fmtFileCount = t ? t.fileCount : (n: number) => `文件数 ${n}`;
 
-  // Detect if date field was actually a file count (pure small number)
-  let fileCountLabel = r.fileCount ? fmtFileCount(r.fileCount) : '';
-  if (!fileCountLabel && r.date && /^\d{1,4}$/.test(r.date.trim())) {
-    const n = parseInt(r.date.trim(), 10);
-    if (n > 0 && n < 10000) fileCountLabel = fmtFileCount(n);
-  }
+  const fileCountLabel = r.fileCount ? fmtFileCount(r.fileCount) : '';
 
   const stableId = getResultStableId(r);
 

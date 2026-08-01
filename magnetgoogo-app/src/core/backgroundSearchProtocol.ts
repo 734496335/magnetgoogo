@@ -1,4 +1,8 @@
-import { parseSizeBytes, type SearchResult } from './types.ts';
+import {
+  resolveResourceSizeConsensus,
+  upsertResourceSizeObservation,
+} from './resourceSize.ts';
+import type { SearchResult } from './types.ts';
 
 export const BACKGROUND_SEARCH_POLL_INTERVAL_MS = 1500;
 export const BACKGROUND_SEARCH_TASK_TIMEOUT_MS = 30 * 60 * 1000;
@@ -46,18 +50,35 @@ export function mergeBackgroundSearchResults(
     const existingIndex = indexById.get(id);
     if (existingIndex === undefined) {
       indexById.set(id, merged.length);
-      merged.push(item);
+      const sourceName = item.site_name || item.source || '';
+      merged.push({
+        ...item,
+        _sizeObservations: upsertResourceSizeObservation(item._sizeObservations, item.size, sourceName),
+      });
       continue;
     }
 
     const existing = merged[existingIndex];
-    const existingSizeBytes = parseSizeBytes(existing.size);
-    const incomingSizeBytes = parseSizeBytes(item.size);
+    let sizeObservations = [...(existing._sizeObservations || [])];
+    for (const observation of item._sizeObservations || []) {
+      sizeObservations = upsertResourceSizeObservation(
+        sizeObservations,
+        observation.label,
+        observation.source,
+      );
+    }
+    sizeObservations = upsertResourceSizeObservation(
+      sizeObservations,
+      item.size,
+      item.site_name || item.source || '',
+    );
+    const consensusSize = resolveResourceSizeConsensus(sizeObservations);
     merged[existingIndex] = {
       ...existing,
       ...item,
       title: item.title.length >= existing.title.length ? item.title : existing.title,
-      size: incomingSizeBytes > existingSizeBytes ? item.size : existing.size,
+      size: consensusSize || existing.size || item.size,
+      _sizeObservations: sizeObservations,
       date: item.date || existing.date,
       fileCount: item.fileCount || existing.fileCount,
       seeders: Math.max(item.seeders || 0, existing.seeders || 0),

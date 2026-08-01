@@ -8,6 +8,10 @@
  *   4. Multi-source hits rank higher (more trustworthy)
  */
 
+import {
+  resolveResourceSizeConsensus,
+  upsertResourceSizeObservation,
+} from './resourceSize.ts';
 import { parseSizeBytes, type SearchResult } from './types.ts';
 
 /** Extract the 40-hex info hash from a magnet URI. Returns lowercase or null. */
@@ -85,26 +89,32 @@ export function deduplicateResults(results: SearchResult[]): DedupedResult[] {
 
     const existing = hashMap.get(hash);
     if (!existing) {
+      const sourceName = r.site_name || r.source || '';
       hashMap.set(hash, {
         ...r,
         sourceCount: 1,
-        sourceNames: [r.site_name || r.source || ''],
+        sourceNames: [sourceName],
         bestSeeders: r.seeders || 0,
+        _sizeObservations: upsertResourceSizeObservation(r._sizeObservations, r.size, sourceName),
       });
     } else {
-      // Merge: keep richer metadata
-      existing.sourceCount++;
+      // Merge: keep richer metadata and count distinct sources only.
       const srcName = r.site_name || r.source || '';
       if (srcName && !existing.sourceNames.includes(srcName)) {
         existing.sourceNames.push(srcName);
+        existing.sourceCount = existing.sourceNames.length;
       }
       // Keep longer title (usually more descriptive)
       if (r.title.length > existing.title.length) {
         existing.title = r.title;
       }
-      // For the same torrent hash, keep the largest reported total size rather
-      // than freezing the first non-empty sample/incorrectly scaled value.
-      if (parseSizeBytes(r.size) > parseSizeBytes(existing.size)) existing.size = r.size;
+      existing._sizeObservations = upsertResourceSizeObservation(
+        existing._sizeObservations,
+        r.size,
+        srcName,
+      );
+      const consensusSize = resolveResourceSizeConsensus(existing._sizeObservations);
+      if (consensusSize) existing.size = consensusSize;
       // Keep better seeders
       if ((r.seeders || 0) > existing.bestSeeders) {
         existing.bestSeeders = r.seeders || 0;

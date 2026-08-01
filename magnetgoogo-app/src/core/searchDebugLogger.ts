@@ -25,6 +25,8 @@ export interface ResultItemLog {
   title: string;
   hash: string;       // first 16 chars of btih
   size: string;
+  date?: string;
+  fileCount?: number;
   relevance: number;  // relevance score vs query
 }
 

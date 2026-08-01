@@ -1,4 +1,31 @@
 ---
+Date/Time: 2026-08-01 18:55 (UTC+8)
+Version: next-app-cross-source-metadata-authority-hardening
+Scope: Expand the SSBC size fix into a 148-host adversarial audit, repair generic detail-page size corruption, source consensus, dates, file counts and duplicate-source trust inflation
+Modules: magnetgoogo-app/src/core/{resourceSize.ts,resourceDate.ts,types.ts,searchEngine.ts,searchResultAccumulator.ts,backgroundSearchProtocol.ts,dedup.ts,searchRunner.ts,searchDebugLogger.ts}, magnetgoogo-app/scripts/app-adversarial-tests.mjs, docs/project-nebula/{_progress.txt,DEV-LOG.md,TECH-CHALLENGES.md,TEST-RESULT-20260801-搜索资源大小跨源充分审计与关联字段修复.md,_failures/*cross-source*,_failures/*resource-date*}
+
+### Cross-source findings
+- Exhaustive K30S runs exposed generic detail-page corruption beyond SSBC: `16mag.net` produced `27801.01 GB / 44.35 GB / 10872.03 GB` by concatenating adjacent DOM text, while `0cili.nl` parsed Hash fragments as `7 B / 89 B / 5 B / 98 B`.
+- The prior largest-size merge was unsafe because a giant parse error could outrank correct sources. Frontend accumulation, background snapshots and legacy dedup now retain one observation per source and choose a clustered source consensus.
+- The same audit found 158 invalid date values in one Inception run: Unix timestamp strings, sizes, counters, Russian dates, relative ages and short-year English dates. File counts were also dropped by several API handlers and arbitrary 1–4 digit dates were guessed as file counts.
+- Legacy dedup incremented sourceCount for repeated rows from the same source, inflating trust and ranking.
+
+### Repair
+- Generic detail parsing now preserves DOM boundaries, prioritizes the size bound to the search row, iterates broad selectors until a real size is found and rejects size fragments embedded in hashes or filenames.
+- Added source-consensus handling for 1024x unit loss, giant DOM concatenation and same-unit numeric prefix glue while counting each source once.
+- Standardized numeric byte fields for BTSOW, CiliMo, CLKD and Lulutang; restored explicit JSON/file-list/detail file counts through the runner and Debug report.
+- Added a shared date authority for timestamps, Chinese/English/Russian dates and relative ages; unknown values are hidden and the date-to-file-count guess was removed.
+
+### Verification
+- Post-fix K30S exhaustive: `流浪地球` 148/148 and 425 rows, `Ubuntu` 148/148 and 639 rows, `SSIS-001` 148/148 and 466 rows; all had zero invalid sizes and zero same-hash conflicts at >=4x.
+- `Inception` 148/148 and 601 rows: 277 valid normalized dates, zero invalid dates, 70 file counts, zero invalid file counts, Fatal/ANR zero.
+- TypeScript PASS; App adversarial 54/54; Fluency 17/17; Resource Feed, Media Cache, Media Security, live Media Network, Update Download and Release Build gates PASS; source enums 357 / ALL VALID; standalone arm64 Debug build/install PASS.
+
+### Boundary
+- No formal APK, remote config, source pack, source health, pool strategy or media feed was published or changed. The public v0.2.3 remains unchanged; these client fixes require the next formal App release.
+---
+
+---
 Date/Time: 2026-08-01 17:45 (UTC+8)
 Version: next-app-resource-size-authority-fix
 Scope: Fix severe torrent-size unit errors such as 23.5GB being displayed as 24.7MB, unify same-hash size authority and verify the live SSBC path on K30S

@@ -23,6 +23,7 @@ import {
   isBackgroundNetworkMode,
 } from './httpClient';
 import { VerifyManager } from './VerifyManager';
+import { parseResourceDateLabel } from './resourceDate';
 import { extractInfoHash } from './dedup';
 import {
   isHashPlaceholderTitle,
@@ -31,6 +32,8 @@ import {
 import {
   formatResourceSize,
   formatSsbcSize,
+  parseFirstResourceSizeLabel,
+  parseLabeledResourceSizeLabel,
   parseResourceSizeLabel,
 } from './resourceSize';
 
@@ -46,6 +49,7 @@ export interface ResultItem {
   source: string;
   site_name: string;
   score: number;
+  fileCount?: number;
 }
 
 export interface SourceRule {
@@ -84,25 +88,7 @@ function cleanTitle(raw: string): string {
   );
 }
 
-function cleanDate(raw: string): string {
-  if (!raw) return '';
-  const d1 = raw.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
-  if (d1) return d1[1].replace(/\//g, '-');
-  const d2 = raw.match(/(\d{1,2}[-/]\d{1,2}[-/]\d{4})/);
-  if (d2) return d2[1].replace(/\//g, '-');
-  // Chinese date: 2024年3月15日
-  const d5 = raw.match(/(\d{4})\u5e74(\d{1,2})\u6708(\d{1,2})\u65e5/);
-  if (d5) return `${d5[1]}-${d5[2].padStart(2, '0')}-${d5[3].padStart(2, '0')}`;
-  const d3 = raw.match(
-    /((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\.?\s+\d{1,2},?\s+\d{4})/i,
-  );
-  if (d3) return d3[1];
-  const d4 = raw.match(
-    /(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\.?\s+\d{4})/i,
-  );
-  if (d4) return d4[1];
-  return raw.trim();
-}
+const cleanDate = parseResourceDateLabel;
 
 type RawFetchTextResult = {
   ok: boolean;
@@ -303,6 +289,7 @@ function parseStructuredSearchPayload(
           source: origin,
           site_name: siteName,
           score,
+          fileCount: Math.max(0, Math.trunc(Number(row.file_count ?? row.fileCount) || 0)) || undefined,
         });
       } else {
         unresolvedHashCount += 1;
@@ -801,11 +788,24 @@ async function fetchDetailResults(
       if (!title || title.length < 3) title = recoverResultTitle('', magnet) || '';
 
       let _bodyText: string | null = null;
-      const getBodyText = () => (_bodyText ??= $('body').text());
+      const getBodyText = () => {
+        if (_bodyText !== null) return _bodyText;
+        const body = $('body').clone();
+        body.find('br,p,div,li,tr,td,th,dt,dd,h1,h2,h3,h4,section,article').append(' ');
+        _bodyText = body.text().replace(/\s+/g, ' ').trim();
+        return _bodyText;
+      };
 
-      let size = '';
-      if (detailSelectors.size) size = $(detailSelectors.size).first().text().trim();
-      if (!size) size = normalizeSize(getBodyText());
+      const hintSize = normalizeSize(sizeHint);
+      let selectorSize = '';
+      if (detailSelectors.size) {
+        $(detailSelectors.size).each((_: number, el: any) => {
+          if (selectorSize) return;
+          selectorSize = parseFirstResourceSizeLabel($(el).text());
+        });
+      }
+      const labeledSize = parseLabeledResourceSizeLabel(getBodyText());
+      const size = hintSize || selectorSize || labeledSize || parseFirstResourceSizeLabel(getBodyText());
 
       let date = '';
       if (detailSelectors.date) date = $(detailSelectors.date).first().text().trim();
@@ -837,16 +837,18 @@ async function fetchDetailResults(
         if (m) leechers = parseInt(m[1], 10);
       }
 
+      const fileCountMatch = getBodyText().match(/(?:files?|文件(?:数量|數量)?)[^\d]{0,12}\(?\s*(\d{1,5})\s*\)?/i);
       items.push({
         title: cleanTitle(title || 'Unknown Title'),
         magnet,
-        size: normalizeSize(size || sizeHint),
+        size,
         date: cleanDate(date || dateHint),
         seeders: seeders >= 0 ? seeders : 0,
         leechers: leechers >= 0 ? leechers : 0,
         source: origin,
         site_name: siteName,
         score,
+        fileCount: fileCountMatch ? Number.parseInt(fileCountMatch[1], 10) : undefined,
       });
     }
     return items;
@@ -1417,10 +1419,7 @@ async function fetchBtsow(
       if (!hash || seen.has(hash)) continue;
       seen.add(hash);
       const name: string = (item.name || '').replace(/<[^>]+>/g, '').replace(/​/g, '');
-      const sizeBytes: number = item.size || 0;
-      let size = '';
-      if (sizeBytes > 1024 * 1024 * 1024) size = (sizeBytes / (1024 ** 3)).toFixed(2) + ' GB';
-      else if (sizeBytes > 1024 * 1024) size = (sizeBytes / (1024 ** 2)).toFixed(1) + ' MB';
+      const size = formatResourceSize(Number(item.size));
       results.push({
         title: name || query,
         magnet: 'magnet:?xt=urn:btih:' + hash,
@@ -1428,6 +1427,7 @@ async function fetchBtsow(
         date: item.lastUpdateTime ? new Date(item.lastUpdateTime * 1000).toISOString().slice(0, 10) : '',
         seeders: 0, leechers: 0,
         source: origin, site_name: siteName, score,
+        fileCount: Math.max(0, Math.trunc(Number(item.fileCount ?? item.file_count ?? item.files) || 0)) || undefined,
       });
     }
   } catch {}
@@ -1914,12 +1914,7 @@ async function fetchCiliMo(
       const hash = item.info_hash;
       if (!hash) continue;
       const magnet = `magnet:?xt=urn:btih:${hash}`;
-      const sizeBytes = item.length || 0;
-      let size = '';
-      if (sizeBytes >= 1e12) size = `${(sizeBytes / 1e12).toFixed(2)} TB`;
-      else if (sizeBytes >= 1e9) size = `${(sizeBytes / 1e9).toFixed(2)} GB`;
-      else if (sizeBytes >= 1e6) size = `${(sizeBytes / 1e6).toFixed(1)} MB`;
-      else if (sizeBytes > 0) size = `${(sizeBytes / 1e3).toFixed(0)} KB`;
+      const size = formatResourceSize(Number(item.length));
 
       const name = item.name || extractTitleFromMagnet(magnet) || 'Unknown';
       const date = item.created_at ? item.created_at.split('T')[0] : '';
@@ -1934,6 +1929,7 @@ async function fetchCiliMo(
         source: origin,
         site_name: siteName,
         score,
+        fileCount: Math.max(0, Math.trunc(Number(item.file_count ?? item.fileCount) || 0)) || undefined,
       });
     }
   } catch (e: any) {
@@ -1959,18 +1955,18 @@ async function fetchClkd(
       const hash = item.hashInfo || item.id;
       if (!hash) continue;
       const magnet = `magnet:?xt=urn:btih:${hash}`;
-      const sizeBytes = item.torrentSize || 0;
-      let size = '';
-      if (sizeBytes >= 1e12) size = `${(sizeBytes / 1e12).toFixed(2)} TB`;
-      else if (sizeBytes >= 1e9) size = `${(sizeBytes / 1e9).toFixed(2)} GB`;
-      else if (sizeBytes >= 1e6) size = `${(sizeBytes / 1e6).toFixed(1)} MB`;
-      else if (sizeBytes > 0) size = `${(sizeBytes / 1e3).toFixed(0)} KB`;
+      const size = formatResourceSize(Number(item.torrentSize));
 
       let name = item.torrentName || extractTitleFromMagnet(magnet) || 'Unknown';
       // Clean HTML highlight tags
       name = name.replace(/<em[^>]*>/g, '').replace(/<\/em>/g, '');
 
       const date = item.createTime ? item.createTime.split('T')[0] : '';
+      let fileCount: number | undefined;
+      try {
+        const files = typeof item.fileList === 'string' ? JSON.parse(item.fileList) : item.fileList;
+        if (Array.isArray(files) && files.length > 0) fileCount = files.length;
+      } catch {}
 
       results.push({
         title: name,
@@ -1982,6 +1978,7 @@ async function fetchClkd(
         source: origin,
         site_name: siteName,
         score,
+        fileCount,
       });
     }
   } catch (e: any) {
@@ -2021,14 +2018,10 @@ async function fetchLulutang(
       // Title may contain <mark> tags — strip them
       let title = (item.title || '').replace(/<\/?[^>]+>/g, '').trim();
       if (!title) title = 'Unknown';
-      const sizeRaw: number = typeof item.size === 'number' ? item.size : 0;
-      let size = '';
-      if (sizeRaw >= 1e12) size = `${(sizeRaw / 1e12).toFixed(2)} TB`;
-      else if (sizeRaw >= 1e9) size = `${(sizeRaw / 1e9).toFixed(2)} GB`;
-      else if (sizeRaw >= 1e6) size = `${(sizeRaw / 1e6).toFixed(1)} MB`;
-      else if (sizeRaw > 0) size = `${(sizeRaw / 1e3).toFixed(0)} KB`;
+      const size = formatResourceSize(Number(item.size));
       const date = item.created_at ? String(item.created_at).slice(0, 10) : '';
-      results.push({ title, magnet, size, date, seeders: 0, leechers: 0, source: origin, site_name: siteName, score });
+      const fileCount = Math.max(0, Math.trunc(Number(item.file_count ?? item.fileCount) || 0)) || undefined;
+      results.push({ title, magnet, size, date, seeders: 0, leechers: 0, source: origin, site_name: siteName, score, fileCount });
     }
   } catch (e: any) {
   }

@@ -1,0 +1,13 @@
+Command: npx tsc --noEmit && node scripts/app-adversarial-tests.mjs
+Date: 2026-08-01 UTC+8
+Status: 51/53 PASS
+
+M3 failure:
+parseLabeledResourceSizeLabel('Size : 3.91 GB ...') returned empty because the explicit English label vocabulary included torrent/file/total/resource size but omitted bare `Size:`.
+Resolution: add bare `size` to the anchored label prefix vocabulary.
+
+B2 failure:
+Expected `1 GiB`, actual `1 GB`. The shared size authority intentionally normalizes IEC labels to the App display unit.
+Resolution: update the test expectation to normalized `1 GB`.
+
+No runtime or device failure occurred.

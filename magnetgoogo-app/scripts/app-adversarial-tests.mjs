@@ -19,7 +19,13 @@ import {
   computeRelevance,
 } from '../src/core/types.ts';
 import { deduplicateResults, extractInfoHash } from '../src/core/dedup.ts';
-import { formatSsbcSize } from '../src/core/resourceSize.ts';
+import { parseResourceDateLabel } from '../src/core/resourceDate.ts';
+import {
+  formatSsbcSize,
+  parseFirstResourceSizeLabel,
+  parseLabeledResourceSizeLabel,
+  resolveResourceSizeConsensus,
+} from '../src/core/resourceSize.ts';
 import {
   isHashPlaceholderTitle,
   recoverResultTitle,
@@ -246,18 +252,49 @@ await test('M2', 'DTS and resolution tags are both detected', () => {
   assert.deepEqual(extractTags('Movie DTS-HD MA 1080p'), ['1080P', 'DTS']);
 });
 
-await test('M3', 'binary, Chinese and multi-size labels share one numeric authority', () => {
+await test('M3', 'binary, Chinese and bound detail sizes share one numeric authority', () => {
   assert.equal(parseSizeLabel('size=1.5 GiB'), '1.5 GB');
   assert.equal(parseSizeBytes('1.5 GiB'), 1.5 * 1024 ** 3);
   assert.equal(parseSizeBytes('1024 bytes'), 1024);
   assert.equal(parseSizeLabel('样片 24.7MB / 种子总大小 23.5GB'), '23.5 GB');
   assert.equal(parseSizeBytes('总大小：23.5吉字节'), 23.5 * 1024 ** 3);
   assert.equal(parseSizeBytes('4K HDR'), 0);
+  assert.equal(parseFirstResourceSizeLabel('bd55ff89a12f9f476c50fb046e0330402a7b5308'), '');
+  assert.equal(parseFirstResourceSizeLabel('movie.mp44.32 GB'), '');
+  assert.equal(parseFirstResourceSizeLabel('hash value 3f89b5eb5efd55ad8fc1461ebe3d3c588447f407 4.35 GB'), '4.35 GB');
+  assert.equal(
+    parseLabeledResourceSizeLabel('Size : 3.91 GB Files 13 related title 106.36 GB'),
+    '3.91 GB',
+  );
   assert.equal(formatSsbcSize('24672993'), '23.5 GB');
   const engine = read('src/core/searchEngine.ts');
   assert.match(engine, /const size = formatSsbcSize\(t\.size\)/);
   assert.doesNotMatch(engine, /const sizeBytes = parseInt\(t\.size, 10\)/);
+  assert.match(engine, /const hintSize = normalizeSize\(sizeHint\)/);
+  assert.match(engine, /hintSize \|\| selectorSize \|\| labeledSize/);
+  assert.doesNotMatch(engine, /\$\(detailSelectors\.size\)\.first\(\)\.text\(\)/);
+  assert.match(engine, /formatResourceSize\(Number\(item\.length\)\)/);
+  assert.match(engine, /formatResourceSize\(Number\(item\.torrentSize\)\)/);
+  assert.match(engine, /formatResourceSize\(Number\(item\.size\)\)/);
+  assert.match(engine, /fileCount: Math\.max\(0, Math\.trunc\(Number\(row\.file_count/);
+  assert.match(engine, /if \(Array\.isArray\(files\) && files\.length > 0\) fileCount = files\.length/);
+  const runner = read('src/core/searchRunner.ts');
+  assert.match(runner, /fileCount: item\.fileCount/);
   assert.equal(toResultCardModel({ title: 'x', magnet: 'm', size: '700 MiB' }, 0).sizeBytes, 700 * 1024 ** 2);
+});
+
+await test('M3D', 'date authority converts known formats and rejects field leakage', () => {
+  assert.equal(parseResourceDateLabel('1339547627'), '2012-06-13');
+  assert.equal(parseResourceDateLabel("May. 19th  '15"), '2015-05-19');
+  assert.equal(parseResourceDateLabel('26 Июн 26'), '2026-06-26');
+  assert.equal(parseResourceDateLabel('4 days, 21 hours', Date.UTC(2026, 7, 1)), '2026-07-27');
+  assert.equal(parseResourceDateLabel('1.85 GB'), '');
+  assert.equal(parseResourceDateLabel('148'), '');
+  const leaked = toResultCardModel({ title: 'x', magnet: 'm', date: '148' }, 0);
+  assert.equal(leaked.dateLabel, '');
+  assert.equal(leaked.fileCountLabel, '');
+  const explicit = toResultCardModel({ title: 'x', magnet: 'm', date: '148', fileCount: 6 }, 0);
+  assert.equal(explicit.fileCountLabel, '文件数 6');
 });
 
 await test('M4', 'final model tie-break ranking understands binary units', () => {
@@ -283,19 +320,40 @@ await test('M4', 'final model tie-break ranking understands binary units', () =>
   assert.equal(state._cardModels[0].title, 'B');
 });
 
-await test('M4B', 'same-hash merges replace a wrong small size with the largest torrent total', () => {
+await test('M4B', 'same-hash merges use source consensus instead of first or maximum size', () => {
   const hash = 'd'.repeat(40);
-  const first = { title: '消失的人 2160p', magnet: `magnet:?xt=urn:btih:${hash}`, size: '24.7 MB', source: 'bad-unit' };
-  const corrected = { ...first, size: '23.5 GB', source: 'correct-unit' };
+  const magnet = `magnet:?xt=urn:btih:${hash}`;
+  const items = [
+    { title: '消失的人 2160p', magnet, size: '27801.01 GB', source: 'glued-detail' },
+    { title: '消失的人 2160p', magnet, size: '7 B', source: 'hash-fragment' },
+    { title: '消失的人 2160p', magnet, size: '3.91 GB', source: 'source-a' },
+    { title: '消失的人 2160p', magnet, size: '3.91 GB', source: 'source-b' },
+    { title: '消失的人 2160p', magnet, size: '3.91 GB', source: 'source-c' },
+  ];
   const state = createSearchResultAccumulatorState();
-  mergePendingSearchResults(state, [first, corrected], '消失的人', {
+  mergePendingSearchResults(state, items, '消失的人', {
     extractInfoHash,
     getStableId: getResultStableId,
     computeRelevance,
     parseSizeBytes,
   });
-  assert.equal(state._dedupMap.get(hash)?.size, '23.5 GB');
-  assert.equal(deduplicateResults([first, corrected])[0].size, '23.5 GB');
+  assert.equal(state._dedupMap.get(hash)?.size, '3.91 GB');
+  const deduped = deduplicateResults(items);
+  assert.equal(deduped[0].size, '3.91 GB');
+  assert.equal(deduped[0].sourceCount, 5);
+  const repeatedSource = deduplicateResults([items[2], { ...items[2] }]);
+  assert.equal(repeatedSource[0].sourceCount, 1);
+  assert.equal(resolveResourceSizeConsensus([
+    { label: '24.7 MB', source: 'ssbc-old' },
+    { label: '23.5 GB', source: 'ssbc-fixed' },
+  ]), '23.5 GB');
+  assert.equal(resolveResourceSizeConsensus([
+    { label: '241367 B', source: 'bad-a' },
+    { label: '10 GB', source: 'bad-b' },
+    { label: '2.29 GB', source: 'good-a' },
+    { label: '2.29 GB', source: 'good-b' },
+    { label: '2.29 GB', source: 'good-c' },
+  ]), '2.29 GB');
 });
 
 await test('M5', 'stable IDs ignore tracker order for btih magnets', () => {
@@ -640,15 +698,21 @@ await test('B2', 'background result merge is stable and deduplicates repeated so
   );
   assert.equal(merged.length, 2);
   assert.equal(merged[0].title, 'Longer title');
-  assert.equal(merged[0].size, '1 GiB');
+  assert.equal(merged[0].size, '1 GB');
   assert.equal(merged[0].seeders, 8);
 
-  const sizeConflict = mergeBackgroundSearchResults(
-    [{ title: 'Same', magnet: `magnet:?xt=urn:btih:${hash}`, size: '23.5 GB' }],
-    [{ title: 'Same', magnet: `magnet:?xt=urn:btih:${hash}`, size: '24.7 MB' }],
+  let sizeConflict = mergeBackgroundSearchResults(
+    [{ title: 'Same', magnet: `magnet:?xt=urn:btih:${hash}`, size: '27801.01 GB', source: 'bad-a' }],
+    [{ title: 'Same', magnet: `magnet:?xt=urn:btih:${hash}`, size: '7 B', source: 'bad-b' }],
     getResultStableId,
   );
-  assert.equal(sizeConflict[0].size, '23.5 GB');
+  sizeConflict = mergeBackgroundSearchResults(sizeConflict, [
+    { title: 'Same', magnet: `magnet:?xt=urn:btih:${hash}`, size: '3.91 GB', source: 'good-a' },
+    { title: 'Same', magnet: `magnet:?xt=urn:btih:${hash}`, size: '3.91 GB', source: 'good-b' },
+    { title: 'Same', magnet: `magnet:?xt=urn:btih:${hash}`, size: '3.91 GB', source: 'good-c' },
+  ], getResultStableId);
+  assert.equal(sizeConflict[0].size, '3.91 GB');
+  assert.equal(sizeConflict[0]._sizeObservations?.length, 5);
 });
 
 await test('B3', 'background observation does not expire after twenty seconds', () => {

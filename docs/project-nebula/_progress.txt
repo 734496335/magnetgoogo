@@ -1,28 +1,28 @@
-TASK: 搜索资源大小单位误识别修复
-STATUS: IMPLEMENTED_AND_K30S_VERIFIED / NOT_YET_IN_FORMAL_APK
+TASK: 搜索资源大小跨源充分审计与关联字段修复
+STATUS: PASS / K30S_148_HOST_EXHAUSTIVE / NOT_IN_FORMAL_APK
 DATE: 2026-08-01 UTC+8
 
-ROOT CAUSE:
-- SSBC API的size字段是KiB计数，旧代码按bytes格式化，大小缩小约1024倍。
-- 真实反例：24672993 KiB被显示24.7MB，正确为23.5GB。
-- 同hash合并曾冻结第一个非空大小，后续正确值无法纠正。
+FINDINGS:
+- SSBC KiB误当bytes：23.5GB曾显示24.7MB。
+- 通用详情DOM粘连：出现27801GB、10872GB、44.35GB。
+- Hash片段误识别：出现7B、89B、5B、98B。
+- 同Hash取最大值会放大巨大异常，已改独立来源聚类共识。
+- 日期原样透传：时间戳、大小、计数、相对时间进入日期栏。
+- fileCount映射丢失、纯数字日期误猜文件数、重复源虚增来源数。
 
 FIX:
-- 新增统一resourceSize authority，支持IEC/常规/中文/无空格/多大小标签。
-- SSBC固定KiB×1024换算。
-- 前台、后台和legacy dedup统一保留同hash最大总大小。
-- 容器多大小回退选择最大有效值，4K不误识别为4KB。
+- 列表绑定大小优先；DOM保留节点边界；拒绝Hash/文件名内伪大小。
+- 前台、后台、legacy去重统一来源共识；同源重复只计一票。
+- BTSOW/CiliMo/CLKD/Lulutang数值大小和文件数统一。
+- 新增统一日期权威，未知字段不展示；文件数只取明确证据。
 
-VERIFICATION:
-- K30S搜索“消失的人”：目标hash由24.7MB纠正为23.5GB。
-- 3.3MB、2.5MB分别纠正为3.16GB、2.42GB。
-- TypeScript PASS；App 53/53；Fluency 17/17；Debug build/install PASS。
-- resource/media/cache/security/network/update/release gates PASS；357 rules ALL VALID。
+K30S:
+- 流浪地球：148/148，425条，非法大小0，>=4x冲突0。
+- Ubuntu：148/148，639条，非法大小0，>=4x冲突0。
+- SSIS-001：148/148，466条，非法大小0，>=4x冲突0。
+- Inception：148/148，601条，非法日期0，文件数70/异常0。
+- Fatal=0，ANR=0。
 
-BOUNDARY:
-- 正式v0.2.3 APK未修改、未重新发布；普通用户需等待下一App版本。
-- 不修改源健康状态、搜索排序、远程配置或影视Feed。
-
-EVIDENCE:
-- docs/project-nebula/TEST-RESULT-20260801-搜索资源大小单位误识别修复.md
-- docs/project-nebula/_failures/20260801-1741-v023-update-download-stale-fixture.log
+GATES: TS PASS；App 54/54；Fluency 17/17；全部资源/媒体/更新/发布门禁PASS；357 rules ALL VALID。
+BOUNDARY: 公网正式0.2.3未改、未发布；需下一App正式版本生效。
+EVIDENCE: docs/project-nebula/TEST-RESULT-20260801-搜索资源大小跨源充分审计与关联字段修复.md

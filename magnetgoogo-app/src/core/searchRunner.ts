@@ -212,6 +212,7 @@ export async function runSearchTask({
         magnet: item.magnet,
         size: item.size,
         date: item.date,
+        fileCount: item.fileCount,
         score: item.score,
         seeders: item.seeders,
         leechers: item.leechers,
@@ -250,6 +251,8 @@ export async function runSearchTask({
         title: item.title,
         hash: (item.magnet.match(/btih:([a-fA-F0-9]+)/i)?.[1] || '').slice(0, 16),
         size: item.size || '',
+        date: item.date || '',
+        fileCount: item.fileCount,
         relevance,
       }));
       debugReport.recordSource(

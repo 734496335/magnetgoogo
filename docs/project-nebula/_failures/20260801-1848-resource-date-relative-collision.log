@@ -1,0 +1,12 @@
+Command: npx tsc --noEmit && node scripts/app-adversarial-tests.mjs
+Date: 2026-08-01 UTC+8
+Status: 53/54 PASS
+
+Failure:
+`4 days, 21 hours` returned empty instead of an approximate date.
+
+Root cause:
+The generic English `day month year` parser matched `4 days, 21` before the relative-age parser. `days` is not a valid month, but the code returned the empty validation result immediately instead of continuing.
+
+Resolution:
+Only return from English/Russian named-month branches when month validation produces a valid date; otherwise continue to relative-age parsing.
