@@ -8,7 +8,7 @@
  *   4. Multi-source hits rank higher (more trustworthy)
  */
 
-import type { SearchResult } from './types';
+import { parseSizeBytes, type SearchResult } from './types.ts';
 
 /** Extract the 40-hex info hash from a magnet URI. Returns lowercase or null. */
 export function extractInfoHash(magnet: string): string | null {
@@ -36,20 +36,6 @@ function base32ToHex(b32: string): string {
     hex += parseInt(bits.slice(i, i + 4), 2).toString(16);
   }
   return hex;
-}
-
-/** Parse size string ("1.5 GB") to bytes for sorting. Returns 0 if unparseable. */
-function parseSizeBytes(size: string): number {
-  if (!size) return 0;
-  const m = size.match(/([\d.]+)\s*(TB|GB|MB|KB)/i);
-  if (!m) return 0;
-  const n = parseFloat(m[1]);
-  const unit = m[2].toUpperCase();
-  if (unit === 'TB') return n * 1024 * 1024 * 1024 * 1024;
-  if (unit === 'GB') return n * 1024 * 1024 * 1024;
-  if (unit === 'MB') return n * 1024 * 1024;
-  if (unit === 'KB') return n * 1024;
-  return 0;
 }
 
 /** Detect video quality from title keywords. Higher = better. 50 = unknown. */
@@ -116,8 +102,9 @@ export function deduplicateResults(results: SearchResult[]): DedupedResult[] {
       if (r.title.length > existing.title.length) {
         existing.title = r.title;
       }
-      // Keep non-empty size
-      if (!existing.size && r.size) existing.size = r.size;
+      // For the same torrent hash, keep the largest reported total size rather
+      // than freezing the first non-empty sample/incorrectly scaled value.
+      if (parseSizeBytes(r.size) > parseSizeBytes(existing.size)) existing.size = r.size;
       // Keep better seeders
       if ((r.seeders || 0) > existing.bestSeeders) {
         existing.bestSeeders = r.seeders || 0;

@@ -140,9 +140,12 @@ export function mergePendingSearchResults(
       existing.source = result.source;
       existingChanged = true;
     }
-    if (!existing.size && result.size) {
+    const incomingSizeBytes = deps.parseSizeBytes(result.size);
+    // Identical info hashes describe the same torrent. The total torrent size
+    // is at least as large as any sample/file size exposed by another source.
+    if (incomingSizeBytes > existing._sizeBytes) {
       existing.size = result.size;
-      existing._sizeBytes = deps.parseSizeBytes(result.size);
+      existing._sizeBytes = incomingSizeBytes;
       existingChanged = true;
     }
     if ((result.seeders || 0) > existing.bestSeeders) {

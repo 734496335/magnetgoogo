@@ -1,30 +1,28 @@
-TASK: v0.2.3正式版与影视Revision 7生产状态
-STATUS: APP_RELEASE_LIVE / MEDIA_REVISION7_LIVE / PASSWORD_NOTICE_HOTFIX_LIVE
-DATE: 2026-07-31 UTC+8
+TASK: 搜索资源大小单位误识别修复
+STATUS: IMPLEMENTED_AND_K30S_VERIFIED / NOT_YET_IN_FORMAL_APK
+DATE: 2026-08-01 UTC+8
 
-APP:
-- 正式APK：0.2.3/versionCode7，仅arm64-v8a，备案签名一致。
-- APK SHA256=bbbe9b5900d69262c903ef8153c0954466956d416934ad7504caf159d6ad960d。
-- 缓存提交串行化、国内更新和安装权限已随0.2.3发布。
+ROOT CAUSE:
+- SSBC API的size字段是KiB计数，旧代码按bytes格式化，大小缩小约1024倍。
+- 真实反例：24672993 KiB被显示24.7MB，正确为23.5GB。
+- 同hash合并曾冻结第一个非空大小，后续正确值无法纠正。
 
-MEDIA REVISION 7:
-- release=20260730T000000Z-5c299304；pointer revision=7。
-- 199电影、220电视剧、3541磁力、0网盘。
-- pointer SHA=0068f832ee016fa22d35939d5250d711f1aa40f60d121e4ad6501fe1f6c80f93。
-- Manifest SHA=83f38186a06457a8e5bb8ddcda7587b9accbfa1f93bd477b15213b2bff8f02e8。
-- R2与阿里云current字节一致，0.2.3双端协议测试PASS。
-- 0.2.3可见398部影视/3312磁力；21部其他国家剧集无Tab入口，用户已接受。
+FIX:
+- 新增统一resourceSize authority，支持IEC/常规/中文/无空格/多大小标签。
+- SSBC固定KiB×1024换算。
+- 前台、后台和legacy dedup统一保留同hash最大总大小。
+- 容器多大小回退选择最大有效值，4K不误识别为4KB。
 
-DEPLOY FIX:
-- 阿里云媒体部署脚本改为POSIX set -eu。
-- PowerShell远程命令在SSH前统一CRLF→LF，远程探针及正式发布PASS。
-
-NOTICE: v0.2.3公告已补充“蓝奏云下载密码：8888”（mg-data 9edb4b7）；公网端点及K30S正式0.2.2弹窗均PASS，备用链接1打开新蓝奏云。
+VERIFICATION:
+- K30S搜索“消失的人”：目标hash由24.7MB纠正为23.5GB。
+- 3.3MB、2.5MB分别纠正为3.16GB、2.42GB。
+- TypeScript PASS；App 53/53；Fluency 17/17；Debug build/install PASS。
+- resource/media/cache/security/network/update/release gates PASS；357 rules ALL VALID。
 
 BOUNDARY:
-- 本轮仅验证更新通知与蓝奏云跳转；Revision 7真机频道点击仍沿用协议测试结论。
-- 评分展示留待下一App版本；未修改APK或版本号。
+- 正式v0.2.3 APK未修改、未重新发布；普通用户需等待下一App版本。
+- 不修改源健康状态、搜索排序、远程配置或影视Feed。
 
 EVIDENCE:
-- docs/project-nebula/TEST-RESULT-20260731-v0.2.2蓝奏云密码提示热修复.md
-- feature/media-daily-automation: docs/project-nebula/MEDIA-REVISION7-MAGNET-ONLY-PUBLICATION-20260731.md
+- docs/project-nebula/TEST-RESULT-20260801-搜索资源大小单位误识别修复.md
+- docs/project-nebula/_failures/20260801-1741-v023-update-download-stale-fixture.log

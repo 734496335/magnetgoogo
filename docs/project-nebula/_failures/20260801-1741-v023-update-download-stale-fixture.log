@@ -1,0 +1,13 @@
+Command: npm run test:update-download
+Date: 2026-08-01 UTC+8
+Status: FAIL (stale test fixture, unrelated to resource-size implementation)
+
+Assertion:
+actual:   https://api.naoshiquan.com/download/v0.2.3/magnetgoogo-v0.2.3.apk
+expected: https://api.naoshiquan.com/download/v0.2.2/magnetgoogo-v0.2.2.apk
+
+Root cause:
+magnetgoogo-app/scripts/update-download-policy-tests.mjs still hard-coded the retired v0.2.2 primary, Lanzou and GitHub URLs after v0.2.3 was published. Production config is v0.2.3.
+
+Resolution:
+Update only the stale test fixture to the already-published v0.2.3 routes, then rerun the gate. No production update behavior is changed.

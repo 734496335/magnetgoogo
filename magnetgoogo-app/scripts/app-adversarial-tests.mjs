@@ -18,7 +18,8 @@ import {
   toResultCardModel,
   computeRelevance,
 } from '../src/core/types.ts';
-import { extractInfoHash } from '../src/core/dedup.ts';
+import { deduplicateResults, extractInfoHash } from '../src/core/dedup.ts';
+import { formatSsbcSize } from '../src/core/resourceSize.ts';
 import {
   isHashPlaceholderTitle,
   recoverResultTitle,
@@ -245,10 +246,17 @@ await test('M2', 'DTS and resolution tags are both detected', () => {
   assert.deepEqual(extractTags('Movie DTS-HD MA 1080p'), ['1080P', 'DTS']);
 });
 
-await test('M3', 'binary and byte size formats share one numeric parser', () => {
+await test('M3', 'binary, Chinese and multi-size labels share one numeric authority', () => {
   assert.equal(parseSizeLabel('size=1.5 GiB'), '1.5 GB');
   assert.equal(parseSizeBytes('1.5 GiB'), 1.5 * 1024 ** 3);
   assert.equal(parseSizeBytes('1024 bytes'), 1024);
+  assert.equal(parseSizeLabel('样片 24.7MB / 种子总大小 23.5GB'), '23.5 GB');
+  assert.equal(parseSizeBytes('总大小：23.5吉字节'), 23.5 * 1024 ** 3);
+  assert.equal(parseSizeBytes('4K HDR'), 0);
+  assert.equal(formatSsbcSize('24672993'), '23.5 GB');
+  const engine = read('src/core/searchEngine.ts');
+  assert.match(engine, /const size = formatSsbcSize\(t\.size\)/);
+  assert.doesNotMatch(engine, /const sizeBytes = parseInt\(t\.size, 10\)/);
   assert.equal(toResultCardModel({ title: 'x', magnet: 'm', size: '700 MiB' }, 0).sizeBytes, 700 * 1024 ** 2);
 });
 
@@ -273,6 +281,21 @@ await test('M4', 'final model tie-break ranking understands binary units', () =>
     buildCard: (result, index) => toResultCardModel(result, index, 'x'),
   });
   assert.equal(state._cardModels[0].title, 'B');
+});
+
+await test('M4B', 'same-hash merges replace a wrong small size with the largest torrent total', () => {
+  const hash = 'd'.repeat(40);
+  const first = { title: '消失的人 2160p', magnet: `magnet:?xt=urn:btih:${hash}`, size: '24.7 MB', source: 'bad-unit' };
+  const corrected = { ...first, size: '23.5 GB', source: 'correct-unit' };
+  const state = createSearchResultAccumulatorState();
+  mergePendingSearchResults(state, [first, corrected], '消失的人', {
+    extractInfoHash,
+    getStableId: getResultStableId,
+    computeRelevance,
+    parseSizeBytes,
+  });
+  assert.equal(state._dedupMap.get(hash)?.size, '23.5 GB');
+  assert.equal(deduplicateResults([first, corrected])[0].size, '23.5 GB');
 });
 
 await test('M5', 'stable IDs ignore tracker order for btih magnets', () => {
@@ -619,6 +642,13 @@ await test('B2', 'background result merge is stable and deduplicates repeated so
   assert.equal(merged[0].title, 'Longer title');
   assert.equal(merged[0].size, '1 GiB');
   assert.equal(merged[0].seeders, 8);
+
+  const sizeConflict = mergeBackgroundSearchResults(
+    [{ title: 'Same', magnet: `magnet:?xt=urn:btih:${hash}`, size: '23.5 GB' }],
+    [{ title: 'Same', magnet: `magnet:?xt=urn:btih:${hash}`, size: '24.7 MB' }],
+    getResultStableId,
+  );
+  assert.equal(sizeConflict[0].size, '23.5 GB');
 });
 
 await test('B3', 'background observation does not expire after twenty seconds', () => {

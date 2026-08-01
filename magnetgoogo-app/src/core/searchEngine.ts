@@ -28,6 +28,11 @@ import {
   isHashPlaceholderTitle,
   recoverResultTitle,
 } from './searchResultTitle';
+import {
+  formatResourceSize,
+  formatSsbcSize,
+  parseResourceSizeLabel,
+} from './resourceSize';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -62,8 +67,7 @@ export interface SourceRule {
 // ── Utility functions ────────────────────────────────────────────────
 
 function normalizeSize(raw: string): string {
-  if (!raw) return '';
-  return raw.replace(/\bTiB\b/gi, 'TB').replace(/\bGiB\b/gi, 'GB').replace(/\bMiB\b/gi, 'MB').replace(/\bKiB\b/gi, 'KB');
+  return parseResourceSizeLabel(raw);
 }
 
 function cleanTitle(raw: string): string {
@@ -228,16 +232,12 @@ function titleFromLooseValue(raw: string): string {
 }
 
 function formatStructuredSize(value: unknown): string {
-  if (typeof value === 'string' && /\b(?:TB|TiB|GB|GiB|MB|MiB|KB|KiB)\b/i.test(value)) {
-    return normalizeSize(value.trim());
+  if (typeof value === 'string') {
+    const label = normalizeSize(value);
+    if (label) return label;
   }
   const bytes = typeof value === 'number' ? value : Number(value);
-  if (!Number.isFinite(bytes) || bytes <= 0) return '';
-  if (bytes >= 1024 ** 4) return `${(bytes / 1024 ** 4).toFixed(2)} TB`;
-  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
-  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
-  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${Math.trunc(bytes)} B`;
+  return formatResourceSize(bytes);
 }
 
 function parseStructuredSearchPayload(
@@ -423,13 +423,9 @@ function extractFromSearchPage(
       size = item.find(selectors.size).first().text().trim();
     }
     if (!size && magnet) {
-      const sizeMatch = item.text().match(/([\d.]+)\s*(TB|TiB|GB|GiB|MB|MiB|KB|KiB)\b/i);
-      if (sizeMatch) size = sizeMatch[0].replace(/iB\b/i, 'B');
-      // Chinese sites often have no space: "1.5GB"
-      if (!size) {
-        const cnSize = item.text().match(/([\d.]+)(TB|GB|MB|KB)/i);
-        if (cnSize) size = `${cnSize[1]} ${cnSize[2]}`;
-      }
+      // Containers can include sample/attachment sizes before the torrent total.
+      // The torrent size is the largest valid size bound to this result row.
+      size = normalizeSize(item.text());
     }
 
     // Date
@@ -574,7 +570,7 @@ function extractFromSearchPage(
       }
 
       const scopeText = scope.text();
-      const size = scopeText.match(/([\d.]+)\s*(TB|TiB|GB|GiB|MB|MiB|KB|KiB)\b/i)?.[0] || '';
+      const size = normalizeSize(scopeText);
       const date = scopeText.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})/)?.[0] || '';
       const seeders = Number(scopeText.match(/(\d+)\s*seeders?/i)?.[1] || 0);
       const leechers = Number(scopeText.match(/(\d+)\s*leechers?/i)?.[1] || 0);
@@ -665,7 +661,7 @@ function extractFromSearchPage(
       results.push({
         title: cleanTitle(title),
         magnet,
-        size: normalizeSize(scope.text().match(/([\d.]+)\s*(TB|TiB|GB|GiB|MB|MiB|KB|KiB)\b/i)?.[0] || ''),
+        size: normalizeSize(scope.text()),
         date: cleanDate(scope.text().match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})/)?.[0] || ''),
         seeders: Number(scope.text().match(/(\d+)\s*seeders?/i)?.[1] || 0),
         leechers: Number(scope.text().match(/(\d+)\s*leechers?/i)?.[1] || 0),
@@ -809,14 +805,7 @@ async function fetchDetailResults(
 
       let size = '';
       if (detailSelectors.size) size = $(detailSelectors.size).first().text().trim();
-      if (!size) {
-        const sizeMatch = getBodyText().match(/([\d.]+)\s*(TB|TiB|GB|GiB|MB|MiB|KB|KiB)\b/i);
-        if (sizeMatch) size = sizeMatch[0].replace(/iB\b/i, 'B');
-      }
-      if (!size) {
-        const cnSize = getBodyText().match(/([\d.]+)(TB|GB|MB|KB)/i);
-        if (cnSize) size = `${cnSize[1]} ${cnSize[2]}`;
-      }
+      if (!size) size = normalizeSize(getBodyText());
 
       let date = '';
       if (detailSelectors.date) date = $(detailSelectors.date).first().text().trim();
@@ -1075,9 +1064,7 @@ async function fetchMeijumi(
           seen.add(magnet);
 
           const bodyText = d$('body').text();
-          let size = '';
-          const sizeMatch = bodyText.match(/([\d.]+)\s*(TB|TiB|GB|GiB|MB|MiB|KB|KiB)\b/i);
-          if (sizeMatch) size = sizeMatch[0].replace(/iB\b/i, 'B');
+          const size = normalizeSize(bodyText);
           let date = '';
           const dateMatch = bodyText.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
           if (dateMatch) date = dateMatch[1];
@@ -1377,10 +1364,7 @@ async function fetchZhongzidi(
 
           const bodyText = d$('body').text();
           let size = sizeHints[i] || '';
-          if (!size) {
-            const sizeMatch = bodyText.match(/([\d.]+)\s*(TB|TiB|GB|GiB|MB|MiB|KB|KiB)\b/i);
-            if (sizeMatch) size = sizeMatch[0].replace(/iB\b/i, 'B');
-          }
+          if (!size) size = normalizeSize(bodyText);
           let date = dateHints[i] || '';
           if (!date) {
             const dateMatch = bodyText.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
@@ -1663,9 +1647,7 @@ async function fetchRarbggo(
           d$('h1').first().text().trim() ||
           d$('title').first().text().replace(/\s*[-|].*$/, '').trim();
         const bodyText = d$('body').text();
-        let detailSize = '';
-        const sizeM = bodyText.match(/([\d.]+)\s*(TB|TiB|GB|GiB|MB|MiB|KB|KiB)\b/i);
-        if (sizeM) detailSize = sizeM[0].replace(/iB\b/i, 'B');
+        const detailSize = normalizeSize(bodyText);
         let detailDate = '';
         const dateM = bodyText.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
         if (dateM) detailDate = dateM[1];
@@ -2127,12 +2109,9 @@ async function fetchSsbc(
         let name: string = t.name_simple || t.name_IK || '';
         name = name.replace(/<[^>]+>/g, '');
 
-        const sizeBytes = parseInt(t.size, 10) || 0;
-        let size = '';
-        if (sizeBytes >= 1e12) size = `${(sizeBytes / 1e12).toFixed(2)} TB`;
-        else if (sizeBytes >= 1e9) size = `${(sizeBytes / 1e9).toFixed(2)} GB`;
-        else if (sizeBytes >= 1e6) size = `${(sizeBytes / 1e6).toFixed(1)} MB`;
-        else if (sizeBytes > 0) size = `${(sizeBytes / 1e3).toFixed(0)} KB`;
+        // SSBC stores torrent size as a KiB count. Treating it as bytes makes
+        // 24,672,993 KiB appear as 24.7 MB instead of the correct 23.5 GB.
+        const size = formatSsbcSize(t.size);
 
         const date = t.createdate || '';
 

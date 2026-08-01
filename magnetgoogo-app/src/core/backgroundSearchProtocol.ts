@@ -1,4 +1,4 @@
-import type { SearchResult } from './types';
+import { parseSizeBytes, type SearchResult } from './types.ts';
 
 export const BACKGROUND_SEARCH_POLL_INTERVAL_MS = 1500;
 export const BACKGROUND_SEARCH_TASK_TIMEOUT_MS = 30 * 60 * 1000;
@@ -51,11 +51,13 @@ export function mergeBackgroundSearchResults(
     }
 
     const existing = merged[existingIndex];
+    const existingSizeBytes = parseSizeBytes(existing.size);
+    const incomingSizeBytes = parseSizeBytes(item.size);
     merged[existingIndex] = {
       ...existing,
       ...item,
       title: item.title.length >= existing.title.length ? item.title : existing.title,
-      size: item.size || existing.size,
+      size: incomingSizeBytes > existingSizeBytes ? item.size : existing.size,
       date: item.date || existing.date,
       fileCount: item.fileCount || existing.fileCount,
       seeders: Math.max(item.seeders || 0, existing.seeders || 0),

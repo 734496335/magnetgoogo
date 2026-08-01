@@ -36,6 +36,7 @@
 | [CH-005](#challenge-005--域名漂移--死链发现滞后) | 域名漂移 / 死链发现滞后 | medium | open | — |
 | [CH-006](#challenge-006--resource-index-live-抓取可复现性与数据不退化) | Resource Index live 抓取可复现性与数据不退化 | **blocker** | solved ✅ | 2026-07-25 R6 complete; independent re-review pending |
 | [CH-007](#challenge-007--resource-index-跨电脑长任务编排与恢复) | Resource Index 跨电脑长任务编排与恢复 | **blocker** | solved in implementation | 2026-07-25 portable latest runner complete |
+| [CH-008](#challenge-008--搜索资源大小单位与合并权威不一致) | 搜索资源大小单位与合并权威不一致 | high | solved ✅ | 2026-08-01 SSBC KiB与同hash合并修复 |
 
 ---
 
@@ -349,6 +350,31 @@
 - Verification: SixV 13 passed; resource_index 119 passed; all magnet non-integration 182 passed / 2 deselected; schema 0004 doctor, PowerShell 4/4, fresh Python 3.13 deployment and outside-project doctor/status PASS.
 - Evidence: `RESOURCE-INDEX-SIXV-LATEST50-2026-07-25.md`.
 - Remaining: cover image bytes are not cached in SQLite; App/API integration, local image storage and an independent final adversarial audit remain future scope.
+
+---
+
+## CHALLENGE-008 — 搜索资源大小单位与合并权威不一致
+
+- **严重程度**：high
+- **状态**：solved ✅
+- **首次记录**：2026-08-01
+- **业务影响**：SSBC平台源把KiB数值当成bytes，导致资源大小缩小约1024倍；“消失的人”4K资源由真实约23.5GB错误显示为24.7MB。同一磁力的后续正确大小又会被“第一个非空值”合并规则阻止纠正。
+- **根因**：
+  - `fetchSsbc()` 对API字段 `size="24672993"` 直接按bytes格式化，但该字段实际是KiB计数；
+  - 前台增量合并、后台快照合并和旧dedup路径没有统一大小权威，分别采用首个非空值或最后非空值；
+  - 通用HTML回退只取容器中的第一个大小，可能抓到样片/附件而非种子总大小。
+- **修复**：
+  - 新增统一 `resourceSize.ts`，覆盖B/KB/MB/GB/TB、IEC单位、中文单位、无空格和多大小文本；
+  - SSBC专用转换固定为 `KiB × 1024 → bytes`；
+  - 同一info-hash冲突时统一保留最大的总资源大小；
+  - 结果行存在多个大小时选择最大的有效大小，且明确避免把`4K`分辨率识别为4KB。
+- **验证**：
+  - 原始API：hash `60459b...` 的 `size=24672993`，换算为 `23.5299997 GiB`；
+  - K30S修复前显示24.7MB，修复后同一hash显示23.5GB；
+  - 另外3.3MB、2.5MB分别纠正为3.16GB、2.42GB；
+  - App对抗测试53/53、流畅性17/17、TypeScript、Debug构建与真机搜索均PASS。
+- **边界**：当前正式0.2.3 APK不包含该代码修复，需随下一App版本发布；不通过远程源包伪造或删除SSBC结果。
+- **更新日志**：2026-08-01 —— 根因、实现、测试与K30S真机闭环完成。
 
 ---
 

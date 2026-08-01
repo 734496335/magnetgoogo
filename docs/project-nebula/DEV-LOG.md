@@ -1,4 +1,26 @@
 ---
+Date/Time: 2026-08-01 17:45 (UTC+8)
+Version: next-app-resource-size-authority-fix
+Scope: Fix severe torrent-size unit errors such as 23.5GB being displayed as 24.7MB, unify same-hash size authority and verify the live SSBC path on K30S
+Modules: magnetgoogo-app/src/core/{resourceSize.ts,types.ts,searchEngine.ts,searchResultAccumulator.ts,backgroundSearchProtocol.ts,dedup.ts}, magnetgoogo-app/scripts/{app-adversarial-tests.mjs,update-download-policy-tests.mjs}, docs/project-nebula/{_progress.txt,DEV-LOG.md,TECH-CHALLENGES.md,TEST-RESULT-20260801-搜索资源大小单位误识别修复.md,_failures/20260801-1741-v023-update-download-stale-fixture.log}
+
+### Root cause and repair
+- Reproduced `消失的人` on K30S: SSBC mirrors `berrl.com` and `movih.com` returned hash `60459b...` as `24.7 MB`.
+- Queried the live SSBC API and froze the exact raw value `size=24672993`; the field is a KiB count, so the correct binary conversion is `23.5299997 GiB`, not 24.7MB.
+- Added one shared size authority for IEC/standard/Chinese/no-space/multi-size labels and an explicit SSBC KiB converter. `4K HDR` is deliberately not parsed as a size.
+- Frontend accumulation, background snapshot merge and legacy dedup now keep the largest total size for identical info-hashes instead of freezing or blindly overwriting with an incorrect non-empty value.
+
+### Verification
+- K30S fixed Debug search changed the exact target from `24.7 MB` to `23.5 GB`; two other affected resources changed from `3.3 MB / 2.5 MB` to `3.16 GB / 2.42 GB`.
+- TypeScript PASS; App adversarial 53/53; Fluency 17/17; standalone arm64 Debug build/install PASS; Fatal/ANR zero.
+- Resource Feed, Media Cache, Media Security, Media Network, Update Download and Release Build gates PASS; source enums `357 / ALL VALID`.
+- The first update-download gate exposed a stale v0.2.2-only test fixture. It was logged before the test-only fixture was aligned with the already-published v0.2.3 routes; no production update behavior changed.
+
+### Boundary
+- The public v0.2.3 APK remains unchanged and does not yet contain this parser fix. It must ship in the next App release; no source health status, search ranking, remote config or media feed was changed.
+---
+
+---
 Date/Time: 2026-07-31 21:36 (UTC+8)
 Version: v0.2.3-lanzou-password-notice-hotfix
 Scope: Add the missing LanzouCloud password to the live v0.2.3 migration notice for users upgrading from formal v0.2.2

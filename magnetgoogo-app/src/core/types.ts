@@ -1,5 +1,10 @@
 /** Shared types for the MagnetGoogo RN app. */
 import type { Translations } from './i18n';
+import {
+  formatResourceSize,
+  parseResourceSizeBytes,
+  parseResourceSizeLabel,
+} from './resourceSize.ts';
 
 export interface SearchResult {
   title: string;
@@ -199,51 +204,13 @@ export function extractTags(title: string): string[] {
 }
 
 /** Format bytes to human-readable. */
-export function formatSize(bytes?: number): string {
-  if (!bytes || bytes <= 0) return '';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let idx = 0;
-  let val = bytes;
-  while (val >= 1024 && idx < units.length - 1) {
-    val /= 1024;
-    idx++;
-  }
-  return `${val.toFixed(val >= 100 ? 0 : 1)} ${units[idx]}`;
-}
+export const formatSize = formatResourceSize;
 
-const SIZE_PATTERN = /(\d+(?:\.\d+)?)\s*(TiB|GiB|MiB|KiB|TB|GB|MB|KB|bytes?|B)\b/i;
-
-function normalizeSizeUnit(unit: string): string {
-  const upper = unit.toUpperCase();
-  if (upper === 'BYTE' || upper === 'BYTES') return 'B';
-  return upper.replace('IB', 'B');
-}
-
-/** Parse size string — extract only the valid size portion (e.g. "14.61 GB"). */
-export function parseSizeLabel(sizeStr?: string): string {
-  if (!sizeStr) return '';
-  const match = sizeStr.match(SIZE_PATTERN);
-  if (!match) return '';
-  return `${match[1]} ${normalizeSizeUnit(match[2])}`;
-}
+/** Parse size string — when a container contains several sizes, use the total/largest one. */
+export const parseSizeLabel = parseResourceSizeLabel;
 
 /** Parse decimal/binary size labels to bytes for all list sort paths. */
-export function parseSizeBytes(sizeStr?: string): number {
-  if (!sizeStr) return 0;
-  const match = sizeStr.match(SIZE_PATTERN);
-  if (!match) return 0;
-  const value = Number.parseFloat(match[1]);
-  if (!Number.isFinite(value) || value <= 0) return 0;
-  const unit = normalizeSizeUnit(match[2]);
-  const multipliers: Record<string, number> = {
-    B: 1,
-    KB: 1024,
-    MB: 1024 ** 2,
-    GB: 1024 ** 3,
-    TB: 1024 ** 4,
-  };
-  return value * (multipliers[unit] || 0);
-}
+export const parseSizeBytes = parseResourceSizeBytes;
 
 function kindLabelText(kind: Kind, t?: Translations): string {
   if (t) {
