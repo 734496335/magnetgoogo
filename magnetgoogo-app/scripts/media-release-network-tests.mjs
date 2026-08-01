@@ -74,8 +74,19 @@ for (const ref of uniqueCatalogRefs) {
   for (const item of catalog.items) cards.set(item.media_id, item);
 }
 assert.equal(cards.size, 200);
+const catalogRatingCounts = {
+  imdb: [...cards.values()].filter((item) => item.imdb_rating != null).length,
+  douban: [...cards.values()].filter((item) => item.douban_rating != null).length,
+  rotten_tomatoes: [...cards.values()].filter((item) => item.rotten_tomatoes_rating != null).length,
+  bangumi: [...cards.values()].filter((item) => item.bangumi_rating != null).length,
+};
+assert.ok(catalogRatingCounts.imdb > 0);
+assert.ok(catalogRatingCounts.douban > 0);
+assert.ok(catalogRatingCounts.rotten_tomatoes > 0);
+assert.ok(catalogRatingCounts.bangumi > 0);
 
 let resourceItems = 0;
+const detailRatingCounts = { rotten_tomatoes: 0, bangumi: 0 };
 for (const card of cards.values()) {
   const detailBytes = bytes(card.detail_object.path);
   assert.equal(detailBytes.length, card.detail_object.size);
@@ -84,6 +95,8 @@ for (const card of cards.values()) {
   assert.equal(detail.schema_version, 'media-detail/1');
   assert.equal(detail.media_id, card.media_id);
   assert.equal(detail.resource_object.encrypted, false);
+  if (detail.rotten_tomatoes_rating != null) detailRatingCounts.rotten_tomatoes += 1;
+  if (detail.bangumi_rating != null) detailRatingCounts.bangumi += 1;
   const resourceBytes = bytes(detail.resource_object.path);
   assert.equal(resourceBytes.length, detail.resource_object.size);
   assert.equal(crypto.createHash('sha256').update(resourceBytes).digest('hex'), detail.resource_object.hash);
@@ -93,6 +106,8 @@ for (const card of cards.values()) {
   resourceItems += resources.items.length;
 }
 assert.equal(resourceItems, 1682);
+assert.ok(detailRatingCounts.rotten_tomatoes > 0);
+assert.ok(detailRatingCounts.bangumi > 0);
 
 const protocolSource = fs.readFileSync(path.join(process.cwd(), 'src/core/mediaReleaseProtocol.ts'), 'utf8');
 const clientSource = fs.readFileSync(path.join(process.cwd(), 'src/core/mediaReleaseClient.ts'), 'utf8');
@@ -238,6 +253,8 @@ console.log(JSON.stringify({
   local_fixture_catalog_objects: uniqueCatalogRefs.length,
   local_fixture_media_cards: cards.size,
   local_fixture_resource_items: resourceItems,
+  local_fixture_catalog_ratings: catalogRatingCounts,
+  local_fixture_detail_ratings: detailRatingCounts,
   live_pointer_sha256: acceptedPointerHash,
   signature_tamper_rejected: true,
   endpoints: endpointChecks,

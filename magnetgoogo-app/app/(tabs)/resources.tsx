@@ -21,7 +21,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLang } from '../../src/core/LangContext';
 import { useTheme, type Colors } from '../../src/core/ThemeContext';
 import { MovieTagRow } from '../../src/components/MovieTagRow';
-import { getMovieScoreTier } from '../../src/core/movieRatings';
+import {
+  compareMediaFeedRank,
+  getMovieScoreTier,
+  isServerRecommendedMovie,
+} from '../../src/core/movieRatings';
 import { seriesStatusForDisplay } from '../../src/core/mediaResourceTitle';
 import { getResourceCopy } from '../../src/core/resourceCopy';
 import { loadResourceFeed, movieCoverUri, syncResourceFeed } from '../../src/core/resourceFeed';
@@ -445,12 +449,16 @@ export default function ResourcesScreen() {
   }, [router]);
 
   const filteredItems = useMemo(
-    () => feed?.items.filter((item) => matchesChannel(item, activeChannel)) ?? [],
-    [activeChannel, feed?.items],
+    () => feed
+      ? [...feed.items]
+        .sort(compareMediaFeedRank)
+        .filter((item) => matchesChannel(item, activeChannel))
+      : [],
+    [activeChannel, feed],
   );
 
   const spotlight = useMemo(() => {
-    if (activeKind === 'movie') return filteredItems.filter((item) => item.recommended);
+    if (activeKind === 'movie') return filteredItems.filter(isServerRecommendedMovie);
     return filteredItems.filter((item) => !isCompletedSeries(item)).slice(0, 10);
   }, [activeKind, filteredItems]);
 
@@ -460,7 +468,7 @@ export default function ResourcesScreen() {
   );
 
   const recent = useMemo(() => {
-    if (activeKind === 'movie') return filteredItems.filter((item) => !item.recommended);
+    if (activeKind === 'movie') return filteredItems.filter((item) => !isServerRecommendedMovie(item));
     const withoutSpotlight = filteredItems.filter((item) => !spotlightIds.has(item.movie_id));
     return withoutSpotlight.length > 0 ? withoutSpotlight : filteredItems;
   }, [activeKind, filteredItems, spotlightIds]);

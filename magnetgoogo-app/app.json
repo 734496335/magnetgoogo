@@ -2,7 +2,7 @@
   "expo": {
     "name": "MagGoogo",
     "slug": "magnetgoogo-app",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -31,7 +31,7 @@
     },
     "android": {
       "package": "com.magnetgoogo.app",
-      "versionCode": 7,
+      "versionCode": 8,
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.REQUEST_INSTALL_PACKAGES"

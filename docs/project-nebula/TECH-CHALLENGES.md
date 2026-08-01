@@ -37,6 +37,7 @@
 | [CH-006](#challenge-006--resource-index-live-抓取可复现性与数据不退化) | Resource Index live 抓取可复现性与数据不退化 | **blocker** | solved ✅ | 2026-07-25 R6 complete; independent re-review pending |
 | [CH-007](#challenge-007--resource-index-跨电脑长任务编排与恢复) | Resource Index 跨电脑长任务编排与恢复 | **blocker** | solved in implementation | 2026-07-25 portable latest runner complete |
 | [CH-008](#challenge-008--搜索资源大小单位与合并权威不一致) | 搜索资源大小单位与合并权威不一致 | high | solved ✅ | 2026-08-01 148源大小/日期/文件数闭环 |
+| [CH-009](#challenge-009--四评分跨协议缓存与ui量纲一致性) | 四评分跨协议、缓存与UI量纲一致性 | medium | solved ✅ | 2026-08-01 v0.2.4客户端闭环 |
 
 ---
 
@@ -381,6 +382,34 @@
 - **证据**：`TEST-RESULT-20260801-搜索资源大小跨源充分审计与关联字段修复.md`。
 - **边界**：当前正式0.2.3 APK不包含这些客户端解析修复，需随下一App版本发布；线上源包、源健康状态、池策略和影视Feed未改变。
 - **更新日志**：2026-08-01 —— 从SSBC单点扩展至148源大小、日期、文件数量与来源共识闭环。
+
+---
+
+## CHALLENGE-009 — 四评分跨协议、缓存与UI量纲一致性
+
+- **严重程度**：medium
+- **状态**：solved ✅
+- **首次记录**：2026-08-01
+- **业务影响**：媒体供给侧已能写回IMDb、豆瓣、烂番茄和Bangumi，但0.2.3客户端只消费前两种；新增评分会在catalog、detail或本地缓存任一层被丢弃，百分制烂番茄还可能被错误套用十分制阈值。
+- **根因**：
+  - release协议和`MovieFeedItem`没有新增字段；
+  - catalog映射、detail水合、离线bundle标准化均只处理IMDb/豆瓣；
+  - UI只适配两枚评分胶囊，没有四项布局和空值规则；
+  - 排序、推荐和高分强调的评分权威未显式冻结。
+- **修复**：
+  - 协议、feed模型和缓存对象完整保留四种评分及RT URL、Bangumi subject ID等详情元数据；
+  - 抽出无原生依赖的`mediaReleaseMapping.ts`，对catalog→列表、detail→缓存执行测试；
+  - 列表固定豆瓣→IMDb→烂番茄→Bangumi，详情采用两列评分卡，四项时2×2；空值与越界值不展示；
+  - 排序固定release rank，精品推荐固定服务端recommended；高分主评分优先级为豆瓣→IMDb→Bangumi→烂番茄；
+  - 十分制阈值6.0/8.0，烂番茄阈值60%/80%。
+- **验证**：
+  - 冻结签名release有200条唯一媒体卡，IMDb153/豆瓣99/RT82/Bangumi96；5条唯一媒体可同时展示四评分；
+  - 线上revision8有444条唯一媒体、RT62、Bangumi0，证明客户端能力已就绪但线上Bangumi供给尚未发布；
+  - 协议、缓存、网络、UI、旧revision与空值测试全部PASS；App对抗54/54、流畅性17/17；
+  - K30S在线列表/详情与断网冷启动缓存恢复PASS，Fatal/ANR为0。
+- **证据**：`TEST-RESULT-20260801-v0.2.4四评分客户端消费与兼容性.md`。
+- **边界**：0.2.4尚未发布；公网v0.2.3和线上revision8未修改。Bangumi实际线上展示依赖后续评分写回与新revision发布。
+- **更新日志**：2026-08-01 —— 四评分客户端消费、量纲、UI、缓存和业务口径闭环。
 
 ---
 

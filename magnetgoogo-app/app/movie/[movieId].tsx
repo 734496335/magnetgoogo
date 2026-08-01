@@ -527,6 +527,7 @@ export default function MovieDetailScreen() {
           item={movie}
           colors={colors}
           qualityTags={movie.quality_tags.slice(0, 5)}
+          ratingVariant="detail"
           centered
           style={styles.detailTags}
         />

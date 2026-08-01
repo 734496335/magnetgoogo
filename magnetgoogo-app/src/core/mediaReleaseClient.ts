@@ -12,7 +12,6 @@ import {
   selectMediaCurrentCandidate,
   sha256Hex,
   MediaReleaseValidationError,
-  type MediaCatalogCard,
   type MediaCurrentCandidate,
   type MediaCurrentPointer,
   type MediaManifest,
@@ -33,8 +32,11 @@ import type {
   MediaKind,
   MovieFeed,
   MovieFeedItem,
-  MovieResource,
 } from './resourceFeedProtocol';
+import {
+  mediaFeedItemFromCatalogCard,
+  mergeMediaDetailIntoFeedItem,
+} from './mediaReleaseMapping';
 
 const MEDIA_ENDPOINTS = [
   'https://media.magnetgoogo.com',
@@ -334,61 +336,6 @@ function catalogRefs(manifest: MediaManifest, kind: MediaKind): MediaObjectRef[]
   });
 }
 
-function itemFromCard(
-  card: MediaCatalogCard,
-  rank: number,
-  endpoint: string,
-  releaseId: string,
-): MovieFeedItem {
-  return {
-    rank,
-    movie_id: card.media_id,
-    source_id: 'media-release',
-    source_item_key: card.media_id,
-    detail_url: `${endpoint}${card.detail_object.path}`,
-    listing_title: card.title,
-    content_kind: card.content_kind,
-    series_title: card.content_kind === 'series' ? card.title : null,
-    season_number: card.season_number ?? null,
-    episode_number: card.episode_number ?? null,
-    episode_label: card.episode_label ?? null,
-    update_status: card.update_status ?? null,
-    title: card.title,
-    original_title: card.original_title ?? null,
-    year: card.year ?? null,
-    update_date: card.update_date ?? null,
-    release_date: null,
-    duration_minutes: null,
-    countries: card.countries,
-    genres: card.genres,
-    languages: [],
-    directors: [],
-    actors: [],
-    imdb_id: null,
-    imdb_rating: card.imdb_rating ?? null,
-    imdb_rating_text: card.imdb_rating === null || card.imdb_rating === undefined ? null : String(card.imdb_rating),
-    douban_rating: card.douban_rating ?? null,
-    douban_rating_text: card.douban_rating === null || card.douban_rating === undefined ? null : String(card.douban_rating),
-    douban_url: null,
-    cover_source_url: null,
-    cover_asset_path: null,
-    cover_width: null,
-    cover_height: null,
-    synopsis: null,
-    recommended: card.recommended,
-    highlight_labels: card.highlight_labels,
-    quality_tags: card.quality_tags,
-    resources: [],
-    resource_count_hint: card.resource_count,
-    remote_cover_url: `${endpoint}${card.cover.path}`,
-    remote_endpoint: endpoint,
-    remote_release_id: releaseId,
-    remote_detail_path: card.detail_object.path,
-    remote_detail_hash: card.detail_object.hash,
-    remote_detail_size: card.detail_object.size,
-  };
-}
-
 export async function syncMediaFeed(kind: MediaKind): Promise<MovieFeed> {
   const [cachedFeed, cachedIdentity] = await Promise.all([
     cachedMediaFeed(kind),
@@ -419,7 +366,7 @@ export async function syncMediaFeed(kind: MediaKind): Promise<MovieFeed> {
   catalogs.forEach(({ value, endpoint }) => {
     value.items.forEach((card) => {
       if (card.content_kind !== kind || byId.has(card.media_id)) return;
-      byId.set(card.media_id, itemFromCard(card, byId.size + 1, endpoint, release.pointer.release_id));
+      byId.set(card.media_id, mediaFeedItemFromCatalogCard(card, byId.size + 1, endpoint, release.pointer.release_id));
     });
   });
   const items = [...byId.values()].map((item, index) => ({ ...item, rank: index + 1 }));
@@ -477,47 +424,6 @@ export async function syncMediaFeed(kind: MediaKind): Promise<MovieFeed> {
   return feed;
 }
 
-function mergeDetail(
-  item: MovieFeedItem,
-  detail: ReturnType<typeof parseDetail>,
-  resources: ReturnType<typeof parseResources>,
-  endpoint: string,
-): MovieFeedItem {
-  const mappedResources: MovieResource[] = resources.items.map((resource) => ({
-    resource_type: resource.resource_type,
-    provider: resource.provider,
-    url: resource.url,
-    info_hash: resource.info_hash ?? null,
-    display_title: resource.display_title,
-    extraction_code: resource.extraction_code ?? null,
-    quality_tags: resource.quality_tags,
-  }));
-  return {
-    ...item,
-    detail_url: `${endpoint}${item.remote_detail_path ?? ''}`,
-    title: detail.title,
-    original_title: detail.original_title ?? null,
-    year: detail.year ?? null,
-    release_date: detail.release_date ?? null,
-    duration_minutes: detail.duration_minutes ?? null,
-    countries: detail.countries,
-    genres: detail.genres,
-    languages: detail.languages,
-    directors: detail.directors,
-    actors: detail.actors,
-    imdb_id: detail.imdb_id ?? null,
-    imdb_rating: detail.imdb_rating ?? item.imdb_rating,
-    imdb_rating_text: detail.imdb_rating_text ?? item.imdb_rating_text,
-    douban_rating: detail.douban_rating ?? item.douban_rating,
-    douban_rating_text: detail.douban_rating_text ?? item.douban_rating_text,
-    douban_url: detail.douban_url ?? null,
-    synopsis: detail.synopsis ?? null,
-    resources: mappedResources,
-    resource_count_hint: mappedResources.length,
-    remote_endpoint: endpoint,
-  };
-}
-
 function detailEndpointOrder(item: MovieFeedItem): string[] {
   const preferred = item.remote_endpoint && MEDIA_ENDPOINTS.includes(item.remote_endpoint as typeof MEDIA_ENDPOINTS[number])
     ? item.remote_endpoint
@@ -556,7 +462,7 @@ async function fetchAndCacheRemoteMediaDetail(item: MovieFeedItem): Promise<Movi
   if (resourceResult.value.media_id !== item.movie_id) {
     throw new Error('MEDIA_RESOURCES_IDENTITY_MISMATCH');
   }
-  const merged = mergeDetail(item, detailResult.value, resourceResult.value, resourceResult.endpoint);
+  const merged = mergeMediaDetailIntoFeedItem(item, detailResult.value, resourceResult.value, resourceResult.endpoint);
   await saveMediaDetail(merged);
   logMediaNetworkSuccess('detail_synced', {
     release_id: merged.remote_release_id,

@@ -1,0 +1,5 @@
+2026-08-01 19:27 UTC+8
+Task: select a live revision-8 item containing all four ratings for K30S UI verification.
+Result: initial Python urllib probe failed with HTTP 403.
+Cause: request used Python's default User-Agent; media endpoint accepts the App/protocol test User-Agent used by production verification.
+Resolution: retry read-only probe with `MagnetGoogo-App-Protocol-Test/1`; no server or application change.

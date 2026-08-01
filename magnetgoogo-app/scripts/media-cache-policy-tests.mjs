@@ -31,9 +31,16 @@ const remoteItem = {
   imdb_id: null,
   imdb_rating: null,
   imdb_rating_text: null,
-  douban_rating: null,
-  douban_rating_text: null,
-  douban_url: null,
+  douban_rating: 8.3,
+  douban_rating_text: '8.3/10',
+  douban_url: 'https://movie.douban.com/subject/123/',
+  rotten_tomatoes_rating: 91,
+  rotten_tomatoes_rating_text: '91%',
+  rotten_tomatoes_url: 'https://www.rottentomatoes.com/m/cache_test',
+  bangumi_rating: 8.6,
+  bangumi_rating_text: '8.6/10',
+  bangumi_subject_id: '456',
+  bangumi_url: 'https://bgm.tv/subject/456',
   cover_source_url: null,
   cover_asset_path: null,
   cover_width: null,
@@ -83,7 +90,27 @@ assert.equal(parsed.items[0].remote_detail_path, remoteItem.remote_detail_path);
 assert.equal(parsed.items[0].remote_detail_hash, remoteItem.remote_detail_hash);
 assert.equal(parsed.items[0].remote_detail_size, remoteItem.remote_detail_size);
 assert.equal(parsed.items[0].remote_endpoint, remoteItem.remote_endpoint);
+assert.equal(parsed.items[0].douban_rating, 8.3);
+assert.equal(parsed.items[0].rotten_tomatoes_rating, 91);
+assert.equal(parsed.items[0].rotten_tomatoes_rating_text, '91%');
+assert.equal(parsed.items[0].bangumi_rating, 8.6);
+assert.equal(parsed.items[0].bangumi_subject_id, '456');
 assert.throws(() => parseResourceFeed(remoteFeed), (error) => error?.code === 'OFFLINE_COVER_REQUIRED');
+
+const legacyRemoteItem = { ...remoteItem };
+delete legacyRemoteItem.rotten_tomatoes_rating;
+delete legacyRemoteItem.rotten_tomatoes_rating_text;
+delete legacyRemoteItem.rotten_tomatoes_url;
+delete legacyRemoteItem.bangumi_rating;
+delete legacyRemoteItem.bangumi_rating_text;
+delete legacyRemoteItem.bangumi_subject_id;
+delete legacyRemoteItem.bangumi_url;
+const legacyParsed = parseResourceFeed({ ...remoteFeed, items: [legacyRemoteItem] }, {
+  requireOfflineCover: false,
+  allowResourceCountHints: true,
+});
+assert.equal(legacyParsed.items[0].rotten_tomatoes_rating, null);
+assert.equal(legacyParsed.items[0].bangumi_rating, null);
 
 const enqueue = createAsyncSerialQueue();
 let activeTasks = 0;

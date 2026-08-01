@@ -142,6 +142,12 @@ function cleanRating(value) {
     : null;
 }
 
+function cleanPercentRating(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 100
+    ? value
+    : null;
+}
+
 function normalizeMagnetResource(resource) {
   if (
     !resource
@@ -221,6 +227,13 @@ function normalizeSeriesFeed(sourcePath) {
       douban_rating: cleanRating(item.douban_rating),
       douban_rating_text: cleanString(item.douban_rating_text),
       douban_url: cleanString(item.douban_url),
+      rotten_tomatoes_rating: cleanPercentRating(item.rotten_tomatoes_rating),
+      rotten_tomatoes_rating_text: cleanString(item.rotten_tomatoes_rating_text),
+      rotten_tomatoes_url: cleanString(item.rotten_tomatoes_url),
+      bangumi_rating: cleanRating(item.bangumi_rating),
+      bangumi_rating_text: cleanString(item.bangumi_rating_text),
+      bangumi_subject_id: cleanString(item.bangumi_subject_id),
+      bangumi_url: cleanString(item.bangumi_url),
       cover_source_url: cleanString(item.cover_source_url),
       cover_asset_path: null,
       cover_width: null,

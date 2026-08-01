@@ -1,0 +1,5 @@
+2026-08-01 19:34 UTC+8
+Task: launch 0.2.4 Debug and capture UI hierarchy.
+Launch result: App event injected successfully.
+Failure: `uiautomator` reported idle-state timeout and Git Bash converted `/sdcard/...` to a Windows Git path for the subsequent cat command.
+Resolution: quote the full device-side shell command / disable path conversion and capture screenshot as an independent UI evidence path.

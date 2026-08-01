@@ -55,6 +55,13 @@ export interface MovieFeedItem {
   douban_rating: number | null;
   douban_rating_text: string | null;
   douban_url: string | null;
+  rotten_tomatoes_rating: number | null;
+  rotten_tomatoes_rating_text: string | null;
+  rotten_tomatoes_url: string | null;
+  bangumi_rating: number | null;
+  bangumi_rating_text: string | null;
+  bangumi_subject_id: string | null;
+  bangumi_url: string | null;
   cover_source_url: string | null;
   cover_asset_path: string | null;
   cover_width: number | null;
@@ -260,6 +267,13 @@ function parseItem(
     douban_rating: nullableNumber(value, 'douban_rating', context),
     douban_rating_text: nullableString(value, 'douban_rating_text', context),
     douban_url: nullableString(value, 'douban_url', context),
+    rotten_tomatoes_rating: nullableNumber(value, 'rotten_tomatoes_rating', context),
+    rotten_tomatoes_rating_text: nullableString(value, 'rotten_tomatoes_rating_text', context),
+    rotten_tomatoes_url: nullableString(value, 'rotten_tomatoes_url', context),
+    bangumi_rating: nullableNumber(value, 'bangumi_rating', context),
+    bangumi_rating_text: nullableString(value, 'bangumi_rating_text', context),
+    bangumi_subject_id: nullableString(value, 'bangumi_subject_id', context),
+    bangumi_url: nullableString(value, 'bangumi_url', context),
     cover_source_url: nullableString(value, 'cover_source_url', context),
     cover_asset_path: coverAssetPath,
     cover_width: nullableInteger(value, 'cover_width', context, 1),

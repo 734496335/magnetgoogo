@@ -72,6 +72,8 @@ export interface MediaCatalogCard {
   genres: string[];
   imdb_rating?: number | null;
   douban_rating?: number | null;
+  rotten_tomatoes_rating?: number | null;
+  bangumi_rating?: number | null;
   recommended: boolean;
   highlight_labels: string[];
   quality_tags: string[];
@@ -113,6 +115,13 @@ export interface MediaDetail {
   douban_rating?: number | null;
   douban_rating_text?: string | null;
   douban_url?: string | null;
+  rotten_tomatoes_rating?: number | null;
+  rotten_tomatoes_rating_text?: string | null;
+  rotten_tomatoes_url?: string | null;
+  bangumi_rating?: number | null;
+  bangumi_rating_text?: string | null;
+  bangumi_subject_id?: string | null;
+  bangumi_url?: string | null;
   synopsis?: string | null;
   resource_object: MediaObjectRef & { encrypted: boolean };
 }
@@ -445,6 +454,8 @@ export function parseCatalog(value: unknown): MediaCatalog {
       genres: stringArray(raw.genres, `catalog.items[${index}].genres`),
       imdb_rating: nullableNumber(raw, 'imdb_rating', `catalog.items[${index}]`),
       douban_rating: nullableNumber(raw, 'douban_rating', `catalog.items[${index}]`),
+      rotten_tomatoes_rating: nullableNumber(raw, 'rotten_tomatoes_rating', `catalog.items[${index}]`),
+      bangumi_rating: nullableNumber(raw, 'bangumi_rating', `catalog.items[${index}]`),
       recommended: raw.recommended === true,
       highlight_labels: stringArray(raw.highlight_labels, `catalog.items[${index}].highlight_labels`),
       quality_tags: stringArray(raw.quality_tags, `catalog.items[${index}].quality_tags`),
@@ -501,6 +512,13 @@ export function parseDetail(value: unknown): MediaDetail {
     douban_rating: nullableNumber(value, 'douban_rating', 'detail'),
     douban_rating_text: nullableString(value, 'douban_rating_text', 'detail'),
     douban_url: nullableString(value, 'douban_url', 'detail'),
+    rotten_tomatoes_rating: nullableNumber(value, 'rotten_tomatoes_rating', 'detail'),
+    rotten_tomatoes_rating_text: nullableString(value, 'rotten_tomatoes_rating_text', 'detail'),
+    rotten_tomatoes_url: nullableString(value, 'rotten_tomatoes_url', 'detail'),
+    bangumi_rating: nullableNumber(value, 'bangumi_rating', 'detail'),
+    bangumi_rating_text: nullableString(value, 'bangumi_rating_text', 'detail'),
+    bangumi_subject_id: nullableString(value, 'bangumi_subject_id', 'detail'),
+    bangumi_url: nullableString(value, 'bangumi_url', 'detail'),
     synopsis: nullableString(value, 'synopsis', 'detail'),
     resource_object: { ...resourceRef, encrypted },
   };

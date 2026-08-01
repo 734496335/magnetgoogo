@@ -1,4 +1,33 @@
 ---
+Date/Time: 2026-08-01 19:45 (UTC+8)
+Version: v0.2.4-four-media-ratings-candidate
+Scope: Complete IMDb/Douban/Rotten Tomatoes/Bangumi client consumption, cache retention, list/detail UI, policy authority and legacy revision compatibility
+Modules: magnetgoogo-app/{app.json,package*.json,plugins/with-resource-feed.js,app/(tabs)/resources.tsx,app/movie/[movieId].tsx,src/components/MovieTagRow.tsx,src/core/{mediaReleaseProtocol.ts,mediaReleaseClient.ts,mediaReleaseMapping.ts,resourceFeedProtocol.ts,movieRatings.ts},scripts/{resource-feed-tests.mjs,media-cache-policy-tests.mjs,media-release-security-tests.mjs,media-release-network-tests.mjs,app-adversarial-tests.mjs,release-build-contract-tests.mjs}}, docs/project-nebula/{_progress.txt,DEV-LOG.md,TECH-CHALLENGES.md,TEST-RESULT-20260801-v0.2.4四评分客户端消费与兼容性.md,_failures/*v024*,_failures/*media-rating*,_failures/*k30s*}
+
+### Implementation
+- Media catalog/detail protocols now accept Rotten Tomatoes and Bangumi numeric scores plus detail text/URL and Bangumi subject ID; all new fields are optional and old revisions parse to null.
+- Added pure `mediaReleaseMapping.ts` so catalog-to-card and detail-to-cache mapping can be executed independently of Expo native modules. Detail data wins while missing detail fields fall back to catalog values.
+- `MovieFeedItem` and plaintext media cache retain all four score families. Bundled series normalization also preserves the new fields.
+- Lists render compact score chips in Douban → IMDb → Rotten Tomatoes → Bangumi order; details render a two-column score grid, giving a 2×2 layout when all four are present. Empty and invalid values produce no placeholders.
+
+### Policy authority
+- List order is release `rank`; ratings never reorder the feed.
+- Featured recommendation is server `recommended`; ratings never synthesize or remove recommendations.
+- High-score/title emphasis uses one primary score in priority order Douban → IMDb → Bangumi → Rotten Tomatoes.
+- Thresholds are 6.0/8.0 for ten-point sources and 60%/80% for Rotten Tomatoes.
+
+### Verification
+- Frozen signed release: 200 unique cards, IMDb153/Douban99/RT82/Bangumi96; 14 unique cards have four non-null fields and 5 have four displayable scores.
+- Live revision8: 444 unique cards, RT62, Bangumi0, all-four0. Client capability is complete, but online Bangumi display awaits a later enriched revision.
+- TypeScript, Resource Feed, Media Cache, Media Security, live Media Network, Update Download, 0.2.4 Release Build and source enum gates PASS; App adversarial 54/54; Fluency 17/17.
+- K30S Debug versionName0.2.4/versionCode8: online list and detail displayed Douban/IMDb/RT correctly; partial-score cards had no blanks; offline cold-start restored scores, synopsis and resource count from cache; Fatal/ANR zero.
+- Wi-Fi, mobile data and system animation scales were restored after the offline drill.
+
+### Boundary
+- This is an unpublished v0.2.4 candidate. Public v0.2.3 APK, update config and media revision8 were not changed.
+---
+
+---
 Date/Time: 2026-08-01 18:55 (UTC+8)
 Version: next-app-cross-source-metadata-authority-hardening
 Scope: Expand the SSBC size fix into a 148-host adversarial audit, repair generic detail-page size corruption, source consensus, dates, file counts and duplicate-source trust inflation

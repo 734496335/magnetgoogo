@@ -46,8 +46,8 @@ assert.doesNotMatch(patched, /MagGoogo20/);
 assert.equal(applyReleaseSigning(patched), patched);
 
 const appJson = JSON.parse(fs.readFileSync(path.resolve('app.json'), 'utf8'));
-assert.equal(appJson.expo.version, '0.2.3');
-assert.equal(appJson.expo.android.versionCode, 7);
+assert.equal(appJson.expo.version, '0.2.4');
+assert.equal(appJson.expo.android.versionCode, 8);
 assert.equal(appJson.expo.android.package, 'com.magnetgoogo.app');
 assert.ok(appJson.expo.android.permissions.includes('android.permission.REQUEST_INSTALL_PACKAGES'));
 assert.ok(appJson.expo.plugins.includes('./plugins/with-release-signing'));

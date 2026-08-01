@@ -8,10 +8,18 @@ import {
   ResourceFeedValidationError,
 } from '../src/core/resourceFeedProtocol.ts';
 import {
+  FEATURED_PERCENT_THRESHOLD,
   FEATURED_SCORE_THRESHOLD,
+  HIGH_PERCENT_THRESHOLD,
   HIGH_SCORE_THRESHOLD,
+  MEDIA_LIST_SORT_POLICY,
+  MEDIA_RECOMMENDATION_POLICY,
+  MOVIE_PRIMARY_SCORE_PRIORITY,
+  compareMediaFeedRank,
   getMovieScoreTier,
+  getPrimaryMovieRating,
   getVisibleMovieRatings,
+  isServerRecommendedMovie,
 } from '../src/core/movieRatings.ts';
 import {
   inferSeriesSeason,
@@ -77,6 +85,13 @@ function sampleItem(rank, title = `Movie ${rank}`, recommended = false) {
     douban_rating: 8.1,
     douban_rating_text: '8.1/10',
     douban_url: null,
+    rotten_tomatoes_rating: 92,
+    rotten_tomatoes_rating_text: '92%',
+    rotten_tomatoes_url: 'https://www.rottentomatoes.com/m/test',
+    bangumi_rating: 8.4,
+    bangumi_rating_text: '8.4/10',
+    bangumi_subject_id: '12345',
+    bangumi_url: 'https://bgm.tv/subject/12345',
     cover_source_url: 'https://www.66tutup.com/test.jpg',
     cover_asset_path: `covers/${String(rank).padStart(64, '0')}.jpg`,
     cover_width: 720,
@@ -177,21 +192,72 @@ console.log('PASS  M4  legacy adult-feed fields are rejected');
 
 assert.equal(FEATURED_SCORE_THRESHOLD, 6.0);
 assert.equal(HIGH_SCORE_THRESHOLD, 8.0);
+assert.equal(FEATURED_PERCENT_THRESHOLD, 60);
+assert.equal(HIGH_PERCENT_THRESHOLD, 80);
+assert.equal(MEDIA_LIST_SORT_POLICY, 'release-rank');
+assert.equal(MEDIA_RECOMMENDATION_POLICY, 'server-recommended');
+assert.deepEqual(MOVIE_PRIMARY_SCORE_PRIORITY, ['douban', 'imdb', 'bangumi', 'rotten_tomatoes']);
 assert.deepEqual(
-  getVisibleMovieRatings({ imdb_rating: 0, douban_rating: null }),
+  getVisibleMovieRatings({
+    imdb_rating: 0,
+    douban_rating: null,
+    rotten_tomatoes_rating: 0,
+    bangumi_rating: null,
+  }),
   [],
 );
 assert.deepEqual(
-  getVisibleMovieRatings({ imdb_rating: 6.9, douban_rating: 6.0 }).map(({ source, value, tier }) => ({ source, value, tier })),
+  getVisibleMovieRatings({
+    imdb_rating: 10.1,
+    douban_rating: -1,
+    rotten_tomatoes_rating: 101,
+    bangumi_rating: 10.1,
+  }),
+  [],
+);
+assert.deepEqual(
+  getVisibleMovieRatings({
+    imdb_rating: 7.2,
+    douban_rating: 8.1,
+    rotten_tomatoes_rating: 92,
+    bangumi_rating: 8.4,
+  }).map(({ key, source, displayValue, tier, isPrimary }) => ({ key, source, displayValue, tier, isPrimary })),
   [
-    { source: '豆瓣', value: 6.0, tier: 'featured' },
-    { source: 'IMDb', value: 6.9, tier: 'featured' },
+    { key: 'douban', source: '豆瓣', displayValue: '8.1', tier: 'high', isPrimary: true },
+    { key: 'imdb', source: 'IMDb', displayValue: '7.2', tier: null, isPrimary: false },
+    { key: 'rotten_tomatoes', source: '烂番茄', displayValue: '92%', tier: null, isPrimary: false },
+    { key: 'bangumi', source: 'Bangumi', displayValue: '8.4', tier: null, isPrimary: false },
   ],
 );
-assert.equal(getMovieScoreTier({ imdb_rating: 7.9, douban_rating: 5.9 }), 'featured');
-assert.equal(getMovieScoreTier({ imdb_rating: 8.0, douban_rating: 7.9 }), 'high');
-assert.equal(getMovieScoreTier({ imdb_rating: 5.9, douban_rating: null }), null);
-console.log('PASS  M5  zero is hidden, 6.0+ is featured and 8.0+ is high score');
+assert.equal(getPrimaryMovieRating({ imdb_rating: 9.0, douban_rating: 5.9 })?.source, '豆瓣');
+assert.equal(getMovieScoreTier({ imdb_rating: 9.0, douban_rating: 5.9 }), null);
+assert.equal(getPrimaryMovieRating({ imdb_rating: 7.9, bangumi_rating: 9.2, rotten_tomatoes_rating: 95 })?.source, 'IMDb');
+assert.equal(getMovieScoreTier({ imdb_rating: 7.9, bangumi_rating: 9.2, rotten_tomatoes_rating: 95 }), 'featured');
+assert.equal(getPrimaryMovieRating({ bangumi_rating: 8.2, rotten_tomatoes_rating: 95 })?.source, 'Bangumi');
+assert.equal(getMovieScoreTier({ bangumi_rating: 8.2, rotten_tomatoes_rating: 95 }), 'high');
+assert.equal(getPrimaryMovieRating({ rotten_tomatoes_rating: 85 })?.source, '烂番茄');
+assert.equal(getMovieScoreTier({ rotten_tomatoes_rating: 85 }), 'high');
+assert.deepEqual(
+  [sampleItem(2), sampleItem(1)].sort(compareMediaFeedRank).map((item) => item.rank),
+  [1, 2],
+);
+assert.equal(isServerRecommendedMovie(sampleItem(1, 'Recommended', true)), true);
+assert.equal(isServerRecommendedMovie(sampleItem(1, 'Not recommended', false)), false);
+console.log('PASS  M5  four ratings display while rank, recommendation and primary-score policies stay explicit');
+
+const legacyRatingItem = sampleItem(1, 'Legacy revision');
+delete legacyRatingItem.rotten_tomatoes_rating;
+delete legacyRatingItem.rotten_tomatoes_rating_text;
+delete legacyRatingItem.rotten_tomatoes_url;
+delete legacyRatingItem.bangumi_rating;
+delete legacyRatingItem.bangumi_rating_text;
+delete legacyRatingItem.bangumi_subject_id;
+delete legacyRatingItem.bangumi_url;
+const legacyRatingFeed = parseResourceFeed(sampleFeed([legacyRatingItem]));
+assert.equal(legacyRatingFeed.items[0].rotten_tomatoes_rating, null);
+assert.equal(legacyRatingFeed.items[0].bangumi_rating, null);
+assert.equal(legacyRatingFeed.items[0].bangumi_subject_id, null);
+console.log('PASS  M5B  old revisions without new rating fields remain compatible');
 
 const series = parseResourceFeed(sampleSeriesFeed());
 assert.equal(series.content_kind, 'series');
@@ -281,7 +347,9 @@ if (fs.existsSync(localFeedPath)) {
     assert.equal('content_code' in item, false);
     assert.equal('adult' in item, false);
     const visibleRatings = getVisibleMovieRatings(item);
-    assert.ok(visibleRatings.every((rating) => rating.value > 0 && rating.value <= 10));
+    assert.ok(visibleRatings.every((rating) => (
+      rating.value > 0 && rating.value <= (rating.key === 'rotten_tomatoes' ? 100 : 10)
+    )));
     const coverPath = path.resolve(bundleDir, item.cover_asset_path);
     assert.ok(coverPath.startsWith(bundleDir + path.sep));
     assert.ok(fs.existsSync(coverPath), `missing cover: ${item.cover_asset_path}`);

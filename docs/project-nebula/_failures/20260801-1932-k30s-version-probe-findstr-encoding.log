@@ -1,0 +1,5 @@
+2026-08-01 19:32 UTC+8
+Task: verify installed 0.2.4 Debug package identity before UI testing.
+Command failed at Windows `findstr /R "versionName versionCode"` with an encoding/argument parse error.
+No App launch or device mutation occurred because the command chain stopped at the first step.
+Resolution: execute `dumpsys package | grep` inside the Android shell and run launch/UI dump as separate commands.

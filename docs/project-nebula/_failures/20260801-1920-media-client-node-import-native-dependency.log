@@ -1,0 +1,6 @@
+2026-08-01 19:20 UTC+8
+Command: node -e import('./src/core/mediaReleaseClient.ts')
+Working directory: magnetgoogo-app
+Result: FAIL before mapping assertions
+Reason: Node type stripping cannot process Expo native dependency TypeScript under node_modules (`expo-modules-core/src/index.ts`).
+Resolution: extract catalog/detail-to-feed pure mapping into a native-independent module, import it from mediaReleaseClient.ts, and test that pure module directly.

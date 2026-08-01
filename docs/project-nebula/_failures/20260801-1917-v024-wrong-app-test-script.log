@@ -1,0 +1,7 @@
+2026-08-01 19:17 UTC+8
+Command: npm run test:app
+Working directory: magnetgoogo-app
+Result: FAIL before tests
+Reason: package.json has no test:app script.
+Observed output: npm error Missing script: "test:app"
+Resolution: run the existing direct command `node scripts/app-adversarial-tests.mjs`; no production code change required.
