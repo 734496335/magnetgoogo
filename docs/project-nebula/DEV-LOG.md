@@ -1,4 +1,26 @@
 ---
+Date/Time: 2026-08-02 19:10 (UTC+8)
+Version: media-resource-growth-analytics-review
+Scope: Recalculate the raw production analytics around the v0.2.1 media-resource launch and assess acquisition, activation, retention, version adoption and measurement quality
+Modules: Aliyun `/opt/admin-server/cache/{batches.json,analytics.json}`, deployed admin-server analytics logic, magnetgoogo-app analytics call sites, docs/project-nebula/{影视资源上线后运营增长埋点分析-20260802.md,_progress.txt,DEV-LOG.md,TECH-CHALLENGES.md}
+
+### Growth findings
+- Recomputed 36,187 raw batches / 419,673 events / 1,057 devices in UTC+8, separating the 2026-07-28 launch day from the seven-day pre-launch and four-complete-day post-launch windows.
+- Average DAU increased 105.7→135.3 (+28.0%), new devices/day 25.9→46.0 (+77.6%), returning devices/day 79.8→89.3 (+11.9%) and starts/day 208→307 (+47.6%).
+- Real search submissions/day increased 534.7→647.5 (+21.1%); completed-search success increased 49.9%→93.2%, while zero-result rate fell 1.4%→0.1%.
+
+### Media funnel and retention
+- The four-day post-launch window had 241 active 0.2.x devices. Twenty-three devices (9.5%) produced 46 inferred media-detail resource actions; 172 devices (71.4%) produced 3,888 search-result resource actions, confirming search remains the primary value chain.
+- Media actions were not test-device noise: the top device represented 13.0% and the top five 43.5%. Seventeen of 23 media users were newly acquired and 18 also used search.
+- Mature new-user D1 fell 22.5%→11.9%. Non-China-IP share among new devices rose 18.8%→41.3%, indicating broader but lower-retention acquisition.
+
+### Measurement defects
+- Production `/opt/admin-server/server.js` still reports `searches: counts.search || 0`, omitting the 0.2.x `search_submitted` event and undercounting recent search volume by about tenfold.
+- No resource-tab view, card click, detail view/load, media ID, channel, position or release ID is tracked. Current media conversion is inferred only from 0.2.x magnet actions without `search_id`.
+- Recommended P0 is correcting the dashboard aggregation and adding the complete media funnel in 0.2.4 before further UI optimization.
+---
+
+---
 Date/Time: 2026-08-01 12:30 (UTC+8)
 Version: media-daily-production-auto-publish-revision8
 Scope: Approve the audited media crawler output, deploy the permanent authenticated R2 promotion channel, publish revision 8 and switch the Aliyun daily timer to production auto-publish

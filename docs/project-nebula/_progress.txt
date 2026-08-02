@@ -1,26 +1,22 @@
-TASK: 阿里云影视每日自动抓取与自动发布
-STATUS: PRODUCTION_AUTO_PUBLISH_ENABLED / REVISION8_PASS
-DATE: 2026-08-01 UTC+8
+TASK: 影视资源上线后运营增长埋点分析
+STATUS: ANALYSIS_PASS / ACQUISITION_POSITIVE / RETENTION_WARNING / MEDIA_FUNNEL_INSTRUMENTATION_GAP
+DATE: 2026-08-02 UTC+8
 
 DONE:
-- 每日影视任务已从candidate切换为publish模式，Timer enabled/active。
-- 每天03:30 Asia/Shanghai运行，随机延迟0—5分钟，Persistent=true。
-- 正式revision 8已发布：217电影、227剧集、3597磁力、0 cloud。
-- 双端current与Manifest字节一致，R2/阿里云均为revision 8。
-- 专用Worker绑定media-auto-publisher.magnetgoogo.com，未授权401、授权200。
-- 正式私钥与0.2.3内置公钥一致；临时令牌和候选密钥已清理。
-- 每日评分限制电影40+剧集40；Docker 768MiB/1CPU/1280MiB含Swap。
-- 无内容变化不生成新revision；签名/回归/双端验证任一步失败则不成功。
-
-CURRENT:
-- pointer revision: 8
-- release ID: 20260731T000000Z-06b2c7ff
-- pointer SHA: 36cd24b62a2d2041c3a2f045bb4186193886bd0d5e9c1f4da1bdac5edd454ab6
-- Manifest SHA: 83b9763f59d8759e9a1a699032b6671cabfce6738e32b694aac6eb1deecaa5c6
-- next automatic run: 2026-08-02 03:32:47 UTC+8
+- 直接分析阿里云97.5MB原始埋点缓存，36,187批次、419,673事件、1,057设备。
+- 按UTC+8重算上线前7天与上线后4个完整自然日，未采用后台错误搜索汇总。
+- 平均DAU 105.7→135.3（+28.0%）；日均新增25.9→46.0（+77.6%）。
+- 日均回访79.8→89.3（+11.9%）；启动208→307（+47.6%）。
+- 日均真实搜索提交534.7→647.5（+21.1%）；完成搜索成功率49.9%→93.2%。
+- 上线后0.2.x活跃241台；影视详情资源动作用户23台，转化9.5%，46次动作。
+- 搜索资源动作用户172台，转化71.4%，3,888次动作；搜索仍是核心主链路。
+- 成熟新用户D1 22.5%→11.9%，为当前最大增长风险。
+- 非中国IP新增占比18.8%→41.3%，新增流量明显国际化。
+- 生产运营后台仍只统计旧search事件，0.2.x搜索量被低估约10倍。
 
 NEXT:
-- 观察下一次自然Timer自动发布结果和no-change行为。
-- 0.2.4升级Detail缓存schema并展示烂番茄/Bangumi。
+- 修复后台search + search_submitted统计并回填最近30天。
+- 0.2.4补资源Tab曝光、卡片点击、详情加载、资源打开/复制、release_id与匿名media_id。
+- 优先提升影视入口激活、收藏/追更和新增用户D1，不再只扩大内容量。
 
-EVIDENCE: docs/project-nebula/MEDIA-DAILY-AUTO-PUBLISH-REVISION8-20260801.md
+EVIDENCE: docs/project-nebula/影视资源上线后运营增长埋点分析-20260802.md
