@@ -1,0 +1,5 @@
+Time: 2026-08-02 01:14 UTC+8
+Command: Python one-liner reading scripts/k30s-search-quality-final.json via d['results'][0]
+Result: KeyError: 'results'.
+Impact: report inspection only; source report remains intact.
+Correction: inspect top-level keys and use actual schema before extracting conflict rows.

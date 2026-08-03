@@ -1,0 +1,6 @@
+Time: 2026-08-02 01:57 UTC+8
+Command: desktop requests GET https://yts.do/browse-movies/Inception
+Result: HTTPS read timeout after 20 seconds.
+Impact: desktop could not inspect current YTS HTML; K30S result evidence remains available.
+Finding retained: YTS detail rule uses `span.tech-quality` as size selector and one detail page exposes multiple torrent variants, so a page-level size can be assigned to the wrong magnet.
+Correction path: bind size metadata to each magnet's local DOM container rather than applying one page-level size to every magnet.

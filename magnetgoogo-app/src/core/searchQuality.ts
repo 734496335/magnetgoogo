@@ -1,4 +1,5 @@
 import { SOURCE_QUALITY_PRIORS } from '../data/sourceQualityPriors.ts';
+import { extractInfoHash } from './infoHash.ts';
 import type { SearchResult } from './types';
 
 export const HIGH_RELEVANCE_THRESHOLD = 30;
@@ -133,8 +134,8 @@ export function splitPoolStages(plans: SourcePoolPlan[]): SourcePoolPlan[][] {
 }
 
 export function getSearchResultQualityKey(result: Pick<SearchResult, 'magnet' | 'title'>): string {
-  const hash = result.magnet.match(/btih:([a-z0-9]{32,40})/i)?.[1];
-  if (hash) return `btih:${hash.toLowerCase()}`;
+  const hash = extractInfoHash(result.magnet);
+  if (hash) return `btih:${hash}`;
   const cleanMagnet = result.magnet.split('&')[0]?.trim().toLowerCase();
   if (cleanMagnet) return `magnet:${cleanMagnet}`;
   return `title:${result.title.trim().toLowerCase().replace(/\s+/g, ' ')}`;

@@ -29,6 +29,51 @@ PLATFORM_ID = "ssbc"
 _MAGNET_RE = re.compile(r"magnet:\?xt=urn:btih:[A-Za-z0-9]{32,}[^\"<>\s]*", re.I)
 
 
+def _format_bytes(value: float) -> str:
+    units = ("B", "KB", "MB", "GB", "TB")
+    unit_index = 0
+    while value >= 1024 and unit_index < len(units) - 1:
+        value /= 1024
+        unit_index += 1
+    decimals = 0 if value >= 100 else 1 if value >= 10 else 2
+    numeric = f"{value:.{decimals}f}".rstrip("0").rstrip(".")
+    return f"{numeric} {units[unit_index]}"
+
+
+def _expected_range(title: str) -> tuple[float, float] | None:
+    normalized = (title or "").lower()
+    mib = 1024 ** 2
+    gib = 1024 ** 3
+    if re.search(r"\b(?:2160p|4k|uhd)\b", normalized):
+        return (1 * gib, 300 * gib)
+    if re.search(r"\b(?:1080[pi]|remux|blu[ ._-]?ray|bdrip|hdrip|webrip|web[ ._-]?dl)\b", normalized):
+        return (100 * mib, 300 * gib)
+    if re.search(r"\b720[pi]\b", normalized):
+        return (100 * mib, 80 * gib)
+    if re.search(r"\.(?:mkv|mp4|avi|mov|wmv|m2ts|ts)(?:\b|$)", normalized):
+        return (50 * mib, 300 * gib)
+    if re.search(r"\.(?:iso|dmg|pkg|exe|msi|apk|zip|rar|7z)(?:\b|$)", normalized):
+        return (1 * mib, 500 * gib)
+    return None
+
+
+def format_ssbc_size(raw: Any, title: str = "") -> str:
+    """Resolve SSBC's mixed bytes/KiB field; hide ambiguous values."""
+    try:
+        numeric = float(str(raw or "0").replace(",", "").strip())
+    except (TypeError, ValueError):
+        return ""
+    if not numeric or numeric <= 0:
+        return ""
+    candidates = (numeric, numeric * 1024)
+    expected = _expected_range(title)
+    if expected:
+        plausible = [value for value in candidates if expected[0] <= value <= expected[1]]
+    else:
+        plausible = [value for value in candidates if 1024 ** 2 <= value <= 64 * 1024 ** 4]
+    return _format_bytes(plausible[0]) if len(plausible) == 1 else ""
+
+
 @register_handler(PLATFORM_ID)
 def ssbc_search(source: dict, query: str) -> list[SearchResult]:
     """ssbc 平台搜索：直接调 /api/ssbc JSON 接口。"""
@@ -88,11 +133,10 @@ def ssbc_search(source: dict, query: str) -> list[SearchResult]:
         name = t.get("name_simple") or t.get("name_IK", "")
         # Strip HTML tags from name
         name = re.sub(r"<[^>]+>", "", name)
-        size_bytes = int(t.get("size", 0) or 0)
         results.append(SearchResult(
             title=name,
             magnet=magnet,
-            size=str(size_bytes),
+            size=format_ssbc_size(t.get("size"), name),
         ))
 
     if not results:

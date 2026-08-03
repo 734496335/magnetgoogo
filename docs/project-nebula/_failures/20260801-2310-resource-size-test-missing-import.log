@@ -1,0 +1,15 @@
+Command:
+python scripts/test_search_result_quality_audit.py && cd magnetgoogo-app && npx tsc --noEmit && node scripts/app-adversarial-tests.mjs
+
+Result:
+Python audit tests 11/11 PASS; TypeScript PASS; App adversarial 53/54.
+M3 failed with ReferenceError: parseResourceSizeLabel is not defined.
+
+Root cause:
+The new `183 Bytes -> hidden` assertion used parseResourceSizeLabel but the test file had not imported that function.
+
+Impact:
+Test harness only. Production TypeScript compiled successfully.
+
+Fix:
+Add parseResourceSizeLabel to the resourceSize imports and rerun.

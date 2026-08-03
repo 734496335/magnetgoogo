@@ -6,6 +6,7 @@
  *
  * Designed for developer/tester use — NOT shipped in production search flows.
  */
+import { extractInfoHash } from './dedup';
 import { searchSource, type SourceRule, type ResultItem } from './searchEngine';
 import { clearVerifyBlacklist } from './VerifyManager';
 
@@ -100,9 +101,8 @@ export function extractHashes(results: ResultItem[]): string[] {
   const seen = new Set<string>();
   for (const r of results) {
     if (!r.magnet) continue;
-    const m = r.magnet.match(/btih:([a-fA-F0-9]+)/i);
-    if (!m) continue;
-    const hash = m[1].toLowerCase();
+    const hash = extractInfoHash(r.magnet);
+    if (!hash) continue;
     if (!seen.has(hash)) {
       seen.add(hash);
       if (seen.size >= 10) break;

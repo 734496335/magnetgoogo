@@ -8,39 +8,15 @@
  *   4. Multi-source hits rank higher (more trustworthy)
  */
 
+import { extractInfoHash } from './infoHash.ts';
+import { mergeResourceFileCount } from './resourceFileCount.ts';
 import {
   resolveResourceSizeConsensus,
   upsertResourceSizeObservation,
 } from './resourceSize.ts';
 import { parseSizeBytes, type SearchResult } from './types.ts';
 
-/** Extract the 40-hex info hash from a magnet URI. Returns lowercase or null. */
-export function extractInfoHash(magnet: string): string | null {
-  if (!magnet) return null;
-  // urn:btih: followed by 40 hex chars or 32 base32 chars
-  const hex = magnet.match(/btih:([0-9a-f]{40})/i);
-  if (hex) return hex[1].toLowerCase();
-  // Base32 encoded (32 chars)
-  const b32 = magnet.match(/btih:([a-z2-7]{32})/i);
-  if (b32) return base32ToHex(b32[1]).toLowerCase();
-  return null;
-}
-
-/** Convert base32 to hex string. */
-function base32ToHex(b32: string): string {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-  let bits = '';
-  for (const c of b32.toUpperCase()) {
-    const val = alphabet.indexOf(c);
-    if (val === -1) return '';
-    bits += val.toString(2).padStart(5, '0');
-  }
-  let hex = '';
-  for (let i = 0; i + 4 <= bits.length; i += 4) {
-    hex += parseInt(bits.slice(i, i + 4), 2).toString(16);
-  }
-  return hex;
-}
+export { extractInfoHash } from './infoHash.ts';
 
 /** Detect video quality from title keywords. Higher = better. 50 = unknown. */
 const QUALITY_PATTERNS: [RegExp, number][] = [
@@ -122,6 +98,13 @@ export function deduplicateResults(results: SearchResult[]): DedupedResult[] {
       }
       // Keep non-empty date
       if (!existing.date && r.date) existing.date = r.date;
+      const fileCountMerge = mergeResourceFileCount(
+        existing.fileCount,
+        r.fileCount,
+        existing._fileCountConflict || r._fileCountConflict,
+      );
+      existing.fileCount = fileCountMerge.fileCount;
+      existing._fileCountConflict = fileCountMerge.conflict || undefined;
     }
   }
 

@@ -1,0 +1,14 @@
+Command:
+python scripts/test_search_result_quality_audit.py
+
+Result:
+1/9 failed: expected 32 lowercase 'a' characters not to match MAGNET_RE.
+
+Root cause:
+`aaaaaaaa...` is a valid 32-character Base32 btih value. The test fixture was valid, so the parser correctly accepted it.
+
+Impact:
+Test-fixture error only; the production regex correctly accepts 40-hex and 32-Base32 hashes.
+
+Fix:
+Use 32 zero characters as the invalid fixture because `0` is not part of RFC 4648 Base32 alphabet A-Z2-7.

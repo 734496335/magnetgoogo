@@ -1,7 +1,7 @@
 /** Shared search-result date normalization.
  *
  * Only return a date when the value can be identified reliably. Unknown text,
- * sizes, counters and time-only values are hidden instead of leaking into UI.
+ * sizes, counters, time-only values and implausible future dates are hidden.
  */
 
 const MONTHS: Record<string, number> = {
@@ -34,6 +34,8 @@ const RU_MONTHS: Record<string, number> = {
   дек: 12, декабр: 12,
 };
 
+const MAX_FUTURE_SKEW_MS = 2 * 24 * 60 * 60 * 1000;
+
 function normalizeYear(raw: string): number {
   const value = Number.parseInt(raw.replace(/^['’]/, ''), 10);
   if (!Number.isFinite(value)) return 0;
@@ -41,13 +43,14 @@ function normalizeYear(raw: string): number {
   return value;
 }
 
-function validDate(year: number, month: number, day: number): string {
+function validDate(year: number, month: number, day: number, nowMs = Date.now()): string {
   if (year < 1970 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) return '';
-  const date = new Date(Date.UTC(year, month - 1, day));
+  const value = new Date(Date.UTC(year, month - 1, day));
   if (
-    date.getUTCFullYear() !== year
-    || date.getUTCMonth() !== month - 1
-    || date.getUTCDate() !== day
+    value.getUTCFullYear() !== year
+    || value.getUTCMonth() !== month - 1
+    || value.getUTCDate() !== day
+    || value.getTime() > nowMs + MAX_FUTURE_SKEW_MS
   ) return '';
   return `${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
 }
@@ -64,11 +67,11 @@ function relativeDate(raw: string, nowMs: number): string {
   const lower = raw.toLowerCase();
   if (/^(?:today|сегодня|今天)$/.test(lower)) {
     const now = new Date(nowMs);
-    return validDate(now.getUTCFullYear(), now.getUTCMonth() + 1, now.getUTCDate());
+    return validDate(now.getUTCFullYear(), now.getUTCMonth() + 1, now.getUTCDate(), nowMs);
   }
   if (/^(?:yesterday|вчера|昨天)$/.test(lower)) {
-    const date = new Date(nowMs - 24 * 60 * 60 * 1000);
-    return validDate(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
+    const value = new Date(nowMs - 24 * 60 * 60 * 1000);
+    return validDate(value.getUTCFullYear(), value.getUTCMonth() + 1, value.getUTCDate(), nowMs);
   }
 
   const units: Array<[RegExp, number]> = [
@@ -90,8 +93,8 @@ function relativeDate(raw: string, nowMs: number): string {
     }
   }
   if (!matched || duration <= 0) return '';
-  const date = new Date(nowMs - duration);
-  return validDate(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
+  const value = new Date(nowMs - duration);
+  return validDate(value.getUTCFullYear(), value.getUTCMonth() + 1, value.getUTCDate(), nowMs);
 }
 
 export function parseResourceDateLabel(raw?: string, nowMs = Date.now()): string {
@@ -103,36 +106,36 @@ export function parseResourceDateLabel(raw?: string, nowMs = Date.now()): string
   if (timestamp) {
     const numeric = Number(timestamp[0]);
     const ms = timestamp[0].length === 10 ? numeric * 1000 : numeric;
-    const date = new Date(ms);
-    if (!Number.isNaN(date.getTime())) {
-      return validDate(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
+    const parsed = new Date(ms);
+    if (!Number.isNaN(parsed.getTime())) {
+      return validDate(parsed.getUTCFullYear(), parsed.getUTCMonth() + 1, parsed.getUTCDate(), nowMs);
     }
   }
 
   let match = value.match(/\b(\d{4})[-/](\d{1,2})[-/](\d{1,2})\b/);
-  if (match) return validDate(Number(match[1]), Number(match[2]), Number(match[3]));
+  if (match) return validDate(Number(match[1]), Number(match[2]), Number(match[3]), nowMs);
 
   match = value.match(/\b(\d{1,2})[-/](\d{1,2})[-/](\d{4})\b/);
-  if (match) return validDate(Number(match[3]), Number(match[1]), Number(match[2]));
+  if (match) return validDate(Number(match[3]), Number(match[1]), Number(match[2]), nowMs);
 
   match = value.match(/(\d{4})年(\d{1,2})月(\d{1,2})日?/);
-  if (match) return validDate(Number(match[1]), Number(match[2]), Number(match[3]));
+  if (match) return validDate(Number(match[1]), Number(match[2]), Number(match[3]), nowMs);
 
   match = value.match(/\b([A-Za-z]+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?[,]?\s+(['’]?\d{2,4})\b/i);
   if (match) {
-    const parsed = validDate(normalizeYear(match[3]), monthNumber(match[1], MONTHS), Number(match[2]));
+    const parsed = validDate(normalizeYear(match[3]), monthNumber(match[1], MONTHS), Number(match[2]), nowMs);
     if (parsed) return parsed;
   }
 
   match = value.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)\.?[,]?\s+(['’]?\d{2,4})\b/i);
   if (match) {
-    const parsed = validDate(normalizeYear(match[3]), monthNumber(match[2], MONTHS), Number(match[1]));
+    const parsed = validDate(normalizeYear(match[3]), monthNumber(match[2], MONTHS), Number(match[1]), nowMs);
     if (parsed) return parsed;
   }
 
   match = value.match(/\b(\d{1,2})\s+([А-Яа-яЁё]+)\.?\s+(['’]?\d{2,4})\b/u);
   if (match) {
-    const parsed = validDate(normalizeYear(match[3]), monthNumber(match[2], RU_MONTHS), Number(match[1]));
+    const parsed = validDate(normalizeYear(match[3]), monthNumber(match[2], RU_MONTHS), Number(match[1]), nowMs);
     if (parsed) return parsed;
   }
 

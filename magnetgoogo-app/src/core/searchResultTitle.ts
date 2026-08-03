@@ -1,8 +1,10 @@
-const UNKNOWN_TITLE_RE = /^(?:unknown(?:\s+title)?|untitled|no\s+title|未知标题|无标题)$/i;
+const UNKNOWN_TITLE_RE = /^(?:unknown(?:\s+title)?|untitled|no\s+title|download(?:\s+torrent)?|torrent|magnet(?:\s+link)?|details?|view(?:\s+more)?|click(?:\s+here)?|未知标题|无标题|下载|下载种子|种子|磁力|磁力链接|详情|查看|查看更多|点击查看)$/i;
+const URL_TITLE_RE = /^(?:https?|ftp):\/\/\S+$/i;
+const MAX_RESULT_TITLE_LENGTH = 500;
 const PURE_HEX_HASH_RE = /^[a-f0-9]{32,64}$/i;
 const PURE_BASE32_HASH_RE = /^[a-z2-7]{32}$/i;
 const HASH_ONLY_LABEL_RE = /^(?:hash|btih|info[-_\s]?hash)\s*[:：=]?\s*(?:[a-f0-9]{8,64}|[a-z2-7]{16,32})(?:\.{3}|…)?$/i;
-const BTIH_URI_RE = /^(?:magnet:\?\S*|urn:btih:[a-z0-9]+|btih:[a-z0-9]+)/i;
+const BTIH_URI_RE = /^(?:(?:\(brute\)\s*)?magnet:\?\S*|urn:btih:[a-z0-9]+|btih:[a-z0-9]+)/i;
 const LEADING_FULL_HASH_RE = /^(?:hash|btih|info[-_\s]?hash)?\s*[:：=]?\s*(?:[a-f0-9]{32,64}|[a-z2-7]{32})(?:\.{3}|…)?\s*(?:[-–—_|:：]+|\s{2,})\s*(.+)$/i;
 const LEADING_TRUNCATED_HASH_RE = /^(?:hash|btih|info[-_\s]?hash)\s*[:：=]?\s*[a-f0-9]{8,31}(?:\.{3}|…)+\s*(?:[-–—_|:：]+\s*)?(.+)?$/i;
 
@@ -46,7 +48,13 @@ function stripLeadingHash(raw: string): string {
 
 export function isHashPlaceholderTitle(title: string, magnet = ''): boolean {
   const normalized = normalizeResultTitleText(title);
-  if (!normalized || UNKNOWN_TITLE_RE.test(normalized)) return true;
+  if (
+    !normalized
+    || UNKNOWN_TITLE_RE.test(normalized)
+    || URL_TITLE_RE.test(normalized)
+    || normalized.includes('\uFFFD')
+    || normalized.length > MAX_RESULT_TITLE_LENGTH
+  ) return true;
   if (
     PURE_HEX_HASH_RE.test(normalized)
     || PURE_BASE32_HASH_RE.test(normalized)

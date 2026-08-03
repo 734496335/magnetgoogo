@@ -1,0 +1,6 @@
+Command: combined v0.2.5 pre-release gates
+Date: 2026-08-03 UTC+8
+Status: FAIL before tests started
+Root cause: root-level script `scripts/test_search_result_quality_audit.py` was invoked with working directory `magnetgoogo-app`, so Python looked under `magnetgoogo-app/scripts`.
+Impact: No test, build, APK or device state changed.
+Resolution: Run root repository gates from workspace root and App gates from `magnetgoogo-app` separately.

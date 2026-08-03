@@ -26,7 +26,8 @@ from bs4 import BeautifulSoup
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SOURCES_FILE = os.path.join(BASE_DIR, '..', 'sources.json')
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, '..'))
+SOURCES_FILE = os.path.join(PROJECT_ROOT, 'sources.json')
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
@@ -61,7 +62,10 @@ TAG_ALIASES = {
     '游戏': 'game', '音乐': 'music', '软件': 'software',
 }
 
-MAGNET_RE = re.compile(r'magnet:\?xt=urn:btih:[0-9A-Fa-f]{32,40}', re.I)
+MAGNET_RE = re.compile(
+    r'magnet:\?[^\s"\'<>]*?xt=urn:btih:(?:[0-9A-Fa-f]{40}|[A-Z2-7]{32})',
+    re.I,
+)
 
 # ── Result codes ──────────────────────────────────────────────────────
 OK = 'ok'
@@ -117,11 +121,15 @@ def build_search_url(rule, query):
     import base64
     q_encoded = quote(query)
     q_b64 = base64.b64encode(query.encode('utf-8')).decode('ascii')
+    q_b64url = base64.urlsafe_b64encode(query.encode('utf-8')).decode('ascii').rstrip('=')
+    q_hex = query.encode('utf-8').hex()
     
     url = origin + template
     url = url.replace('{query}', q_encoded)
     url = url.replace('{query_raw}', query)
     url = url.replace('{query_b64}', q_b64)
+    url = url.replace('{query_b64url}', q_b64url)
+    url = url.replace('{query_hex}', q_hex)
     
     return url
 
@@ -330,28 +338,49 @@ def probe_source(rule):
     return ('gray', UNREACHABLE, 0, '', 0, 'no probe attempted')
 
 
-def run_health_check(sources_file, write_back=False, name_filter=None, 
-                     include_gray=False, max_workers=8):
-    """Run health check on all qualifying sources."""
-    with open(sources_file, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    rules = []
-    for ruleset in data.get('rulesets', []):
-        for rule in ruleset.get('rules', []):
-            rules.append(rule)
-    
-    # Filter
+def source_result_key(rule):
+    """Stable identity for reports/write-back; source names are not unique."""
+    rule_id = str(rule.get('id') or '').strip()
+    if rule_id:
+        return rule_id
+    origin = str(rule.get('site', {}).get('origin') or '').strip().rstrip('/')
+    return f"origin:{origin}"
+
+
+def select_targets(rules, name_filter=None, status_filter='green', include_gray=False):
+    """Select exactly the requested inventory; default means green-only."""
     targets = []
     for rule in rules:
         name = rule['site']['name']
         status = rule.get('health', {}).get('status', 'gray')
-        
         if name_filter and name_filter.lower() not in name.lower():
             continue
-        if not include_gray and status == 'gray' and not name_filter:
-            continue
+        if not name_filter:
+            if include_gray:
+                if status not in ('green', 'yellow', 'gray'):
+                    continue
+            elif status_filter != 'all' and status != status_filter:
+                continue
         targets.append(rule)
+    return targets
+
+
+def run_health_check(sources_file, write_back=False, name_filter=None,
+                     status_filter='green', include_gray=False, max_workers=8):
+    """Run health check on the explicitly selected source inventory."""
+    with open(sources_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    rules = []
+    for ruleset in data.get('rulesets', []):
+        for rule in ruleset.get('rules', []):
+            rules.append(rule)
+    targets = select_targets(
+        rules,
+        name_filter=name_filter,
+        status_filter=status_filter,
+        include_gray=include_gray,
+    )
     
     print(f"\n{'='*70}")
     print(f"  MagGoogo 源健康检查")
@@ -378,7 +407,11 @@ def run_health_check(sources_file, write_back=False, name_filter=None,
                 status, detail, magnets, sample, latency, error = (
                     'gray', UNREACHABLE, 0, '', 0, str(e)[:80])
             
-            results[name] = {
+            result_key = source_result_key(rule)
+            results[result_key] = {
+                'rule_id': rule.get('id', ''),
+                'name': name,
+                'origin': rule.get('site', {}).get('origin', ''),
                 'old_status': old_status,
                 'new_status': status,
                 'detail': detail,
@@ -412,9 +445,9 @@ def run_health_check(sources_file, write_back=False, name_filter=None,
     yellow_count = sum(1 for r in results.values() if r['new_status'] == 'yellow')
     gray_count = sum(1 for r in results.values() if r['new_status'] == 'gray')
     skip_count = sum(1 for r in results.values() if r['new_status'] is None)
-    healed = [n for n, r in results.items() 
+    healed = [key for key, r in results.items()
               if r['old_status'] == 'gray' and r['new_status'] == 'green']
-    degraded = [n for n, r in results.items() 
+    degraded = [key for key, r in results.items()
                 if r['old_status'] == 'green' and r['new_status'] in ('gray', 'yellow')]
     
     print(f"  🟢 Green:  {green_count}")
@@ -424,22 +457,23 @@ def run_health_check(sources_file, write_back=False, name_filter=None,
     
     if healed:
         print(f"\n  🔄 恢复的源 ({len(healed)}):")
-        for n in healed:
-            print(f"     + {n}")
+        for key in healed:
+            r = results[key]
+            print(f"     + {r['name']} [{key}] {r['origin']}")
     
     if degraded:
         print(f"\n  ⚠️  降级的源 ({len(degraded)}):")
-        for n in degraded:
-            r = results[n]
-            print(f"     - {n}: {r['detail']} — {r['error'] or ''}")
+        for key in degraded:
+            r = results[key]
+            print(f"     - {r['name']} [{key}]: {r['detail']} — {r['error'] or ''}")
     
     # ── Problems detail ──
-    problems = {n: r for n, r in results.items() 
+    problems = {key: r for key, r in results.items()
                 if r['new_status'] in ('gray', 'yellow') and r['new_status'] is not None}
     if problems:
         print(f"\n  📋 问题详情:")
-        for n, r in sorted(problems.items()):
-            print(f"     {n:30s} [{r['detail']:18s}] {r['error'] or ''}")
+        for key, r in sorted(problems.items(), key=lambda item: (item[1]['name'], item[0])):
+            print(f"     {r['name']:30s} [{key}] [{r['detail']:18s}] {r['error'] or ''}")
     
     # ── Write back ───────────────────────────────────────────────────
     if write_back:
@@ -447,10 +481,10 @@ def run_health_check(sources_file, write_back=False, name_filter=None,
         updated = 0
         for ruleset in data.get('rulesets', []):
             for rule in ruleset.get('rules', []):
-                name = rule['site']['name']
-                if name not in results:
+                result_key = source_result_key(rule)
+                if result_key not in results:
                     continue
-                r = results[name]
+                r = results[result_key]
                 if r['new_status'] is None:
                     continue  # skipped
                 
@@ -487,7 +521,13 @@ def main():
     parser = argparse.ArgumentParser(description='MagGoogo 源健康检查')
     parser.add_argument('--write', action='store_true', help='写回 sources.json')
     parser.add_argument('--name', type=str, help='只检查包含该名称的源')
-    parser.add_argument('--include-gray', action='store_true', help='也检查 gray 源')
+    parser.add_argument(
+        '--status',
+        choices=('green', 'yellow', 'gray', 'all'),
+        default='green',
+        help='默认仅检查 green；可显式选择其他状态或 all',
+    )
+    parser.add_argument('--include-gray', action='store_true', help='兼容旧参数：检查 green/yellow/gray 全部源')
     parser.add_argument('--workers', type=int, default=8, help='并发线程数 (默认 8)')
     parser.add_argument('--sources', type=str, default=SOURCES_FILE, help='sources.json 路径')
     parser.add_argument('--report', type=str, default=None, help='把详细结果以 JSON 写入该路径')
@@ -505,6 +545,7 @@ def main():
         sources_file=args.sources,
         write_back=args.write,
         name_filter=args.name,
+        status_filter=args.status,
         include_gray=args.include_gray,
         max_workers=args.workers,
     )

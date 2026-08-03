@@ -55,6 +55,33 @@ Modules: magnetgoogo-app/src/core/{resourceSize.ts,resourceDate.ts,types.ts,sear
 ---
 
 ---
+Date/Time: 2026-08-03 22:10 (UTC+8)
+Version: v0.2.5-formal-k30s-accepted
+Scope: Build signed v0.2.5, retain 147 global sources, validate formal upgrade/search/four ratings/offline/background flows and close same-revision legacy-cache migration blocker
+Modules: search result authority and audits, mediaReleaseProtocol/Mapping/Cache/Client, four-rating UI, Android release identity/signing, release evidence
+
+### Release artifact
+- Built `com.magnetgoogo.app 0.2.5 / versionCode 9`, arm64-v8a only, 38,511,674 bytes.
+- SHA-256 `d0b866a2c54d1fdc7fabaa4fee6763436516bed4f28f1b7526bfb4988ab7500b`.
+- Release certificate SHA-256 matches formal v0.2.3 exactly; K30S retained-data `adb install -r` upgrade PASS.
+
+### Formal K30S findings and repair
+- Formal search passed for `消失的人 / Inception / Ubuntu / One Piece / SSIS-001 / The Matrix`; no historic B-sized, 1024x, invalid-BTIH, generic-title or file-count leakage reproduced.
+- Initial retained-data candidate exposed a blocker: v0.2.3 Feed cache was returned unchanged when online pointer remained revision8, so known RT52% was missing.
+- Feed/Detail consumer cache advanced to `/3`; old `/2` remains usable offline, but same-pointer online startup rebuilds from long-term raw Catalog cache. Old detail cannot overwrite newly mapped RT/Bangumi fields.
+- Without clearing K30S data, `超级少女` restored 豆瓣5.4 / IMDb6.1 / 烂番茄52%; offline force-stop cold start retained ratings, synopsis and one resource.
+- Background search completed after the 147-source China-network tail and Headless/KeepAlive services cleaned automatically. Fatal/ANR and cache commit failures remained zero.
+
+### Source and test authority
+- Rejected the temporary 41-source K30S-network quarantine. Canonical runtime remains 357 rules / 147 green / 51 pools; only query-independent `u3c3` is yellow.
+- Current-code exhaustive Debug audit attempted 147/147 sources for `Inception`: 109 raw magnets, hard findings 0, warnings 0.
+- Search audit 12/12, TypeScript, App 54/54, Fluency 17/17, Resource Feed, Media Cache, Security, live dual-endpoint network, Update Download and Release Build gates all PASS.
+
+### Boundary
+- Formal APK is built and installed on K30S only. GitHub/R2/Aliyun/Lanzou, website, update config, minimum forced version, remote source pack and media revision were not published or changed.
+---
+
+---
 Date/Time: 2026-08-01 17:45 (UTC+8)
 Version: next-app-resource-size-authority-fix
 Scope: Fix severe torrent-size unit errors such as 23.5GB being displayed as 24.7MB, unify same-hash size authority and verify the live SSBC path on K30S

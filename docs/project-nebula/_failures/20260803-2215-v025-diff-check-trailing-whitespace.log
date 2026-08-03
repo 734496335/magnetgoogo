@@ -1,0 +1,6 @@
+Command: final `git diff --check` and release scope audit
+Date: 2026-08-03 UTC+8
+Status: FAIL before staging
+Root cause: `magnet/health_check.py` line 373 contained spaces on an otherwise blank line.
+Impact: No code/test/artifact/device state changed.
+Resolution: Remove the trailing whitespace and rerun final diff/scope checks.

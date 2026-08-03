@@ -2005,7 +2005,7 @@
             },
             "detail": {
               "selectors": {
-                "magnet": "a[href^='magnet:']",
+                "magnet": "a[href^='magnet:'], input[value^='magnet:'], [data-magnet^='magnet:']",
                 "title": "div.result-title",
                 "size": "div.size"
               }
@@ -10168,23 +10168,25 @@
             "supports_detail": false
           },
           "quality": {
-            "score": 75,
+            "score": 10,
             "tags": [
               "international",
               "discovered",
               "pool-primary",
-              "pool-independent"
+              "pool-independent",
+              "query-independent-broken"
             ],
             "pool_id": "solo:u3c3.com",
             "pool_role": "primary"
           },
           "health": {
-            "status": "green",
-            "status_detail": "ok",
-            "last_checked_at": "2026-07-16T02:32:35.424615+00:00",
-            "fail_streak": 0,
-            "notes": "404 as of 2026-06-12",
-            "note": "k30s dual-bait usable promote loop180"
+            "status": "yellow",
+            "status_detail": "parsing_failed",
+            "last_checked_at": "2026-08-01T22:59:00+08:00",
+            "fail_streak": 1,
+            "magnets_found": 19,
+            "notes": "Search endpoint returns query-independent homepage rows.",
+            "note": "2026-08-01 per-source audit: Inception returned 19 unique magnets and 0 relevant results; retained but removed from green runtime inventory."
           }
         },
         {

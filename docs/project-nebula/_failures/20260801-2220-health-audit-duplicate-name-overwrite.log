@@ -1,0 +1,15 @@
+Command:
+python magnet/health_check.py --status green --workers 12 --report scripts/green-source-health-audit.json
+
+Observed:
+- 148 green rules were scheduled and completed.
+- Summary retained only 145 entries: 59 green + 5 yellow + 59 gray + 22 skipped.
+
+Root cause:
+`health_check.py` stored results in a dict keyed only by `site.name`. Multiple rules share names such as BTSOW, 动漫花园, 磁力宝(cilibao), and clm44, so later results overwrote earlier rules.
+
+Impact:
+Per-source coverage reports and optional write-back could silently lose or misapply results for duplicate names. A 148-source run could not prove 148 distinct rules were audited.
+
+Fix direction:
+Key results by stable rule identity (`id`, with origin fallback), retain name/origin metadata, and bind write-back by the same identity.

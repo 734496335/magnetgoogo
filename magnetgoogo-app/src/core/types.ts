@@ -1,5 +1,6 @@
 /** Shared types for the MagnetGoogo RN app. */
 import type { Translations } from './i18n';
+import { extractInfoHash } from './infoHash.ts';
 import { parseResourceDateLabel } from './resourceDate.ts';
 import {
   formatResourceSize,
@@ -21,6 +22,8 @@ export interface SearchResult {
   site_name?: string;
   /** Internal same-hash size evidence retained across background snapshots. */
   _sizeObservations?: ResourceSizeObservation[];
+  /** Once independent same-hash file counts disagree, hide the field permanently. */
+  _fileCountConflict?: boolean;
 }
 
 // ── Two-tier Kind system ──
@@ -249,8 +252,8 @@ function normalize(s: string): string {
 
 /** Stable FlatList/cache id for hashed, non-btih, and malformed results. */
 export function getResultStableId(r: Pick<SearchResult, 'title' | 'magnet' | 'source' | 'site_name'>): string {
-  const hashMatch = r.magnet.match(/btih:([a-z0-9]{32,40})/i);
-  if (hashMatch) return hashMatch[1].toLowerCase();
+  const infoHash = extractInfoHash(r.magnet);
+  if (infoHash) return infoHash;
 
   const cleanMagnet = r.magnet.split('&')[0]?.trim();
   if (cleanMagnet) return cleanMagnet;

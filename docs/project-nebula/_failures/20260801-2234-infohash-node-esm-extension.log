@@ -1,0 +1,14 @@
+Command:
+cd magnetgoogo-app && npx tsc --noEmit && node scripts/app-adversarial-tests.mjs
+
+Result:
+TypeScript PASS, then Node ERR_MODULE_NOT_FOUND for src/core/infoHash imported from types.ts.
+
+Root cause:
+The repository's direct Node TypeScript test runtime requires explicit `.ts` extensions for local ESM imports. The new module was imported as `./infoHash`.
+
+Impact:
+Test-runtime module resolution only. TypeScript compilation passed; production logic was not executed by this failed run.
+
+Fix:
+Use explicit `./infoHash.ts` imports and rerun TypeScript plus adversarial tests.

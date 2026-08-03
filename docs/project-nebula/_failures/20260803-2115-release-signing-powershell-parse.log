@@ -1,0 +1,6 @@
+Command: PowerShell parse of APP-SIGNING.md to check release signing fields
+Date: 2026-08-03 UTC+8
+Status: FAIL before reading credentials
+Root cause: Markdown backticks in the regex were interpreted by PowerShell, causing a parser error.
+Impact: No credential value was output, no Gradle task started, and no artifact/device state changed.
+Resolution: Use a Python child process to read the protected document in memory and inject the three release signing environment variables directly into Gradle.

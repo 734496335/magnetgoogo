@@ -1,0 +1,6 @@
+Time: 2026-08-02 01:28 UTC+8
+Command: curl_cffi GET https://cache.foxs.top/search?word=One%20Piece
+Result: TLS connect error (curl 35 invalid library) on desktop.
+Impact: desktop could not inspect the live HTML; K30S evidence remains valid.
+Finding retained: the generic detail parser searches the entire body for file-count labels, so unrelated page statistics such as “Files 100” can be misbound to a torrent.
+Correction: accept generic detail fileCount only through an explicit source selector; retain structured API fields and actual file-list lengths.

@@ -1,0 +1,5 @@
+Time: 2026-08-02 01:00 UTC+8
+Command: adb dumpsys package ... | findstr /R "versionName versionCode primaryCpuAbi"
+Result: command exited 1 because Windows findstr parsed the combined expression incorrectly.
+Impact: test command only; Android Debug build/install had already succeeded.
+Correction: use PowerShell Select-String with separate patterns.

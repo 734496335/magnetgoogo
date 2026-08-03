@@ -1,0 +1,6 @@
+Command: locate apksigner/aapt/adb with `where`, then inspect release APK
+Date: 2026-08-03 UTC+8
+Status: FAIL before artifact inspection
+Root cause: The current Bash environment did not resolve Windows `where` tool paths, causing the chained command to stop.
+Impact: The signed APK was not modified; no device state changed.
+Resolution: Discover Android SDK tools from LOCALAPPDATA/ANDROID_SDK_ROOT with Python glob, then invoke them by absolute path.

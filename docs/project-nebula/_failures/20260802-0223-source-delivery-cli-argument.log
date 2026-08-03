@@ -1,0 +1,5 @@
+Time: 2026-08-02 02:23 UTC+8
+Command: python scripts/audit_source_delivery.py --sources sources.json
+Result: argparse rejected unrecognized --sources; script expects the source path as a positional argument.
+Impact: source-delivery gate did not run in this command; preceding search-quality tests passed 12/12.
+Correction: run `python scripts/audit_source_delivery.py sources.json`, then enum validation.

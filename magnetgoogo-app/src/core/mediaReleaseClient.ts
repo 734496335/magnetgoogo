@@ -23,6 +23,7 @@ import {
   cachedMediaDetail,
   cachedMediaFeed,
   cachedMediaFeedIdentity,
+  cachedMediaFeedNeedsConsumerRefresh,
   cachedMediaPointerIdentity,
   saveMediaCatalog,
   saveMediaDetail,
@@ -337,13 +338,14 @@ function catalogRefs(manifest: MediaManifest, kind: MediaKind): MediaObjectRef[]
 }
 
 export async function syncMediaFeed(kind: MediaKind): Promise<MovieFeed> {
-  const [cachedFeed, cachedIdentity] = await Promise.all([
+  const [cachedFeed, cachedIdentity, needsConsumerRefresh] = await Promise.all([
     cachedMediaFeed(kind),
     cachedMediaFeedIdentity(kind),
+    cachedMediaFeedNeedsConsumerRefresh(kind),
   ]);
   if (cachedFeed && cachedIdentity) {
     const pointerState = await remotePointerState(cachedIdentity);
-    if (pointerState !== 'changed') {
+    if (pointerState === 'unavailable' || (pointerState === 'same' && !needsConsumerRefresh)) {
       logMediaNetworkSuccess(pointerState === 'same' ? 'feed_unchanged' : 'feed_offline_cache', {
         release_id: cachedIdentity.release_id,
         pointer_revision: cachedIdentity.pointer_revision,
@@ -353,6 +355,16 @@ export async function syncMediaFeed(kind: MediaKind): Promise<MovieFeed> {
         incremental_network_bytes: pointerState === 'same' ? 'current_only' : 'unavailable',
       });
       return cachedFeed;
+    }
+    if (pointerState === 'same' && needsConsumerRefresh) {
+      logMediaNetworkSuccess('feed_consumer_schema_refresh', {
+        release_id: cachedIdentity.release_id,
+        pointer_revision: cachedIdentity.pointer_revision,
+        pointer_sha256: cachedIdentity.pointer_sha256,
+        content_kind: kind,
+        previous_feed_schema: 'media-app-feed-cache/2',
+        target_feed_schema: 'media-app-feed-cache/3',
+      });
     }
   }
 

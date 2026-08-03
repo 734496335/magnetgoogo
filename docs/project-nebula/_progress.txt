@@ -1,30 +1,27 @@
-Project Nebula progress — 2026-08-01 19:48 UTC+8
-STATUS=V0.2.4_FOUR_RATINGS_CANDIDATE_PASS
-BRANCH=release/v0.2.4-four-ratings
-VERSION=0.2.4_ANDROID_CODE=8
-PUBLICATION=NOT_PERFORMED
-PUBLIC_V0.2.3=UNCHANGED
-MEDIA_REVISION_8=UNCHANGED
-PROTOCOL=IMDB_DOUBAN_RT_BANGUMI_OPTIONAL
-CATALOG_MAPPING=PASS
-DETAIL_HYDRATION=PASS
-LOCAL_CACHE_FOUR_RATINGS=PASS
-LEGACY_REVISION_COMPAT=PASS
-EMPTY_AND_INVALID_RATINGS=HIDDEN
-DISPLAY_ORDER=DOUBAN_IMDB_RT_BANGUMI
-PRIMARY_SCORE=DOUBAN_IMDB_BANGUMI_RT
-TEN_POINT_THRESHOLDS=6.0_8.0
-RT_PERCENT_THRESHOLDS=60_80
-LIST_SORT=RELEASE_RANK
-FEATURED_RECOMMENDATION=SERVER_RECOMMENDED
-SIGNED_FIXTURE=200_CARDS_RT82_BANGUMI96
-SIGNED_FIXTURE_DISPLAYABLE_ALL_FOUR=5
-LIVE_REVISION_8=444_CARDS_RT62_BANGUMI0
-TYPESCRIPT=PASS
-APP_ADVERSARIAL=54_54_PASS
-FLUENCY=17_17_PASS
-MEDIA_GATES=PASS
-SOURCE_ENUM=357_ALL_VALID
-K30S=ONLINE_DETAIL_OFFLINE_CACHE_PASS
-K30S_FATAL_ANR=0_0
-EVIDENCE=TEST-RESULT-20260801-v0.2.4四评分客户端消费与兼容性.md
+TASK: MagnetGoogo v0.2.5正式签名包与K30S充分验收
+STATUS: FORMAL_APK_PASS / K30S_PASS / PUBLIC_RELEASE_NOT_STARTED
+DATE: 2026-08-03 UTC+8
+BRANCH: release/v0.2.5
+ARTIFACT:
+- com.magnetgoogo.app / 0.2.5 / code9 / arm64-v8a
+- path=magnetgoogo-app/android/app/build/outputs/apk/release/app-release.apk
+- bytes=38,511,674
+- sha256=d0b866a2c54d1fdc7fabaa4fee6763436516bed4f28f1b7526bfb4988ab7500b
+- signing certificate matches formal v0.2.3
+K30S:
+- formal v0.2.3 retained-data upgrade PASS
+- 消失的人/Inception/Ubuntu/One Piece/SSIS-001/The Matrix PASS
+- 豆瓣/IMDb/烂番茄 list+detail PASS
+- same-revision old-cache migration restored RT52% without clearing data
+- offline ratings/synopsis/resource count and background cleanup PASS
+- Fatal=0 ANR=0; Wi-Fi on; animations 1/1/1
+SEARCH:
+- 357 rules / 147 green / 51 pools retained
+- exhaustive Inception: 147/147, 109 magnets, hard=0 warning=0
+- no global demotion from K30S China-network failures
+GATES:
+- audit12/12; TypeScript; App54/54; Fluency17/17
+- Feed/Cache/Security/Live Network/Update/Release Build PASS
+EVIDENCE:
+- docs/project-nebula/TEST-RESULT-20260803-v0.2.5正式包K30S充分验收.md
+- releases/RELEASE-v0.2.5.md

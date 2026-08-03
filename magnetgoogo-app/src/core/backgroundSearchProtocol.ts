@@ -1,3 +1,4 @@
+import { mergeResourceFileCount } from './resourceFileCount.ts';
 import {
   resolveResourceSizeConsensus,
   upsertResourceSizeObservation,
@@ -73,6 +74,11 @@ export function mergeBackgroundSearchResults(
       item.site_name || item.source || '',
     );
     const consensusSize = resolveResourceSizeConsensus(sizeObservations);
+    const fileCountMerge = mergeResourceFileCount(
+      existing.fileCount,
+      item.fileCount,
+      existing._fileCountConflict || item._fileCountConflict,
+    );
     merged[existingIndex] = {
       ...existing,
       ...item,
@@ -80,7 +86,8 @@ export function mergeBackgroundSearchResults(
       size: consensusSize || existing.size || item.size,
       _sizeObservations: sizeObservations,
       date: item.date || existing.date,
-      fileCount: item.fileCount || existing.fileCount,
+      fileCount: fileCountMerge.fileCount,
+      _fileCountConflict: fileCountMerge.conflict || undefined,
       seeders: Math.max(item.seeders || 0, existing.seeders || 0),
       leechers: Math.max(item.leechers || 0, existing.leechers || 0),
     };

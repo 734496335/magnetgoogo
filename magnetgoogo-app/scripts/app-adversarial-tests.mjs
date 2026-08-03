@@ -21,9 +21,17 @@ import {
 import { deduplicateResults, extractInfoHash } from '../src/core/dedup.ts';
 import { parseResourceDateLabel } from '../src/core/resourceDate.ts';
 import {
+  mergeResourceFileCount,
+  parseBoundFileCount,
+  parseExplicitFileCount,
+} from '../src/core/resourceFileCount.ts';
+import {
+  formatResourceSize,
   formatSsbcSize,
   parseFirstResourceSizeLabel,
+  parseResourceSizeLabel,
   parseLabeledResourceSizeLabel,
+  resolveBoundDetailResourceSize,
   resolveResourceSizeConsensus,
 } from '../src/core/resourceSize.ts';
 import {
@@ -256,6 +264,45 @@ await test('M3', 'binary, Chinese and bound detail sizes share one numeric autho
   assert.equal(parseSizeLabel('size=1.5 GiB'), '1.5 GB');
   assert.equal(parseSizeBytes('1.5 GiB'), 1.5 * 1024 ** 3);
   assert.equal(parseSizeBytes('1024 bytes'), 1024);
+  assert.equal(parseResourceSizeLabel('183 Bytes'), '');
+  assert.equal(parseExplicitFileCount('Files 13 related title 106.36 GB'), 13);
+  assert.equal(parseExplicitFileCount('File Count: 2'), 2);
+  assert.equal(parseExplicitFileCount('文件数量：8'), 8);
+  assert.equal(parseExplicitFileCount('File Size 771.59 MB'), undefined);
+  assert.equal(parseExplicitFileCount('Files 8.14 GB'), undefined);
+  assert.equal(parseBoundFileCount('13'), 13);
+  assert.equal(parseBoundFileCount('771.59 MB'), undefined);
+  assert.equal(resolveBoundDetailResourceSize({
+    hint: '',
+    localText: '720p BluRay File size 1.07 GB',
+    selectorTexts: ['720p', '1080p'],
+    bodyText: 'File size 1.07 GB File size 1.85 GB',
+    magnetCount: 2,
+  }), '1.07 GB');
+  assert.equal(resolveBoundDetailResourceSize({
+    hint: '',
+    localText: '',
+    selectorTexts: ['720p', '1080p'],
+    bodyText: 'File size 1.07 GB File size 1.85 GB',
+    magnetCount: 2,
+  }), '');
+  assert.equal(resolveBoundDetailResourceSize({
+    hint: '',
+    localText: '',
+    selectorTexts: [],
+    bodyText: 'File size 1.07 GB',
+    magnetCount: 1,
+  }), '1.07 GB');
+  const fileCountEngine = read('src/core/searchEngine.ts');
+  assert.match(fileCountEngine, /detailSelectors\.fileCount[\s\S]*parseBoundFileCount/);
+  assert.doesNotMatch(fileCountEngine, /parseExplicitFileCount\(getBodyText\(\)\)/);
+  assert.match(fileCountEngine, /foundMagnets: Array<\{ magnet: string; element: any \| null \}>/);
+  assert.match(fileCountEngine, /resolveBoundDetailResourceSize\(/);
+  assert.match(fileCountEngine, /bodyText: foundMagnets\.length === 1 \? getBodyText\(\) : ''/);
+  assert.deepEqual(mergeResourceFileCount(2, 2), { fileCount: 2, conflict: false });
+  assert.deepEqual(mergeResourceFileCount(2, 8), { fileCount: undefined, conflict: true });
+  assert.deepEqual(mergeResourceFileCount(undefined, 8, true), { fileCount: undefined, conflict: true });
+  assert.equal(formatResourceSize(183), '');
   assert.equal(parseSizeLabel('样片 24.7MB / 种子总大小 23.5GB'), '23.5 GB');
   assert.equal(parseSizeBytes('总大小：23.5吉字节'), 23.5 * 1024 ** 3);
   assert.equal(parseSizeBytes('4K HDR'), 0);
@@ -266,12 +313,22 @@ await test('M3', 'binary, Chinese and bound detail sizes share one numeric autho
     parseLabeledResourceSizeLabel('Size : 3.91 GB Files 13 related title 106.36 GB'),
     '3.91 GB',
   );
-  assert.equal(formatSsbcSize('24672993'), '23.5 GB');
+  assert.equal(formatSsbcSize('24672993', 'Movie.2160p'), '23.5 GB');
+  assert.equal(formatSsbcSize('1556920320', 'Inception.2010_HDRip.avi'), '1.45 GB');
+  assert.equal(formatSsbcSize('14504761241', 'Inception.2010.BDRip.1080p.mkv'), '13.5 GB');
+  assert.equal(formatSsbcSize('1048576'), '');
   const engine = read('src/core/searchEngine.ts');
-  assert.match(engine, /const size = formatSsbcSize\(t\.size\)/);
+  assert.match(engine, /const size = formatSsbcSize\(t\.size, name\)/);
+  assert.match(engine, /rejectedInvalidMagnets/);
+  assert.match(engine, /INVALID_RESULT_MAGNET_PARSE/);
+  assert.match(engine, /const infoHash = extractInfoHash\(item\.magnet\)/);
+  assert.match(engine, /input\[value\^="magnet:"\]/);
+  assert.match(engine, /\$\(el\)\.attr\('value'\)/);
+  assert.match(engine, /\$\(el\)\.attr\('data-magnet'\)/);
   assert.doesNotMatch(engine, /const sizeBytes = parseInt\(t\.size, 10\)/);
-  assert.match(engine, /const hintSize = normalizeSize\(sizeHint\)/);
-  assert.match(engine, /hintSize \|\| selectorSize \|\| labeledSize/);
+  assert.match(engine, /const size = resolveBoundDetailResourceSize\(\{/);
+  assert.match(engine, /localText: localSizeText/);
+  assert.match(engine, /magnetCount: foundMagnets\.length/);
   assert.doesNotMatch(engine, /\$\(detailSelectors\.size\)\.first\(\)\.text\(\)/);
   assert.match(engine, /formatResourceSize\(Number\(item\.length\)\)/);
   assert.match(engine, /formatResourceSize\(Number\(item\.torrentSize\)\)/);
@@ -288,6 +345,9 @@ await test('M3D', 'date authority converts known formats and rejects field leaka
   assert.equal(parseResourceDateLabel("May. 19th  '15"), '2015-05-19');
   assert.equal(parseResourceDateLabel('26 Июн 26'), '2026-06-26');
   assert.equal(parseResourceDateLabel('4 days, 21 hours', Date.UTC(2026, 7, 1)), '2026-07-27');
+  assert.equal(parseResourceDateLabel('2026-08-03', Date.UTC(2026, 7, 1)), '2026-08-03');
+  assert.equal(parseResourceDateLabel('2026-08-04', Date.UTC(2026, 7, 1)), '');
+  assert.equal(parseResourceDateLabel('1893456000', Date.UTC(2026, 7, 1)), '');
   assert.equal(parseResourceDateLabel('1.85 GB'), '');
   assert.equal(parseResourceDateLabel('148'), '');
   const leaked = toResultCardModel({ title: 'x', magnet: 'm', date: '148' }, 0);
@@ -356,11 +416,18 @@ await test('M4B', 'same-hash merges use source consensus instead of first or max
   ]), '2.29 GB');
 });
 
-await test('M5', 'stable IDs ignore tracker order for btih magnets', () => {
+await test('M5', 'stable IDs canonicalize hex, Base32 and tracker order', () => {
   const hash = 'ABCDEF0123456789ABCDEF0123456789ABCDEF01';
   const a = getResultStableId({ title: 'A', magnet: `magnet:?xt=urn:btih:${hash}&tr=one` });
   const b = getResultStableId({ title: 'B', magnet: `magnet:?xt=urn:btih:${hash.toLowerCase()}&tr=two` });
   assert.equal(a, b);
+  const base32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const canonical = extractInfoHash(`magnet:?xt=urn:btih:${base32}`);
+  assert.ok(canonical);
+  assert.equal(
+    getResultStableId({ title: 'Base32', magnet: `magnet:?xt=urn:btih:${base32}` }),
+    getResultStableId({ title: 'Hex', magnet: `magnet:?xt=urn:btih:${canonical}` }),
+  );
 });
 
 await test('M6', 'hash placeholders are recovered or rejected before reaching users', () => {
@@ -374,8 +441,13 @@ await test('M6', 'hash placeholders are recovered or rejected before reaching us
   assert.equal(isHashPlaceholderTitle(magnet, magnet), true);
   assert.equal(isHashPlaceholderTitle('Inception.2010.1080p', magnet), false);
   assert.equal(recoverResultTitle('Hash: 051EE026133C...', namedMagnet), 'Inception.2010.1080p.BluRay');
+  assert.equal(recoverResultTitle('Download', namedMagnet), 'Inception.2010.1080p.BluRay');
+  assert.equal(recoverResultTitle('https://bad.example/detail', namedMagnet), 'Inception.2010.1080p.BluRay');
+  assert.equal(recoverResultTitle('Inception�2010', namedMagnet), 'Inception.2010.1080p.BluRay');
   assert.equal(recoverResultTitle(`${hash} - Inception.2010.1080p`, magnet), 'Inception.2010.1080p');
   assert.equal(recoverResultTitle('Hash: 051EE026133C...', magnet), null);
+  assert.equal(recoverResultTitle('Download', magnet), null);
+  assert.equal(recoverResultTitle(`(brute) magnet:?xt=urn:btih:${hash}`, magnet), null);
   assert.equal(recoverResultTitle('1917.2019.1080p', magnet), '1917.2019.1080p');
 
   const engine = read('src/core/searchEngine.ts');
@@ -416,6 +488,8 @@ await test('M6', 'hash placeholders are recovered or rejected before reaching us
   assert.match(deviceTest, /def is_hash_placeholder_title/);
   assert.match(deviceTest, /Hash placeholder title gate: 0/);
   assert.match(deviceTest, /hash_placeholder_title_count/);
+  assert.match(deviceTest, /audit_payload/);
+  assert.match(deviceTest, /result_quality/);
   assert.match(deviceTest, /raise SystemExit\(2\)/);
 });
 
@@ -553,11 +627,20 @@ await test('SQ5B', 'K30S benchmark mode exhaustively tests hosts without polluti
 await test('SQ5C', 'benchmark reports distinguish loaded inventory from attempted hosts and pools', () => {
   const runner = read('src/core/searchRunner.ts');
   const logger = read('src/core/searchDebugLogger.ts');
+  const bench = read('src/core/sourceBenchRunner.ts');
+  const debugServer = read('src/core/debugSearchServer.ts');
   const k30s = read('../scripts/test_k30s_search.py');
   assert.match(runner, /loadedPoolCount = new Set\(allSources\.map/);
   assert.match(runner, /sourcePackOrigin: sourceMeta\?\.remoteUrl/);
+  assert.match(runner, /visibleItems = orderedUniqueItems\.filter\(\(\{ relevance \}\) => relevance >= HIGH_RELEVANCE_THRESHOLD\)/);
+  assert.match(runner, /hash: extractInfoHash\(item\.magnet\) \|\| ''/);
+  assert.doesNotMatch(runner, /hash: \(item\.magnet\.match\(\/btih:/);
+  assert.match(logger, /canonical 40-char lowercase btih/);
   assert.match(logger, /attemptedHostCount: this\.sourceResults\.length/);
   assert.match(logger, /attemptedPoolCount: new Set/);
+  assert.match(bench, /const hash = extractInfoHash\(r\.magnet\)/);
+  assert.match(debugServer, /hash: extractInfoHash\(i\.magnet \|\| ''\) \|\| ''/);
+  assert.equal(extractInfoHash('magnet:?xt=urn:btih:ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'), '00443214c74254b635cf84653a56d7c675be77df');
   assert.match(k30s, /--append/);
   assert.match(k30s, /runtime_loaded_host_counts/);
 });
@@ -615,6 +698,12 @@ await test('P1B', 'expired encrypted source packs are rejected on disk, debug ov
   assert.match(code, /assertFreshEnvelope\(envelope, 'debug source pack'\)/);
   assert.match(code, /assertFreshEnvelope\(raw, `remote source pack from \$\{result\.url\}`\)/);
   assert.match(code, /SOURCE_EXPIRY_GRACE_MS/);
+  assert.doesNotMatch(code, /source-quarantine\.json/);
+  const canonicalSources = JSON.parse(read('../sources.json'));
+  const u3c3 = canonicalSources.rulesets.flatMap((ruleset) => ruleset.rules)
+    .find((rule) => rule.id === 'magnet_u3c3_com');
+  assert.equal(u3c3?.health?.status, 'yellow');
+  assert.equal(u3c3?.health?.status_detail, 'parsing_failed');
 });
 
 await test('P2', 'Chinese sync failures use the error visual state', () => {

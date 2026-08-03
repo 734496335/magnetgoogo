@@ -1,4 +1,5 @@
 import { isBlockedContent } from './complianceConfig';
+import { extractInfoHash } from './dedup';
 import { searchSource } from './searchEngine';
 import { recordSourceRun, getSourcePerfBoost } from './sourceStats';
 import type { SearchSourceRollup } from './analytics';
@@ -9,6 +10,7 @@ import { isBackgroundNetworkMode } from './httpClient';
 import {
   buildSourcePoolPlans,
   getSourcePoolKey,
+  HIGH_RELEVANCE_THRESHOLD,
   splitPoolStages,
   summarizeSourceQuality,
   type SourcePoolPlan,
@@ -207,7 +209,8 @@ export async function runSearchTask({
       const usableItems = items.filter((item) => !isBlockedContent(item.title));
       const qualitySummary = summarizeSourceQuality(usableItems, term, computeRelevance);
       const orderedUniqueItems = [...qualitySummary.uniqueItems].sort((a, b) => b.relevance - a.relevance);
-      const mapped: SearchResult[] = orderedUniqueItems.map(({ item }) => ({
+      const visibleItems = orderedUniqueItems.filter(({ relevance }) => relevance >= HIGH_RELEVANCE_THRESHOLD);
+      const mapped: SearchResult[] = visibleItems.map(({ item }) => ({
         title: item.title,
         magnet: item.magnet,
         size: item.size,
@@ -249,7 +252,7 @@ export async function runSearchTask({
       });
       const itemLogs: ResultItemLog[] = orderedUniqueItems.map(({ item, relevance }) => ({
         title: item.title,
-        hash: (item.magnet.match(/btih:([a-fA-F0-9]+)/i)?.[1] || '').slice(0, 16),
+        hash: extractInfoHash(item.magnet) || '',
         size: item.size || '',
         date: item.date || '',
         fileCount: item.fileCount,
@@ -265,7 +268,7 @@ export async function runSearchTask({
           sampleTitles: mapped.slice(0, 3).map((item) => item.title),
           sampleHashes: mapped
             .slice(0, 3)
-            .map((item) => (item.magnet.match(/btih:([a-fA-F0-9]+)/i)?.[1] || '').slice(0, 12)),
+            .map((item) => (extractInfoHash(item.magnet) || '').slice(0, 12)),
           items: itemLogs,
           requiresWaf: srcWaf,
           requiresBrowser: srcBrowser,

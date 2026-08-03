@@ -1,0 +1,6 @@
+Command: PowerShell HKCU Environment presence check for RELEASE_STORE_PASSWORD / RELEASE_KEY_ALIAS / RELEASE_KEY_PASSWORD
+Date: 2026-08-03 UTC+8
+Status: FAIL (command quoting only; no registry values were read or printed)
+Root cause: Git Bash expanded PowerShell `$` variables before PowerShell parsed the command.
+Impact: No build started and no project/device state changed.
+Resolution: Use `cmd /c reg query ... >nul` existence checks that never print secret values.

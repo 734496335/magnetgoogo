@@ -24,6 +24,7 @@ import {
 } from './httpClient';
 import { VerifyManager } from './VerifyManager';
 import { parseResourceDateLabel } from './resourceDate';
+import { parseBoundFileCount } from './resourceFileCount';
 import { extractInfoHash } from './dedup';
 import {
   isHashPlaceholderTitle,
@@ -35,6 +36,7 @@ import {
   parseFirstResourceSizeLabel,
   parseLabeledResourceSizeLabel,
   parseResourceSizeLabel,
+  resolveBoundDetailResourceSize,
 } from './resourceSize';
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -310,19 +312,25 @@ function finalizeSearchResults(items: ResultItem[]): ResultItem[] {
   const seen = new Set<string>();
   const finalized: ResultItem[] = [];
   let rejectedHashTitles = 0;
+  let rejectedInvalidMagnets = 0;
   for (const item of items) {
+    const infoHash = extractInfoHash(item.magnet);
+    if (!infoHash || /^0+$/.test(infoHash)) {
+      rejectedInvalidMagnets += 1;
+      continue;
+    }
     const title = resolveResultTitle(item.title, item.magnet);
     if (!title || title.length < 4) {
       if (isHashPlaceholderTitle(item.title, item.magnet)) rejectedHashTitles += 1;
       continue;
     }
-    const hash = extractInfoHash(item.magnet) || item.magnet;
-    if (seen.has(hash)) continue;
-    seen.add(hash);
+    if (seen.has(infoHash)) continue;
+    seen.add(infoHash);
     finalized.push({ ...item, title });
   }
-  if (items.length > 0 && finalized.length === 0 && rejectedHashTitles > 0) {
-    throw new Error('INVALID_RESULT_TITLE_PARSE');
+  if (items.length > 0 && finalized.length === 0) {
+    if (rejectedInvalidMagnets > 0) throw new Error('INVALID_RESULT_MAGNET_PARSE');
+    if (rejectedHashTitles > 0) throw new Error('INVALID_RESULT_TITLE_PARSE');
   }
   return finalized;
 }
@@ -724,18 +732,31 @@ async function fetchDetailResults(
     const sizeHint = sizeHints[urlIdx] || '';
     const dateHint = dateHints[urlIdx] || '';
 
-    const magnetLinks = $(detailSelectors.magnet || 'a[href^="magnet:"]');
-    const foundMagnets: string[] = [];
+    const magnetLinks = $(
+      [
+        detailSelectors.magnet,
+        'a[href^="magnet:"]',
+        'input[value^="magnet:"]',
+        '[data-magnet^="magnet:"]',
+      ].filter(Boolean).join(', '),
+    );
+    const foundMagnets: Array<{ magnet: string; element: any | null }> = [];
     magnetLinks.each((_: number, el: any) => {
-      const mag = $(el).attr('href') || '';
-      if (mag.startsWith('magnet:?')) foundMagnets.push(mag);
+      const mag = (
+        $(el).attr('href')
+        || $(el).attr('value')
+        || $(el).attr('data-magnet')
+        || $(el).attr('data-url')
+        || ''
+      ).replace(/&amp;/g, '&');
+      if (mag.startsWith('magnet:?')) foundMagnets.push({ magnet: mag, element: el });
     });
     // Fallback: regex extract from full HTML (support both hex and Base32 btih)
     if (foundMagnets.length === 0) {
       const htmlStr = $.html();
       const re = /magnet:\?xt=urn:btih:[a-fA-F0-9]{32,40}|magnet:\?xt=urn:btih:[A-Za-z2-7]{32}/gi;
       let m;
-      while ((m = re.exec(htmlStr)) !== null) foundMagnets.push(m[0]);
+      while ((m = re.exec(htmlStr)) !== null) foundMagnets.push({ magnet: m[0], element: null });
     }
     // Second fallback: bare 40-char hex info hashes in data attributes, copy buttons, spans, etc.
     // Sites like cld141.buzz store hashes as bare text, not in magnet URIs.
@@ -748,12 +769,13 @@ async function fetchDetailResults(
         const hex = hm[1].toLowerCase();
         if (hashSeen.has(hex)) continue;
         hashSeen.add(hex);
-        foundMagnets.push(`magnet:?xt=urn:btih:${hex}`);
+        foundMagnets.push({ magnet: `magnet:?xt=urn:btih:${hex}`, element: null });
         if (foundMagnets.length >= 5) break;
       }
     }
 
-    for (const magnet of foundMagnets) {
+    for (const foundMagnet of foundMagnets) {
+      const { magnet, element: magnetElement } = foundMagnet;
       if (seen.has(magnet)) continue;
       seen.add(magnet);
 
@@ -796,16 +818,33 @@ async function fetchDetailResults(
         return _bodyText;
       };
 
-      const hintSize = normalizeSize(sizeHint);
-      let selectorSize = '';
+      let localSizeText = '';
+      if (magnetElement) {
+        let context = $(magnetElement);
+        for (let depth = 0; depth < 5 && context.length > 0; depth += 1) {
+          const text = context.text().replace(/\s+/g, ' ').trim();
+          if (parseLabeledResourceSizeLabel(text) || parseFirstResourceSizeLabel(text)) {
+            localSizeText = text;
+            break;
+          }
+          const parent = context.parent();
+          if (!parent.length || parent.is('body, html')) break;
+          context = parent;
+        }
+      }
+      const selectorSizeTexts: string[] = [];
       if (detailSelectors.size) {
         $(detailSelectors.size).each((_: number, el: any) => {
-          if (selectorSize) return;
-          selectorSize = parseFirstResourceSizeLabel($(el).text());
+          selectorSizeTexts.push($(el).text());
         });
       }
-      const labeledSize = parseLabeledResourceSizeLabel(getBodyText());
-      const size = hintSize || selectorSize || labeledSize || parseFirstResourceSizeLabel(getBodyText());
+      const size = resolveBoundDetailResourceSize({
+        hint: sizeHint,
+        localText: localSizeText,
+        selectorTexts: selectorSizeTexts,
+        bodyText: foundMagnets.length === 1 ? getBodyText() : '',
+        magnetCount: foundMagnets.length,
+      });
 
       let date = '';
       if (detailSelectors.date) date = $(detailSelectors.date).first().text().trim();
@@ -837,7 +876,9 @@ async function fetchDetailResults(
         if (m) leechers = parseInt(m[1], 10);
       }
 
-      const fileCountMatch = getBodyText().match(/(?:files?|文件(?:数量|數量)?)[^\d]{0,12}\(?\s*(\d{1,5})\s*\)?/i);
+      const fileCount = detailSelectors.fileCount
+        ? parseBoundFileCount($(detailSelectors.fileCount).first().text())
+        : undefined;
       items.push({
         title: cleanTitle(title || 'Unknown Title'),
         magnet,
@@ -848,7 +889,7 @@ async function fetchDetailResults(
         source: origin,
         site_name: siteName,
         score,
-        fileCount: fileCountMatch ? Number.parseInt(fileCountMatch[1], 10) : undefined,
+        fileCount,
       });
     }
     return items;
@@ -2102,9 +2143,9 @@ async function fetchSsbc(
         let name: string = t.name_simple || t.name_IK || '';
         name = name.replace(/<[^>]+>/g, '');
 
-        // SSBC stores torrent size as a KiB count. Treating it as bytes makes
-        // 24,672,993 KiB appear as 24.7 MB instead of the correct 23.5 GB.
-        const size = formatSsbcSize(t.size);
+        // SSBC mixes bytes and KiB in the same response. Resolve only when the
+        // title makes one candidate plausible; otherwise hide the size.
+        const size = formatSsbcSize(t.size, name);
 
         const date = t.createdate || '';
 

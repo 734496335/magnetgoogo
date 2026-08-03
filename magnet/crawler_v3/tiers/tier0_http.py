@@ -13,7 +13,9 @@ Fallback chain:
 """
 from __future__ import annotations
 
+import html as html_lib
 import logging
+import re
 import urllib.parse
 from typing import Any
 
@@ -41,6 +43,14 @@ except ImportError:
 
 DEFAULT_TIMEOUT = 15
 DEFAULT_IMPERSONATE = "chrome124"
+_VALID_BTIH_RE = re.compile(
+    r"(?:urn:)?btih:(?:[0-9A-Fa-f]{40}|[A-Z2-7]{32})(?=$|[^A-Za-z0-9])",
+    re.I,
+)
+
+
+def has_valid_btih_magnet(value: str) -> bool:
+    return bool(value.startswith("magnet:?") and _VALID_BTIH_RE.search(value))
 
 
 class Tier0Http(Tier):
@@ -82,7 +92,10 @@ class Tier0Http(Tier):
         if detail_cfg and detail_cfg.get("selectors", {}).get("magnet"):
             results = self._follow_details(results, source, headers, detail_cfg, limit)
 
-        return results[:limit]
+        usable = [result for result in results if has_valid_btih_magnet(result.magnet)]
+        if not usable:
+            raise TierError("detail/search results yielded zero magnets", retryable=False, hint="check_detail_selector")
+        return usable[:limit]
 
     # ── helpers ──
 
@@ -153,18 +166,40 @@ class Tier0Http(Tier):
                     continue
                 sel = detail_cfg.get("selectors", {})
                 magnet_sel = sel.get("magnet")
-                if magnet_sel and _BS is not None:
+                if _BS is not None:
                     soup = _BS(detail_html, "html.parser")
-                    for el in soup.select(magnet_sel):
-                        href = el.get("href", "")
-                        if href.startswith("magnet:"):
-                            r.magnet = href
+                    selectors = [
+                        magnet_sel,
+                        "a[href^='magnet:']",
+                        "input[value^='magnet:']",
+                        "[data-magnet^='magnet:']",
+                    ]
+                    seen_selectors = set()
+                    for selector in selectors:
+                        if not selector or selector in seen_selectors:
+                            continue
+                        seen_selectors.add(selector)
+                        for el in soup.select(selector):
+                            for attribute in ("href", "value", "data-magnet", "data-url"):
+                                candidate = html_lib.unescape(str(el.get(attribute, "")))
+                                if candidate.startswith("magnet:?"):
+                                    r.magnet = candidate
+                                    break
+                            if r.magnet:
+                                break
+                        if r.magnet:
                             break
-                        val = el.get("value", "")
-                        if val.startswith("magnet:"):
-                            r.magnet = val
-                            break
-                out.append(r)
+                if not r.magnet:
+                    decoded_html = html_lib.unescape(detail_html)
+                    match = re.search(
+                        r"magnet:\?[^\s\"'<>]*?xt=urn:btih:(?:[0-9A-Fa-f]{40}|[A-Z2-7]{32})[^\s\"'<>]*",
+                        decoded_html,
+                        re.I,
+                    )
+                    if match:
+                        r.magnet = match.group(0)
+                if r.magnet:
+                    out.append(r)
             except Exception as e:
                 log.debug("Detail follow failed for %s: %s", r.detail_url, e)
                 out.append(r)

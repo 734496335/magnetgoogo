@@ -1,0 +1,6 @@
+Command: cold-start formal v0.2.5, then `uiautomator dump` on the animated home page
+Date: 2026-08-03 UTC+8
+App result: COLD launch PASS, TotalTime=286ms, Fatal/ANR=0
+Tool result: FAIL to create XML because the continuously animated home page never reached uiautomator idle state.
+Impact: App remained healthy; no data was cleared.
+Resolution: Temporarily disable Android animation scales and validate static search/resource/detail routes; restore all scales after testing.

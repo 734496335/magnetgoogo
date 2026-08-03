@@ -1,0 +1,5 @@
+Time: 2026-08-02 01:16 UTC+8
+Command: treated d['reports'] as a list and accessed index 0.
+Result: reports is a dict; KeyError: 0.
+Impact: inspection only; report intact.
+Correction: stop positional assumptions and enumerate actual report keys before extraction.

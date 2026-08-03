@@ -1,0 +1,15 @@
+Command:
+python scripts/test_search_result_quality_audit.py && cd magnetgoogo-app && npx tsc --noEmit && node scripts/app-adversarial-tests.mjs
+
+Result:
+Python audit tests 10/10 PASS, then TypeScript failed:
+src/core/searchEngine.ts(2107,45): Cannot find name 'title'.
+
+Root cause:
+The SSBC mixed-unit fix passed `title` into formatSsbcSize before the local title variable was declared in the mapping block.
+
+Impact:
+Compile-time failure only; no build or runtime execution occurred.
+
+Fix:
+Move title normalization before size resolution, then rerun all gates.

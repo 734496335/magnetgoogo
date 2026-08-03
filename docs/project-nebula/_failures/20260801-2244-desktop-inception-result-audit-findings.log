@@ -1,0 +1,17 @@
+Command:
+python scripts/audit_desktop_source_results.py --query Inception --workers 12 --output scripts/desktop-audit-inception.json
+
+Result:
+sourceCount=148, ok=59, failed=71, skipped=18, itemCount=876
+result-quality audit: FAIL, hard findings=14
+- EMPTY_INFO_HASH=5
+- SAME_SOURCE_DUPLICATE_HASH_CONFLICT=5
+- UNIQUE_COUNT_ITEM_LOG_MISMATCH=4
+
+Initial localization:
+- knaben.org / knaben.eu return duplicate rows for two hashes with title variants.
+- cililianjie.cc returns five detail-only rows without a resolved magnet and includes mojibake titles.
+- u3c3.com returns at least one duplicate hash row.
+
+Impact:
+The desktop audit cannot be considered clean. These findings must be classified and repaired before broader query coverage.

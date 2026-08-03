@@ -1,0 +1,5 @@
+Time: 2026-08-02 02:04 UTC+8
+Command: npx tsc --noEmit && node scripts/app-adversarial-tests.mjs
+Result: TypeScript passed; App adversarial M3 failed because a legacy static assertion still required `const hintSize = normalizeSize(sizeHint)` and `hintSize || selectorSize || labeledSize`, which were intentionally replaced by resolveBoundDetailResourceSize.
+Impact: test expectation only; production code compiled.
+Correction: replace stale assertions with checks for bound local-context size resolution and single-magnet page fallback.

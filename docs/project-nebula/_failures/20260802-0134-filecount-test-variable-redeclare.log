@@ -1,0 +1,5 @@
+Time: 2026-08-02 01:34 UTC+8
+Command: npx tsc --noEmit && node scripts/app-adversarial-tests.mjs
+Result: TS2451 Cannot redeclare block-scoped variable 'engine' at app-adversarial-tests.mjs lines 274 and 295.
+Impact: test code only; production TypeScript had not yet been exercised beyond parser compilation.
+Correction: rename the newly added local variable and rerun the same gates.

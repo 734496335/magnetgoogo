@@ -1,4 +1,5 @@
 import type { DedupedResult } from './dedup';
+import { mergeResourceFileCount } from './resourceFileCount.ts';
 import {
   resolveResourceSizeConsensus,
   upsertResourceSizeObservation,
@@ -169,8 +170,17 @@ export function mergePendingSearchResults(
       existing.date = result.date;
       existingChanged = true;
     }
-    if (!existing.fileCount && result.fileCount) {
-      existing.fileCount = result.fileCount;
+    const fileCountMerge = mergeResourceFileCount(
+      existing.fileCount,
+      result.fileCount,
+      existing._fileCountConflict || result._fileCountConflict,
+    );
+    if (
+      fileCountMerge.fileCount !== existing.fileCount
+      || fileCountMerge.conflict !== !!existing._fileCountConflict
+    ) {
+      existing.fileCount = fileCountMerge.fileCount;
+      existing._fileCountConflict = fileCountMerge.conflict || undefined;
       existingChanged = true;
     }
     if (existingChanged) {

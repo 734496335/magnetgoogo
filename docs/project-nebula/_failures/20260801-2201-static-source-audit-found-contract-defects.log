@@ -1,0 +1,23 @@
+Command:
+python scripts/audit_source_delivery.py sources.json --output scripts/source-delivery-audit.json
+
+Result:
+EXIT=2
+allRules=357
+green=148 yellow=143 gray=66
+hardFindingCount=5 warningCount=97
+
+Hard findings:
+- seedhub.cc generic template has no supported query placeholder: /categories/1/movies/
+- cilixingqiu.net uses unsupported {query_hex} placeholder
+- duplicate origin https://lemonun.top
+- duplicate origin https://www.6v520.com
+- duplicate origin https://clm54.top
+
+Additional duplicate-origin warnings:
+- btsow.pics
+- www.1337xx.to
+- share.dmhy.org
+
+Next action:
+Classify findings by active health status and execution signature, then fix only defects that affect current runtime behavior. Historical yellow/gray inventory remains retained and is not deleted.

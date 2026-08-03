@@ -23,7 +23,7 @@ const MAX_REPORTS = 50;
 
 export interface ResultItemLog {
   title: string;
-  hash: string;       // first 16 chars of btih
+  hash: string;       // canonical 40-char lowercase btih
   size: string;
   date?: string;
   fileCount?: number;

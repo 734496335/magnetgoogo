@@ -58,7 +58,7 @@ function parseMatches(raw?: string): ParsedSize[] {
     const unit = normalizeUnit(match[2]);
     if (!unit || !Number.isFinite(value) || value <= 0) continue;
     const bytes = value * UNIT_MULTIPLIERS[unit];
-    if (!Number.isFinite(bytes) || bytes <= 0) continue;
+    if (!Number.isFinite(bytes) || bytes < 1024) continue;
     matches.push({ label: `${numericText} ${unit}`, bytes, value, numericText, unit, index });
   }
   return matches;
@@ -93,9 +93,39 @@ export function parseResourceSizeBytes(raw?: string): number {
   return matches.reduce((best, item) => item.bytes > best ? item.bytes : best, 0);
 }
 
+export interface BoundDetailSizeEvidence {
+  hint?: string;
+  localText?: string;
+  selectorTexts?: string[];
+  bodyText?: string;
+  magnetCount: number;
+}
+
+/**
+ * Resolve size metadata for one magnet on a detail page. Search-page hints and
+ * the magnet's nearest DOM context are bound evidence. Page-wide selectors or
+ * body text are only safe when the page exposes exactly one magnet.
+ */
+export function resolveBoundDetailResourceSize(evidence: BoundDetailSizeEvidence): string {
+  const hintSize = parseResourceSizeLabel(evidence.hint);
+  if (hintSize) return hintSize;
+
+  const localText = evidence.localText || '';
+  const localSize = parseLabeledResourceSizeLabel(localText) || parseFirstResourceSizeLabel(localText);
+  if (localSize) return localSize;
+
+  if (evidence.magnetCount !== 1) return '';
+  for (const text of evidence.selectorTexts || []) {
+    const selectorSize = parseFirstResourceSizeLabel(text);
+    if (selectorSize) return selectorSize;
+  }
+  const bodyText = evidence.bodyText || '';
+  return parseLabeledResourceSizeLabel(bodyText) || parseFirstResourceSizeLabel(bodyText);
+}
+
 /** Format a byte count using binary units and compact precision. */
 export function formatResourceSize(bytes?: number): string {
-  if (!bytes || !Number.isFinite(bytes) || bytes <= 0) return '';
+  if (!bytes || !Number.isFinite(bytes) || bytes < 1024) return '';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'] as const;
   let value = bytes;
   let unitIndex = 0;
@@ -109,13 +139,49 @@ export function formatResourceSize(bytes?: number): string {
   return `${numeric} ${units[unitIndex]}`;
 }
 
-/** SSBC's `size` field is a KiB count, not a byte count. */
-export function formatSsbcSize(raw: unknown): string {
-  const kib = typeof raw === 'number'
+interface SsbcSizeRange {
+  minimum: number;
+  maximum: number;
+}
+
+function ssbcExpectedSizeRange(title: string): SsbcSizeRange | null {
+  const normalized = title.toLowerCase();
+  const gib = 1024 ** 3;
+  const mib = 1024 ** 2;
+  if (/\b(?:2160p|4k|uhd)\b/.test(normalized)) return { minimum: 1 * gib, maximum: 300 * gib };
+  if (/\b(?:1080[pi]|remux|blu[ ._-]?ray|bdrip|hdrip|webrip|web[ ._-]?dl)\b/.test(normalized)) {
+    return { minimum: 100 * mib, maximum: 300 * gib };
+  }
+  if (/\b720[pi]\b/.test(normalized)) return { minimum: 100 * mib, maximum: 80 * gib };
+  if (/\.(?:mkv|mp4|avi|mov|wmv|m2ts|ts)(?:\b|$)/.test(normalized)) {
+    return { minimum: 50 * mib, maximum: 300 * gib };
+  }
+  if (/\.(?:iso|dmg|pkg|exe|msi|apk|zip|rar|7z)(?:\b|$)/.test(normalized)) {
+    return { minimum: 1 * mib, maximum: 500 * gib };
+  }
+  return null;
+}
+
+/**
+ * SSBC mixes byte counts and KiB counts in the same API response. Resolve only
+ * when title-derived plausibility leaves one safe candidate; hide ambiguity.
+ */
+export function formatSsbcSize(raw: unknown, title = ''): string {
+  const numeric = typeof raw === 'number'
     ? raw
     : Number(String(raw ?? '').replace(/,/g, '').trim());
-  if (!Number.isFinite(kib) || kib <= 0) return '';
-  return formatResourceSize(kib * 1024);
+  if (!Number.isFinite(numeric) || numeric <= 0) return '';
+  const candidates = [numeric, numeric * 1024];
+  const range = ssbcExpectedSizeRange(title);
+  if (range) {
+    const plausible = candidates.filter((bytes) => bytes >= range.minimum && bytes <= range.maximum);
+    return plausible.length === 1 ? formatResourceSize(plausible[0]) : '';
+  }
+  const genericMinimum = 1024 ** 2;
+  const genericMaximum = 64 * 1024 ** 4;
+  const plausible = candidates.filter((bytes) => bytes >= genericMinimum && bytes <= genericMaximum);
+  if (plausible.length !== 1) return '';
+  return formatResourceSize(plausible[0]);
 }
 
 export interface ResourceSizeObservation {

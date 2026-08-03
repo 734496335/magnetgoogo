@@ -37,7 +37,7 @@
 | [CH-006](#challenge-006--resource-index-live-抓取可复现性与数据不退化) | Resource Index live 抓取可复现性与数据不退化 | **blocker** | solved ✅ | 2026-07-25 R6 complete; independent re-review pending |
 | [CH-007](#challenge-007--resource-index-跨电脑长任务编排与恢复) | Resource Index 跨电脑长任务编排与恢复 | **blocker** | solved in implementation | 2026-07-25 portable latest runner complete |
 | [CH-008](#challenge-008--搜索资源大小单位与合并权威不一致) | 搜索资源大小单位与合并权威不一致 | high | solved ✅ | 2026-08-01 148源大小/日期/文件数闭环 |
-| [CH-009](#challenge-009--四评分跨协议缓存与ui量纲一致性) | 四评分跨协议、缓存与UI量纲一致性 | medium | solved ✅ | 2026-08-01 v0.2.4客户端闭环 |
+| [CH-009](#challenge-009--四评分跨协议缓存与ui量纲一致性) | 四评分跨协议、缓存与UI量纲一致性 | high | solved ✅ | 2026-08-03 v0.2.5旧缓存迁移真机闭环 |
 
 ---
 
@@ -409,7 +409,9 @@
   - K30S在线列表/详情与断网冷启动缓存恢复PASS，Fatal/ANR为0。
 - **证据**：`TEST-RESULT-20260801-v0.2.4四评分客户端消费与兼容性.md`。
 - **边界**：0.2.4尚未发布；公网v0.2.3和线上revision8未修改。Bangumi实际线上展示依赖后续评分写回与新revision发布。
-- **更新日志**：2026-08-01 —— 四评分客户端消费、量纲、UI、缓存和业务口径闭环。
+- **更新日志**：
+  - 2026-08-01 —— 四评分客户端消费、量纲、UI、缓存和业务口径闭环。
+  - 2026-08-03 —— 正式0.2.3保留数据升级复验发现同revision旧Feed缓存不会补齐RT/Bangumi；Feed/Detail消费缓存升级为`/3`，旧`/2`离线保留、在线同revision自动用原始Catalog重映射。K30S不清数据后“超级少女”成功补齐烂番茄52%，断网强杀仍恢复三评分、简介和资源，Fatal/ANR为0。证据：`TEST-RESULT-20260803-v0.2.5正式包K30S充分验收.md`。
 
 ---
 

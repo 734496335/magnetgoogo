@@ -1,0 +1,6 @@
+Time: 2026-08-02 01:02 UTC+8
+Command: powershell -Command with $pkg/$crash variables inside DevSpace shell
+Result: outer command wrapper expanded variables before PowerShell, causing EmptyPipeElement and empty if condition.
+Impact: diagnostic wrapper only; App build/install unaffected.
+Attempt count: second failure for the version/crash wrapper. Do not retry the same quoting approach.
+Alternative: run raw ADB commands separately or use cmd findstr /C literals.

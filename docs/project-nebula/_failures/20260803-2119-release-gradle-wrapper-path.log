@@ -1,0 +1,7 @@
+Command: Python in-memory signing credential loader + Gradle assembleRelease
+Date: 2026-08-03 UTC+8
+Status: FAIL before Gradle started
+What worked: APP-SIGNING.md credentials were parsed successfully in memory; no value was printed.
+Root cause: Windows subprocess could not resolve relative executable `gradlew.bat` when `cwd=android`.
+Impact: No Gradle task started, no APK/device state changed.
+Resolution: Invoke the absolute path to `android/gradlew.bat` while retaining the Android directory as working directory.

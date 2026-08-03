@@ -1,0 +1,11 @@
+Command:
+adb devices && adb -s a1ea223a shell dumpsys package com.magnetgoogo.app.debug | grep -E "versionName|versionCode" | head
+
+Result:
+List of devices attached
+a1ea223a\toffline
+
+adb.exe: device offline
+
+Impact:
+K30S dynamic per-source audit cannot start until ADB reconnects. Static and executable audit tooling work continues without mutating the device or public configuration.

@@ -27,6 +27,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+from audit_search_result_quality import audit_payload
 from audit_source_delivery import audit_static
 
 # ── Configuration ────────────────────────────────────────────────────────
@@ -632,6 +633,22 @@ def main():
         for report in ordered_reports.values()
         if isinstance(report, dict) and isinstance(report.get("inventory"), dict)
     ]
+    result_quality = audit_payload(
+        {"reports": ordered_reports},
+        require_complete=BENCHMARK_MODE,
+    )
+    print(
+        "\n  Result-quality audit: "
+        f"{result_quality['status']} | hard={result_quality['hardFindingCount']} "
+        f"warnings={result_quality['warningCount']} "
+        f"sources={result_quality['uniqueAttemptedSources']}"
+    )
+    for finding in result_quality["findings"][:20]:
+        print(
+            f"    {finding['severity'].upper()} {finding['code']} | "
+            f"{finding['query']} | {finding['source']} | {finding['detail'] or finding['title']}"
+        )
+
     payload = {
         "device": SERIAL,
         "run_at": datetime.now().isoformat(),
@@ -646,13 +663,14 @@ def main():
         "quality_gates": {
             "hash_placeholder_title_count": len(current_hash_findings),
             "hash_placeholder_titles": current_hash_findings,
+            "result_quality": result_quality,
         },
         "reports": ordered_reports,
     }
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"\n  Raw results saved to: {out_path}")
-    if current_hash_findings:
+    if current_hash_findings or result_quality["hardFindingCount"]:
         raise SystemExit(2)
 
 

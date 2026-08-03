@@ -6,6 +6,7 @@
  *   curl http://localhost:9998/search?q=Inception
  *   curl http://localhost:9998/status
  */
+import { extractInfoHash } from './dedup';
 import { searchSource, type SourceRule, type ResultItem } from './searchEngine';
 
 let _sources: SourceRule[] = [];
@@ -43,7 +44,7 @@ export async function handleDebugSearch(query: string): Promise<any> {
           ms: Date.now() - t0,
           sample: items.slice(0, 2).map(i => ({
             title: i.title?.slice(0, 50),
-            hash: (i.magnet?.match(/btih:([a-fA-F0-9]+)/i)?.[1] || '').slice(0, 16),
+            hash: extractInfoHash(i.magnet || '') || '',
             size: i.size,
           })),
         });

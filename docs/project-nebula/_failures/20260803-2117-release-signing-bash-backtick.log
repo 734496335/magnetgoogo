@@ -1,0 +1,6 @@
+Command: Python in-memory signing credential loader followed by Gradle assembleRelease
+Date: 2026-08-03 UTC+8
+Status: FAIL before Python/Gradle started
+Root cause: The outer Bash shell interpreted backtick characters inside the inline Python regex as command substitution.
+Impact: No credential was read or printed, no Gradle task started, no APK/device state changed.
+Resolution: Parse APP-SIGNING.md table rows without any literal backtick character, using `chr(96)` inside Python.

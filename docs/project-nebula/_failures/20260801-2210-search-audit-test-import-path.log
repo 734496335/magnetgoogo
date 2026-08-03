@@ -1,0 +1,14 @@
+Command:
+python scripts/test_search_result_quality_audit.py
+
+Result:
+ModuleNotFoundError: No module named 'magnet'
+
+Root cause:
+The test added only ROOT/scripts to sys.path before importing magnet.health_check. The project root itself was not on sys.path.
+
+Impact:
+Test harness import failure only; no production code or source data was executed or changed.
+
+Fix:
+Add ROOT to sys.path before importing the magnet package, then rerun the full audit suite.

@@ -1,0 +1,6 @@
+Command: inline Python APK signature/version/ABI/SHA verification
+Date: 2026-08-03 UTC+8
+Status: FAIL before Python started
+Root cause: Nested Bash/Python regular-expression quotes caused a shell syntax error.
+Impact: The signed APK was not modified and no device state changed.
+Resolution: Add a reusable `scripts/verify_release_apk.py` tool and invoke it with normal arguments.

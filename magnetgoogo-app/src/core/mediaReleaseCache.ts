@@ -39,7 +39,7 @@ export interface MediaCacheIndex {
 }
 
 interface MediaFeedCacheEnvelope {
-  schema_version: 'media-app-feed-cache/2';
+  schema_version: 'media-app-feed-cache/3';
   saved_at: string;
   endpoint: string;
   identity: MediaPointerIdentity;
@@ -55,7 +55,7 @@ interface MediaCatalogCacheEnvelope {
 }
 
 interface MediaDetailCacheEnvelope {
-  schema_version: 'media-app-detail-cache/2';
+  schema_version: 'media-app-detail-cache/3';
   saved_at: string;
   media_id: string;
   content_kind: MediaKind;
@@ -72,6 +72,7 @@ interface MigrationMarker {
 let memoryIndex: MediaCacheIndex | null | undefined;
 const memoryFeeds: Partial<Record<MediaKind, MovieFeed | null>> = {};
 const memoryFeedIdentities: Partial<Record<MediaKind, MediaPointerIdentity | null>> = {};
+const memoryFeedNeedsConsumerRefresh: Partial<Record<MediaKind, boolean>> = {};
 const loadedFeedKinds = new Set<MediaKind>();
 const memoryCatalogs = new Map<string, MediaCatalog>();
 const missingCatalogs = new Set<string>();
@@ -218,10 +219,17 @@ function validateIndex(value: unknown): MediaCacheIndex {
   };
 }
 
-function validateFeedEnvelope(value: unknown, expectedKind: MediaKind): MediaFeedCacheEnvelope {
-  if (!isRecord(value) || value.schema_version !== 'media-app-feed-cache/2') {
+function validateFeedEnvelope(
+  value: unknown,
+  expectedKind: MediaKind,
+): { envelope: MediaFeedCacheEnvelope; needsConsumerRefresh: boolean } {
+  if (
+    !isRecord(value)
+    || (value.schema_version !== 'media-app-feed-cache/2' && value.schema_version !== 'media-app-feed-cache/3')
+  ) {
     throw new Error('MEDIA_FEED_CACHE_ENVELOPE_INVALID');
   }
+  const needsConsumerRefresh = value.schema_version === 'media-app-feed-cache/2';
   if (
     typeof value.saved_at !== 'string'
     || typeof value.endpoint !== 'string'
@@ -235,11 +243,14 @@ function validateFeedEnvelope(value: unknown, expectedKind: MediaKind): MediaFee
   });
   if (feed.content_kind !== expectedKind) throw new Error('MEDIA_FEED_CACHE_KIND_MISMATCH');
   return {
-    schema_version: 'media-app-feed-cache/2',
-    saved_at: value.saved_at,
-    endpoint: value.endpoint,
-    identity: validateIdentity(value.identity, 'MEDIA_FEED_CACHE'),
-    feed,
+    envelope: {
+      schema_version: 'media-app-feed-cache/3',
+      saved_at: value.saved_at,
+      endpoint: value.endpoint,
+      identity: validateIdentity(value.identity, 'MEDIA_FEED_CACHE'),
+      feed,
+    },
+    needsConsumerRefresh,
   };
 }
 
@@ -278,7 +289,10 @@ function validateCatalogEnvelope(
 }
 
 function validateDetailEnvelope(value: unknown, expectedMediaId: string): MediaDetailCacheEnvelope {
-  if (!isRecord(value) || value.schema_version !== 'media-app-detail-cache/2') {
+  if (
+    !isRecord(value)
+    || (value.schema_version !== 'media-app-detail-cache/2' && value.schema_version !== 'media-app-detail-cache/3')
+  ) {
     throw new Error('MEDIA_DETAIL_CACHE_ENVELOPE_INVALID');
   }
   if (
@@ -301,7 +315,7 @@ function validateDetailEnvelope(value: unknown, expectedMediaId: string): MediaD
     throw new Error('MEDIA_DETAIL_CACHE_IDENTITY_MISMATCH');
   }
   return {
-    schema_version: 'media-app-detail-cache/2',
+    schema_version: 'media-app-detail-cache/3',
     saved_at: value.saved_at,
     media_id: expectedMediaId,
     content_kind: contentKind,
@@ -328,6 +342,7 @@ async function writeFeedEnvelope(kind: MediaKind, envelope: MediaFeedCacheEnvelo
   await writeJsonAtomically(FEED_DIR, `${kind}.json`, envelope);
   memoryFeeds[kind] = envelope.feed;
   memoryFeedIdentities[kind] = envelope.identity;
+  memoryFeedNeedsConsumerRefresh[kind] = false;
   loadedFeedKinds.add(kind);
 }
 
@@ -364,7 +379,7 @@ async function migrateLegacyCache(): Promise<void> {
             allowResourceCountHints: true,
           });
           await writeFeedEnvelope(kind, {
-            schema_version: 'media-app-feed-cache/2',
+            schema_version: 'media-app-feed-cache/3',
             saved_at: legacy.saved_at,
             endpoint: legacy.endpoint,
             identity,
@@ -383,7 +398,7 @@ async function migrateLegacyCache(): Promise<void> {
             continue;
           }
           await writeDetailEnvelope({
-            schema_version: 'media-app-detail-cache/2',
+            schema_version: 'media-app-detail-cache/3',
             saved_at: legacy.saved_at,
             media_id: mediaId,
             content_kind: item.content_kind,
@@ -462,7 +477,7 @@ async function saveMediaFeedsUnlocked(
     });
     if (feed.content_kind !== kind) throw new Error('MEDIA_FEED_CACHE_KIND_MISMATCH');
     await writeFeedEnvelope(kind, {
-      schema_version: 'media-app-feed-cache/2',
+      schema_version: 'media-app-feed-cache/3',
       saved_at: new Date().toISOString(),
       endpoint,
       identity,
@@ -494,13 +509,15 @@ export async function cachedMediaFeed(kind: MediaKind): Promise<MovieFeed | null
   if (!jsonShardExists(FEED_DIR, name)) {
     memoryFeeds[kind] = null;
     memoryFeedIdentities[kind] = null;
+    memoryFeedNeedsConsumerRefresh[kind] = false;
     return null;
   }
   try {
-    const envelope = validateFeedEnvelope(await readJsonResilient(FEED_DIR, name), kind);
-    memoryFeeds[kind] = envelope.feed;
-    memoryFeedIdentities[kind] = envelope.identity;
-    return envelope.feed;
+    const validated = validateFeedEnvelope(await readJsonResilient(FEED_DIR, name), kind);
+    memoryFeeds[kind] = validated.envelope.feed;
+    memoryFeedIdentities[kind] = validated.envelope.identity;
+    memoryFeedNeedsConsumerRefresh[kind] = validated.needsConsumerRefresh;
+    return validated.envelope.feed;
   } catch (error) {
     logCacheFailure('load_feed', 'MEDIA_FEED_CACHE_READ_FAILED', error, {
       content_kind: kind,
@@ -508,8 +525,14 @@ export async function cachedMediaFeed(kind: MediaKind): Promise<MovieFeed | null
     deleteJsonShard(FEED_DIR, name);
     memoryFeeds[kind] = null;
     memoryFeedIdentities[kind] = null;
+    memoryFeedNeedsConsumerRefresh[kind] = false;
     return null;
   }
+}
+
+export async function cachedMediaFeedNeedsConsumerRefresh(kind: MediaKind): Promise<boolean> {
+  await cachedMediaFeed(kind);
+  return memoryFeedNeedsConsumerRefresh[kind] === true;
 }
 
 export async function cachedMediaFeedIdentity(kind: MediaKind): Promise<MediaPointerIdentity | null> {
@@ -588,6 +611,19 @@ function mergeCachedDetail(
     remote_detail_path: currentItem.remote_detail_path ?? cachedItem.remote_detail_path,
     remote_detail_hash: currentItem.remote_detail_hash ?? cachedItem.remote_detail_hash,
     remote_detail_size: currentItem.remote_detail_size ?? cachedItem.remote_detail_size,
+    imdb_id: cachedItem.imdb_id ?? currentItem.imdb_id,
+    imdb_rating: cachedItem.imdb_rating ?? currentItem.imdb_rating,
+    imdb_rating_text: cachedItem.imdb_rating_text ?? currentItem.imdb_rating_text,
+    douban_rating: cachedItem.douban_rating ?? currentItem.douban_rating,
+    douban_rating_text: cachedItem.douban_rating_text ?? currentItem.douban_rating_text,
+    douban_url: cachedItem.douban_url ?? currentItem.douban_url,
+    rotten_tomatoes_rating: cachedItem.rotten_tomatoes_rating ?? currentItem.rotten_tomatoes_rating,
+    rotten_tomatoes_rating_text: cachedItem.rotten_tomatoes_rating_text ?? currentItem.rotten_tomatoes_rating_text,
+    rotten_tomatoes_url: cachedItem.rotten_tomatoes_url ?? currentItem.rotten_tomatoes_url,
+    bangumi_rating: cachedItem.bangumi_rating ?? currentItem.bangumi_rating,
+    bangumi_rating_text: cachedItem.bangumi_rating_text ?? currentItem.bangumi_rating_text,
+    bangumi_subject_id: cachedItem.bangumi_subject_id ?? currentItem.bangumi_subject_id,
+    bangumi_url: cachedItem.bangumi_url ?? currentItem.bangumi_url,
   };
 }
 
@@ -635,7 +671,7 @@ export async function saveMediaDetail(item: MovieFeedItem): Promise<void> {
   try {
     const validated = parseResourceFeedItem(item, item.content_kind, false);
     await writeDetailEnvelope({
-      schema_version: 'media-app-detail-cache/2',
+      schema_version: 'media-app-detail-cache/3',
       saved_at: new Date().toISOString(),
       media_id: validated.movie_id,
       content_kind: validated.content_kind,
@@ -656,6 +692,8 @@ export function clearMediaCacheMemory() {
   delete memoryFeeds.series;
   delete memoryFeedIdentities.movie;
   delete memoryFeedIdentities.series;
+  delete memoryFeedNeedsConsumerRefresh.movie;
+  delete memoryFeedNeedsConsumerRefresh.series;
   loadedFeedKinds.clear();
   memoryCatalogs.clear();
   missingCatalogs.clear();

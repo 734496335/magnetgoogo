@@ -1,0 +1,6 @@
+Time: 2026-08-02 01:07 UTC+8
+Command: python scripts/test_k30s_search.py --benchmark --only "EN movie" --only "ZH movie" ...
+Result: DevSpace connector returned HTTP 502 before a report file was produced.
+Device state after failure: com.magnetgoogo.app.debug remained foreground; files/last-search-report.json was absent.
+Impact: no valid query evidence retained; do not count this batch.
+Correction: run one benchmark query per command and append reports only after each successful completion.
