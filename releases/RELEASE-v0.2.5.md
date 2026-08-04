@@ -12,8 +12,8 @@ D:\lpproduct\m023\magnetgoogo-app\android\app\build\outputs\apk\release\app-rele
 package=com.magnetgoogo.app
 versionName=0.2.5
 versionCode=9
-size=38,511,674 bytes
-sha256=d0b866a2c54d1fdc7fabaa4fee6763436516bed4f28f1b7526bfb4988ab7500b
+size=38,510,714 bytes
+sha256=2d89e372d24ee951d49ad69f17631b7b66b323e7a78d1eb23b31213a2b463b93
 abi=arm64-v8a
 certificate_sha256=475fc1647359524cef27e180421ef17401171f476e4ab41f8b423746ef0ef49d
 ```
@@ -23,7 +23,7 @@ certificate_sha256=475fc1647359524cef27e180421ef17401171f476e4ab41f8b423746ef0ef
 ## 主要功能
 
 - 新增烂番茄、Bangumi评分协议、缓存和UI支持；
-- 列表和详情支持豆瓣、IMDb、烂番茄、Bangumi四评分；
+- 列表和详情支持豆瓣、IMDb、烂番茄、Bangumi四评分；评分统一使用0.2.3紧凑胶囊样式，不使用大卡片；
 - 修复0.2.3旧缓存同revision升级后不补齐新评分；
 - 修复SSBC bytes/KiB混合导致的1024倍容量错误；
 - 修复多磁力详情页容量错绑、同Hash大小合并异常；

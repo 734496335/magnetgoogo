@@ -1,4 +1,24 @@
 ---
+Date/Time: 2026-08-04 20:50 (UTC+8)
+Version: v0.2.5-compact-rating-ui
+Scope: Restore the v0.2.3 compact rating-chip presentation while retaining all four rating sources and the v0.2.5 cache migration
+Modules: magnetgoogo-app/{app/movie/[movieId].tsx,src/components/MovieTagRow.tsx,scripts/app-adversarial-tests.mjs}, docs/project-nebula/{APP-CHANGELOG.md,TECH-CHALLENGES.md,TEST-RESULT-20260803-v0.2.5正式包K30S充分验收.md,_progress.txt,_failures/*rating*}, releases/RELEASE-v0.2.5.md
+
+### Implementation
+- Removed the detail-only two-column rating grid and its large source/value cards.
+- Restored the v0.2.3 unified compact-chip structure: each score renders as one small label such as `豆瓣 5.4`, followed by quality tags in the same wrapping row.
+- Kept Douban, IMDb, Rotten Tomatoes and Bangumi fields, ordering, score tiers, empty-value rules and cache behavior unchanged.
+
+### Verification
+- TypeScript and App adversarial 54/54 PASS; permanent tests reject any return of `ratingVariant`, `ratingGrid`, `ratingDetail` or `flexBasis` large-card styles.
+- K30S Debug and signed formal 0.2.5 both displayed `豆瓣 5.4 / IMDb 6.1 / 烂番茄 52%` as compact same-line chips on the Supergirl detail page; synopsis and resource shortcut remained normal; Fatal/ANR zero.
+- Rebuilt signed artifact: 38,510,714 bytes, SHA-256 `2d89e372d24ee951d49ad69f17631b7b66b323e7a78d1eb23b31213a2b463b93`, certificate unchanged.
+
+### Boundary
+- Version remains 0.2.5 / code9 and public release is still not started.
+---
+
+---
 Date/Time: 2026-08-01 19:45 (UTC+8)
 Version: v0.2.4-four-media-ratings-candidate
 Scope: Complete IMDb/Douban/Rotten Tomatoes/Bangumi client consumption, cache retention, list/detail UI, policy authority and legacy revision compatibility
@@ -61,8 +81,8 @@ Scope: Build signed v0.2.5, retain 147 global sources, validate formal upgrade/s
 Modules: search result authority and audits, mediaReleaseProtocol/Mapping/Cache/Client, four-rating UI, Android release identity/signing, release evidence
 
 ### Release artifact
-- Built `com.magnetgoogo.app 0.2.5 / versionCode 9`, arm64-v8a only, 38,511,674 bytes.
-- SHA-256 `d0b866a2c54d1fdc7fabaa4fee6763436516bed4f28f1b7526bfb4988ab7500b`.
+- Built `com.magnetgoogo.app 0.2.5 / versionCode 9`, arm64-v8a only; final compact-rating artifact is 38,510,714 bytes.
+- Final SHA-256 `2d89e372d24ee951d49ad69f17631b7b66b323e7a78d1eb23b31213a2b463b93`.
 - Release certificate SHA-256 matches formal v0.2.3 exactly; K30S retained-data `adb install -r` upgrade PASS.
 
 ### Formal K30S findings and repair

@@ -8,7 +8,7 @@
 
 ### 已纳入功能
 
-- 影视列表、详情和本地缓存支持豆瓣、IMDb、烂番茄、Bangumi；排序继续使用服务端rank，精品推荐继续使用recommended，高分主评分优先级固定为豆瓣→IMDb→Bangumi→烂番茄。
+- 影视列表、详情和本地缓存支持豆瓣、IMDb、烂番茄、Bangumi；评分展示恢复0.2.3紧凑胶囊样式，不再使用详情页两列大卡片；排序继续使用服务端rank，精品推荐继续使用recommended，高分主评分优先级固定为豆瓣→IMDb→Bangumi→烂番茄。
 - 修复正式0.2.3保留缓存升级时，因为媒体pointer revision不变而无法补齐新评分的问题；旧缓存离线仍可用，在线后使用原始Catalog重映射为Feed `/3`，不要求用户清缓存。
 - 修复SSBC bytes/KiB混用、多磁力详情页容量错绑、同Hash异常大值覆盖、错误B级容量和样片大小串位。
 - 修复Hash占位标题、Download/Details/纯URL、乱码、非法BTIH、Base32与Hex重复卡片。
@@ -19,8 +19,8 @@
 
 - 文件：`magnetgoogo-app/android/app/build/outputs/apk/release/app-release.apk`
 - 版本：`0.2.5 / versionCode 9`
-- 大小：`38,511,674`字节
-- SHA-256：`d0b866a2c54d1fdc7fabaa4fee6763436516bed4f28f1b7526bfb4988ab7500b`
+- 大小：`38,510,714`字节
+- SHA-256：`2d89e372d24ee951d49ad69f17631b7b66b323e7a78d1eb23b31213a2b463b93`
 - ABI：仅`arm64-v8a`
 - 签名证书与正式v0.2.3完全一致。
 - K30S从正式0.2.3保留数据升级、搜索、四评分、离线缓存和前后台服务清理均PASS，Fatal/ANR为0。

@@ -1042,9 +1042,9 @@ await test('U3', 'movie and regional series channels form one lightweight discov
   assert.match(tagRow, /rating\.source/);
   assert.match(tagRow, /rating\.displayValue/);
   assert.match(tagRow, /rating\.tier === 'high'/);
-  assert.match(tagRow, /ratingVariant === 'detail'/);
-  assert.match(tagRow, /flexBasis: '46%'/);
-  assert.match(tagRow, /ratings\.length > 0/);
+  assert.match(tagRow, /styles\.tag/);
+  assert.match(tagRow, /\{rating\.source\} \{rating\.displayValue\}/);
+  assert.doesNotMatch(tagRow, /ratingVariant|ratingGrid|ratingDetail|ratingSource|ratingValue|flexBasis/);
   assert.match(tagRow, /rotten_tomatoes_rating/);
   assert.match(tagRow, /bangumi_rating/);
   assert.ok(tagRow.indexOf('ratings.map') < tagRow.indexOf('tags.map'));
@@ -1066,7 +1066,7 @@ await test('U3', 'movie and regional series channels form one lightweight discov
   assert.doesNotMatch(screen, /item\.douban_rating\.toFixed|name="star" size=\{11\}/);
   assert.doesNotMatch(detail, /scorePill|movie\.douban_rating\.toFixed|name="star" size=\{14\}/);
   assert.match(detail, /qualityTags=\{movie\.quality_tags\.slice\(0, 5\)\}/);
-  assert.match(detail, /ratingVariant="detail"/);
+  assert.doesNotMatch(detail, /ratingVariant="detail"/);
   assert.match(detail, /synopsis\.length > 0/);
   assert.match(detail, /detailInfoRows\.length > 0/);
   assert.match(detail, /castRows\.length > 0/);

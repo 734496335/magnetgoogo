@@ -1,0 +1,6 @@
+TASK: Verify rebuilt signed v0.2.5 APK after compact rating UI change
+COMMAND: python scripts/verify_release_apk.py --apk <path>
+RESULT: FAILED BEFORE VERIFICATION
+CAUSE: verify_release_apk.py accepts APK as a positional argument, not --apk.
+IMPACT: APK unchanged; no installation or source modification.
+RETRY: pass APK path positionally with expected version/code/package arguments.

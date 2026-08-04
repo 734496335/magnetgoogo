@@ -1,0 +1,6 @@
+TASK: Rebuild signed v0.2.5 after compact rating UI change
+COMMAND: inline Python parsed APP-SIGNING.md and invoked Gradle assembleRelease
+RESULT: FAILED BEFORE GRADLE START
+CAUSE: Bash interpreted a backtick character inside Python strip syntax as command substitution, corrupting the command.
+IMPACT: Existing release APK unchanged; no credentials printed; no source files modified by the failed command.
+RETRY: Use chr(96) instead of a literal backtick and parse table rows without shell-sensitive characters.

@@ -1,0 +1,5 @@
+TASK: K30S compact rating UI verification
+COMMAND: adb deep link to com.magnetgoogo.app.debug/.MainActivity followed by uiautomator /sdcard dump
+RESULT: FAILED BEFORE APP START
+CAUSE: Debug applicationId is com.magnetgoogo.app.debug but Activity class remains com.magnetgoogo.app.MainActivity; Git Bash also converted /sdcard to a Windows path.
+IMPACT: No app data or source files modified. Retry with explicit component com.magnetgoogo.app.debug/com.magnetgoogo.app.MainActivity and MSYS_NO_PATHCONV=1.

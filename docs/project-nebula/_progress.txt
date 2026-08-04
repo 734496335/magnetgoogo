@@ -1,27 +1,23 @@
-TASK: MagnetGoogo v0.2.5正式签名包与K30S充分验收
+TASK: MagnetGoogo v0.2.5评分样式恢复0.2.3紧凑胶囊
 STATUS: FORMAL_APK_PASS / K30S_PASS / PUBLIC_RELEASE_NOT_STARTED
-DATE: 2026-08-03 UTC+8
+DATE: 2026-08-04 UTC+8
 BRANCH: release/v0.2.5
 ARTIFACT:
 - com.magnetgoogo.app / 0.2.5 / code9 / arm64-v8a
 - path=magnetgoogo-app/android/app/build/outputs/apk/release/app-release.apk
-- bytes=38,511,674
-- sha256=d0b866a2c54d1fdc7fabaa4fee6763436516bed4f28f1b7526bfb4988ab7500b
-- signing certificate matches formal v0.2.3
+- bytes=38,510,714
+- sha256=2d89e372d24ee951d49ad69f17631b7b66b323e7a78d1eb23b31213a2b463b93
+- certificate unchanged from formal v0.2.3
+UI:
+- removed detail two-column large rating cards
+- restored v0.2.3 compact unified chips
+- four rating fields/order/tiers/cache unchanged
 K30S:
-- formal v0.2.3 retained-data upgrade PASS
-- 消失的人/Inception/Ubuntu/One Piece/SSIS-001/The Matrix PASS
-- 豆瓣/IMDb/烂番茄 list+detail PASS
-- same-revision old-cache migration restored RT52% without clearing data
-- offline ratings/synopsis/resource count and background cleanup PASS
-- Fatal=0 ANR=0; Wi-Fi on; animations 1/1/1
-SEARCH:
-- 357 rules / 147 green / 51 pools retained
-- exhaustive Inception: 147/147, 109 magnets, hard=0 warning=0
-- no global demotion from K30S China-network failures
+- Debug and signed formal show 豆瓣5.4 / IMDb6.1 / 烂番茄52% as compact chips
+- synopsis/resource shortcut normal; Fatal=0 ANR=0
 GATES:
-- audit12/12; TypeScript; App54/54; Fluency17/17
-- Feed/Cache/Security/Live Network/Update/Release Build PASS
+- TypeScript PASS; App adversarial 54/54 PASS
+- formal APK verification PASS
 EVIDENCE:
 - docs/project-nebula/TEST-RESULT-20260803-v0.2.5正式包K30S充分验收.md
 - releases/RELEASE-v0.2.5.md

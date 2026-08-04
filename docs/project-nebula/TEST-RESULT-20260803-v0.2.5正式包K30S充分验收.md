@@ -1,6 +1,6 @@
 # v0.2.5正式签名包与K30S充分验收
 
-日期：2026-08-03（UTC+8）
+日期：2026-08-03；评分UI修订：2026-08-04（UTC+8）
 分支：`release/v0.2.5`
 设备：K30S，序列号`a1ea223a`
 结论：`FORMAL_APK=PASS / K30S=PASS / PUBLIC_RELEASE=NOT_STARTED`
@@ -12,8 +12,8 @@
 包名：com.magnetgoogo.app
 版本：0.2.5
 versionCode：9
-大小：38,511,674 bytes
-SHA-256：d0b866a2c54d1fdc7fabaa4fee6763436516bed4f28f1b7526bfb4988ab7500b
+大小：38,510,714 bytes
+SHA-256：2d89e372d24ee951d49ad69f17631b7b66b323e7a78d1eb23b31213a2b463b93
 ABI：arm64-v8a only
 证书SHA-256：475fc1647359524cef27e180421ef17401171f476e4ab41f8b423746ef0ef49d
 ```
@@ -164,12 +164,13 @@ Hash占位标题：0
 正式详情页：
 
 ```text
-豆瓣 / IMDb / 烂番茄评分卡正常
+豆瓣5.4 / IMDb6.1 / 烂番茄52%使用同一行紧凑胶囊
+不再显示两列大评分卡
 剧情简介正常
 查看资源（1）正常
 ```
 
-线上revision8当前没有有效Bangumi条目，因此不能声称正式线上已看到Bangumi；Bangumi由签名冻结release、协议映射和2×2组件永久测试验证。
+2026-08-04根据真机视觉反馈，将详情页评分恢复为0.2.3的紧凑胶囊结构；四评分字段、空值规则、量纲和缓存能力均保留。线上revision8当前没有有效Bangumi条目，因此不能声称正式线上已看到Bangumi；Bangumi继续由签名冻结release及协议映射测试验证。
 
 ## 七、离线缓存
 
