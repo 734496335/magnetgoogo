@@ -1,0 +1,6 @@
+TASK: v0.2.3→v0.2.5 App内更新E2E最终门禁
+TIME: 2026-08-04 22:41 UTC+8
+RESULT: command stopped before any gate ran.
+CAUSE: `python -m py_compile scripts/local_update_e2e_server.py` was invoked from `magnetgoogo-app`, but the script is at repository-root `scripts/`.
+IMPACT: no test failure and no project/device mutation.
+CORRECTION: run Python script/source enum from repo root; run TypeScript/npm/App gates from `magnetgoogo-app`.

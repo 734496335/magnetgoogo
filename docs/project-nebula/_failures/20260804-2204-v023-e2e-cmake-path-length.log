@@ -1,0 +1,7 @@
+TASK: K30S 0.2.3→0.2.5 App内更新E2E
+TIME: 2026-08-04 22:04 UTC+8
+RESULT: Expo prebuild PASS; Android Debug build FAIL at native CMake.
+ROOT CAUSE: managed worktree path `C:\Users\luhuo\.devspace\worktrees\m023-f4b45ae9\...` caused generated C++ object paths to exceed Windows 260 characters. Ninja reported `Filename longer than 260 characters` for safe-area-context.
+EVIDENCE: JS bundle completed; failure occurred only in `:app:buildCMakeDebug[arm64-v8a]`.
+IMPACT: no APK installed and device unchanged.
+CORRECTION: map the same worktree to a short temporary drive letter, run Gradle clean, then rebuild from the short path.

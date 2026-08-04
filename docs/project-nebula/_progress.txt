@@ -1,23 +1,28 @@
-TASK: MagnetGoogo v0.2.5评分样式恢复0.2.3紧凑胶囊
-STATUS: FORMAL_APK_PASS / K30S_PASS / PUBLIC_RELEASE_NOT_STARTED
+TASK: MagnetGoogo v0.2.3→v0.2.5 App内更新全链路验证
+STATUS: E2E_PASS / DATA_RETENTION_PASS / PUBLIC_RELEASE_NOT_STARTED
 DATE: 2026-08-04 UTC+8
 BRANCH: release/v0.2.5
-ARTIFACT:
+
+FORMAL ARTIFACT:
 - com.magnetgoogo.app / 0.2.5 / code9 / arm64-v8a
-- path=magnetgoogo-app/android/app/build/outputs/apk/release/app-release.apk
 - bytes=38,510,714
 - sha256=2d89e372d24ee951d49ad69f17631b7b66b323e7a78d1eb23b31213a2b463b93
-- certificate unchanged from formal v0.2.3
-UI:
-- removed detail two-column large rating cards
-- restored v0.2.3 compact unified chips
-- four rating fields/order/tiers/cache unchanged
-K30S:
-- Debug and signed formal show 豆瓣5.4 / IMDb6.1 / 烂番茄52% as compact chips
-- synopsis/resource shortcut normal; Fatal=0 ANR=0
-GATES:
-- TypeScript PASS; App adversarial 54/54 PASS
-- formal APK verification PASS
+- formal v0.2.3 and v0.2.5 certificate SHA256 identical
+
+K30S E2E:
+- v0.2.3 source authority=01555edc217fcf8db63c9af1f20c099a786337c0
+- local-isolated config only; updater/download/install code unchanged
+- update modal displayed v0.2.5
+- App downloaded 71.1MB APK and auto-opened MIUI installer
+- installer showed 0.2.3→0.2.5 / source=MagGoogo
+- user-confirmed update completed: code7→code9
+- firstInstallTime unchanged; UpdateRetentionProbe20260804 retained
+- cold start PASS; Fatal=0; ANR=0
+
+CLEANUP:
+- adb reverse/server/temp APK removed
+- animations restored 1/1/1; shell install AppOp restored default
+- formal package remained 0.2.5/code9; public config unchanged
+
 EVIDENCE:
-- docs/project-nebula/TEST-RESULT-20260803-v0.2.5正式包K30S充分验收.md
-- releases/RELEASE-v0.2.5.md
+- docs/project-nebula/TEST-RESULT-20260804-v0.2.3到v0.2.5-App内更新全链路.md

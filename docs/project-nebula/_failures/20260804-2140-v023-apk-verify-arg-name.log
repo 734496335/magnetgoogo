@@ -1,0 +1,6 @@
+TASK: K30S正式0.2.3→0.2.5 App内更新全链路测试
+TIME: 2026-08-04 21:40 UTC+8
+RESULT: source binding PASS; APK verifier invocation FAIL
+DETAIL: 77a48f7, aa59a4e and 01555ed all report version 0.2.3/code7; 01555ed is the final v0.2.3 release-candidate closure commit. `verify_release_apk.py` rejected obsolete argument names `--expected-version/--expected-version-code/--expected-cert-sha256`.
+IMPACT: no APK install or device mutation occurred.
+CORRECTION: use current CLI `--expect-version`, `--expect-code`, and `--previous` for certificate comparison.

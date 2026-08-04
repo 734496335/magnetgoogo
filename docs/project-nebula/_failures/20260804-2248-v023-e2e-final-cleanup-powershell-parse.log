@@ -1,0 +1,7 @@
+TASK: v0.2.3→v0.2.5 App内更新E2E最终本机清理
+TIME: 2026-08-04 22:48 UTC+8
+RESULT: combined cleanup command did not execute.
+CAUSE: PowerShell parsed the outer-shell-expanded `2>$null` fragment as an incomplete redirection and stopped with `MissingFileSpecification`.
+EVIDENCE AFTER FAILURE: local server PID 116808 still listened on 127.0.0.1:8765; D:\w023-e2e still existed; W: remained mapped to D:\.
+IMPACT: test result, phone state and committed project files were unaffected.
+CORRECTION: execute Stop-Process, Remove-Item and subst removal as three independent commands without embedded redirection.

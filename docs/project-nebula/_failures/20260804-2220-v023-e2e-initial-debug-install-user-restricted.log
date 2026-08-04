@@ -1,0 +1,7 @@
+TASK: K30S 0.2.3→0.2.5 App内更新E2E
+TIME: 2026-08-04 22:20 UTC+8
+RESULT: initial v0.2.3 Debug install blocked before app launch.
+COMMAND: adb install D:/w023-e2e/.../app-debug.apk
+ERROR: INSTALL_FAILED_USER_RESTRICTED: Install canceled by user
+BOUNDARY: formal com.magnetgoogo.app remains 0.2.5/code9; local update server and adb reverse remain active. No app data migration or update test started.
+NEXT: wake/unlock K30S, inspect MIUI package installer/USB install policy, enable permitted test-device installation path, then retry once.

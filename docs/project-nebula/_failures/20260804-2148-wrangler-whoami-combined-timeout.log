@@ -1,0 +1,7 @@
+TASK: K30S正式0.2.3→0.2.5 App内更新全链路测试
+TIME: 2026-08-04 21:48 UTC+8
+COMMAND: npx wrangler --version && npx wrangler whoami && curl ... && ls ...
+RESULT: PARTIAL PASS then timeout
+EVIDENCE: Wrangler 4.118.0 installed; OAuth login/account and Workers write permissions confirmed. Command timed out after verbose `whoami`; public IP and gateway directory checks did not run.
+IMPACT: no Worker deployment, public config mutation, APK upload or device mutation occurred.
+CORRECTION: split IP, config and deployment checks into short commands. Use temporary Cloudflare Tunnel for APK bytes instead of persistent R2 upload.

@@ -1,0 +1,7 @@
+TASK: K30S 0.2.3→0.2.5 App内更新E2E
+TIME: 2026-08-04 22:24 UTC+8
+RESULT: second initial Debug install attempt blocked.
+ACTION: set `com.android.shell REQUEST_INSTALL_PACKAGES` AppOps to `allow` and verified it.
+ERROR: adb install still returned `INSTALL_FAILED_USER_RESTRICTED: Install canceled by user`.
+CONCLUSION: standard package verifier/unknown-source/AppOps settings are not the remaining blocker; MIUI HyperOS has an additional USB-install security gate.
+BOUNDARY: no Debug package installed; formal app remains untouched. Stop install retries until the MIUI-specific gate is identified.

@@ -1,4 +1,25 @@
 ---
+Date/Time: 2026-08-04 22:35 (UTC+8)
+Version: v0.2.3-to-v0.2.5-in-app-update-e2e
+Scope: Prove the complete v0.2.3 in-App download and MIUI-confirmed upgrade path to v0.2.5 without changing public update configuration
+Modules: scripts/local_update_e2e_server.py, docs/project-nebula/{TEST-RESULT-20260804-v0.2.3到v0.2.5-App内更新全链路.md,APP-CHANGELOG.md,DEV-LOG.md,_progress.txt,_failures/*v023-e2e*,_failures/*v023-update*}, releases/RELEASE-v0.2.5.md
+
+### Test authority
+- Bound the old client to final v0.2.3 commit `01555edc217fcf8db63c9af1f20c099a786337c0`; the test variant differed only in the local config endpoint and cleartext localhost permission. Optional/forced update modals, APK download/validation and installer Intent code were byte-identical to formal v0.2.3 source.
+- Formal v0.2.3 and final compact-rating v0.2.5 APKs were independently verified as `com.magnetgoogo.app`, code7→code9, with the same release certificate SHA-256 `475fc164...ef49d`.
+- Built matching Debug packages for local isolated E2E: `com.magnetgoogo.app.debug` 0.2.3/code7 → 0.2.5/code9, same Debug certificate.
+
+### K30S result
+- v0.2.3 fetched local config, displayed `发现新版本 / v0.2.5`, downloaded the 71.1MB APK inside the App and automatically opened MIUI Package Installer instead of falling back to a browser.
+- MIUI explicitly displayed `版本：0.2.3 → 0.2.5` and `安装来源：MagGoogo`; user confirmation completed the update.
+- Package became 0.2.5/code9 while `firstInstallTime=2026-08-04 22:19:57` remained unchanged. The pre-upgrade AsyncStorage marker `UpdateRetentionProbe20260804` remained present after update and cold start.
+- Fatal/ANR zero. ADB reverse, local server, temporary APKs, shell AppOps and animation scales were restored/removed after the test. Public config and release channels were never modified.
+
+### Boundary
+- Android does not permit silent installation. v0.2.3 automates detection, download and installer launch; the user must approve MIUI security/ICP prompts and tap continue update.
+---
+
+---
 Date/Time: 2026-08-04 20:50 (UTC+8)
 Version: v0.2.5-compact-rating-ui
 Scope: Restore the v0.2.3 compact rating-chip presentation while retaining all four rating sources and the v0.2.5 cache migration

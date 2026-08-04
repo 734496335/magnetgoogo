@@ -1,0 +1,7 @@
+TASK: K30S 0.2.3→0.2.5 App内更新E2E
+TIME: 2026-08-04 21:59 UTC+8
+RESULT: Expo prebuild PASS; Gradle did not start.
+COMMAND: gradlew.bat assembleDebug ...
+CAUSE: Git Bash does not resolve executables from the current directory without `./`.
+IMPACT: no APK built or installed; device unchanged.
+CORRECTION: run `./gradlew.bat assembleDebug -PstandaloneDebug=true -PreactNativeArchitectures=arm64-v8a` once.

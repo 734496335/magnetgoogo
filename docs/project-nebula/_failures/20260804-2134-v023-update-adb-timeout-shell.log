@@ -1,0 +1,7 @@
+TASK: K30S正式0.2.3→0.2.5 App内更新全链路测试
+TIME: 2026-08-04 21:34 UTC+8
+COMMAND: adb kill-server && adb start-server && timeout /t 3 /nobreak ...
+RESULT: FAIL before device/source/APK verification
+CAUSE: Git Bash resolved `timeout` to GNU timeout, which rejected Windows `/t` syntax.
+IMPACT: ADB daemon started successfully; no APK install, device mutation or project code change occurred.
+CORRECTION: use `sleep 3` and continue the same verification once.

@@ -1,0 +1,6 @@
+TASK: K30S 0.2.3→0.2.5 App内更新E2E
+TIME: 2026-08-04 22:30 UTC+8
+RESULT: non-streaming install preparation failed before `pm install`.
+CAUSE: Git Bash converted remote `/data/local/tmp/...` into `C:/Program Files/Git/data/local/tmp/...`; `adb push` reported remote secure_mkdirs failure.
+IMPACT: no package installation or device app data change occurred.
+CORRECTION: set `MSYS2_ARG_CONV_EXCL='*'` for adb push and shell commands, then execute the non-streaming install once.

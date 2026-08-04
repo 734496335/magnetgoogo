@@ -1,0 +1,8 @@
+TASK: K30S正式0.2.3→0.2.5 App内更新全链路测试
+TIME: 2026-08-04 21:37 UTC+8
+COMMAND: git show v0.2.3:magnetgoogo-app/app.json
+RESULT: FAIL before APK verification
+CAUSE: repository tag `v0.2.3` resolves to commit 4f8cba6e... whose tree does not contain the current `magnetgoogo-app/app.json` path; it is not the authoritative current App release binding.
+EVIDENCE: release history identifies 77a48f7 → aa59a4e → 01555ed as the formal v0.2.3 chain.
+IMPACT: no APK install or device data change occurred; K30S is online as `device`.
+CORRECTION: inspect and bind the explicit formal release commits instead of guessing by tag.

@@ -1,0 +1,7 @@
+TASK: K30S 0.2.3→0.2.5 App内更新E2E
+TIME: 2026-08-04 22:37 UTC+8
+RESULT: direct package-installer launch from shell content URI rejected.
+ERROR: `SecurityException: UID 2000 does not have permission to content://com.android.externalstorage.documents/...`.
+CAUSE: shell cannot self-grant a DocumentsProvider URI; `--grant-read-uri-permission` only propagates an existing grant.
+IMPACT: installer did not open; no package/device data change.
+CORRECTION: open the system Downloads/DocumentsUI screen and select the APK there, allowing the file manager to issue a valid URI grant to MIUI Package Installer.

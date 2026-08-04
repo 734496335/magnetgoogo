@@ -1,0 +1,6 @@
+TASK: K30S 0.2.3→0.2.5 App内更新E2E
+TIME: 2026-08-04 22:33 UTC+8
+RESULT: APK push to `/data/local/tmp` PASS; shell `pm install` blocked.
+ERROR: `INSTALL_FAILED_USER_RESTRICTED: Install canceled by user`.
+CONCLUSION: HyperOS blocks both streamed and non-streamed shell installs despite verifier/AppOps/adbinstall settings. This is specific to shell installation, not the App's intended installer Intent path.
+NEXT: install the initial 0.2.3 test package through the MIUI package-installer GUI from Download storage, using the same user-confirmation surface that the App update flow will later invoke.

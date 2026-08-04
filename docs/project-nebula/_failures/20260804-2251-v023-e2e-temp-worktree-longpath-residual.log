@@ -1,0 +1,6 @@
+TASK: v0.2.3→v0.2.5 App内更新E2E临时工作树清理
+TIME: 2026-08-04 22:51 UTC+8
+RESULT: Git worktree registration removed; filesystem directory not fully deleted.
+ATTEMPTS: `git worktree remove --force` removed metadata but hit Windows long filenames; one PowerShell recursive deletion also failed on generated React Native transform paths.
+STOP RULE: no further blind deletion retries after two same-root failures.
+FINAL STATE: `git worktree list` has no `D:/w023-e2e` or `m023-f4b45ae9`; local server port8765 is closed; W: temporary subst removed. `D:\w023-e2e` remains as unregistered build-file residue only and does not affect repository, device, release APK or public configuration.

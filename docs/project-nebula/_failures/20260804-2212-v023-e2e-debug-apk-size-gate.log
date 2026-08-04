@@ -1,0 +1,6 @@
+TASK: K30S 0.2.3→0.2.5 App内更新E2E
+TIME: 2026-08-04 22:12 UTC+8
+RESULT: APK verifier stopped before package/certificate comparison.
+CAUSE: `verify_release_apk.py` default maximum is intended for optimized Release APKs; standalone Debug APK is 68,461,198 bytes and exceeded that default.
+IMPACT: no install or device mutation occurred.
+CORRECTION: rerun with `--max-bytes 80000000`; retain all version/package/certificate checks.
