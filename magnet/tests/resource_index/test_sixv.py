@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from magnet.resource_index.adapters.movie_registry import get_movie_source
 from magnet.resource_index.adapters.sixv.models import (
     SixVListingCandidate,
     SixVMovieDetail,
@@ -209,6 +210,32 @@ def test_detail_parser_supports_paragraph_template_and_alias_labels() -> None:
     assert movie.directors == ("延尚昊",)
     assert movie.actors == ("全智贤", "具教焕")
     assert movie.synopsis == "影片讲述幸存者对抗感染者的故事。"
+
+
+def test_detail_parser_falls_back_to_listing_year_when_metadata_omits_year() -> None:
+    html = """
+    <html><body><h1>2026科幻惊悚《灵魂伴侣》1080p.HD中英双字</h1>
+    <div id="endText">
+      <p><img src="https://img.example/soulmate.jpg" /></p>
+      <p>◎标　　题　灵魂伴侣</p>
+      <hr />
+      <a href="magnet:?xt=urn:btih:3333333333333333333333333333333333333333">1080p.HD中英双字.mp4</a>
+    </div></body></html>
+    """
+    candidate = replace(
+        _candidate(1),
+        listing_title="2026科幻惊悚《灵魂伴侣》1080p.HD中英双字",
+    )
+    movie = parse_movie_detail(html, candidate=candidate)
+    assert movie.year == 2026
+    assert movie.parser_version == "sixv-parser/1.0.1"
+
+
+def test_sixv_daily_budget_can_absorb_a_twenty_item_update_burst() -> None:
+    spec = get_movie_source("sixv")
+    assert spec.default_batch_size * spec.automatic_max_batches >= 20
+    reserved = spec.snapshot_max_requests + spec.automatic_max_batches * spec.batch_max_requests
+    assert reserved <= spec.daily_request_budget
 
 
 def test_detail_parser_splits_compact_multifield_paragraph() -> None:

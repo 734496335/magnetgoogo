@@ -102,7 +102,7 @@ def _ensure_builtin_movie_sources() -> None:
                 minimum_check_interval_hours=12,
                 daily_request_budget=80,
                 default_batch_size=5,
-                automatic_max_batches=2,
+                automatic_max_batches=4,
                 snapshot_max_requests=12,
                 batch_max_requests=12,
                 max_listing_pages=4,

@@ -37,11 +37,16 @@ def test_daily_runner_defaults_to_bounded_candidate_mode() -> None:
     assert "--cpus 1.75" not in script
 
 
-def test_daily_service_runs_production_publish_mode() -> None:
+def test_daily_service_runs_production_publish_mode_through_bash() -> None:
     service = (LINUX / "magnet-media-daily.service").read_text(encoding="utf-8")
-    assert "run-media-daily.sh publish" in service
+    assert "ExecStart=/usr/bin/bash /opt/magnet-media/app/deploy/resource-index/linux/run-media-daily.sh publish" in service
     assert "run-media-daily.sh candidate" not in service
     assert "daily media production publish" in service
+
+
+def test_weekly_audit_runs_through_bash_even_if_archive_loses_executable_mode() -> None:
+    service = (LINUX / "magnet-media-audit.service").read_text(encoding="utf-8")
+    assert "ExecStart=/usr/bin/bash /opt/magnet-media/app/deploy/resource-index/linux/run-media-daily.sh audit" in service
 
 
 def test_weekly_audit_is_separated_from_daily_window() -> None:

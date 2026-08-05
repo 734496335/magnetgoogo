@@ -18,7 +18,7 @@ from magnet.resource_index.normalize.magnets import normalize_magnet_uri
 from magnet.resource_index.normalize.text import normalize_whitespace
 
 SOURCE_ID = "sixv"
-PARSER_VERSION = "sixv-parser/1.0.0"
+PARSER_VERSION = "sixv-parser/1.0.1"
 ORIGIN = "https://www.6v520.com"
 
 _FIELD_LABELS = (
@@ -429,6 +429,8 @@ def parse_movie_detail(
     original_title = _first(metadata.get("片名")) or _first(metadata.get("译名"))
     year_text = _first(metadata.get("年代"))
     year_match = re.search(r"(19\d{2}|20\d{2})", year_text or "")
+    if year_match is None:
+        year_match = re.match(r"^\s*(19\d{2}|20\d{2})(?!\d)", candidate.listing_title)
     duration_text = _first(metadata.get("片长"))
     duration_match = re.search(r"(\d{1,4})\s*分钟", duration_text or "")
     rating_text = _first(metadata.get("豆瓣评分"))
