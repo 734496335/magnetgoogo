@@ -25,6 +25,10 @@ from magnet.resource_index.pipeline.latest_crawl import _atomic_write_json
 
 _SERIES_KINDS = {"series", "anime", "documentary", "variety"}
 _CHINESE_NUMBER = "零〇一二两三四五六七八九十百"
+_SERIES_ITEM_CONTEXT = re.compile(
+    rf"(?:更新(?:至)?\s*\d+|第\s*(?:\d+|[{_CHINESE_NUMBER}]+)\s*(?:季|集)|"
+    rf"全\s*\d*\s*集|全集|完结|(?i:S\d{{1,2}}(?:E\d{{1,4}})?)|季\s*全)"
+)
 
 
 def _normalized_title(value: object) -> str:
@@ -246,13 +250,38 @@ def _quarantine_entry(
     }
 
 
+def _inherit_series_item_context(
+    item: dict[str, Any],
+    resource: dict[str, Any],
+) -> dict[str, Any]:
+    if any(
+        resource.get(key) not in (None, "")
+        for key in ("season_number", "episode_start", "episode_end", "episode_label")
+    ):
+        return resource
+    label = normalize_whitespace(
+        str(item.get("episode_label") or item.get("update_status") or "")
+    )
+    if not label or _SERIES_ITEM_CONTEXT.search(label) is None:
+        return resource
+    inherited = deepcopy(resource)
+    inherited["episode_label"] = label
+    display_title = normalize_whitespace(str(inherited.get("display_title") or ""))
+    if display_title and label not in display_title:
+        inherited["display_title"] = f"{label} · {display_title}"
+    elif not display_title:
+        inherited["display_title"] = label
+    inherited["title_source"] = "item_context"
+    return inherited
+
+
 def _partition_series_item(
     item: dict[str, Any],
     *,
     quarantine: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     normalized_resources = [
-        normalize_resource(resource).resource
+        _inherit_series_item_context(item, normalize_resource(resource).resource)
         for resource in item.get("resources") or []
         if isinstance(resource, dict)
     ]

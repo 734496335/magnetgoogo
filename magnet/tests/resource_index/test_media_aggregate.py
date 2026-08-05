@@ -572,6 +572,37 @@ def test_xmen_explicit_second_season_partitions_first_and_inherits_unknown_resou
     assert json.loads(quality_path.read_text(encoding="utf-8"))["status"] == "pass"
 
 
+def test_series_collection_resource_inherits_full_collection_context(tmp_path: Path) -> None:
+    feed = tmp_path / "full-series.json"
+    item = _item(
+        source_id="sixv-series",
+        brand_id="sixv",
+        title="莫得闲",
+        year=2026,
+        kind="series",
+        season=None,
+        episode=None,
+        resource=(
+            "magnet:?xt=urn:btih:0dff59a04358cbb3a5dde29c21651eb046c6eda4"
+            "&dn=%E8%8E%AB%E5%BE%97%E9%97%B2"
+        ),
+    )
+    item["listing_title"] = "《莫得闲》全集"
+    item["episode_label"] = "全集"
+    item["update_status"] = "全集"
+    item["resources"][0]["display_title"] = "1080p.HD国语中字无水印.mkv"
+    _write_feed(feed, "sixv-series", [item])
+
+    result = aggregate_media_feeds([feed])
+
+    assert result["summary"]["record_count"] == 1
+    resource = result["items"][0]["resources"][0]
+    assert resource["episode_label"] == "全集"
+    assert resource["display_title"] == "全集 · 1080p.HD国语中字无水印.mkv"
+    assert resource["title_source"] == "item_context"
+    assert result["quality"]["weak_episode_title_count"] == 0
+
+
 def test_unscoped_multiseason_page_splits_into_season_entries(tmp_path: Path) -> None:
     feed = tmp_path / "multi-season.json"
     item = _item(
