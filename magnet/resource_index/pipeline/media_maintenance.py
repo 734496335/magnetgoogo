@@ -5,6 +5,9 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import socket
+import threading
+import time
 import uuid
 from datetime import date, timedelta
 from contextlib import contextmanager
@@ -13,6 +16,10 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from magnet.resource_index.errors import CONFIG_ERROR, ResourceIndexError
+
+
+_LOCK_HEARTBEAT_SECONDS = 30.0
+_LOCK_STALE_SECONDS = 10 * 60.0
 
 
 @dataclass(frozen=True)
@@ -59,7 +66,13 @@ def _parse_lock(payload: bytes) -> dict[str, str]:
     return values
 
 
-def _stale_lock_reason(values: dict[str, str], current_boot_id: str) -> str | None:
+def _stale_lock_reason(
+    values: dict[str, str],
+    current_boot_id: str,
+    *,
+    modified_at: float | None = None,
+    now: float | None = None,
+) -> str | None:
     try:
         pid = int(values.get("pid") or "")
     except ValueError:
@@ -69,6 +82,9 @@ def _stale_lock_reason(values: dict[str, str], current_boot_id: str) -> str | No
         return "boot_changed"
     if not _process_alive(pid):
         return "dead_pid"
+    current_time = time.time() if now is None else now
+    if modified_at is not None and current_time - modified_at > _LOCK_STALE_SECONDS:
+        return "heartbeat_expired"
     return None
 
 
@@ -102,6 +118,7 @@ def run_lock(path: Path, *, started_at: str) -> Iterator[dict[str, Any]]:
                 f"schema=media-daily-lock/1\n"
                 f"pid={os.getpid()}\n"
                 f"boot_id={boot_id}\n"
+                f"hostname={socket.gethostname()}\n"
                 f"token={token}\n"
                 f"started_at={started_at}\n"
             ).encode("ascii")
@@ -117,7 +134,11 @@ def run_lock(path: Path, *, started_at: str) -> Iterator[dict[str, Any]]:
                 existing = path.read_bytes()
             except FileNotFoundError:
                 continue
-            reason = _stale_lock_reason(_parse_lock(existing), boot_id)
+            reason = _stale_lock_reason(
+                _parse_lock(existing),
+                boot_id,
+                modified_at=stat.st_mtime,
+            )
             if reason is None:
                 raise ResourceIndexError(
                     CONFIG_ERROR,
@@ -133,6 +154,24 @@ def run_lock(path: Path, *, started_at: str) -> Iterator[dict[str, Any]]:
             "media daily lock could not be acquired safely",
             {"lock_path": str(path)},
         )
+    heartbeat_stop = threading.Event()
+
+    def heartbeat() -> None:
+        while not heartbeat_stop.wait(_LOCK_HEARTBEAT_SECONDS):
+            try:
+                values = _parse_lock(path.read_bytes())
+                if values.get("token") != token:
+                    return
+                os.utime(path, None)
+            except OSError:
+                return
+
+    heartbeat_thread = threading.Thread(
+        target=heartbeat,
+        name="media-daily-lock-heartbeat",
+        daemon=True,
+    )
+    heartbeat_thread.start()
     try:
         yield {
             "lock_path": str(path),
@@ -140,6 +179,8 @@ def run_lock(path: Path, *, started_at: str) -> Iterator[dict[str, Any]]:
             "stale_lock_reason": recovered_reason,
         }
     finally:
+        heartbeat_stop.set()
+        heartbeat_thread.join(timeout=max(1.0, _LOCK_HEARTBEAT_SECONDS))
         if descriptor is not None:
             os.close(descriptor)
         if acquired:

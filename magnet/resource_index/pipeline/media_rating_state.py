@@ -181,32 +181,40 @@ def apply_media_rating_state(
             media_id = _valid_text(raw_item.get("movie_id"))
             if media_id is None:
                 continue
-            stored = stored_items.get(media_id)
-            if not isinstance(stored, dict):
-                continue
-            stored_kind = _valid_text(stored.get("content_kind"))
-            current_kind = _valid_text(raw_item.get("content_kind"))
-            if stored_kind and current_kind and stored_kind != current_kind:
-                raise ResourceIndexError(
-                    CONFIG_ERROR,
-                    "media rating state content kind collision",
-                    {
-                        "media_id": media_id,
-                        "stored_kind": stored_kind,
-                        "current_kind": current_kind,
-                    },
-                )
-            ratings = stored.get("ratings")
-            if not isinstance(ratings, dict):
-                continue
-            trusted = _trusted_rating_snapshot(ratings)
             changed = 0
-            for field in _RATING_FIELDS:
-                if raw_item.get(field) not in {None, ""}:
+            for score_field, maximum in _SCORE_LIMITS.items():
+                current_value = raw_item.get(score_field)
+                if current_value in {None, ""} or _valid_score(current_value, maximum) is not None:
                     continue
-                if field in trusted:
-                    raw_item[field] = trusted[field]
+                raw_item[score_field] = None
+                changed += 1
+                text_field = _SCORE_METADATA[score_field][0]
+                if raw_item.get(text_field) not in {None, ""}:
+                    raw_item[text_field] = None
                     changed += 1
+
+            stored = stored_items.get(media_id)
+            if isinstance(stored, dict):
+                stored_kind = _valid_text(stored.get("content_kind"))
+                current_kind = _valid_text(raw_item.get("content_kind"))
+                if stored_kind and current_kind and stored_kind != current_kind:
+                    raise ResourceIndexError(
+                        CONFIG_ERROR,
+                        "media rating state content kind collision",
+                        {
+                            "media_id": media_id,
+                            "stored_kind": stored_kind,
+                            "current_kind": current_kind,
+                        },
+                    )
+                ratings = stored.get("ratings")
+                if isinstance(ratings, dict):
+                    trusted = _trusted_rating_snapshot(ratings)
+                    for field in _RATING_FIELDS:
+                        if field not in trusted or raw_item.get(field) == trusted[field]:
+                            continue
+                        raw_item[field] = trusted[field]
+                        changed += 1
             if changed:
                 feed_restored_items += 1
                 feed_restored_fields += changed

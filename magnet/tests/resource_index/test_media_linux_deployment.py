@@ -56,6 +56,14 @@ def test_weekly_audit_runs_through_bash_even_if_archive_loses_executable_mode() 
     assert "cleanup-media-container.sh audit" in service
 
 
+def test_container_cleanup_removes_only_matching_owner_lock() -> None:
+    cleanup = (LINUX / "cleanup-media-container.sh").read_text(encoding="utf-8")
+    assert "hostname" in cleanup
+    assert 'SHORT_CID="${CID:0:12}"' in cleanup
+    assert '"$OWNER" == "$SHORT_CID"' in cleanup
+    assert 'rm -f "$LOCK"' in cleanup
+
+
 def test_failed_daily_publish_has_one_delayed_retry() -> None:
     retry = (LINUX / "magnet-media-retry.service").read_text(encoding="utf-8")
     script = (LINUX / "retry-media-daily.sh").read_text(encoding="utf-8")

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -51,6 +52,38 @@ def test_run_lock_recovers_dead_pid(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         assert lock.exists()
 
     assert not lock.exists()
+
+
+def test_run_lock_recovers_expired_heartbeat_even_when_pid_looks_alive(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lock = tmp_path / "daily.lock"
+    monkeypatch.setattr(media_maintenance, "_boot_id", lambda: "boot-a")
+    monkeypatch.setattr(media_maintenance, "_process_alive", lambda _pid: True)
+    _lock(lock, pid=1, boot_id="boot-a")
+    expired = time.time() - media_maintenance._LOCK_STALE_SECONDS - 10
+    os.utime(lock, (expired, expired))
+
+    with run_lock(lock, started_at="2026-08-05T00:00:00Z") as state:
+        assert state["stale_lock_recovered"] is True
+        assert state["stale_lock_reason"] == "heartbeat_expired"
+
+
+def test_run_lock_heartbeat_refreshes_lock_mtime(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lock = tmp_path / "daily.lock"
+    monkeypatch.setattr(media_maintenance, "_LOCK_HEARTBEAT_SECONDS", 0.01)
+
+    with run_lock(lock, started_at="2026-08-05T00:00:00Z"):
+        before = lock.stat().st_mtime_ns
+        time.sleep(0.05)
+        after = lock.stat().st_mtime_ns
+        assert after > before
+        values = media_maintenance._parse_lock(lock.read_bytes())
+        assert values["hostname"]
 
 
 def test_run_lock_recovers_previous_boot_even_when_pid_is_reused(

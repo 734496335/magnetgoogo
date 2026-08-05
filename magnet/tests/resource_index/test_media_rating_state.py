@@ -83,6 +83,53 @@ def test_rating_state_persists_and_restores_all_four_sources(tmp_path: Path) -> 
     assert item["bangumi_subject_id"] == "456"
 
 
+def test_rating_state_authoritatively_replays_canonical_rating_metadata(tmp_path: Path) -> None:
+    feed = tmp_path / "movies.json"
+    state = tmp_path / "media-ratings.json"
+    _write_feed(feed, _rated_item())
+    persist_media_rating_state(feed_paths=(feed,), state_path=state)
+
+    stale = _rated_item()
+    stale["douban_rating_text"] = "0 / 10 from 0 users"
+    stale["imdb_rating"] = 6.1
+    stale["imdb_rating_text"] = "6.1/10"
+    _write_feed(feed, stale)
+
+    restored = apply_media_rating_state(feed_paths=(feed,), state_path=state)
+    item = json.loads(feed.read_text(encoding="utf-8"))["items"][0]
+    assert restored["restored_items"] == 1
+    assert restored["restored_fields"] == 3
+    assert item["douban_rating_text"] == "8.1/10"
+    assert item["imdb_rating"] == 7.8
+    assert item["imdb_rating_text"] == "7.8/10"
+
+
+def test_rating_state_clears_untrusted_zero_and_out_of_range_source_scores(tmp_path: Path) -> None:
+    feed = tmp_path / "series.json"
+    state = tmp_path / "media-ratings.json"
+    _write_feed(
+        feed,
+        {
+            "movie_id": "series:dirty",
+            "content_kind": "series",
+            "title": "Dirty Series",
+            "douban_rating": 22.0,
+            "douban_rating_text": "entire page accidentally parsed as score",
+            "imdb_rating": 0.0,
+            "imdb_rating_text": "0/10",
+        },
+    )
+
+    restored = apply_media_rating_state(feed_paths=(feed,), state_path=state)
+    item = json.loads(feed.read_text(encoding="utf-8"))["items"][0]
+    assert restored["restored_items"] == 1
+    assert restored["restored_fields"] == 4
+    assert item["douban_rating"] is None
+    assert item["douban_rating_text"] is None
+    assert item["imdb_rating"] is None
+    assert item["imdb_rating_text"] is None
+
+
 def test_rating_state_never_clears_previous_values_on_empty_update(tmp_path: Path) -> None:
     feed = tmp_path / "movies.json"
     state = tmp_path / "media-ratings.json"
