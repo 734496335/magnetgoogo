@@ -189,7 +189,8 @@ def prune_media_state(root: Path, config: RetentionConfig, *, protected_run_id: 
     history = [
         path
         for path in status_dir.glob("*.json")
-        if path.name not in {"latest.json", "state.json"}
+        if path.name not in {"latest.json", "state.json", "candidate-soak.json"}
+        and not path.name.startswith("latest-")
     ] if status_dir.exists() else []
     keep_status = _newest(history, config.status_history)
     for path in history:

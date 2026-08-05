@@ -10,6 +10,17 @@ MEMORY_RESERVATION="${MAGNET_MEDIA_MEMORY_RESERVATION:-512m}"
 MEMORY_SWAP="${MAGNET_MEDIA_MEMORY_SWAP:-1280m}"
 CPUS="${MAGNET_MEDIA_CPUS:-1.0}"
 PIDS_LIMIT="${MAGNET_MEDIA_PIDS_LIMIT:-256}"
+CONTAINER_NAME="magnet-media-${MODE}"
+CID_FILE="/run/${CONTAINER_NAME}.cid"
+
+if /usr/bin/docker container inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
+  if [[ "$(/usr/bin/docker inspect -f '{{.State.Running}}' "$CONTAINER_NAME")" == "true" ]]; then
+    echo "container already running: $CONTAINER_NAME" >&2
+    exit 75
+  fi
+  /usr/bin/docker rm -f "$CONTAINER_NAME" >/dev/null
+fi
+rm -f "$CID_FILE"
 
 args=(media-daily --config "$CONFIG")
 case "$MODE" in
@@ -21,7 +32,8 @@ case "$MODE" in
 esac
 
 exec /usr/bin/docker run --rm \
-  --name "magnet-media-${MODE}" \
+  --name "$CONTAINER_NAME" \
+  --cidfile "$CID_FILE" \
   --network host \
   --memory "$MEMORY" \
   --memory-reservation "$MEMORY_RESERVATION" \

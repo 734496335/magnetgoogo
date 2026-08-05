@@ -43,6 +43,8 @@ install -m 0644 \
 
 chmod 0755 \
   "$APP_ROOT/deploy/resource-index/linux/run-media-daily.sh" \
+  "$APP_ROOT/deploy/resource-index/linux/cleanup-media-container.sh" \
+  "$APP_ROOT/deploy/resource-index/linux/retry-media-daily.sh" \
   "$APP_ROOT/deploy/resource-index/linux/media-status.sh"
 
 docker build \
@@ -94,6 +96,7 @@ install -m 0644 "$APP_ROOT/deploy/resource-index/linux/magnet-media-daily.servic
 install -m 0644 "$APP_ROOT/deploy/resource-index/linux/magnet-media-daily.timer" /etc/systemd/system/magnet-media-daily.timer
 install -m 0644 "$APP_ROOT/deploy/resource-index/linux/magnet-media-audit.service" /etc/systemd/system/magnet-media-audit.service
 install -m 0644 "$APP_ROOT/deploy/resource-index/linux/magnet-media-audit.timer" /etc/systemd/system/magnet-media-audit.timer
+install -m 0644 "$APP_ROOT/deploy/resource-index/linux/magnet-media-retry.service" /etc/systemd/system/magnet-media-retry.service
 
 rollback_root=$(mktemp -d /etc/nginx/.magnet-media-install.XXXXXX)
 cp -a "$NGINX_CONFIG" "$rollback_root/nginx.conf"

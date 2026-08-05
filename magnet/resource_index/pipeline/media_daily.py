@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import shutil
+import time
 import urllib.error
 import urllib.request
 import uuid
@@ -17,7 +18,21 @@ from zoneinfo import ZoneInfo
 
 from magnet.rating_resolver.service import RatingResolver
 from magnet.rating_resolver.writeback import enrich_feed_file
-from magnet.resource_index.errors import CONFIG_ERROR, ResourceIndexError
+from magnet.resource_index.errors import (
+    ACCESS_CHALLENGE,
+    DETAIL_DOM_DRIFT,
+    LATEST_BATCH_INTERRUPTED,
+    LATEST_CRAWL_INCOMPLETE,
+    LISTING_DOM_DRIFT,
+    LISTING_EMPTY,
+    LIVE_EMPTY_RESULT,
+    LIVE_HTTP_ERROR,
+    LIVE_RATE_LIMITED,
+    LIVE_REQUEST_BUDGET_EXHAUSTED,
+    NOT_FOUND,
+    CONFIG_ERROR,
+    ResourceIndexError,
+)
 from magnet.resource_index.pipeline.media_aggregate import aggregate_media_feeds
 from magnet.resource_index.pipeline.magnet_only import build_magnet_only_media_feeds
 from magnet.resource_index.pipeline.media_library import export_source_library_feed
@@ -36,7 +51,10 @@ from magnet.resource_index.pipeline.media_rating_state import (
     apply_media_rating_state,
     persist_media_rating_state,
 )
-from magnet.resource_index.pipeline.movie_automation import run_safe_movie_source
+from magnet.resource_index.pipeline.movie_automation import (
+    run_safe_movie_source,
+    safe_movie_source_status,
+)
 from magnet.resource_index.publish.filesystem import FilesystemPublisherBackend
 from magnet.resource_index.publish.orchestrator import MediaPublishConfig, publish_media_release
 from magnet.resource_index.publish.worker_bridge import WorkerR2PublisherBackend
@@ -74,6 +92,7 @@ class MediaDailyConfig:
     retention_receipts: int = 30
     disk_max_used_percent: float = 80.0
     disk_min_free_bytes: int = 2 * 1024 * 1024 * 1024
+    source_fallback_max_age_hours: int = 168
 
 
 def _utc_now() -> datetime:
@@ -172,22 +191,42 @@ def load_media_daily_config(path: str | Path) -> MediaDailyConfig:
             2 * 1024 * 1024 * 1024,
             minimum=0,
         ),
+        source_fallback_max_age_hours=_config_int(
+            source,
+            "source_fallback_max_age_hours",
+            168,
+            minimum=1,
+        ),
     )
 
 
-def _http_bytes(url: str, *, timeout: float = 60.0) -> bytes:
+def _http_bytes(url: str, *, timeout: float = 60.0, max_attempts: int = 3) -> bytes:
     request = urllib.request.Request(
         url,
         headers={"User-Agent": "MagnetGoogo-Media-Daily/1.0", "Cache-Control": "no-cache"},
     )
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-    try:
-        with opener.open(request, timeout=timeout) as response:
-            if int(response.status) != 200:
-                raise ResourceIndexError(CONFIG_ERROR, "media endpoint returned non-200", {"url": url, "status": response.status})
-            return response.read()
-    except (OSError, TimeoutError, urllib.error.URLError) as exc:
-        raise ResourceIndexError(CONFIG_ERROR, "media endpoint request failed", {"url": url, "error": type(exc).__name__}) from exc
+    last_error: BaseException | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            with opener.open(request, timeout=timeout) as response:
+                if int(response.status) != 200:
+                    raise ResourceIndexError(
+                        CONFIG_ERROR,
+                        "media endpoint returned non-200",
+                        {"url": url, "status": response.status},
+                    )
+                return response.read()
+        except (OSError, TimeoutError, urllib.error.URLError) as exc:
+            last_error = exc
+            if attempt < max_attempts:
+                time.sleep(min(2 ** (attempt - 1), 4))
+    assert last_error is not None
+    raise ResourceIndexError(
+        CONFIG_ERROR,
+        "media endpoint request failed",
+        {"url": url, "error": type(last_error).__name__, "attempts": max_attempts},
+    ) from last_error
 
 
 def _online_control(base: str, run_dir: Path) -> tuple[dict[str, Any], Path]:
@@ -381,15 +420,84 @@ def _verify_public_control(base: str, candidate_path: Path) -> dict[str, Any]:
     }
 
 
-def _status_base(started_at: str) -> dict[str, Any]:
+def _status_base(started_at: str, *, mode: str) -> dict[str, Any]:
     return {
         "schema_version": "media-daily-status/1",
+        "mode": mode,
         "status": "running",
         "started_at": started_at,
         "finished_at": None,
         "published": False,
         "no_change": False,
         "stages": {},
+    }
+
+
+_TRANSIENT_SOURCE_ERRORS = {
+    ACCESS_CHALLENGE,
+    DETAIL_DOM_DRIFT,
+    LATEST_BATCH_INTERRUPTED,
+    LATEST_CRAWL_INCOMPLETE,
+    LISTING_DOM_DRIFT,
+    LISTING_EMPTY,
+    LIVE_EMPTY_RESULT,
+    LIVE_HTTP_ERROR,
+    LIVE_RATE_LIMITED,
+    LIVE_REQUEST_BUDGET_EXHAUSTED,
+    NOT_FOUND,
+}
+
+
+def _source_fallback(
+    *,
+    source: DailySourceConfig,
+    source_root: Path,
+    error: BaseException,
+    max_age_hours: int,
+) -> tuple[str, dict[str, Any]]:
+    if not isinstance(error, ResourceIndexError) or error.error_code not in _TRANSIENT_SOURCE_ERRORS:
+        raise error
+    current = safe_movie_source_status(
+        source_id=source.source_id,
+        output_dir=source_root,
+        target_count=source.count,
+    )
+    job = current.get("job") or {}
+    source_state = current.get("source") or {}
+    db_path = Path(str(job.get("db_path") or ""))
+    completed_at = source_state.get("last_completed_at") or job.get("completed_at")
+    if not db_path.is_file() or not completed_at:
+        raise error
+    try:
+        completed = datetime.fromisoformat(str(completed_at).replace("Z", "+00:00"))
+    except ValueError:
+        raise error
+    stale_hours = max(0.0, (_utc_now() - completed.astimezone(timezone.utc)).total_seconds() / 3600)
+    if stale_hours > max_age_hours:
+        raise ResourceIndexError(
+            LATEST_CRAWL_INCOMPLETE,
+            "source fallback database is too old",
+            {
+                "source_id": source.source_id,
+                "stale_hours": round(stale_hours, 2),
+                "maximum_hours": max_age_hours,
+                "original_error_code": error.error_code,
+            },
+        ) from error
+    return str(db_path), {
+        "source_id": source.source_id,
+        "status": "fallback",
+        "reason": "last_known_good_database",
+        "target_count": source.count,
+        "job_status": job.get("status"),
+        "covered_count": job.get("covered_count"),
+        "db_path": str(db_path),
+        "stale_hours": round(stale_hours, 2),
+        "error": {
+            "type": type(error).__name__,
+            "error_code": error.error_code,
+            "message": error.message,
+        },
     }
 
 
@@ -402,10 +510,12 @@ def run_media_daily(
     force_publish: bool = False,
 ) -> dict[str, Any]:
     started_at = _iso()
+    mode = "publish" if publish else ("audit" if skip_crawl and skip_ratings else "candidate")
     root = config.state_root.resolve()
     status_dir = root / "status"
     latest_status = status_dir / "latest.json"
-    status = _status_base(started_at)
+    mode_status = status_dir / f"latest-{mode}.json"
+    status = _status_base(started_at, mode=mode)
     run_id = _utc_now().strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
     run_dir = root / "runs" / run_id
     status["run_id"] = run_id
@@ -451,13 +561,22 @@ def run_media_daily(
                     db_path = str(current["job"]["db_path"])
                     source_results.append({"source_id": source.source_id, "status": "crawl_skipped", "db_path": db_path})
                 else:
-                    result = run_safe_movie_source(
-                        source_id=source.source_id,
-                        output_dir=source_root,
-                        target_count=source.count,
-                    )
-                    db_path = result.db_path
-                    source_results.append(result.__dict__)
+                    try:
+                        result = run_safe_movie_source(
+                            source_id=source.source_id,
+                            output_dir=source_root,
+                            target_count=source.count,
+                        )
+                        db_path = result.db_path
+                        source_results.append(result.__dict__)
+                    except BaseException as exc:
+                        db_path, fallback = _source_fallback(
+                            source=source,
+                            source_root=source_root,
+                            error=exc,
+                            max_age_hours=config.source_fallback_max_age_hours,
+                        )
+                        source_results.append(fallback)
                 library_path = run_dir / "library" / f"{source.source_id}.json"
                 export_source_library_feed(
                     db_path=db_path,
@@ -547,14 +666,41 @@ def run_media_daily(
                 sum(len(item.get("resources") or []) for item in movie_final["items"])
                 + sum(len(item.get("resources") or []) for item in series_final["items"])
             )
-            if publish and not force_publish and durable_state.get("content_sha256") == fingerprint:
-                status.update({"status": "success", "no_change": True, "finished_at": _iso()})
-                _write_json(latest_status, status)
-                return status
-
             previous_current, previous_manifest_path = _online_control(config.r2_public_base, run_dir)
             previous_revision = int(previous_current.get("pointer_revision") or 0)
             status["previous_revision"] = previous_revision
+            if publish and not force_publish and durable_state.get("content_sha256") == fingerprint:
+                expected_revision = durable_state.get("current_revision")
+                expected_release_id = durable_state.get("release_id")
+                if expected_revision == previous_revision and expected_release_id == previous_current.get("release_id"):
+                    previous_current_path = run_dir / "previous-current.json"
+                    try:
+                        verification = [
+                            _verify_public_control(config.r2_public_base, previous_current_path),
+                            _verify_public_control(config.aliyun_public_base, previous_current_path),
+                        ]
+                    except ResourceIndexError as exc:
+                        status["stages"]["verification"] = {
+                            "status": "repair_required",
+                            "error_code": exc.error_code,
+                            "message": exc.message,
+                        }
+                        _write_json(latest_status, status)
+                    else:
+                        status["stages"]["verification"] = verification
+                        status.update(
+                            {
+                                "status": "success",
+                                "no_change": True,
+                                "public_verified": True,
+                                "current_revision": previous_revision,
+                                "release_id": str(previous_current.get("release_id") or ""),
+                                "pointer_sha256": hashlib.sha256(previous_current_path.read_bytes()).hexdigest(),
+                                "finished_at": _iso(),
+                            }
+                        )
+                        _write_json(latest_status, status)
+                        return status
             if not config.private_key_path.is_file() or not config.public_key_path.is_file():
                 raise ResourceIndexError(CONFIG_ERROR, "media signing keypair is missing", {})
             if config.previous_public_key_path is not None and not config.previous_public_key_path.is_file():
@@ -731,6 +877,7 @@ def run_media_daily(
             history = status_dir / f"{run_id}.json"
             if latest_status.exists():
                 shutil.copyfile(latest_status, history)
+                shutil.copyfile(latest_status, mode_status)
             try:
                 prune_media_state(
                     root,
@@ -751,3 +898,4 @@ def run_media_daily(
                 if latest_status.exists():
                     _write_json(latest_status, status)
                     shutil.copyfile(latest_status, history)
+                    shutil.copyfile(latest_status, mode_status)

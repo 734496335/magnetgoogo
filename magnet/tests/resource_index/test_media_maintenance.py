@@ -82,6 +82,9 @@ def test_prune_media_state_retains_bounded_history_and_pointer_releases(tmp_path
     for index in range(8):
         _touch(root / "status" / f"status-{index:02d}.json", index)
     _touch(root / "status" / "latest.json", 99)
+    _touch(root / "status" / "latest-publish.json", 98)
+    _touch(root / "status" / "latest-audit.json", 97)
+    _touch(root / "status" / "candidate-soak.json", 96)
     _touch(root / "status" / "state.json", 99)
     for index in range(5):
         release_id = f"release-{index}"
@@ -103,7 +106,15 @@ def test_prune_media_state_retains_bounded_history_and_pointer_releases(tmp_path
 
     assert report["status"] == "pass"
     assert sorted(path.name for path in (root / "runs").iterdir()) == ["run-00", "run-07", "run-08", "run-09"]
-    assert len([path for path in (root / "status").glob("*.json") if path.name not in {"latest.json", "state.json"}]) == 4
+    control_names = {
+        "latest.json",
+        "latest-publish.json",
+        "latest-audit.json",
+        "candidate-soak.json",
+        "state.json",
+    }
+    assert control_names.issubset({path.name for path in (root / "status").glob("*.json")})
+    assert len([path for path in (root / "status").glob("*.json") if path.name not in control_names]) == 4
     assert sorted(path.name for path in (root / "releases" / "staging" / "pointers").glob("*.json")) == [
         "pointer-3.json",
         "pointer-4.json",

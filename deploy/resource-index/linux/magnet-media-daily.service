@@ -3,6 +3,7 @@ Description=MagnetGoogo daily media production publish
 After=docker.service network-online.target
 Wants=network-online.target
 Requires=docker.service
+OnFailure=magnet-media-retry.service
 
 [Service]
 Type=oneshot
@@ -10,6 +11,7 @@ User=root
 Group=root
 WorkingDirectory=/opt/magnet-media/app
 ExecStart=/usr/bin/bash /opt/magnet-media/app/deploy/resource-index/linux/run-media-daily.sh publish
+ExecStopPost=-/usr/bin/bash /opt/magnet-media/app/deploy/resource-index/linux/cleanup-media-container.sh publish
 TimeoutStartSec=4h
 Nice=10
 IOSchedulingClass=best-effort

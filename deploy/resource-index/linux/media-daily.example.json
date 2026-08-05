@@ -20,6 +20,7 @@
   "retention_receipts": 30,
   "disk_max_used_percent": 80,
   "disk_min_free_bytes": 2147483648,
+  "source_fallback_max_age_hours": 168,
   "sources": [
     {"source_id": "sixv", "count": 100},
     {"source_id": "dytt8899", "count": 250},

@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-STATUS=/var/lib/magnet-media/status/latest.json
+STATUS=/var/lib/magnet-media/status/latest-publish.json
 SOAK=/var/lib/magnet-media/status/candidate-soak.json
+if [[ ! -f "$STATUS" ]]; then
+  STATUS=/var/lib/magnet-media/status/latest.json
+fi
 if [[ ! -f "$STATUS" ]]; then
   echo "status=never_run"
   exit 1
@@ -12,8 +15,8 @@ import json, sys
 from pathlib import Path
 status = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 for key in (
-    "status", "started_at", "finished_at", "published", "publish_candidate",
-    "candidate_verified", "no_change", "movie_count", "series_count", "resource_count",
+    "mode", "status", "started_at", "finished_at", "published", "publish_candidate",
+    "candidate_verified", "public_verified", "no_change", "movie_count", "series_count", "resource_count",
     "previous_revision", "candidate_revision", "current_revision", "release_id",
 ):
     if key in status:

@@ -1,0 +1,15 @@
+[Unit]
+Description=Retry MagnetGoogo media production publish once after failure
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/bin/bash /opt/magnet-media/app/deploy/resource-index/linux/retry-media-daily.sh
+TimeoutStartSec=4h45m
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6

@@ -30,7 +30,11 @@ def test_daily_runner_defaults_to_bounded_candidate_mode() -> None:
     assert 'MAGNET_MEDIA_MEMORY_SWAP:-1280m' in script
     assert 'MAGNET_MEDIA_CPUS:-1.0' in script
     assert '--pids-limit "$PIDS_LIMIT"' in script
-    assert '--name "magnet-media-${MODE}"' in script
+    assert 'CONTAINER_NAME="magnet-media-${MODE}"' in script
+    assert '--name "$CONTAINER_NAME"' in script
+    assert '--cidfile "$CID_FILE"' in script
+    assert "docker container inspect" in script
+    assert "docker rm -f" in script
     assert "--cap-drop ALL" in script
     assert 'audit) args+=(--skip-crawl --skip-ratings --no-publish)' in script
     assert "--memory 1500m" not in script
@@ -42,11 +46,26 @@ def test_daily_service_runs_production_publish_mode_through_bash() -> None:
     assert "ExecStart=/usr/bin/bash /opt/magnet-media/app/deploy/resource-index/linux/run-media-daily.sh publish" in service
     assert "run-media-daily.sh candidate" not in service
     assert "daily media production publish" in service
+    assert "OnFailure=magnet-media-retry.service" in service
+    assert "cleanup-media-container.sh publish" in service
 
 
 def test_weekly_audit_runs_through_bash_even_if_archive_loses_executable_mode() -> None:
     service = (LINUX / "magnet-media-audit.service").read_text(encoding="utf-8")
     assert "ExecStart=/usr/bin/bash /opt/magnet-media/app/deploy/resource-index/linux/run-media-daily.sh audit" in service
+    assert "cleanup-media-container.sh audit" in service
+
+
+def test_failed_daily_publish_has_one_delayed_retry() -> None:
+    retry = (LINUX / "magnet-media-retry.service").read_text(encoding="utf-8")
+    script = (LINUX / "retry-media-daily.sh").read_text(encoding="utf-8")
+    assert "retry-media-daily.sh" in retry
+    assert "OnFailure=" not in retry
+    assert "TimeoutStartSec=4h45m" in retry
+    assert 'MAGNET_MEDIA_RETRY_DELAY:-30m' in script
+    assert "latest-publish.json" in script
+    assert "SUCCESS_EPOCH >= FAILED_EPOCH" in script
+    assert "systemctl start magnet-media-daily.service" in script
 
 
 def test_weekly_audit_is_separated_from_daily_window() -> None:
@@ -73,6 +92,9 @@ def test_installer_seeds_media_before_nginx_cutover_and_keeps_timers_opt_in() ->
     assert '--build-arg "PIP_INDEX_URL=$PIP_INDEX_URL"' in script
     assert "install-media-candidate-seed.py" in script
     assert "MEDIA_SEED_ROOT" in script
+    assert "cleanup-media-container.sh" in script
+    assert "retry-media-daily.sh" in script
+    assert "magnet-media-retry.service" in script
     assert script.count("--entrypoint python") >= 3
     assert 'python3 "$APP_ROOT/deploy/resource-index' not in script
     assert 'mode=automatic-production-publish' in script
@@ -105,6 +127,7 @@ def test_example_config_has_retention_and_disk_guards() -> None:
     assert config["disk_min_free_bytes"] == 2 * 1024 * 1024 * 1024
     assert config["max_workers"] == 4
     assert config["rating_lookup_limit_per_feed"] == 40
+    assert config["source_fallback_max_age_hours"] == 168
 
 
 def test_production_public_key_matches_the_formal_v023_client() -> None:

@@ -74,6 +74,14 @@ def _install_fakes(monkeypatch: pytest.MonkeyPatch) -> None:
         return {"items": []}
 
     monkeypatch.setattr(media_daily, "export_source_library_feed", fake_export)
+    monkeypatch.setattr(
+        media_daily,
+        "safe_movie_source_status",
+        lambda **kwargs: {
+            "job": {"db_path": f"/{kwargs['source_id']}.db", "status": "success", "covered_count": kwargs["target_count"]},
+            "source": {"last_completed_at": media_daily._iso()},
+        },
+    )
 
     def fake_aggregate(_feeds, **kwargs):
         movie = _media_feed("movie")
@@ -117,13 +125,31 @@ def _install_fakes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(media_daily, "build_media_app_bundle", fake_bundle)
     monkeypatch.setattr(media_daily, "audit_media_app_bundle", lambda **_kwargs: {"status": "pass"})
     previous = Path("previous-manifest.json")
-    monkeypatch.setattr(
-        media_daily,
-        "_online_control",
-        lambda _base, run_dir: (
+    def fake_online_control(_base, run_dir):
+        current = run_dir / "previous-current.json"
+        _write(
+            current,
+            {
+                "pointer_revision": 6,
+                "release_id": "20260729T000000Z-b07630f3",
+                "manifest_path": "/v1/releases/previous/manifest.json",
+                "manifest_sha256": "d" * 64,
+            },
+        )
+        return (
             {"pointer_revision": 6, "release_id": "20260729T000000Z-b07630f3"},
             run_dir / previous,
-        ),
+        )
+
+    monkeypatch.setattr(media_daily, "_online_control", fake_online_control)
+    monkeypatch.setattr(
+        media_daily,
+        "_verify_public_control",
+        lambda base, _path: {
+            "base": base,
+            "pointer_revision": 6,
+            "release_id": "20260729T000000Z-b07630f3",
+        },
     )
 
     def fake_release(config):
@@ -206,6 +232,7 @@ def test_media_daily_config_defaults_to_v023(tmp_path: Path) -> None:
         ("retention_releases", "3"),
         ("disk_max_used_percent", 100),
         ("disk_min_free_bytes", -1),
+        ("source_fallback_max_age_hours", 0),
     ],
 )
 def test_media_daily_config_rejects_unsafe_maintenance_settings(
@@ -267,16 +294,83 @@ def test_daily_pipeline_short_circuits_when_content_hash_is_unchanged(
     assert first["stages"]["soak"]["ready_for_promotion"] is False
     _write(
         config.state_root / "status" / "state.json",
-        {"schema_version": "media-daily-state/1", "content_sha256": first["content_sha256"]},
+        {
+            "schema_version": "media-daily-state/1",
+            "content_sha256": first["content_sha256"],
+            "current_revision": 6,
+            "release_id": "20260729T000000Z-b07630f3",
+        },
     )
 
     second = run_media_daily(config, publish=True)
     assert second["status"] == "success"
     assert second["no_change"] is True
     assert second["published"] is False
+    assert second["public_verified"] is True
+    assert second["current_revision"] == 6
     assert second["resource_count"] == 2
+    assert second["mode"] == "publish"
+    assert json.loads(
+        (config.state_root / "status" / "latest-publish.json").read_text(encoding="utf-8")
+    )["run_id"] == second["run_id"]
     assert second["stages"]["magnet_only"]["movie"]["removed_non_magnet_resource_count"] == 1
     assert second["stages"]["magnet_only"]["series"]["removed_non_magnet_resource_count"] == 1
+
+
+def test_no_change_pipeline_repairs_public_pointer_mismatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    config = _config(tmp_path)
+    first = run_media_daily(config, publish=False)
+    _write(
+        config.state_root / "status" / "state.json",
+        {
+            "schema_version": "media-daily-state/1",
+            "content_sha256": first["content_sha256"],
+            "current_revision": 6,
+            "release_id": "20260729T000000Z-b07630f3",
+        },
+    )
+    checks = 0
+
+    def verify(base, _path):
+        nonlocal checks
+        checks += 1
+        if checks == 2:
+            raise ResourceIndexError("CONFIG_ERROR", "Aliyun pointer mismatch", {"base": base})
+        return {"base": base, "pointer_revision": 7, "release_id": "candidate-release"}
+
+    class Backend:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def promote_current(self, _path):
+            pass
+
+    monkeypatch.setattr(media_daily, "_verify_public_control", verify)
+    monkeypatch.setattr(media_daily, "FilesystemPublisherBackend", Backend)
+    monkeypatch.setattr(media_daily, "WorkerR2PublisherBackend", Backend)
+    monkeypatch.setattr(
+        media_daily,
+        "publish_media_release",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            status="success",
+            object_count=1,
+            uploaded_count=0,
+            reused_count=1,
+            current_promoted=False,
+        ),
+    )
+    monkeypatch.setenv("TOKEN", "t" * 64)
+
+    result = run_media_daily(config, publish=True)
+    assert result["status"] == "success"
+    assert result["published"] is True
+    assert result["no_change"] is False
+    assert result["current_revision"] == 7
+    assert checks == 4
 
 
 def test_daily_pipeline_keeps_running_when_rating_provider_stage_fails(
@@ -309,11 +403,88 @@ def test_daily_pipeline_can_skip_rating_lookup_for_weekly_audit(
         "enrich_feed_file",
         lambda *_args, **_kwargs: pytest.fail("rating lookup must be skipped"),
     )
-    result = run_media_daily(_config(tmp_path), publish=False, skip_ratings=True)
+    config = _config(tmp_path)
+    result = run_media_daily(config, publish=False, skip_crawl=True, skip_ratings=True)
     assert result["status"] == "success"
     assert result["candidate_verified"] is True
+    assert result["mode"] == "audit"
     assert result["stages"]["rating"]["status"] == "skipped"
     assert "soak" not in result["stages"]
+    assert json.loads(
+        (config.state_root / "status" / "latest-audit.json").read_text(encoding="utf-8")
+    )["run_id"] == result["run_id"]
+
+
+def test_daily_pipeline_falls_back_to_recent_source_database_on_transient_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    db_path = tmp_path / "state" / "sources" / "sixv_latest_10.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    db_path.write_bytes(b"sqlite-placeholder")
+    monkeypatch.setattr(
+        media_daily,
+        "run_safe_movie_source",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            ResourceIndexError("LIVE_HTTP_ERROR", "temporary DNS failure", {})
+        ),
+    )
+    monkeypatch.setattr(
+        media_daily,
+        "safe_movie_source_status",
+        lambda **_kwargs: {
+            "job": {
+                "status": "success",
+                "covered_count": 10,
+                "db_path": str(db_path),
+                "completed_at": media_daily._iso(),
+            },
+            "source": {"last_completed_at": media_daily._iso()},
+        },
+    )
+
+    result = run_media_daily(_config(tmp_path), publish=False)
+    crawl = result["stages"]["crawl"]
+    assert crawl[0]["status"] == "fallback"
+    assert crawl[0]["reason"] == "last_known_good_database"
+    assert crawl[0]["error"]["error_code"] == "LIVE_HTTP_ERROR"
+    assert result["status"] == "success"
+
+
+def test_daily_pipeline_rejects_stale_source_fallback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    db_path = tmp_path / "state" / "sources" / "sixv_latest_10.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    db_path.write_bytes(b"sqlite-placeholder")
+    monkeypatch.setattr(
+        media_daily,
+        "run_safe_movie_source",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            ResourceIndexError("LIVE_HTTP_ERROR", "temporary DNS failure", {})
+        ),
+    )
+    monkeypatch.setattr(
+        media_daily,
+        "safe_movie_source_status",
+        lambda **_kwargs: {
+            "job": {
+                "status": "success",
+                "covered_count": 10,
+                "db_path": str(db_path),
+                "completed_at": "2020-01-01T00:00:00Z",
+            },
+            "source": {"last_completed_at": "2020-01-01T00:00:00Z"},
+        },
+    )
+    base = _config(tmp_path)
+    config = MediaDailyConfig(**{**base.__dict__, "source_fallback_max_age_hours": 1})
+
+    with pytest.raises(ResourceIndexError, match="fallback database is too old"):
+        run_media_daily(config, publish=False)
 
 
 def test_candidate_requires_trusted_previous_public_key_when_configured(
