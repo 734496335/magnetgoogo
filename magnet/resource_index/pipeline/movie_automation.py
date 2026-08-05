@@ -109,7 +109,8 @@ def run_safe_movie_source(
             source_id=source_id,
             target_count=count,
         )
-        resume = durable_status.get("status") in {"pending", "paused"}
+        durable_job_status = str(durable_status.get("status") or "")
+        resume = durable_job_status in {"pending", "paused"}
         reserved_requests = spec.automatic_max_batches * spec.batch_max_requests
         if not resume:
             reserved_requests += spec.snapshot_max_requests
@@ -117,7 +118,9 @@ def run_safe_movie_source(
         reservation = state.reserve(
             source_id=source_id,
             now=clock(),
-            minimum_interval_hours=spec.minimum_check_interval_hours,
+            minimum_interval_hours=(
+                0 if durable_job_status == "pending" else spec.minimum_check_interval_hours
+            ),
             daily_budget=spec.daily_request_budget,
             requested_requests=reserved_requests,
         )

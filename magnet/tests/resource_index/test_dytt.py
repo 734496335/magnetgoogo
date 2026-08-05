@@ -652,7 +652,7 @@ def test_safe_automation_charges_full_reservation_after_crash(
     repo.close()
 
 
-def test_safe_automation_skips_immediate_repeat_and_resumes_snapshot(
+def test_safe_automation_resumes_pending_snapshot_without_waiting_interval(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -693,15 +693,6 @@ def test_safe_automation_skips_immediate_repeat_and_resumes_snapshot(
     assert first.invocation_http_requests == 2
     assert calls == {"snapshot": 1, "detail": 1}
     clock.value = NOW + timedelta(hours=1)
-    skipped = run_safe_movie_source(
-        source_id=source_id,
-        output_dir=tmp_path / "out",
-        clock=clock,
-    )
-    assert skipped.status == "skipped"
-    assert skipped.reason == "minimum_interval"
-    assert calls == {"snapshot": 1, "detail": 1}
-    clock.value = NOW + timedelta(hours=13)
     resumed = run_safe_movie_source(
         source_id=source_id,
         output_dir=tmp_path / "out",
@@ -710,7 +701,16 @@ def test_safe_automation_skips_immediate_repeat_and_resumes_snapshot(
     assert resumed.job_status == "success"
     assert resumed.reason == "resume"
     assert calls == {"snapshot": 1, "detail": 2}
-    clock.value = NOW + timedelta(hours=26)
+    clock.value = NOW + timedelta(hours=2)
+    skipped = run_safe_movie_source(
+        source_id=source_id,
+        output_dir=tmp_path / "out",
+        clock=clock,
+    )
+    assert skipped.status == "skipped"
+    assert skipped.reason == "minimum_interval"
+    assert calls == {"snapshot": 1, "detail": 2}
+    clock.value = NOW + timedelta(hours=14)
     checked = run_safe_movie_source(
         source_id=source_id,
         output_dir=tmp_path / "out",
