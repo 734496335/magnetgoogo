@@ -1,22 +1,41 @@
-TASK: 影视资源上线后运营增长埋点分析
-STATUS: ANALYSIS_PASS / ACQUISITION_POSITIVE / RETENTION_WARNING / MEDIA_FUNNEL_INSTRUMENTATION_GAP
-DATE: 2026-08-02 UTC+8
+TASK: 影视自动抓取与发布长期无人值守稳定性终审
+STATUS: PASS_WITH_EXTERNAL_ALERTING_RESIDUAL / REVISION10_PRODUCTION_PASS
+DATE: 2026-08-05 UTC+8
 
-DONE:
-- 直接分析阿里云97.5MB原始埋点缓存，36,187批次、419,673事件、1,057设备。
-- 按UTC+8重算上线前7天与上线后4个完整自然日，未采用后台错误搜索汇总。
-- 平均DAU 105.7→135.3（+28.0%）；日均新增25.9→46.0（+77.6%）。
-- 日均回访79.8→89.3（+11.9%）；启动208→307（+47.6%）。
-- 日均真实搜索提交534.7→647.5（+21.1%）；完成搜索成功率49.9%→93.2%。
-- 上线后0.2.x活跃241台；影视详情资源动作用户23台，转化9.5%，46次动作。
-- 搜索资源动作用户172台，转化71.4%，3,888次动作；搜索仍是核心主链路。
-- 成熟新用户D1 22.5%→11.9%，为当前最大增长风险。
-- 非中国IP新增占比18.8%→41.3%，新增流量明显国际化。
-- 生产运营后台仍只统计旧search事件，0.2.x搜索量被低估约10倍。
+PRODUCTION:
+- revision 10 / release 20260805T000000Z-8013b446。
+- pointer SHA d5c0be581d8bd26fb08509a5ffa810a7996054586ec7f267fc2ef324ce187eb5。
+- manifest SHA f57967515c709ee4018469c349539a61109b9c2cdc36cfed1c86e6fba640ba21。
+- 247电影、249电视剧、3892磁力、0 cloud；496条影视非法评分0。
+- R2、阿里云和服务器本地current字节一致。
 
-NEXT:
-- 修复后台search + search_submitted统计并回填最近30天。
-- 0.2.4补资源Tab曝光、卡片点击、详情加载、资源打开/复制、release_id与匿名media_id。
-- 优先提升影视入口激活、收藏/追更和新增用户D1，不再只扩大内容量。
+STABILITY_CLOSED:
+- 单源临时故障可回退最近可信数据库，默认最长168小时；过期或不完整继续硬停。
+- 无变化路径仍验证R2/阿里云双端，异常时进入修复发布，不再假成功。
+- 评分状态确定性重放；清理0分、越界分和整页垃圾评分文本。
+- 中文长标题评分缓存改为有界前缀+SHA并原子写入。
+- 主锁和发布锁均增加30秒心跳、10分钟过期恢复、hostname/token归属。
+- systemd结束后清理匹配容器、CID和所属主锁。
+- 正式发布失败30分钟后最多自动重试一次；已有较新成功时取消重试。
+- publish/audit/candidate状态文件隔离，保留策略不删除权威状态。
 
-EVIDENCE: docs/project-nebula/影视资源上线后运营增长埋点分析-20260802.md
+LIVE_DRILLS:
+- revision 10发布PASS；同输入第二次19秒返回no_change=true、public_verified=true，revision保持10。
+- 预置PID=1陈旧锁和停止容器，周审计自动恢复并PASS，结束后零容器/零锁/零CID。
+- 人为注入SixV LIVE_HTTP_ERROR，回退到4.22小时前100/100可信数据库。
+- 延迟重试缩短为1秒演练，识别已有新成功并取消重复发布。
+- R2陈旧发布锁自动恢复；约18分钟上传验证期间锁心跳持续刷新。
+
+VERIFICATION:
+- 448 passed、1 skipped。
+- compileall PASS；241条枚举ALL VALID；Shell语法PASS；systemd verify PASS。
+- 服务器剩余约16GB，磁盘59%，inode21%，无OOM。
+- 下一次每日Timer：2026-08-06 03:34:54（UTC+8）。
+- 下一次周审计：2026-08-09 14:31:46（UTC+8）。
+
+RESIDUAL:
+- 第二次自动重试仍失败时只有systemd日志和结构化状态，尚未接企业微信/飞书/邮件等外部主动告警；不影响数据安全与current原子性，但影响故障发现速度。
+
+EVIDENCE:
+- docs/project-nebula/MEDIA-CRAWLER-SIXV-STALE-ROOT-CAUSE-20260805.md
+- docs/project-nebula/MEDIA-UNATTENDED-STABILITY-AUDIT-20260805.md

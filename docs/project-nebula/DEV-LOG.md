@@ -1,4 +1,68 @@
 ---
+Date/Time: 2026-08-05 10:00 (UTC+8)
+Version: media-crawler-sixv-stale-root-cause-revision9
+Scope: Diagnose why SixV updates were absent from the App, restore the failed systemd execution chain, prove the supplied 17 titles through the complete signed release path and harden four-source catch-up
+Modules: deploy/resource-index/linux, magnet/resource_index/{adapters,pipeline}, magnet/tests/resource_index, Aliyun production media runtime, docs/project-nebula/{MEDIA-CRAWLER-SIXV-STALE-ROOT-CAUSE-20260805.md,_progress.txt,DEV-LOG.md,TECH-CHALLENGES.md}
+
+### Root cause and live evidence
+- Daily and weekly timers triggered normally on August 2—5, but both services failed before crawler startup with `203/EXEC` because the August 1 archive deployment left `run-media-daily.sh` at mode 0644. Four source databases and public revision therefore remained frozen at August 1.
+- A live SixV listing probe found all 17 user-supplied entries at ranks 1—17. All 17 detail pages parsed, all had covers and magnets, and the 20 total magnets survived aggregation and magnet-only filtering.
+- The missing App updates were therefore not caused by a SixV layout change, listing/parser failure or the 72-hour App cache; online feed sync force-refreshes current.json.
+
+### Reliability hardening
+- Daily/audit services now execute the script through `/usr/bin/bash`; Linux scripts are tracked executable and permanent tests enforce both contracts.
+- Expanded safe catch-up capacity to 30 SixV movie details and 50 details for DYTT, Meijumi and SixV series while retaining daily request budgets and 10—15 second delays.
+- Pending source jobs now resume immediately; completed checks still wait 12 hours and paused/failed jobs retain backoff.
+- Added SixV listing-year fallback and inherited trusted item-level collection context so `《莫得闲》全集` is represented as `全集 · 1080p...` with zero unknown-series regression.
+
+### Production recovery
+- Revision 9 published successfully: 247 movies, 249 series, 3,892 magnets, zero cloud, 1,454 verified objects and zero regressions. R2/Aliyun current and Manifest bytes match.
+- All supplied 17 titles passed signed Catalog, Detail and Resources verification. SixV, Meijumi and SixV-series are 100/100; DYTT is 249/250 with one structured historical 404.
+- Final non-live gate: 432 passed, 1 skipped, 1 deselected; enum 241 / ALL VALID; compileall and Shell syntax PASS.
+---
+
+---
+Date/Time: 2026-08-05 13:40 (UTC+8)
+Version: media-unattended-stability-final-audit
+Scope: Re-audit the Aliyun media crawler and production publisher for long-term unattended operation, close recovery/determinism defects, publish the rating-clean revision 10, and execute live failure drills
+Modules: media_daily, media_maintenance, media_rating_state, rating cache, publish orchestrator, Linux systemd/container helpers, Aliyun production state, docs/project-nebula
+
+### Production result
+- Published revision 10 / `20260805T000000Z-8013b446`: 247 movies, 249 series, 3,892 magnet resources and zero cloud resources.
+- R2, Aliyun and local `current.json` share pointer SHA `d5c0be581d8bd26fb08509a5ffa810a7996054586ec7f267fc2ef324ce187eb5`; manifest SHA is `f57967515c709ee4018469c349539a61109b9c2cdc36cfed1c86e6fba640ba21`.
+- Revision 10 intentionally removed invalid source ratings such as zero-user 0/10 values, season numbers parsed as scores and whole-page garbage text. All 496 published media items now have zero invalid rating values.
+
+### Stability hardening
+- Added recent last-known-good source fallback for structured transient failures, bounded to 168 hours; stale or incomplete databases still fail closed.
+- No-change runs now verify both public endpoints before success and enter repair publication if either endpoint differs.
+- Rating state replay is deterministic and authoritative; long UTF-8 rating-cache names use bounded prefixes plus SHA-256 and atomic writes.
+- Main pipeline and publish locks now use hostname/token ownership, 30-second heartbeats and 10-minute stale recovery, closing Docker PID-1 namespace false-liveness.
+- Added owner-scoped container/CID/lock cleanup, mode-specific status files and protected retention of authoritative state.
+- Added one delayed production retry after failure; it cancels itself when a newer successful publish already exists and cannot recurse indefinitely.
+
+### Live drills
+- A second identical revision-10 input completed in 19 seconds with `no_change=true`, `public_verified=true`, and revision unchanged at 10.
+- A stopped audit container plus a forged PID-1 stale lock was automatically removed/recovered; the real weekly audit completed successfully and left no container, CID or lock.
+- Injected `LIVE_HTTP_ERROR` for SixV fell back to a 4.22-hour-old healthy 100/100 database without crawling or publishing.
+- The delayed retry drill detected a newer successful publish and exited without starting a duplicate run.
+- A stale R2 publish lock from an aborted drill was automatically recovered; heartbeat remained current throughout the approximately 18-minute object verification.
+
+### Verification
+- Full suite: 448 passed, 1 skipped.
+- `compileall`: PASS; enum rules: 241 / ALL VALID; shell syntax: PASS; systemd unit verification: PASS.
+- Server: approximately 16 GB free, 59% disk use, 21% inode use, no OOM, daily/audit timers enabled and active.
+- Final verdict: `PASS_WITH_EXTERNAL_ALERTING_RESIDUAL`. Remaining gap is external notification if the one automatic retry also fails; data gates and current atomicity remain fail-closed.
+
+Commits:
+- `c480362 fix(media): harden unattended production recovery`
+- `5de3a56 fix(media): make rating replay and lock recovery deterministic`
+- `173fdb9 fix(media): recover stale publish locks across containers`
+
+Evidence:
+- `docs/project-nebula/MEDIA-UNATTENDED-STABILITY-AUDIT-20260805.md`
+- `docs/project-nebula/MEDIA-CRAWLER-SIXV-STALE-ROOT-CAUSE-20260805.md`
+
+---
 Date/Time: 2026-08-02 19:10 (UTC+8)
 Version: media-resource-growth-analytics-review
 Scope: Recalculate the raw production analytics around the v0.2.1 media-resource launch and assess acquisition, activation, retention, version adoption and measurement quality
