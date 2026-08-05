@@ -231,9 +231,21 @@ def test_detail_parser_falls_back_to_listing_year_when_metadata_omits_year() -> 
     assert movie.parser_version == "sixv-parser/1.0.1"
 
 
-def test_sixv_daily_budget_can_absorb_a_twenty_item_update_burst() -> None:
-    spec = get_movie_source("sixv")
-    assert spec.default_batch_size * spec.automatic_max_batches >= 20
+@pytest.mark.parametrize(
+    ("source_id", "minimum_items"),
+    (
+        ("sixv", 30),
+        ("dytt8899", 50),
+        ("meijumi", 50),
+        ("sixv-series", 50),
+    ),
+)
+def test_daily_source_budget_can_absorb_multi_day_update_bursts(
+    source_id: str,
+    minimum_items: int,
+) -> None:
+    spec = get_movie_source(source_id)
+    assert spec.default_batch_size * spec.automatic_max_batches >= minimum_items
     reserved = spec.snapshot_max_requests + spec.automatic_max_batches * spec.batch_max_requests
     assert reserved <= spec.daily_request_budget
 
