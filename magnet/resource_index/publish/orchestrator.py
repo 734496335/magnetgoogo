@@ -7,6 +7,8 @@ import json
 import mimetypes
 import os
 import re
+import socket
+import threading
 import time
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
@@ -28,6 +30,8 @@ from magnet.resource_index.release.protocol import canonical_json_bytes, sha256_
 
 IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable"
 POINTER_CANDIDATE_CACHE_CONTROL = "no-store"
+_PUBLISH_LOCK_HEARTBEAT_SECONDS = 30.0
+_PUBLISH_LOCK_STALE_SECONDS = 10 * 60.0
 
 
 @dataclass(frozen=True)
@@ -211,23 +215,35 @@ def _process_exists(pid: int) -> bool:
     return True
 
 
-def _read_lock_pid(lock_path: Path) -> int | None:
+def _read_lock_values(lock_path: Path) -> dict[str, str]:
     try:
         text = lock_path.read_text(encoding="ascii", errors="ignore")
     except OSError:
-        return None
-    match = re.search(r"(?:^|\n)pid=(\d+)(?:\n|$)", text)
-    return int(match.group(1)) if match else None
+        return {}
+    values: dict[str, str] = {}
+    for line in text.splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip()
+    return values
+
+
+def _read_lock_pid(lock_path: Path) -> int | None:
+    value = _read_lock_values(lock_path).get("pid")
+    return int(value) if value and value.isdigit() else None
 
 
 def _lock_is_stale(lock_path: Path, *, malformed_grace_seconds: float = 300.0) -> bool:
-    existing_pid = _read_lock_pid(lock_path)
-    if existing_pid is not None:
-        return not _process_exists(existing_pid)
     try:
         age_seconds = max(0.0, time.time() - lock_path.stat().st_mtime)
     except OSError:
         return False
+    if age_seconds >= _PUBLISH_LOCK_STALE_SECONDS:
+        return True
+    existing_pid = _read_lock_pid(lock_path)
+    if existing_pid is not None:
+        return not _process_exists(existing_pid)
     return age_seconds >= malformed_grace_seconds
 
 
@@ -259,16 +275,46 @@ def _exclusive_publish_lock(lock_path: Path) -> Iterator[None]:
                 ) from unlink_error
     if descriptor is None:
         _fail(PUBLISH_LOCKED, "media publish lock could not be acquired", lock_path=str(lock_path))
+    token = uuid.uuid4().hex
+    heartbeat_stop = threading.Event()
     try:
-        os.write(descriptor, f"pid={os.getpid()}\n".encode("ascii"))
+        os.write(
+            descriptor,
+            (
+                f"pid={os.getpid()}\n"
+                f"hostname={socket.gethostname()}\n"
+                f"token={token}\n"
+            ).encode("ascii"),
+        )
         os.close(descriptor)
         descriptor = None
-        yield
+
+        def heartbeat() -> None:
+            while not heartbeat_stop.wait(_PUBLISH_LOCK_HEARTBEAT_SECONDS):
+                try:
+                    if _read_lock_values(lock_path).get("token") != token:
+                        return
+                    os.utime(lock_path, None)
+                except OSError:
+                    return
+
+        heartbeat_thread = threading.Thread(
+            target=heartbeat,
+            name="media-publish-lock-heartbeat",
+            daemon=True,
+        )
+        heartbeat_thread.start()
+        try:
+            yield
+        finally:
+            heartbeat_stop.set()
+            heartbeat_thread.join(timeout=max(1.0, _PUBLISH_LOCK_HEARTBEAT_SECONDS))
     finally:
         if descriptor is not None:
             os.close(descriptor)
         try:
-            lock_path.unlink()
+            if _read_lock_values(lock_path).get("token") == token:
+                lock_path.unlink()
         except FileNotFoundError:
             pass
 

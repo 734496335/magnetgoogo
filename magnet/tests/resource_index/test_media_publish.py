@@ -5,6 +5,7 @@ import io
 import json
 import os
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -491,6 +492,38 @@ def test_stale_publish_lock_is_recovered(tmp_path: Path) -> None:
 
     assert result.status == "success"
     assert not lock_path.exists()
+
+
+def test_publish_lock_recovers_expired_heartbeat_with_reused_pid(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lock_path = tmp_path / "receipts" / ".publish-test.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path.write_text(f"pid={os.getpid()}\nhostname=old-container\ntoken=old\n", encoding="ascii")
+    old = time.time() - publish_orchestrator._PUBLISH_LOCK_STALE_SECONDS - 10
+    os.utime(lock_path, (old, old))
+    monkeypatch.setattr(publish_orchestrator, "_process_exists", lambda _pid: True)
+
+    with publish_orchestrator._exclusive_publish_lock(lock_path):
+        assert publish_orchestrator._read_lock_values(lock_path)["token"] != "old"
+
+    assert not lock_path.exists()
+
+
+def test_publish_lock_heartbeat_refreshes_mtime(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lock_path = tmp_path / "receipts" / ".publish-test.lock"
+    monkeypatch.setattr(publish_orchestrator, "_PUBLISH_LOCK_HEARTBEAT_SECONDS", 0.01)
+
+    with publish_orchestrator._exclusive_publish_lock(lock_path):
+        before = lock_path.stat().st_mtime_ns
+        time.sleep(0.05)
+        after = lock_path.stat().st_mtime_ns
+        assert after > before
+        assert publish_orchestrator._read_lock_values(lock_path)["hostname"]
 
 
 def test_windows_system_error_marks_lock_pid_as_dead(monkeypatch: pytest.MonkeyPatch) -> None:
