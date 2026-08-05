@@ -1,0 +1,1 @@
+Main-repository pre-push remote check failed with Windows Schannel `failed to receive handshake` while accessing GitHub. Cached release scope passed diff checks and remained staged; no push or remote mutation occurred. Proceed with the local atomic release-delivery commit, then retry the HTTPS push separately.

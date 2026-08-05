@@ -59,6 +59,7 @@ for (const file of htmlFiles) {
   const original = fs.readFileSync(file, 'utf8');
   let updated = original
     .replace(/https:\/\/cn\.magnetgoogo\.com\/download\/magnetgoogo\.apk/g, primaryUrl)
+    .replace(/https:\/\/api\.naoshiquan\.com\/download\/v[^"'<>/]+\/magnetgoogo-v[^"'<>/]+\.apk/g, primaryUrl)
     .replace(/https:\/\/github\.com\/734496335\/magnetgoogo\/releases\/download\/v[^"'<>/]+\/magnetgoogo-v[^"'<>/]+\.apk/g, github.url)
     .replace(/https:\/\/wwbdy\.lanzn\.com\/[A-Za-z0-9]+/g, lanzou.url)
     .replace(/蓝奏云（密码：\d+）/g, `蓝奏云（密码：${password}）`)

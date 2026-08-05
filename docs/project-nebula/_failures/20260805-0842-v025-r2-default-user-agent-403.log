@@ -1,0 +1,1 @@
+R2 object upload succeeded, but the first public verification used Python urllib's default User-Agent and received HTTP 403 from api.naoshiquan.com. Because commands were chained with &&, Aliyun upload did not run. No public configuration was deployed. Next step: inspect gateway download policy and verify with the App-equivalent request headers, then upload Aliyun separately.

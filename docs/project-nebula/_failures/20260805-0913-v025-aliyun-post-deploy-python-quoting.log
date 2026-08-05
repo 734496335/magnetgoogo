@@ -1,0 +1,1 @@
+Aliyun site backup and archive extraction completed successfully, creating rollback `/var/www/magnetgoogo-site.pre-v025-20260805T091305`. The final inline Python verification lost nested quote characters inside the SSH command and raised a SyntaxError. Deployment was not rolled back. Verification is repeated with direct file output and public HTTP checks.

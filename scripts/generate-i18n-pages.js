@@ -430,7 +430,7 @@ ${backupDownloads.map((item) => `      <a href="${item.url}" target="_blank" rel
         ${item.label === '蓝奏云' ? `LanzouCloud · PIN ${item.password || '8888'}` : item.label}
       </a>`).join('\n')}
     </div>
-    <p class="mt-4 text-sm text-gray-400">Android 7.0+ · APK 36.7MB · v0.2.3</p>
+    <p class="mt-4 text-sm text-gray-400">Android 7.0+ · APK 36.7MB · v0.2.5</p>
   </div>
 </section>
 

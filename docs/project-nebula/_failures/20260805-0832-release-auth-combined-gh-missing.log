@@ -1,0 +1,1 @@
+Combined release-auth check stopped after Cloudflare authentication because the GitHub CLI executable `gh` is not installed. Wrangler authentication succeeded. The subsequent Aliyun SSH check did not run. No deployment or project mutation occurred. GitHub publication will use the existing GITHUB_PAT REST flow, and Aliyun will be checked separately.
