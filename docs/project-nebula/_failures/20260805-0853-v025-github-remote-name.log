@@ -1,0 +1,1 @@
+GitHub preflight used remote name `origin`, but this checkout uses `release-origin`. The command stopped before branch/tag or credential checks. No push, tag, release, or remote mutation occurred. Retry uses `release-origin`.

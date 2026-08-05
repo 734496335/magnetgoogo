@@ -1,28 +1,29 @@
-TASK: MagnetGoogo v0.2.3→v0.2.5 App内更新全链路验证
-STATUS: E2E_PASS / DATA_RETENTION_PASS / PUBLIC_RELEASE_NOT_STARTED
-DATE: 2026-08-04 UTC+8
+TASK: MagnetGoogo v0.2.5全链路公开发布
+STATUS: PUBLIC_RELEASE_PASS / PRODUCTION_UPDATE_E2E_PASS
+DATE: 2026-08-05 UTC+8
 BRANCH: release/v0.2.5
-
-FORMAL ARTIFACT:
-- com.magnetgoogo.app / 0.2.5 / code9 / arm64-v8a
-- bytes=38,510,714
-- sha256=2d89e372d24ee951d49ad69f17631b7b66b323e7a78d1eb23b31213a2b463b93
-- formal v0.2.3 and v0.2.5 certificate SHA256 identical
-
-K30S E2E:
-- v0.2.3 source authority=01555edc217fcf8db63c9af1f20c099a786337c0
-- local-isolated config only; updater/download/install code unchanged
-- update modal displayed v0.2.5
-- App downloaded 71.1MB APK and auto-opened MIUI installer
-- installer showed 0.2.3→0.2.5 / source=MagGoogo
-- user-confirmed update completed: code7→code9
-- firstInstallTime unchanged; UpdateRetentionProbe20260804 retained
-- cold start PASS; Fatal=0; ANR=0
-
-CLEANUP:
-- adb reverse/server/temp APK removed
-- animations restored 1/1/1; shell install AppOp restored default
-- formal package remained 0.2.5/code9; public config unchanged
-
+SOURCE:
+- head=cdcf4a8c1677e6983619ae4dad4a7ca8d94dc4dd
+- tag=v0.2.5
+ARTIFACT:
+- package=com.magnetgoogo.app / version=0.2.5 / code9 / arm64-v8a
+- bytes=38,510,706
+- sha256=642447c18e12f81b167f5a9b711726a6ced28079d7f078678151d05bdea9da70
+- certificate=475fc1647359524cef27e180421ef17401171f476e4ab41f8b423746ef0ef49d
+CHANNELS:
+- GitHub Release PASS
+- R2 primary PASS
+- Aliyun stable+versioned APK PASS
+- Lanzou landing PASS / password 8888
+- Pages+Aliyun website PASS
+- mg-data=355b76d / maggoogo-sources=24c9ba6
+CONFIG:
+- latest=0.2.5 / min=0.1.10 / announcement=3 lines
+- six config endpoints PASS
+K30S:
+- formal 0.2.3 detected public 0.2.5
+- in-App R2 download -> MIUI scan -> user confirmation -> code9 PASS
+- firstInstallTime retained; ratings/cache retained
+- Fatal=0 ANR=0 residual services=0
 EVIDENCE:
-- docs/project-nebula/TEST-RESULT-20260804-v0.2.3到v0.2.5-App内更新全链路.md
+- docs/project-nebula/TEST-RESULT-20260805-v0.2.5全链路公开发布与0.2.3公网升级验收.md

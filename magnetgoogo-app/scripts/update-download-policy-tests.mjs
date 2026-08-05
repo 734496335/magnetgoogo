@@ -14,9 +14,9 @@ const siteDownloads = fs.existsSync(siteDownloadsPath)
   ? JSON.parse(fs.readFileSync(siteDownloadsPath, 'utf8'))
   : null;
 
-const gatewayUrl = 'https://api.naoshiquan.com/download/v0.2.3/magnetgoogo-v0.2.3.apk';
-const lanzouUrl = 'https://wwbdy.lanzn.com/iDcyE3zn4rcf';
-const githubUrl = 'https://github.com/734496335/magnetgoogo/releases/download/v0.2.3/magnetgoogo-v0.2.3.apk';
+const gatewayUrl = 'https://api.naoshiquan.com/download/v0.2.5/magnetgoogo-v0.2.5.apk';
+const lanzouUrl = 'https://wwbdy.lanzn.com/iWEhg40m9q5c';
+const githubUrl = 'https://github.com/734496335/magnetgoogo/releases/download/v0.2.5/magnetgoogo-v0.2.5.apk';
 
 for (const config of [mgConfig, siteConfig].filter(Boolean)) {
   assert.equal(config.download.primary, gatewayUrl);

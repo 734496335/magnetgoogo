@@ -1,4 +1,26 @@
 ---
+Date/Time: 2026-08-05 09:30 (UTC+8)
+Version: v0.2.5-public-release
+Scope: Publish the final signed v0.2.5 APK across GitHub, R2, Aliyun, Lanzou and all update-config/site endpoints, then prove the real public v0.2.3→v0.2.5 K30S upgrade path
+Modules: releases/RELEASE-v0.2.5.md, docs/project-nebula/{APP-CHANGELOG.md,DEV-LOG.md,_progress.txt,TEST-RESULT-20260805-v0.2.5全链路公开发布与0.2.3公网升级验收.md,_failures/*v025-release*}, public release/config/site repositories
+
+### Release authority
+- Rebuilt and archived `com.magnetgoogo.app 0.2.5/code9`, arm64-v8a, 38,510,706 bytes, SHA-256 `642447c18e12f81b167f5a9b711726a6ced28079d7f078678151d05bdea9da70`; release certificate remains `475fc164...ef49d`.
+- Published GitHub tag/Release `v0.2.5`; Chinese and English update sections each contain exactly three short bullets.
+- Published the byte-identical APK to R2 and Aliyun stable/versioned paths; Lanzou landing page `iWEhg40m9q5c` is live with password 8888.
+- Published `latest_version=0.2.5`, `min_version=0.1.10`, the R2 primary URL and Lanzou→GitHub mirrors through Pages, mg-data, maggoogo-sources, both Gateways, jsDelivr and Aliyun config.
+
+### Production K30S result
+- Retained-data downgraded the formal package from 0.2.5/code9 to formal 0.2.3/code7, then launched the real public optional update.
+- v0.2.3 displayed v0.2.5 and the three-line announcement, downloaded the APK in-App from the public R2 URL and automatically opened MIUI Package Installer.
+- MIUI displayed `从0.2.3更新到0.2.5 / 安装来源：MagGoogo`; confirmation completed code9 installation while the original firstInstallTime remained unchanged.
+- Cold-start media cache retained Supergirl plus Douban 5.4 / IMDb 6.1 / Rotten Tomatoes 52%; Fatal/ANR and residual search services were zero.
+
+### Boundary
+- Update remains optional; Android still requires user confirmation in the MIUI installer. Search inventory remains 357 rules / 147 green / 51 pools, and no media revision was published.
+---
+
+---
 Date/Time: 2026-08-04 22:35 (UTC+8)
 Version: v0.2.3-to-v0.2.5-in-app-update-e2e
 Scope: Prove the complete v0.2.3 in-App download and MIUI-confirmed upgrade path to v0.2.5 without changing public update configuration
