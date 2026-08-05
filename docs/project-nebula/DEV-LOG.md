@@ -1,4 +1,17 @@
 ---
+Date/Time: 2026-08-05 12:23 (UTC+8)
+Version: v0.2.5-public-release-evidence-correction
+Scope: Correct the independent release record after a successful full R2 re-download and rerun the final release gates
+Modules: docs/project-nebula/{DEV-LOG.md,_progress.txt,TEST-RESULT-20260805-v0.2.5全链路公开发布与0.2.3公网升级验收.md}
+
+### Correction and final verification
+- Independently re-downloaded the complete R2 APK: 38,510,706 bytes, SHA-256 `642447c18e12f81b167f5a9b711726a6ced28079d7f078678151d05bdea9da70`, matching the local archive, GitHub asset and both Aliyun files.
+- Reran update-download contract PASS, release-build contract PASS (`0.2.5/code9`, 147 green, 51 pools), enum validation `357 / ALL VALID`, and APK structure/signature verification PASS with the same certificate as formal v0.2.3.
+- K30S remains formal `0.2.5/code9`, firstInstallTime remains `2026-07-28 21:17:01`, no search service residue was found, and Crash/ANR checks returned no package records.
+- No production channel, config, website, source inventory or media revision was changed during this correction.
+---
+
+---
 Date/Time: 2026-08-05 12:07 (UTC+8)
 Version: v0.2.5-public-release-independent-audit
 Scope: Independently re-verify the completed v0.2.5 public release without changing production channels
@@ -7,7 +20,7 @@ Modules: docs/project-nebula/{DEV-LOG.md,_progress.txt,TEST-RESULT-20260805-v0.2
 ### Independent verification
 - Confirmed `release/v0.2.5` at publication commit `a0bf6cc`, with source tag `v0.2.5` bound to `cdcf4a8`; GitHub Release is public, non-draft and non-prerelease, with exactly three short Chinese bullets and three English bullets.
 - GitHub API reports the APK as 38,510,706 bytes with SHA-256 `642447c18e12f81b167f5a9b711726a6ced28079d7f078678151d05bdea9da70`. Local formal artifacts and both Aliyun stable/versioned files independently match the same byte count and SHA.
-- R2 public HEAD returns HTTP 200, Android APK content type and 38,510,706 bytes. Three independent full-object re-download attempts were stopped by DevSpace connector 502; this is retained as verification-infrastructure evidence, not treated as a production failure because the production K30S had already downloaded this exact public URL and installed code9.
+- R2 was independently re-downloaded in full: 38,510,706 bytes with SHA-256 `642447c18e12f81b167f5a9b711726a6ced28079d7f078678151d05bdea9da70`, exactly matching the local archive, GitHub asset and both Aliyun files. An earlier batched four-channel request hit a DevSpace connector 502 and is retained only as tooling evidence.
 - Rechecked published configuration: GitHub Raw, jsDelivr, Cloudflare Pages, both Gateways and the Aliyun server all resolve to latest 0.2.5, min 0.1.10, R2 primary, the new Lanzou link and three announcement lines. The Windows client still has the known `cn.magnetgoogo.com` TLS handshake limitation, while the server-side file is correct.
 - Re-audited all 911 website HTML files: old v0.2.3 R2/GitHub links and old Lanzou ID are zero; sampled live Chinese, English, Japanese and SEO pages all expose v0.2.5 links with no v0.2.3 asset reference.
 - Reran update-download contract PASS, release-build contract PASS (`0.2.5/code9`, 147 green, 51 pools), and enum validation `ALL VALID`. K30S remains formal 0.2.5/code9 with unchanged firstInstallTime, no recent Fatal/ANR and no residual search services.

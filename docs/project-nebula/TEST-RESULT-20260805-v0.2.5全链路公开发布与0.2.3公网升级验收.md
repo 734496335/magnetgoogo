@@ -113,10 +113,20 @@ Cloudflare Pages正式部署完成。官网同步审计覆盖911个HTML文件，
 
 - GitHub Release `v0.2.5` 为正式公开版本，中文和英文各3条短更新说明；GitHub资产大小为`38,510,706`字节，摘要为`sha256:642447c18e12f81b167f5a9b711726a6ced28079d7f078678151d05bdea9da70`；
 - 本地正式制品、阿里云稳定文件和阿里云版本文件的大小与SHA完全一致；
-- R2公网HEAD返回`200 / application/vnd.android.package-archive / 38,510,706 bytes`；独立全量回下载连续被DevSpace连接层502中断，因此未重复宣称新取得的R2 SHA，但原发布回下载证据和K30S真实公网下载安装证据仍有效；
+- R2公网APK已独立完整回下载，大小为`38,510,706 bytes`，SHA-256为`642447c18e12f81b167f5a9b711726a6ced28079d7f078678151d05bdea9da70`，与本地归档、GitHub资产及阿里云两个文件完全一致；此前一次四渠道批量请求出现DevSpace连接层502，仅作为工具故障记录保留；
 - GitHub Raw、jsDelivr、Cloudflare Pages、两个Gateway及阿里云服务器配置均为`latest=0.2.5 / min=0.1.10 / 3行说明 / 新蓝奏云 / 新GitHub`；
 - 官网本地911个HTML文件再次审计：旧0.2.3 R2链接、旧GitHub资产和旧蓝奏云ID均为0；线上中文、英文、日文及SEO页面抽查均只指向0.2.5；
 - `npm run test:update-download` PASS；`npm run test:release-build` PASS；`python validate_enum.py`输出`ALL VALID`；
 - K30S当前仍为正式`0.2.5/code9`，`firstInstallTime=2026-07-28 21:17:01`保持不变，近期Fatal/ANR为0，搜索服务无残留。
 
 独立复核结论：`PUBLIC_RELEASE_REAUDIT=PASS / PRODUCTION_STATE_UNCHANGED=YES`。
+
+### 12:23证据修正
+
+- `npm run test:update-download`：PASS；
+- `npm run test:release-build`：PASS，版本`0.2.5/code9`、147个green源、51个池；
+- `python magnet/validate_enum.py`：`357 / ALL VALID`；
+- `verify_release_apk.py`：包名、版本、versionCode、arm64-v8a、体积、SHA与签名全部PASS，证书与正式0.2.3一致；
+- K30S当前仍为`0.2.5/code9`，首次安装时间未变化，未发现搜索服务残留，Crash/ANR检查无本包记录。
+
+最终结论不变：0.2.5公开发布链路完整通过。
