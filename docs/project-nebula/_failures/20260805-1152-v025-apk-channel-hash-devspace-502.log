@@ -1,0 +1,4 @@
+Command purpose: stream-download R2 and GitHub v0.2.5 APKs and compute SHA-256.
+Result: DevSpace connector returned HTTP 502 before command output was available.
+No project or production state was modified.
+Resolution: verified channels separately; GitHub Release API supplied the exact asset digest, and R2 was cross-checked by public HEAD plus production K30S download evidence.

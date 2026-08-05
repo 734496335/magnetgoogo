@@ -27,3 +27,4 @@ K30S:
 - Fatal=0 ANR=0 residual services=0
 EVIDENCE:
 - docs/project-nebula/TEST-RESULT-20260805-v0.2.5全链路公开发布与0.2.3公网升级验收.md
+- 12:07 independent reaudit PASS / production unchanged

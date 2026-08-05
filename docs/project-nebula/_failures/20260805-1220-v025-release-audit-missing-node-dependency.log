@@ -1,0 +1,6 @@
+Command purpose: rerun v0.2.5 release-build contract after update-download PASS.
+Result: release-build test did not reach assertions because the isolated worktree had incomplete node_modules.
+Error: Cannot find module '@expo/config-plugins' required by plugins/with-release-signing.js.
+The preceding npm run test:update-download passed and reported the v0.2.5 R2 primary, Lanzou→GitHub mirrors and APK integrity guards.
+No production state was modified.
+Resolution: ran npm ci from package-lock.json in the isolated worktree, then npm run test:release-build passed.

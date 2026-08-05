@@ -1,0 +1,6 @@
+Command purpose: independently fetch remote R2 object maggoogo-releases/v0.2.5/magnetgoogo-v0.2.5.apk through Wrangler and compute SHA-256.
+Command: npx wrangler r2 object get maggoogo-releases/v0.2.5/magnetgoogo-v0.2.5.apk --remote --pipe | sha256sum
+Result: DevSpace connector returned HTTP 502 before command output was available.
+This was the third full-object verification attempt after two direct streaming attempts; no further full-download retries were made.
+No project or production state was modified.
+Remaining evidence: R2 public HEAD returns 200/application/vnd.android.package-archive/38,510,706 bytes; production K30S downloaded this public URL and installed code9; original publication evidence records byte-identical R2 SHA; GitHub API and Aliyun server hashes independently match local SHA 642447c18e12f81b167f5a9b711726a6ced28079d7f078678151d05bdea9da70.

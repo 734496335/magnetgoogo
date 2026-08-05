@@ -1,0 +1,6 @@
+Command purpose: verify six public config endpoints after v0.2.5 release.
+Result: command did not run because nested Bash/PowerShell quoting ended early.
+Error:
+/usr/bin/bash: -c: line 1: unexpected EOF while looking for matching ``'
+No project or production state was modified.
+Resolution: retried with curl/Python and App-like request headers; published configurations were verified.

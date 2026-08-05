@@ -1,0 +1,5 @@
+Command purpose: rerun v0.2.5 update-download and release-build contract tests in an isolated release worktree.
+Result: test:update-download failed before assertions because the managed worktree did not contain the separate mg-data repository.
+Error: ENOENT opening <worktree>/mg-data/config.json.
+No production state was modified.
+Resolution: created a temporary worktree-local mg-data/config.json copied from clean published mg-data commit 355b76d, reran the tests, then removed the temporary fixture.

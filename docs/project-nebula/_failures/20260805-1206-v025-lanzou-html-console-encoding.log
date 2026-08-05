@@ -1,0 +1,4 @@
+Command purpose: inspect the Lanzou v0.2.5 landing page HTML after confirming HTTP 200.
+Result: Python fetched the page successfully, but printing raw HTML failed because the Windows console GBK codec could not encode a page character (UnicodeEncodeError U+0371).
+No project or production state was modified.
+Resolution: extracted ASCII-safe status and structure instead; the supplied Lanzou URL remained HTTP 200.
