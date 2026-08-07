@@ -13,9 +13,11 @@ assert.ok(fn.includes(rawFetch), 'GitHub Raw fetch missing');
 assert.ok(fn.includes(pagesFetch), 'Cloudflare Pages fallback missing');
 assert.ok(fn.indexOf(rawFetch) < fn.indexOf(pagesFetch), 'GitHub Raw must be attempted before Pages');
 assert.match(fn, /GitHub Raw is refreshed automatically by mg-data/);
+assert.match(source, /case '\/sources-green\.enc\.json':[\s\S]*handleSources\(request, env, '\/sources-green\.enc\.json'\)/);
 
 console.log(JSON.stringify({
   status: 'PASS',
   source_authority: 'GitHub Raw',
   fallback: 'Cloudflare Pages',
+  full_and_green_routes: true,
 }));

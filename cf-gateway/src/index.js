@@ -153,7 +153,7 @@ async function handleConfig(request, env) {
   });
 }
 
-async function handleSources(request, env) {
+async function handleSources(request, env, sourceFile = '/sources.enc.json') {
   const meta = parseRequestMeta(request);
 
   // ── Step 1: Fetch config to get min_version ──
@@ -182,8 +182,6 @@ async function handleSources(request, env) {
   // const tier = await validateMembership(meta.memberToken, meta.deviceId, env);
   // const sourceFile = tier === 'pro' ? '/sources.pro.enc.json' : '/sources.free.enc.json';
   //
-  const sourceFile = '/sources.enc.json';
-
   // ── Step 4: Fetch and return sources ──
   const upstream = await fetchUpstream(env, sourceFile, env.CACHE_TTL, noCache);
   if (!upstream.ok) {
@@ -612,7 +610,9 @@ export default {
         case '/config.json':
           return await handleConfig(request, env);
         case '/sources.enc.json':
-          return await handleSources(request, env);
+          return await handleSources(request, env, '/sources.enc.json');
+        case '/sources-green.enc.json':
+          return await handleSources(request, env, '/sources-green.enc.json');
         case '/api/check':
           return await handleCheck(request, env);
         case '/api/feedback':
