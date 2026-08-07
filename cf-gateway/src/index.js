@@ -80,16 +80,16 @@ async function fetchUpstream(env, path, cacheTtl, skipCache = false) {
     } catch { /* local dev — no cache, fall through */ }
   }
 
-  // Try CF Pages first (always up-to-date), GitHub as fallback
+  // GitHub Raw is refreshed automatically by mg-data. Cloudflare Pages is a
+  // static deployment fallback and can lag behind source-envelope renewals.
   let response;
   try {
-    response = await fetch(`${CF_PAGES_BASE}${path}`, {
+    response = await fetch(url, {
       headers: { 'User-Agent': 'MagGoogo-Gateway/1.0' },
     });
-    if (!response.ok) throw new Error(`CF Pages ${response.status}`);
+    if (!response.ok) throw new Error(`GitHub Raw ${response.status}`);
   } catch {
-    // Fallback to GitHub
-    response = await fetch(url, {
+    response = await fetch(`${CF_PAGES_BASE}${path}`, {
       headers: { 'User-Agent': 'MagGoogo-Gateway/1.0' },
     });
   }

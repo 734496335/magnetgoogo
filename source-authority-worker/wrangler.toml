@@ -1,0 +1,12 @@
+name = "maggoogo-source-authority"
+main = "src/index.js"
+compatibility_date = "2026-08-07"
+workers_dev = false
+
+routes = [
+  { pattern = "magnetgoogo.com/sources.enc.json*", zone_name = "magnetgoogo.com" },
+  { pattern = "magnetgoogo.com/sources-green.enc.json*", zone_name = "magnetgoogo.com" }
+]
+
+[vars]
+SOURCE_AUTHORITY = "https://raw.githubusercontent.com/734496335/mg-data/main"

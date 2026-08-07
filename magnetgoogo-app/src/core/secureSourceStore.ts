@@ -30,6 +30,7 @@ const DEFAULT_EXPIRY_HOURS = 72;
 const BOOTSTRAP_EXPIRY_HOURS = 24 * 7;
 const BOOTSTRAP_FIRST_USED_KEY = 'mg_bootstrap_first_used_at';
 const AUTH_TOKEN_KEY = 'mg_auth_token';
+const SOURCE_EXPIRY_GRACE_MS = 5 * 60_000;
 
 function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
   return new Promise((resolve, reject) => {
@@ -55,6 +56,7 @@ async function raceFetchOk(
   path: string,
   headers: Record<string, string>,
   timeoutMs = 12000,
+  validateText?: (text: string, base: string) => void,
 ): Promise<{ text: string; url: string }> {
   const promises = urls.map(async (base) => {
     const fullUrl = `${base}${path}`;
@@ -66,7 +68,8 @@ async function raceFetchOk(
     if (!resp.ok) throw new Error(`HTTP ${resp.status} from ${base}`);
     const text = await resp.text();
     if (!text || text.length < 10) throw new Error(`Empty response from ${base}`);
-    console.log(`[SourceStore] ${base} responded first`);
+    if (validateText) validateText(text, base);
+    console.log(`[SourceStore] ${base} responded first with a valid source pack`);
     return { text, url: base };
   });
   return Promise.any(promises);
@@ -167,6 +170,7 @@ function loadFromDisk(): { green: SourceRule[]; meta: SourceMeta } | null {
 
     const decrypted = decryptSources(cache.encPayload);
     const raw = JSON.parse(decrypted);
+    assertFreshEnvelope(raw, 'disk source cache');
     const green = extractGreen(raw);
     const meta: SourceMeta = {
       updatedAt: cache.savedAt,
@@ -178,6 +182,17 @@ function loadFromDisk(): { green: SourceRule[]; meta: SourceMeta } | null {
   } catch (e: any) {
     console.log(`[SourceStore] Disk load failed: ${e.message}`);
     return null;
+  }
+}
+
+function assertFreshEnvelope(raw: any, context: string) {
+  if (!raw || typeof raw !== 'object' || !raw.payload || !raw.expires_at) return;
+  const expiresAt = new Date(raw.expires_at).getTime();
+  if (!Number.isFinite(expiresAt)) {
+    throw new Error(`${context} has invalid expires_at`);
+  }
+  if (Date.now() > expiresAt + SOURCE_EXPIRY_GRACE_MS) {
+    throw new Error(`${context} expired at ${raw.expires_at}`);
   }
 }
 
@@ -315,6 +330,7 @@ export async function syncSources(url?: string): Promise<{ sources: SourceRule[]
       if (encPayload && encPayload.length > 100) {
         const decrypted = decryptSources(encPayload);
         const envelope = JSON.parse(decrypted);
+        assertFreshEnvelope(envelope, 'debug source pack');
         const green = extractGreen(envelope);
         loadIntoVault(green, {
           updatedAt: envelope.issued_at || new Date().toISOString(),
@@ -348,10 +364,14 @@ export async function syncSources(url?: string): Promise<{ sources: SourceRule[]
   let usedUrl = '';
 
   try {
-    const result = await raceFetchOk(endpoints, SOURCE_FILE, headers, 12000);
+    const result = await raceFetchOk(endpoints, SOURCE_FILE, headers, 12000, (text, base) => {
+      const candidate = JSON.parse(decryptSources(text));
+      assertFreshEnvelope(candidate, `remote source pack from ${base}`);
+    });
     encPayload = result.text;
     const decrypted = decryptSources(encPayload);
     raw = JSON.parse(decrypted);
+    assertFreshEnvelope(raw, `remote source pack from ${result.url}`);
     usedUrl = result.url;
   } catch (raceErr: any) {
     console.log(`[SourceStore] Tier 1 failed: ${raceErr.message}, trying sequentially...`);
@@ -368,6 +388,7 @@ export async function syncSources(url?: string): Promise<{ sources: SourceRule[]
         if (!text || text.length < 10) continue;
         const decrypted = decryptSources(text);
         raw = JSON.parse(decrypted);
+        assertFreshEnvelope(raw, `remote source pack from ${base}`);
         encPayload = text;
         usedUrl = base;
         found = true;
