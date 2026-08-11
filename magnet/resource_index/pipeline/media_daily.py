@@ -59,7 +59,7 @@ from magnet.resource_index.publish.filesystem import FilesystemPublisherBackend
 from magnet.resource_index.publish.orchestrator import MediaPublishConfig, publish_media_release
 from magnet.resource_index.publish.worker_bridge import WorkerR2PublisherBackend
 from magnet.resource_index.release.builder import MediaReleaseConfig, build_media_release
-from magnet.resource_index.release.protocol import canonical_json_bytes, sha256_file
+from magnet.resource_index.release.protocol import canonical_json_bytes, sha256_file, verify_document
 
 
 @dataclass(frozen=True)
@@ -420,6 +420,63 @@ def _verify_public_control(base: str, candidate_path: Path) -> dict[str, Any]:
     }
 
 
+def _archive_unpromoted_pointer_candidates(
+    pointer_dir: Path,
+    *,
+    public_revision: int,
+    public_release_id: str,
+    public_key_path: Path,
+    evidence_dir: Path,
+) -> list[dict[str, Any]]:
+    archived: list[dict[str, Any]] = []
+    if not pointer_dir.is_dir():
+        return archived
+    for path in sorted(pointer_dir.glob("*.json")):
+        document = _load_json(path)
+        verify_document(document, public_key_path)
+        revision = document.get("pointer_revision")
+        release_id = str(document.get("release_id") or "")
+        if type(revision) is not int or revision < 1 or not release_id:
+            raise ResourceIndexError(
+                CONFIG_ERROR,
+                "staged media pointer metadata is invalid",
+                {"path": str(path), "pointer_revision": revision, "release_id": release_id},
+            )
+        if revision < public_revision:
+            continue
+        if revision == public_revision:
+            if release_id != public_release_id:
+                raise ResourceIndexError(
+                    CONFIG_ERROR,
+                    "staged published revision conflicts with public current",
+                    {
+                        "path": str(path),
+                        "pointer_revision": revision,
+                        "staged_release_id": release_id,
+                        "public_release_id": public_release_id,
+                    },
+                )
+            continue
+        evidence_dir.mkdir(parents=True, exist_ok=True)
+        target = evidence_dir / path.name
+        if target.exists():
+            raise ResourceIndexError(
+                CONFIG_ERROR,
+                "unpromoted pointer evidence target already exists",
+                {"source": str(path), "target": str(target)},
+            )
+        path.replace(target)
+        archived.append(
+            {
+                "pointer_revision": revision,
+                "release_id": release_id,
+                "source_path": str(path),
+                "evidence_path": str(target),
+            }
+        )
+    return archived
+
+
 def _status_base(started_at: str, *, mode: str) -> dict[str, Any]:
     return {
         "schema_version": "media-daily-status/1",
@@ -710,13 +767,31 @@ def run_media_daily(
                     {"path": str(config.previous_public_key_path)},
                 )
 
+            release_output_dir = root / "releases"
+            if publish:
+                archived_pointers = _archive_unpromoted_pointer_candidates(
+                    release_output_dir / "staging" / "pointers",
+                    public_revision=previous_revision,
+                    public_release_id=str(previous_current.get("release_id") or ""),
+                    public_key_path=config.public_key_path,
+                    evidence_dir=run_dir / "unpromoted-pointer-evidence",
+                )
+                status["stages"]["pointer_recovery"] = {
+                    "status": "pass",
+                    "archived_count": len(archived_pointers),
+                    "archived": archived_pointers,
+                }
+                _write_json(latest_status, status)
+            else:
+                release_output_dir = run_dir / "release-candidate"
+
             release_result = build_media_release(
                 MediaReleaseConfig(
                     movie_feed_path=movie_final_path,
                     series_feed_path=series_final_path,
                     movie_cover_bundle=movie_bundle,
                     series_cover_bundle=series_bundle,
-                    output_dir=root / "releases",
+                    output_dir=release_output_dir,
                     private_key_path=config.private_key_path,
                     public_key_path=config.public_key_path,
                     pointer_revision=previous_revision + 1,

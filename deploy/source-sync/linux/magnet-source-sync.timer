@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh Aliyun encrypted source pack mirror hourly
+
+[Timer]
+OnCalendar=*-*-* *:17:00
+RandomizedDelaySec=5m
+Persistent=true
+Unit=magnet-source-sync.service
+
+[Install]
+WantedBy=timers.target

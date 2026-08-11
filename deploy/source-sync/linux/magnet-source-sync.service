@@ -1,0 +1,15 @@
+[Unit]
+Description=MagnetGoogo encrypted source pack mirror sync
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/bin/bash /opt/magnet-source-sync/sync-source-packs.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/www/magnetgoogo-site /var/tmp

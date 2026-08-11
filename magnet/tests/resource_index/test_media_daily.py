@@ -12,6 +12,7 @@ from magnet.resource_index.pipeline import media_daily
 from magnet.resource_index.pipeline.media_daily import (
     DailySourceConfig,
     MediaDailyConfig,
+    _archive_unpromoted_pointer_candidates,
     _rating_next_offset,
     _run_lock,
     load_media_daily_config,
@@ -391,6 +392,78 @@ def test_daily_pipeline_keeps_running_when_rating_provider_stage_fails(
     assert result["stages"]["rating"]["status"] == "warning"
     assert result["stages"]["rating"]["lookup"]["error"]["type"] == "RuntimeError"
     assert result["resource_count"] == 2
+
+
+def test_candidate_and_audit_release_artifacts_are_run_scoped(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    config = _config(tmp_path)
+    outputs: list[Path] = []
+    fake_release = media_daily.build_media_release
+
+    def capture_release(release_config):
+        outputs.append(Path(release_config.output_dir))
+        return fake_release(release_config)
+
+    monkeypatch.setattr(media_daily, "build_media_release", capture_release)
+    result = run_media_daily(config, publish=False, skip_crawl=True, skip_ratings=True)
+
+    expected = config.state_root.resolve() / "runs" / result["run_id"] / "release-candidate"
+    assert outputs == [expected]
+    assert not (config.state_root / "releases" / "staging" / "pointers").exists()
+
+
+def test_publish_archives_only_unpromoted_future_pointer_candidates(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pointer_dir = tmp_path / "releases" / "staging" / "pointers"
+    published = pointer_dir / "00000000000000000010-current.json"
+    stale_audit = pointer_dir / "00000000000000000011-audit.json"
+    stale_failed_publish = pointer_dir / "00000000000000000012-failed.json"
+    _write(published, {"pointer_revision": 10, "release_id": "release-10"})
+    _write(stale_audit, {"pointer_revision": 11, "release_id": "audit-11"})
+    _write(stale_failed_publish, {"pointer_revision": 12, "release_id": "failed-12"})
+    monkeypatch.setattr(media_daily, "verify_document", lambda *_args, **_kwargs: None)
+
+    evidence = tmp_path / "run" / "unpromoted-pointer-evidence"
+    archived = _archive_unpromoted_pointer_candidates(
+        pointer_dir,
+        public_revision=10,
+        public_release_id="release-10",
+        public_key_path=tmp_path / "public.pem",
+        evidence_dir=evidence,
+    )
+
+    assert published.exists()
+    assert not stale_audit.exists()
+    assert not stale_failed_publish.exists()
+    assert (evidence / stale_audit.name).exists()
+    assert (evidence / stale_failed_publish.name).exists()
+    assert [item["pointer_revision"] for item in archived] == [11, 12]
+
+
+def test_publish_refuses_to_recover_when_public_revision_conflicts_with_staging(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pointer_dir = tmp_path / "releases" / "staging" / "pointers"
+    conflict = pointer_dir / "00000000000000000010-conflict.json"
+    _write(conflict, {"pointer_revision": 10, "release_id": "other-release"})
+    monkeypatch.setattr(media_daily, "verify_document", lambda *_args, **_kwargs: None)
+
+    with pytest.raises(ResourceIndexError, match="conflicts with public current"):
+        _archive_unpromoted_pointer_candidates(
+            pointer_dir,
+            public_revision=10,
+            public_release_id="release-10",
+            public_key_path=tmp_path / "public.pem",
+            evidence_dir=tmp_path / "evidence",
+        )
+
+    assert conflict.exists()
 
 
 def test_daily_pipeline_can_skip_rating_lookup_for_weekly_audit(
