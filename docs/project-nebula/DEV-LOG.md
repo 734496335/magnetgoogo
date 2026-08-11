@@ -1,4 +1,27 @@
 ---
+Date/Time: 2026-08-11 23:20 (UTC+8)
+Version: compliance-mode-temporarily-deprecated
+Scope: Narrow production source support to ordinary full mode only; remove green/compliance dependencies from renewal and Aliyun source-sync without deleting historical assets.
+Modules: magnetgoogo-app complianceConfig, deploy/source-sync/linux, mg-data renewal workflow/public convergence, TECH-CHALLENGES/_progress
+
+### Decision and production boundary
+- `COMPLIANCE_MODE` is temporarily deprecated. Production releases must keep it `false`; `/sources.enc.json` is the only supported source-pack SLA.
+- Historical `/sources-green.enc.json` code/assets remain for a deliberate future restore, but green expiry, Gateway 404, mirror drift or renewal failure no longer blocks ordinary production.
+- CH-013 is moved to abandoned/not-applicable until compliance mode is explicitly reactivated and re-audited.
+
+### Implementation / production proof
+- Aliyun `magnet-source-sync` now fetches, authenticates, freshness-checks and atomically installs only `sources.enc.json`; green is absent from the production script and verifier invocation.
+- Real production run at 23:20 PASS: full SHA `370de74a...`, 357 rules / 148 GREEN, ~65.9h validity remaining, jsDelivr converged, timer remains enabled.
+- mg-data workflow now refreshes/verifies/commits/purges/convergence-checks only `sources.enc.json`; commit `73d224b` pushed to main. Existing green file is retained but unsupported.
+- App config explicitly documents compliance builds as temporarily deprecated; `COMPLIANCE_MODE=false` remains unchanged.
+
+### Verification
+- source-sync targeted 10/10 PASS; verifier compile PASS; shell syntax PASS; enum 241/ALL VALID.
+- mg-data workflow contract/state tests 5/5 PASS; YAML parse and git diff-check PASS.
+- Local manual `--verify-only` without GitHub secret failed only because `SOURCE_ENCRYPTION_KEY_HEX` is intentionally absent from the shell; failure evidence recorded and no secret was retrieved.
+---
+
+---
 Date/Time: 2026-08-11 19:35 (UTC+8)
 Version: media-source-cross-day-adversarial-hardening
 Scope: Re-audit media publication and encrypted source renewal with hard-kill, cross-generation, retention, crypto/freshness and real-renewal failure scenarios; deploy safe fixes while preserving risky Gateway production boundary

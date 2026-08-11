@@ -117,7 +117,7 @@ def validate(path, key, now, min_remaining_hours):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--full", required=True, type=Path)
-    parser.add_argument("--green", required=True, type=Path)
+    parser.add_argument("--green", type=Path)
     parser.add_argument("--min-remaining-hours", type=float, default=12.0)
     args = parser.parse_args()
     if args.min_remaining_hours < 0 or args.min_remaining_hours > 48:
@@ -125,13 +125,16 @@ def main():
     key = load_key()
     now = datetime.now(timezone.utc)
     full = validate(args.full, key, now, args.min_remaining_hours)
-    green = validate(args.green, key, now, args.min_remaining_hours)
-    for field in ("issued_at", "expires_at", "min_app_version"):
-        if full[field] != green[field]:
-            raise ValueError("full/green source packs disagree on %s" % field)
-    if green["rules"] > full["rules"] or green["green"] != full["green"]:
-        raise ValueError("full/green source pack counts are inconsistent")
-    print(json.dumps({"status": "pass", "checked_at": now.isoformat(), "full": full, "green": green}, ensure_ascii=False))
+    result = {"status": "pass", "checked_at": now.isoformat(), "full": full}
+    if args.green is not None:
+        green = validate(args.green, key, now, args.min_remaining_hours)
+        for field in ("issued_at", "expires_at", "min_app_version"):
+            if full[field] != green[field]:
+                raise ValueError("full/green source packs disagree on %s" % field)
+        if green["rules"] > full["rules"] or green["green"] != full["green"]:
+            raise ValueError("full/green source pack counts are inconsistent")
+        result["green"] = green
+    print(json.dumps(result, ensure_ascii=False))
     return 0
 
 

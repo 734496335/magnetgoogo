@@ -7,8 +7,9 @@
  *   3. Home screen shows compliance banner with CTA to website
  *   4. Search placeholder guides users toward legitimate queries
  *
- * To build for Google Play: set COMPLIANCE_MODE = true before `eas build`.
- * To build full version:    keep COMPLIANCE_MODE = false (default).
+ * TEMPORARILY DEPRECATED (2026-08-11): compliance builds are not part of the
+ * production support scope. Production releases must keep COMPLIANCE_MODE=false.
+ * Historical code/assets remain only so the mode can be restored deliberately later.
  */
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

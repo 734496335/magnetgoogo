@@ -85,7 +85,8 @@ def test_source_sync_requires_authority_and_github_api_byte_match() -> None:
     assert "https://api.github.com/repos/734496335/mg-data/contents" in script
     assert "x-source-authority:" in script
     assert "github-raw" in script
-    assert "for file in sources.enc.json sources-green.enc.json" in script
+    assert 'FILE="sources.enc.json"' in script
+    assert "sources-green.enc.json" not in script
     assert 'cmp -s "$authority" "$github_api"' in script
     assert "GitHub API contents decode failed" in script
     assert 'encoded="".join(d["content"].split())' in script
@@ -98,26 +99,27 @@ def test_source_sync_treats_jsdelivr_as_optional_observation_not_publish_gate() 
     assert "optional jsDelivr evidence converged" in script
     assert "warning: jsDelivr is lagging" in script
     verifier_index = script.index('"$PYTHON_BIN" "$VERIFIER"')
-    cdn_index = script.index('cdn="$TMP_ROOT/$file.cdn"')
+    cdn_index = script.index('cdn="$TMP_ROOT/$FILE.cdn"')
     assert verifier_index < cdn_index
 
 
-def test_source_sync_verifies_crypto_freshness_and_pair_coherence_before_install() -> None:
+def test_source_sync_verifies_crypto_and_freshness_before_install() -> None:
     script = (LINUX / "sync-source-packs.sh").read_text(encoding="utf-8")
     verifier = '"$PYTHON_BIN" "$VERIFIER"'
-    first_install = 'install -m 0644 "$TMP_ROOT/sources.enc.json.authority" "$full_pending"'
+    install = 'install -m 0644 "$authority" "$pending"'
     assert verifier in script
-    assert script.index(verifier) < script.index(first_install)
+    assert script.index(verifier) < script.index(install)
     assert "MAGNET_SOURCE_MIN_REMAINING_HOURS" in script
+    assert "--green" not in script
 
 
-def test_source_sync_stages_both_files_and_rolls_back_normal_partial_failure() -> None:
+def test_source_sync_stages_only_full_pack_and_validates_before_replace() -> None:
     script = (LINUX / "sync-source-packs.sh").read_text(encoding="utf-8")
-    assert 'install -m 0644 "$TMP_ROOT/sources.enc.json.authority" "$full_pending"' in script
-    assert 'install -m 0644 "$TMP_ROOT/sources-green.enc.json.authority" "$green_pending"' in script
-    assert script.index('mv -f "$green_pending" "$green_target"') < script.index('mv -f "$full_pending" "$full_target"')
-    assert "restore_targets" in script
-    assert "post-install source-pack validation failed; previous pair restored" in script
+    assert 'pending="$TARGET_ROOT/.$FILE.$$.new"' in script
+    assert 'install -m 0644 "$authority" "$pending"' in script
+    assert '"$VERIFIER" --full "$pending"' in script
+    assert 'mv -f "$pending" "$target"' in script
+    assert "sources-green.enc.json" not in script
 
 
 def test_source_sync_timer_is_persistent_and_hourly() -> None:

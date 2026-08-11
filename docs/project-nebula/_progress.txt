@@ -1,30 +1,25 @@
-TASK: 影视发布/源续期跨天状态机对抗审查与二次加固
-STATUS: PRODUCTION_HARDENED / REVISION11_STABLE / SOURCE_COHORT_AUTOMATED / 2_RESIDUALS
+TASK: 普通版 full-only 生产边界收窄；合规/green 暂时弃用
+STATUS: PRODUCTION_FULL_ONLY / COMPLIANCE_DEPRECATED / GREEN_NON_BLOCKING
 DATE: 2026-08-11 UTC+8
 
-MEDIA NEW FINDINGS/FIX:
-- 发现旧 promotion 顺序 Aliyun->R2 存在 SIGKILL/断电窗口；catchable rollback 无法覆盖进程直接死亡。
-- Filesystem current 现与 R2 Worker 一样：禁止 revision 回退、禁止同 revision 换字节、相同字节幂等。
-- promotion 改 R2 authority first -> Aliyun；启动前同时验 R2/Aliyun signed current+Manifest。
-- R2 超前1版自动补 Aliyun；历史 Aliyun 超前1版仅在签名可信且目标 Manifest 已存在时补 R2；同 revision 不同 release 或 gap>1 硬停。
-- publish release 也改 run-scoped；双端已晋级但 durable state 未写时按 pointer semantics 恢复 state，不再空升 revision。
-- pointer recovery 接受 current+previous trusted keys；未来 incident evidence 存 durable evidence/ 而非随 runs retention 删除。
-- retention 强制保留 durable current pointer/release，不再只依赖 mtime。
+DECISION:
+- `COMPLIANCE_MODE` 暂时弃用；正式生产必须保持 false。
+- `/sources.enc.json` 是唯一生产 source-pack SLA；`sources-green.enc.json` 仅保留历史资产，不参与生产门禁。
+- CH-013 green Gateway 冗余问题改为 abandoned/not-applicable，未来恢复合规版时重新完整审计。
 
-MEDIA PROD:
-- latest image sha256:41f64e340083ece6b5007c7eed32468b3ae4578f42ccc179e761e6c1bebdacc8。
-- read-only audit: revision11 -> run-scoped candidate12，control_recovery=none，global pointers仍9/10/11。
-- post-switch no-change publish: success/no_change/public_verified，revision保持11。
-- R2/Aliyun current SHA ce287929...；release 20260811T000000Z-8fc684c7；274/299/4238。
+APP:
+- `magnetgoogo-app/src/core/complianceConfig.ts` 已明确标记暂时弃用；运行值仍为 false。
 
-SOURCE NEW FINDINGS/FIX:
-- 真实2026-08-11 09:15Z续期时 jsDelivr滞后，旧 Aliyun 双证据设计连续失败；改 authority Worker + GitHub Contents API 为强证据，jsDelivr optional warning。
-- Aliyun新增 HMAC/AES/gzip/schema/freshness(>=12h)/full-green cohort 校验；错误key真实注入 FAIL_CLOSED，生产文件未变。
-- Aliyun已更新 full 370de74a... / green 4bf88e74...；二次运行 already current；jsDelivr人工purge后已收敛。
-- mg-data 任一成员触发即 full+green 同 cohort 重签；CI 4/4状态机测试 + required public convergence + optional jsDelivr purge。
+ALIYUN SOURCE SYNC:
+- hourly `magnet-source-sync` 已切 full-only：authority Worker + GitHub Contents API 双证据，HMAC/AES/gzip/schema/freshness 校验后原子替换。
+- 2026-08-11 23:20 生产实跑 PASS；full SHA `370de74a...`，357 rules / 148 GREEN，剩余约65.9h。
+- jsDelivr 已收敛；timer 下一次继续正常运行；green 文件不再影响 service 成败。
 
-GATES/RESIDUALS:
-- Resource Index 397 passed/1 skipped；source-sync 10/10；Gateway route contract PASS；compileall/enum/shell/systemd verify PASS。
-- media/source code commit 6aef18c 已推 feature/media-daily-automation；mg-data 48aa6e6 已推 main。
-- RESIDUAL P2: api.naoshiquan.com 与旧 workers.dev 的 sources-green 仍404；代码已修但未冒险覆盖线上 Gateway。
-- RESIDUAL P1: media 二次失败和 source-sync 连续失败仍缺独立外部主动告警（CH-009）。
+MG-DATA:
+- workflow 只 refresh/verify/commit/purge/convergence-check `sources.enc.json`。
+- commit `73d224b` 已推 `mg-data/main`；workflow/state contract 5/5 PASS，YAML PASS。
+
+GATES:
+- source-sync targeted 10/10 PASS；verifier compile PASS；shell syntax PASS；enum 241 ALL VALID。
+- local verify-only 缺 GitHub secret 的环境失败已留证；未读取/输出 secret。
+- 唯一主要剩余运维缺口：media/source-sync 连续失败仍缺外部主动邮件告警（CH-009）。

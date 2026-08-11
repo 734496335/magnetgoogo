@@ -41,7 +41,7 @@
 | [CH-010](#challenge-010--影视candidate污染生产revision命名空间) | 影视 candidate 污染生产 revision 命名空间 | **blocker** | solved ✅ | 2026-08-11 run-scoped candidate + 未晋级pointer归档恢复上线 |
 | [CH-011](#challenge-011--aliyun源包续期传播依赖人工同步) | Aliyun 源包续期传播依赖人工同步 | **high** | solved ✅ | 2026-08-11 authority+GitHub API+crypto/freshness/cohort 自动同步上线 |
 | [CH-012](#challenge-012--影视双端promotion硬断电一致性窗口) | 影视双端 promotion 硬断电一致性窗口 | **blocker** | solved ✅ | 2026-08-11 R2-first + 双端签名恢复 + revision不可重绑上线 |
-| [CH-013](#challenge-013--green源包gateway备用入口缺失) | green 源包 Gateway 备用入口缺失 | medium | open | 2026-08-11 代码修复PASS，因线上Worker未安全回仓暂未部署 |
+| [CH-013](#challenge-013--green源包gateway备用入口缺失) | green 源包 Gateway 备用入口缺失 | low | abandoned | 2026-08-11 合规版暂时弃用，普通版 full-only 成为唯一生产 SLA |
 
 ---
 
@@ -59,13 +59,13 @@
 
 ## CHALLENGE-013 — green源包Gateway备用入口缺失
 
-- **严重程度**：medium
-- **状态**：open
+- **严重程度**：low
+- **状态**：abandoned
 - **首次记录**：2026-08-11
-- **业务影响**：`COMPLIANCE_MODE` 会把 APP 同组六端点切换到 `/sources-green.enc.json`；目前 Raw、`magnetgoogo.com`、jsDelivr、Aliyun 可用，但 `api.naoshiquan.com` 和旧 workers.dev Gateway 对 green 路径仍返回404，降低合规构建冗余度。
-- **当前方案 & 缺陷**：Gateway 本地代码已改为 full/green 显式路由且 contract test PASS；但线上 Worker 当前版本/bindings 与 clean checkout 并不完全一致，直接全量 `wrangler deploy` 有覆盖埋点/下载/远端变量风险。
-- **下一步**：先把当前线上 Gateway 代码和 bindings 安全回仓或建立窄路由 Worker，再部署 green handler；部署前后分别验证 full/green 全端点矩阵。普通 full 主链当前不受影响。
-- **更新日志**：2026-08-11 —— 保持生产不冒险覆盖，明确作为 residual P2，而不是用 full PASS 推断 green PASS。
+- **业务影响**：当前无生产影响。2026-08-11 已决定暂时弃用 `COMPLIANCE_MODE`/green 合规构建，普通版 `/sources.enc.json` 成为唯一生产支持范围和 SLA。
+- **当前方案 & 缺陷**：历史 green 代码和静态资产保留，便于未来明确恢复；但 green 的 Gateway 404、续期、Aliyun 镜像和告警均不再作为生产阻塞项。
+- **下一步**：无。只有未来明确恢复合规版时，才重新打开本项，并重新执行 full/green 全链路审计后才能进入生产。
+- **更新日志**：2026-08-11 —— 合规版暂时弃用；source-sync、mg-data 自动续期和公网收敛门禁切为 full-only，避免废弃分支影响普通版可用性。
 
 ---
 
