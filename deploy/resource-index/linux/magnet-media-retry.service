@@ -8,6 +8,7 @@ Requires=docker.service
 Type=oneshot
 User=root
 Group=root
+EnvironmentFile=-/etc/magnet-alerts/alert.env
 ExecStart=/usr/bin/bash /opt/magnet-media/app/deploy/resource-index/linux/retry-media-daily.sh
 TimeoutStartSec=4h45m
 Nice=10

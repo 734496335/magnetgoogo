@@ -2,15 +2,18 @@
 Description=MagnetGoogo encrypted source pack mirror sync
 After=network-online.target
 Wants=network-online.target
+OnFailure=magnet-source-sync-alert.service
 
 [Service]
 Type=oneshot
 User=root
 Group=root
 EnvironmentFile=/etc/magnet-source-sync/source-sync.env
+EnvironmentFile=-/etc/magnet-alerts/alert.env
 ExecStart=/usr/bin/bash /opt/magnet-source-sync/sync-source-packs.sh
+ExecStartPost=-/usr/bin/bash /opt/magnet-source-sync/source-sync-alert.sh success
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
-ReadWritePaths=/var/www/magnetgoogo-site /var/tmp
+ReadWritePaths=/var/www/magnetgoogo-site /var/lib/magnet-alerts /var/tmp

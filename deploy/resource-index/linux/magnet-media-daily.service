@@ -10,7 +10,9 @@ Type=oneshot
 User=root
 Group=root
 WorkingDirectory=/opt/magnet-media/app
+EnvironmentFile=-/etc/magnet-alerts/alert.env
 ExecStart=/usr/bin/bash /opt/magnet-media/app/deploy/resource-index/linux/run-media-daily.sh publish
+ExecStartPost=-/usr/bin/bash /opt/magnet-media/app/deploy/resource-index/linux/media-alert.sh success
 ExecStopPost=-/usr/bin/bash /opt/magnet-media/app/deploy/resource-index/linux/cleanup-media-container.sh publish
 TimeoutStartSec=4h
 Nice=10
@@ -20,7 +22,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
-ReadWritePaths=/var/lib/magnet-media /run /var/log
+ReadWritePaths=/var/lib/magnet-media /var/lib/magnet-alerts /run /var/log
 
 [Install]
 WantedBy=multi-user.target

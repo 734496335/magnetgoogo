@@ -135,9 +135,12 @@ def test_source_sync_service_has_minimal_write_scope_and_root_only_key_file() ->
     assert "NoNewPrivileges=true" in service
     assert "ProtectHome=true" in service
     assert "ProtectSystem=strict" in service
-    assert "ReadWritePaths=/var/www/magnetgoogo-site /var/tmp" in service
+    assert "ReadWritePaths=/var/www/magnetgoogo-site /var/lib/magnet-alerts /var/tmp" in service
     assert "EnvironmentFile=/etc/magnet-source-sync/source-sync.env" in service
+    assert "EnvironmentFile=-/etc/magnet-alerts/alert.env" in service
+    assert "OnFailure=magnet-source-sync-alert.service" in service
     assert "ExecStart=/usr/bin/bash /opt/magnet-source-sync/sync-source-packs.sh" in service
+    assert "source-sync-alert.sh success" in service
 
 
 def test_source_sync_installer_requires_key_and_installs_verifier_before_enabling_timer() -> None:
@@ -145,9 +148,23 @@ def test_source_sync_installer_requires_key_and_installs_verifier_before_enablin
     assert "missing /etc/magnet-source-sync/source-sync.env" in installer
     assert 'chmod 0600 /etc/magnet-source-sync/source-sync.env' in installer
     verifier = installer.index('install -m 0755 "$SOURCE_DIR/verify-source-packs.py"')
+    alert_script = installer.index('install -m 0755 "$SOURCE_DIR/source-sync-alert.sh"')
+    alert_service = installer.index('install -m 0644 "$SOURCE_DIR/magnet-source-sync-alert.service"')
     enable = installer.index("systemctl enable --now magnet-source-sync.timer")
     start = installer.index("systemctl start magnet-source-sync.service")
-    assert verifier < enable < start
+    assert verifier < alert_script < alert_service < enable < start
+
+
+def test_source_sync_alert_requires_three_failures_but_expiry_is_immediate() -> None:
+    script = (LINUX / "source-sync-alert.sh").read_text(encoding="utf-8")
+    service = (LINUX / "magnet-source-sync-alert.service").read_text(encoding="utf-8")
+    assert "--key source-sync" in script
+    assert "--threshold 3" in script
+    assert "--key source-expiry" in script
+    assert "--threshold 1" in script
+    assert "value < 24" in script
+    assert "EnvironmentFile=-/etc/magnet-alerts/alert.env" in service
+    assert "ReadWritePaths=/var/lib/magnet-alerts /var/tmp" in service
 
 
 def test_source_pack_verifier_accepts_fresh_signed_pair(tmp_path: Path) -> None:

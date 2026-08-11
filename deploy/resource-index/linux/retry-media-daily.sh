@@ -29,4 +29,11 @@ PY
   fi
 fi
 
-exec /usr/bin/systemctl start magnet-media-daily.service
+set +e
+/usr/bin/systemctl start magnet-media-daily.service
+RC=$?
+set -e
+if (( RC != 0 )); then
+  /usr/bin/bash /opt/magnet-media/app/deploy/resource-index/linux/media-alert.sh failure || true
+fi
+exit "$RC"

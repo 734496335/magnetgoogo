@@ -45,6 +45,7 @@ chmod 0755 \
   "$APP_ROOT/deploy/resource-index/linux/run-media-daily.sh" \
   "$APP_ROOT/deploy/resource-index/linux/cleanup-media-container.sh" \
   "$APP_ROOT/deploy/resource-index/linux/retry-media-daily.sh" \
+  "$APP_ROOT/deploy/resource-index/linux/media-alert.sh" \
   "$APP_ROOT/deploy/resource-index/linux/media-status.sh"
 
 docker build \

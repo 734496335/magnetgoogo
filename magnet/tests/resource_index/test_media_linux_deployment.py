@@ -47,6 +47,9 @@ def test_daily_service_runs_production_publish_mode_through_bash() -> None:
     assert "run-media-daily.sh candidate" not in service
     assert "daily media production publish" in service
     assert "OnFailure=magnet-media-retry.service" in service
+    assert "EnvironmentFile=-/etc/magnet-alerts/alert.env" in service
+    assert "media-alert.sh success" in service
+    assert "/var/lib/magnet-alerts" in service
     assert "cleanup-media-container.sh publish" in service
 
 
@@ -74,6 +77,8 @@ def test_failed_daily_publish_has_one_delayed_retry() -> None:
     assert "latest-publish.json" in script
     assert "SUCCESS_EPOCH >= FAILED_EPOCH" in script
     assert "systemctl start magnet-media-daily.service" in script
+    assert "media-alert.sh failure" in script
+    assert "EnvironmentFile=-/etc/magnet-alerts/alert.env" in retry
 
 
 def test_weekly_audit_is_separated_from_daily_window() -> None:

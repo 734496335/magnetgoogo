@@ -1,0 +1,17 @@
+[Unit]
+Description=Evaluate MagnetGoogo source-sync failure for alerting
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+EnvironmentFile=/etc/magnet-source-sync/source-sync.env
+EnvironmentFile=-/etc/magnet-alerts/alert.env
+ExecStart=/usr/bin/bash /opt/magnet-source-sync/source-sync-alert.sh failure
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/magnet-alerts /var/tmp
