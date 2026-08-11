@@ -1,4 +1,30 @@
 ---
+Date/Time: 2026-08-11 19:35 (UTC+8)
+Version: media-source-cross-day-adversarial-hardening
+Scope: Re-audit media publication and encrypted source renewal with hard-kill, cross-generation, retention, crypto/freshness and real-renewal failure scenarios; deploy safe fixes while preserving risky Gateway production boundary
+Modules: media_daily/media_maintenance/filesystem publisher, source-sync systemd/verifier, mg-data renewal workflow, cf-gateway green routing contract, Aliyun production, docs/project-nebula
+
+### New latent failures found
+- Media dual-plane promotion was local-Aliyun first and R2 second. Catchable R2 errors rolled local back, but SIGKILL/power loss between the two promotions could leave Aliyun one revision ahead and permit a later attempt to rebind that local revision.
+- The first Aliyun source-sync design incorrectly made mutable jsDelivr `@main` a mandatory witness. During the real 2026-08-11 09:15Z automatic renewal, authority/Raw/Gateway switched to the new cohort while jsDelivr remained old; hourly Aliyun runs at 17:19 and 18:22 therefore failed closed and could not advance.
+- Aliyun sync previously checked byte equality/wrapper shape but not HMAC/AES payload authenticity, `expires_at` freshness or full/green cohort identity. mg-data renewal also made per-file refresh decisions, allowing a future manually skewed pair to remain split.
+- Retention was mtime-based and future unpromoted-pointer evidence lived under seven-run retention. Key rotation recovery validated old staged pointers with only the current key. Compliance-mode green routes are still missing on the two Gateway endpoints.
+
+### Hardening implemented and production proof
+- Filesystem current promotion now rejects rollback and same-revision byte rebinding; media promotion is R2-authority-first, startup reconciles signed R2/Aliyun current+Manifest with only deterministic one-revision repair, and same-revision divergence or gaps >1 fail hard.
+- Publish release artifacts are run-scoped too. If both public planes were promoted but durable state was lost, semantic pointer comparison restores state without inventing another revision. Pointer recovery trusts current+previous configured keys and durable current pointer/release are retention-protected; future incident evidence moves under durable `evidence/`.
+- Production image `sha256:41f64e340083...` passed signed read-only audit and post-switch no-change publish: revision stays 11, R2/Aliyun SHA `ce287929...`, release `20260811T000000Z-8fc684c7`, counts 274/299/4238; global pointers stay 9/10/11.
+- Aliyun source sync now requires authority Worker provenance + GitHub Contents API byte equality, then HMAC/AES/gzip/schema, >=12h remaining validity and full/green cohort/count coherence. jsDelivr is optional observation. Real renewal advanced Aliyun to full `370de74a...` and green `4bf88e74...` while jsDelivr lagged; wrong-key injection failed before any target write; repeat run is idempotent.
+- mg-data refresh is cohort-transactional: any member reaching threshold/skew refreshes both with one timestamp. CI runs 4 state-machine tests, required public authority convergence, and optional jsDelivr purge. Manual purge was proven and restored current CDN SHA.
+- Gateway code/contract now supports `/sources-green.enc.json`, but production deployment is intentionally withheld because the live Worker version/bindings do not safely match this checkout; ordinary full chain is unaffected.
+
+### Verification / residuals
+- Resource Index: 397 passed / 1 skipped; source-sync targeted: 10/10; mg-data cohort: 4/4; Gateway route contract PASS; compileall, shell syntax, enum 241/ALL VALID, systemd-analyze verify PASS.
+- Production source/media related failed units: none; media/source timers active. Code branch `feature/media-daily-automation` at `6aef18c`; mg-data main at `48aa6e6`.
+- Residual P1: media second failure and repeated source-sync failure still lack independent external alerting (CH-009). Residual P2: API/old workers.dev green endpoints remain 404 until Gateway can be safely reconstructed/deployed (CH-013).
+---
+
+---
 Date/Time: 2026-08-11 17:02 (UTC+8)
 Version: media-pointer-lifecycle-and-aliyun-source-convergence-fix
 Scope: Close the cross-run media revision tombstone defect, recover six days of unpublished media, and make Aliyun encrypted source renewal converge without human SCP

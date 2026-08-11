@@ -37,9 +37,35 @@
 | [CH-006](#challenge-006--resource-index-live-抓取可复现性与数据不退化) | Resource Index live 抓取可复现性与数据不退化 | **blocker** | solved ✅ | 2026-07-25 R6 complete; independent re-review pending |
 | [CH-007](#challenge-007--resource-index-跨电脑长任务编排与恢复) | Resource Index 跨电脑长任务编排与恢复 | **blocker** | solved in implementation | 2026-07-25 portable latest runner complete |
 | [CH-008](#challenge-008--dytt旧资源域名失效导致100条资源可靠性不足) | DYTT旧资源域名失效导致100条资源可靠性不足 | **high** | open | 2026-07-30 100条在线审计FAIL |
-| [CH-009](#challenge-009--影视自动发布二次失败缺少外部主动告警) | 影视自动发布二次失败缺少外部主动告警 | medium | open | 2026-08-05 已有一次自动重试，待接外部通知 |
+| [CH-009](#challenge-009--影视自动发布二次失败缺少外部主动告警) | 影视/源同步连续失败缺少外部主动告警 | **high** | open | 2026-08-11 source-sync 纳入同类告警缺口 |
 | [CH-010](#challenge-010--影视candidate污染生产revision命名空间) | 影视 candidate 污染生产 revision 命名空间 | **blocker** | solved ✅ | 2026-08-11 run-scoped candidate + 未晋级pointer归档恢复上线 |
-| [CH-011](#challenge-011--aliyun源包续期传播依赖人工同步) | Aliyun 源包续期传播依赖人工同步 | **high** | solved ✅ | 2026-08-11 每小时双证据原子同步上线 |
+| [CH-011](#challenge-011--aliyun源包续期传播依赖人工同步) | Aliyun 源包续期传播依赖人工同步 | **high** | solved ✅ | 2026-08-11 authority+GitHub API+crypto/freshness/cohort 自动同步上线 |
+| [CH-012](#challenge-012--影视双端promotion硬断电一致性窗口) | 影视双端 promotion 硬断电一致性窗口 | **blocker** | solved ✅ | 2026-08-11 R2-first + 双端签名恢复 + revision不可重绑上线 |
+| [CH-013](#challenge-013--green源包gateway备用入口缺失) | green 源包 Gateway 备用入口缺失 | medium | open | 2026-08-11 代码修复PASS，因线上Worker未安全回仓暂未部署 |
+
+---
+
+## CHALLENGE-012 — 影视双端promotion硬断电一致性窗口
+
+- **严重程度**：blocker
+- **状态**：solved ✅
+- **首次记录**：2026-08-11
+- **业务影响**：旧顺序先 Aliyun `current`、后 R2 `current`，仅能捕获普通异常并回滚；若在两次原子替换之间 SIGKILL/断电，Aliyun 会领先一个 revision，而下一次任务曾只以 R2 为 authority，存在同 revision 被另一 release 重绑的风险。
+- **解决方案**：Filesystem backend 增加 revision 单调/不可重绑底层门禁；promotion 改为 R2 authority first，再 Aliyun；每次运行启动前同时获取并验证 R2/Aliyun signed current+Manifest，允许仅一版差距的确定性恢复，same-revision rebind 或 gap>1 硬停。publish candidate 全部 run-scoped；双端已晋级但 durable state 未落盘时按 pointer semantics 恢复 state，不额外升 revision。
+- **验证**：新增 R2领先、历史Aliyun领先、same revision冲突、gap>1、R2-first顺序、post-promotion state-loss 等回归；生产新镜像 read-only audit 与 no-change publish 均保持 revision11，R2/Aliyun current SHA `ce287929...` 一致。
+- **更新日志**：2026-08-11 —— production image `sha256:41f64e34...` 已切 latest；全量 Resource Index 397 passed / 1 skipped。
+
+---
+
+## CHALLENGE-013 — green源包Gateway备用入口缺失
+
+- **严重程度**：medium
+- **状态**：open
+- **首次记录**：2026-08-11
+- **业务影响**：`COMPLIANCE_MODE` 会把 APP 同组六端点切换到 `/sources-green.enc.json`；目前 Raw、`magnetgoogo.com`、jsDelivr、Aliyun 可用，但 `api.naoshiquan.com` 和旧 workers.dev Gateway 对 green 路径仍返回404，降低合规构建冗余度。
+- **当前方案 & 缺陷**：Gateway 本地代码已改为 full/green 显式路由且 contract test PASS；但线上 Worker 当前版本/bindings 与 clean checkout 并不完全一致，直接全量 `wrangler deploy` 有覆盖埋点/下载/远端变量风险。
+- **下一步**：先把当前线上 Gateway 代码和 bindings 安全回仓或建立窄路由 Worker，再部署 green handler；部署前后分别验证 full/green 全端点矩阵。普通 full 主链当前不受影响。
+- **更新日志**：2026-08-11 —— 保持生产不冒险覆盖，明确作为 residual P2，而不是用 full PASS 推断 green PASS。
 
 ---
 
@@ -64,22 +90,22 @@
 - **首次记录**：2026-08-11
 - **业务影响**：上次源故障修复后5个公网入口可自动跟随 GitHub authority，但 `cn.magnetgoogo.com` 仍只靠人工 SCP；8月9日新包自动续期后，Aliyun 继续停在8月7日已过期包，备用链再次形成隐患。
 - **当前方案 & 缺陷**：此前验证只证明“人工同步后的即时六端点收敛”，没有执行“下一次自动续期发生且无人操作”的时间推进测试；Aliyun 主机又无法稳定直连 GitHub Raw，所以简单 cron wget Raw 不可靠。
-- **解决方案**：新增 persistent systemd hourly sync；从 `magnetgoogo.com` authority Worker 获取并强制要求 `X-Source-Authority: github-raw`，同时从 jsDelivr 独立取第二份；full/green 均须外层加密结构合法且双路字节完全一致，才允许临时文件原子替换生产静态文件。
-- **验证**：首次运行把 full/green 更新为 `427d490a...` / `d1c65ef0...`；第二次运行明确输出两份 `already current`；Aliyun 本地文件、自访问 `cn` 与 authority SHA 完全一致，timer 已启用并持续调度；故意让 CDN 第二证据不可达时脚本非零退出且两份目标文件哈希完全不变，fail-closed PASS。
-- **更新日志**：2026-08-11 —— 从“人工点时同步”改为“未来续期自动收敛”，任何双证据不一致时保持旧文件并等待下次重试。
+- **解决方案**：新增 persistent systemd hourly sync；强证据改为 `magnetgoogo.com` authority Worker（必须 `X-Source-Authority: github-raw`）+ GitHub Contents API 解码后的原始字节，两者必须一致；jsDelivr 仅作 optional CDN 观察。下载后在 Aliyun 用 root-only key 执行 HMAC、AES、gzip、schema、剩余有效期>=12h、full/green 同 cohort 与计数一致性验证，全部通过才成对替换生产静态文件。
+- **验证**：2026-08-11 09:15Z 真实自动续期时 jsDelivr 连续滞后约2小时，旧实现 17:19/18:22 正确 fail-closed 但无法更新；新实现 19:25 在 jsDelivr 仍旧时通过 authority+GitHub API+crypto/freshness 校验，把 Aliyun 更新到 full `370de74a...` / green `4bf88e74...`，二次运行 `already current`。错误加密 key 实际注入时 HMAC 失败且目标零写入；随后 jsDelivr purge 后也收敛。
+- **更新日志**：2026-08-11 —— 去除 mutable CDN 强依赖；mg-data 任一 cohort 成员触发时 full/green 同时重签，CI 增加4个跨代状态机测试、required public authority convergence 和 optional jsDelivr purge。
 
 ---
 
 ## CHALLENGE-009 — 影视自动发布二次失败缺少外部主动告警
 
-- **严重程度**：medium
+- **严重程度**：high
 - **状态**：open
 - **首次记录**：2026-08-05
-- **业务影响**：每日正式发布失败后会在30分钟后自动重试一次；如果第二次仍失败，数据门禁会保持旧revision安全可用，但运维人员目前只能通过systemd journal和`latest-publish.json`被动发现，可能延迟数小时或数天才处理停更。
+- **业务影响**：每日正式发布失败后会在30分钟后自动重试一次；如果第二次仍失败，数据门禁会保持旧revision安全可用，但运维人员目前只能通过systemd journal和`latest-publish.json`被动发现，可能延迟数小时或数天才处理停更。2026-08-11 新增的 hourly source-sync 同样只有 journal/systemd 失败状态，没有独立外部通知；连续失败可能在源包临近过期前无人发现。
 - **当前方案 & 缺陷**：已具备`OnFailure → magnet-media-retry.service`、结构化失败状态、run历史和周审计。自动重试不会循环，也不会误提升current；缺陷是没有企业微信、飞书、邮件或短信等独立于服务器的主动通知通道。
 - **已尝试**：2026-08-05现场将重试延迟缩短为1秒，确认存在较新成功状态时自动取消，不会重复发布；连续失败场景的状态与日志契约已有测试覆盖。
 - **候选方案**：优先使用无需在App内暴露凭证的服务器端企业微信/飞书机器人；备选为SMTP邮件、阿里云云监控或轻量Webhook中继。通知内容只包含run ID、错误码、失败阶段、当前revision和日志定位，不发送密钥或影视资源内容。
-- **下一步**：选择一个外部通知通道，增加失败通知与恢复通知，执行“首次失败→自动重试→二次失败告警→人工恢复→恢复通知”完整演练。
+- **下一步**：选择一个外部通知通道，同时覆盖 media daily 二次失败与 source-sync 连续失败/剩余有效期阈值；增加失败通知与恢复通知，执行“首次失败→自动重试→二次失败告警→人工恢复→恢复通知”完整演练。
 - **更新日志**：2026-08-05 —— 主流水线已通过单源回退、双端无变化验证、评分确定性、主锁/发布锁心跳、容器清理及一次性延迟重试终审；本项成为唯一剩余无人值守运维缺口。
 
 ---
