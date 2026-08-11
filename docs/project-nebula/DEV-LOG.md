@@ -1,4 +1,28 @@
 ---
+Date/Time: 2026-08-12 00:25 (UTC+8)
+Version: production-email-alert-state-machine
+Scope: Add fail-open, de-duplicated production alerts for media second failure and ordinary full source-sync failure/expiry; stage CloudMonitor/QQ delivery without exposing recipient data in repository.
+Modules: deploy/alerts/linux, media/source-sync systemd helpers/installers, alert tests, Aliyun production runtime, TECH-CHALLENGES/_progress
+
+### Alert policy and safety boundary
+- media daily first failure remains silent and uses the existing 30-minute retry; only a failed retry opens P0. source-sync opens P1 after 2 consecutive hourly failures; source expiry opens P0 after 2 consecutive observations below 24h remaining validity.
+- Open incidents are de-duplicated: media/source repeat at most every 24h, expiry every 12h. Recovery is sent once only if a real failure notification had previously opened the incident.
+- Alert delivery is fail-open relative to production jobs. `MAGNET_ALERT_TRANSPORT` defaults to `disabled`; provider/network failures cannot turn a successful media/source job into failure.
+- CloudMonitor supports security-word mode with no AccessKey stored on ECS; optional Basic Auth and QQ SMTP authorization-code fallback remain available. Repository examples contain no real recipient.
+
+### Production deployment / verification
+- Final merged code commit `e7125dd` is the remote `feature/media-daily-automation` tip after safely integrating concurrent alert work; no force push was used.
+- Linux host files are forced LF by `.gitattributes`; the earlier `pipefail\r` production preflight failure was preserved as evidence and expanded into directory-level line-ending tests.
+- Production `/etc/magnet-alerts/alert.env` is `0600 root:root`, currently transport disabled and contains no user recipient. Python3.6 compile, bash syntax and systemd-analyze verify PASS.
+- Production source-sync normal run PASS: full SHA `370de74a...`, ~64.9h validity remaining, jsDelivr converged; success alert helpers executed without false notification.
+- Production dry-run state machine PASS: source first failure suppressed, second notified, repeat suppressed within 24h, repeated after 24h, recovery sent once; media failure/recovery same contract. Strict disabled transport returns rc=2 as expected.
+- Aliyun -> `smtp.qq.com:465` TLS1.3 handshake and Tencent certificate verification PASS; no SMTP login or email was attempted.
+
+### Verification / remaining gate
+- Resource Index 414 passed / 1 skipped; alert/deployment targeted 40/40; enum 241 ALL VALID; git diff-check PASS; repository leak scan found no user QQ address.
+- CH-009 moves from open to piloting. Actual email delivery is NOT yet accepted: ECS/local environments have no Alibaba API identity, so CloudMonitor contact activation + External Alert URL/security word must be created once in console (or QQ SMTP authorization code supplied) before a real test email can be sent and CH-009 marked solved.
+
+---
 Date/Time: 2026-08-11 23:20 (UTC+8)
 Version: compliance-mode-temporarily-deprecated
 Scope: Narrow production source support to ordinary full mode only; remove green/compliance dependencies from renewal and Aliyun source-sync without deleting historical assets.

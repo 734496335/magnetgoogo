@@ -1,25 +1,25 @@
-TASK: 普通版 full-only 生产边界收窄；合规/green 暂时弃用
-STATUS: PRODUCTION_FULL_ONLY / COMPLIANCE_DEPRECATED / GREEN_NON_BLOCKING
+TASK: 生产邮件主动告警（media + 普通版 source-sync）
+STATUS: ALERT_STATE_MACHINE_LIVE / DELIVERY_PROVIDER_PENDING
 DATE: 2026-08-11 UTC+8
 
-DECISION:
-- `COMPLIANCE_MODE` 暂时弃用；正式生产必须保持 false。
-- `/sources.enc.json` 是唯一生产 source-pack SLA；`sources-green.enc.json` 仅保留历史资产，不参与生产门禁。
-- CH-013 green Gateway 冗余问题改为 abandoned/not-applicable，未来恢复合规版时重新完整审计。
+PRODUCTION ALERT LOGIC:
+- media 首次 daily 失败只走原30分钟 retry；retry 再失败才触发 P0。
+- source-sync 连续2次小时级失败才触发 P1；full 包连续2次剩余<24h 才触发 P0。
+- 同一 open incident：media/source 24h 最多重复1次，expiry 12h；恢复仅在此前真实通知成功后发送1次。
+- 告警 helper 全部 fail-open；发送故障不能反向让 media/source 主任务失败。
 
-APP:
-- `magnetgoogo-app/src/core/complianceConfig.ts` 已明确标记暂时弃用；运行值仍为 false。
+DELIVERY:
+- 首选 CloudMonitor External Alert：支持 URL + Security Word，不要求在 ECS 保存阿里云 AK。
+- QQ SMTP 授权码 fallback 已实现；阿里云到 smtp.qq.com:465 TLS1.3/证书验证 PASS。
+- `/etc/magnet-alerts/alert.env` = 0600 root:root，transport 当前 disabled；服务器不存用户 QQ 邮箱。
+- 实际发信仍需 CloudMonitor 控制台一次性激活联系人并生成 External Alert URL/安全词，或提供 QQ SMTP 授权码。
 
-ALIYUN SOURCE SYNC:
-- hourly `magnet-source-sync` 已切 full-only：authority Worker + GitHub Contents API 双证据，HMAC/AES/gzip/schema/freshness 校验后原子替换。
-- 2026-08-11 23:20 生产实跑 PASS；full SHA `370de74a...`，357 rules / 148 GREEN，剩余约65.9h。
-- jsDelivr 已收敛；timer 下一次继续正常运行；green 文件不再影响 service 成败。
+VERIFICATION:
+- remote branch `feature/media-daily-automation` = e7125dd。
+- Resource Index 414 passed / 1 skipped；alert/deploy targeted 40/40；enum 241 ALL VALID。
+- Linux alert/source-sync host files全部 LF；Python3.6/bash/systemd verify PASS。
+- 生产 source-sync 正常：full SHA 370de74a...，剩余约64.9h；success helper 无误报。
+- 生产 dry-run：source 第1次抑制→第2次通知→24h抑制/重发→恢复单次；media failure/recovery PASS。
 
-MG-DATA:
-- workflow 只 refresh/verify/commit/purge/convergence-check `sources.enc.json`。
-- commit `73d224b` 已推 `mg-data/main`；workflow/state contract 5/5 PASS，YAML PASS。
-
-GATES:
-- source-sync targeted 10/10 PASS；verifier compile PASS；shell syntax PASS；enum 241 ALL VALID。
-- local verify-only 缺 GitHub secret 的环境失败已留证；未读取/输出 secret。
-- 唯一主要剩余运维缺口：media/source-sync 连续失败仍缺外部主动邮件告警（CH-009）。
+BLOCKER:
+- 尚未收到真实测试邮件，因此 CH-009 保持 piloting，不标 solved。

@@ -37,7 +37,7 @@
 | [CH-006](#challenge-006--resource-index-live-抓取可复现性与数据不退化) | Resource Index live 抓取可复现性与数据不退化 | **blocker** | solved ✅ | 2026-07-25 R6 complete; independent re-review pending |
 | [CH-007](#challenge-007--resource-index-跨电脑长任务编排与恢复) | Resource Index 跨电脑长任务编排与恢复 | **blocker** | solved in implementation | 2026-07-25 portable latest runner complete |
 | [CH-008](#challenge-008--dytt旧资源域名失效导致100条资源可靠性不足) | DYTT旧资源域名失效导致100条资源可靠性不足 | **high** | open | 2026-07-30 100条在线审计FAIL |
-| [CH-009](#challenge-009--影视自动发布二次失败缺少外部主动告警) | 影视/源同步连续失败缺少外部主动告警 | **high** | open | 2026-08-11 source-sync 纳入同类告警缺口 |
+| [CH-009](#challenge-009--影视自动发布二次失败缺少外部主动告警) | 影视/源同步连续失败缺少外部主动告警 | **high** | piloting | 2026-08-11 告警状态机/systemd 已上线，待激活实际邮件通道 |
 | [CH-010](#challenge-010--影视candidate污染生产revision命名空间) | 影视 candidate 污染生产 revision 命名空间 | **blocker** | solved ✅ | 2026-08-11 run-scoped candidate + 未晋级pointer归档恢复上线 |
 | [CH-011](#challenge-011--aliyun源包续期传播依赖人工同步) | Aliyun 源包续期传播依赖人工同步 | **high** | solved ✅ | 2026-08-11 authority+GitHub API+crypto/freshness/cohort 自动同步上线 |
 | [CH-012](#challenge-012--影视双端promotion硬断电一致性窗口) | 影视双端 promotion 硬断电一致性窗口 | **blocker** | solved ✅ | 2026-08-11 R2-first + 双端签名恢复 + revision不可重绑上线 |
@@ -99,14 +99,14 @@
 ## CHALLENGE-009 — 影视自动发布二次失败缺少外部主动告警
 
 - **严重程度**：high
-- **状态**：open
+- **状态**：piloting（告警执行链已上线，实际邮件通道待激活）
 - **首次记录**：2026-08-05
-- **业务影响**：每日正式发布失败后会在30分钟后自动重试一次；如果第二次仍失败，数据门禁会保持旧revision安全可用，但运维人员目前只能通过systemd journal和`latest-publish.json`被动发现，可能延迟数小时或数天才处理停更。2026-08-11 新增的 hourly source-sync 同样只有 journal/systemd 失败状态，没有独立外部通知；连续失败可能在源包临近过期前无人发现。
-- **当前方案 & 缺陷**：已具备`OnFailure → magnet-media-retry.service`、结构化失败状态、run历史和周审计。自动重试不会循环，也不会误提升current；缺陷是没有企业微信、飞书、邮件或短信等独立于服务器的主动通知通道。
-- **已尝试**：2026-08-05现场将重试延迟缩短为1秒，确认存在较新成功状态时自动取消，不会重复发布；连续失败场景的状态与日志契约已有测试覆盖。
-- **候选方案**：优先使用无需在App内暴露凭证的服务器端企业微信/飞书机器人；备选为SMTP邮件、阿里云云监控或轻量Webhook中继。通知内容只包含run ID、错误码、失败阶段、当前revision和日志定位，不发送密钥或影视资源内容。
-- **下一步**：选择一个外部通知通道，同时覆盖 media daily 二次失败与 source-sync 连续失败/剩余有效期阈值；增加失败通知与恢复通知，执行“首次失败→自动重试→二次失败告警→人工恢复→恢复通知”完整演练。
-- **更新日志**：2026-08-05 —— 主流水线已通过单源回退、双端无变化验证、评分确定性、主锁/发布锁心跳、容器清理及一次性延迟重试终审；本项成为唯一剩余无人值守运维缺口。
+- **业务影响**：媒体二次失败或普通版 source-sync 连续失败若无人主动获知，仍可能形成数小时/数天停更；源包临期尤其需要在过期前主动提醒。
+- **当前方案**：生产已安装独立 fail-open 告警状态机。media 首次失败只触发原有30分钟 retry，retry 再失败才开 P0；source-sync 连续2次小时级失败才开 P1；full 包连续2次检测到剩余有效期<24h 才开 P0。故障打开后24h（expiry 12h）最多重复提醒一次；恢复邮件只在此前真实故障通知成功后发送一次。
+- **发送通道**：首选阿里云 CloudMonitor External Alert + 联系人组邮件，服务器只保存 root-only URL/安全词，不保存收件邮箱或 QQ 密码；同时保留 QQ SMTP 授权码 fallback。`MAGNET_ALERT_TRANSPORT` 默认 disabled，未配置 provider 时绝不误报且不影响业务任务。
+- **验证**：本地 Resource Index 414 passed / 1 skipped；告警/部署定向 40/40；服务器 Python3.6、bash、systemd verify PASS。生产 dry-run 验证 source 第1次失败抑制、第2次通知、24h内抑制、24h后重发、恢复只发1次；media 故障/恢复同样通过。QQ SMTP 465 TLS1.3 握手/证书验证 PASS。
+- **剩余阻塞**：当前 ECS/本机无可用阿里云 API 身份，无法自动创建 CloudMonitor 联系人组/External Alert URL；实际邮箱必须在 CloudMonitor 控制台完成一次联系人激活并生成 URL/安全词（或用户生成 QQ SMTP 授权码）后，才能执行真实邮件验收。
+- **更新日志**：2026-08-11 —— 实现已从“无主动告警”推进到“生产状态机/接线完成、发送通道待激活”；在真实测试邮件收到前不得标记 solved。
 
 ---
 
