@@ -66,8 +66,10 @@ def _cloudmonitor_send(title, message):
     url = os.environ.get("MAGNET_ALERT_CLOUDMONITOR_URL", "").strip()
     access_key = os.environ.get("MAGNET_ALERT_CLOUDMONITOR_ACCESS_KEY_ID", "").strip()
     access_secret = os.environ.get("MAGNET_ALERT_CLOUDMONITOR_ACCESS_KEY_SECRET", "").strip()
-    if not url or not access_key or not access_secret:
+    if not url:
         return False, "cloudmonitor_not_configured"
+    if bool(access_key) != bool(access_secret):
+        return False, "cloudmonitor_basic_auth_incomplete"
     security_word = os.environ.get("MAGNET_ALERT_CLOUDMONITOR_SECURITY_WORD", "").strip()
     body_message = message
     if security_word:
@@ -84,8 +86,9 @@ def _cloudmonitor_send(title, message):
         "Content-Type": "application/json",
         "User-Agent": "MagnetGoogo-Alert/1.0",
     }
-    basic = base64.b64encode((access_key + ":" + access_secret).encode("utf-8")).decode("ascii")
-    headers["Authorization"] = "Basic " + basic
+    if access_key and access_secret:
+        basic = base64.b64encode((access_key + ":" + access_secret).encode("utf-8")).decode("ascii")
+        headers["Authorization"] = "Basic " + basic
     request = urllib.request.Request(url, data=payload, headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=15) as response:
@@ -159,14 +162,15 @@ def _entry(state, key):
     return value
 
 
-def record_failure(state_path, key, threshold, severity, title, message, now, dry_run):
+def record_failure(state_path, key, threshold, repeat_hours, severity, title, message, now, dry_run):
     state = _load_state(state_path)
     entry = _entry(state, key)
     previous_status = entry.get("status")
     failures = int(entry.get("consecutive_failures") or 0) + 1 if previous_status == "failed" else 1
     last_alert = int(entry.get("last_alert_epoch") or 0)
     alert_open = bool(entry.get("alert_open"))
-    should_send = failures >= threshold and not alert_open
+    repeat_due = alert_open and (now - last_alert >= int(repeat_hours * 3600))
+    should_send = failures >= threshold and (not alert_open or repeat_due)
     delivered = False
     provider = "suppressed"
     if should_send:
@@ -231,6 +235,7 @@ def main():
     parser.add_argument("--message", required=True)
     parser.add_argument("--severity", default="P1")
     parser.add_argument("--threshold", type=int, default=1)
+    parser.add_argument("--repeat-hours", type=float, default=24.0)
     parser.add_argument("--state-file", type=Path, default=DEFAULT_STATE)
     parser.add_argument("--now-epoch", type=int)
     parser.add_argument("--dry-run", action="store_true")
@@ -238,6 +243,8 @@ def main():
     args = parser.parse_args()
     if args.threshold < 1:
         raise ValueError("threshold must be >= 1")
+    if args.repeat_hours < 1:
+        raise ValueError("repeat-hours must be >= 1")
     now = args.now_epoch if args.now_epoch is not None else _now_epoch()
     title = "[%s] %s" % (args.severity, args.title)
     message = "%s\n\nTime: %s\nHost: %s" % (
@@ -250,6 +257,7 @@ def main():
             args.state_file,
             args.key,
             args.threshold,
+            args.repeat_hours,
             args.severity,
             title,
             message,

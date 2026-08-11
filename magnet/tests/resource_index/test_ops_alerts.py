@@ -36,9 +36,9 @@ def test_failure_threshold_deduplicates_until_single_recovery(tmp_path: Path, mo
     monkeypatch.setattr(alert, "_deliver", deliver)
     state = tmp_path / "state.json"
 
-    first = alert.record_failure(state, "source-sync", 2, "P1", "failure", "one", 100, False)
-    second = alert.record_failure(state, "source-sync", 2, "P1", "failure", "two", 200, False)
-    third = alert.record_failure(state, "source-sync", 2, "P1", "failure", "three", 300, False)
+    first = alert.record_failure(state, "source-sync", 2, 24, "P1", "failure", "one", 100, False)
+    second = alert.record_failure(state, "source-sync", 2, 24, "P1", "failure", "two", 200, False)
+    third = alert.record_failure(state, "source-sync", 2, 24, "P1", "failure", "three", 300, False)
     recovered = alert.record_success(state, "source-sync", "recovered", "ok", 400, False)
     repeated_success = alert.record_success(state, "source-sync", "recovered", "ok", 500, False)
 
@@ -59,7 +59,7 @@ def test_delivery_disabled_is_fail_open_and_does_not_fake_notification(tmp_path:
     monkeypatch.setenv("MAGNET_ALERT_TRANSPORT", "disabled")
     state = tmp_path / "state.json"
 
-    delivered, provider = alert.record_failure(state, "media-publish", 1, "P0", "failure", "broken", 100, False)
+    delivered, provider = alert.record_failure(state, "media-publish", 1, 24, "P0", "failure", "broken", 100, False)
     assert delivered is False
     assert provider == "disabled"
     saved = json.loads(state.read_text(encoding="utf-8"))
@@ -106,12 +106,39 @@ def test_cloudmonitor_uses_basic_auth_and_required_payload(monkeypatch: pytest.M
     assert captured["timeout"] == 15
 
 
-def test_cloudmonitor_requires_url_and_basic_auth_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cloudmonitor_security_word_mode_requires_no_access_key(monkeypatch: pytest.MonkeyPatch) -> None:
     alert = _load_alert_module()
+    captured: dict[str, object] = {}
+
+    class Response:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return b'{"code":"200"}'
+
+    def fake_urlopen(request, timeout=0):
+        captured["request"] = request
+        captured["timeout"] = timeout
+        return Response()
+
     monkeypatch.setenv("MAGNET_ALERT_CLOUDMONITOR_URL", "https://example.invalid/event/notify?token=secret")
+    monkeypatch.setenv("MAGNET_ALERT_CLOUDMONITOR_SECURITY_WORD", "SAFEWORD")
     monkeypatch.delenv("MAGNET_ALERT_CLOUDMONITOR_ACCESS_KEY_ID", raising=False)
     monkeypatch.delenv("MAGNET_ALERT_CLOUDMONITOR_ACCESS_KEY_SECRET", raising=False)
-    assert alert._cloudmonitor_send("title", "message") == (False, "cloudmonitor_not_configured")
+    monkeypatch.setattr(alert.urllib.request, "urlopen", fake_urlopen)
+
+    assert alert._cloudmonitor_send("title", "message") == (True, "cloudmonitor")
+    request = captured["request"]
+    assert request.get_header("Authorization") is None
+    payload = json.loads(request.data.decode("utf-8"))
+    assert "SAFEWORD" in payload["message"]
+    assert captured["timeout"] == 15
 
 
 def test_smtp_uses_authorization_code_and_recipient(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -207,7 +234,7 @@ def test_media_alert_wires_only_second_failure_and_success_recovery() -> None:
     assert "EnvironmentFile=-/etc/magnet-alerts/alert.env" in retry_unit
     assert '--title "影视自动发布二次失败"' in helper
     assert "/var/lib/magnet-alerts/media-publish.json" in helper
-    assert "--repeat-hours" not in helper
+    assert "--repeat-hours 24" in helper
 
 
 def test_source_sync_alert_wires_two_failures_and_two_low_expiry_observations() -> None:
@@ -226,7 +253,21 @@ def test_source_sync_alert_wires_two_failures_and_two_low_expiry_observations() 
     assert "/var/lib/magnet-alerts/source-expiry.json" in helper
     assert helper.count("--threshold 2") == 2
     assert helper.index("exit 0") < helper.index("--key source-expiry")
-    assert "--repeat-hours" not in helper
+    assert "--repeat-hours 24" in helper
+    assert "--repeat-hours 12" in helper
+
+
+def test_alert_host_scripts_use_lf_line_endings() -> None:
+    paths = [
+        ROOT / "deploy" / "alerts" / "linux" / "magnet-alert.py",
+        ROOT / "deploy" / "alerts" / "linux" / "install-alerts.sh",
+        MEDIA_LINUX / "media-alert.sh",
+        MEDIA_LINUX / "retry-media-daily.sh",
+        SOURCE_LINUX / "source-sync-alert.sh",
+        SOURCE_LINUX / "install-source-sync.sh",
+    ]
+    for path in paths:
+        assert b"\r\n" not in path.read_bytes(), path
 
 
 def test_alert_and_source_sync_deployment_files_use_lf_line_endings() -> None:

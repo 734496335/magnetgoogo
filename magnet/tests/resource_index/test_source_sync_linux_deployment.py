@@ -161,8 +161,11 @@ def test_source_sync_alert_requires_two_consecutive_failures_and_low_expiry_obse
     assert "--key source-sync" in script
     assert "--key source-expiry" in script
     assert script.count("--threshold 2") == 2
+    assert "/var/lib/magnet-alerts/source-sync.json" in script
+    assert "/var/lib/magnet-alerts/source-expiry.json" in script
     assert "value < 24" in script
-    assert "--repeat-hours" not in script
+    assert "--repeat-hours 24" in script
+    assert "--repeat-hours 12" in script
     assert "EnvironmentFile=-/etc/magnet-alerts/alert.env" in service
     assert "ReadWritePaths=/var/lib/magnet-alerts /var/tmp" in service
 

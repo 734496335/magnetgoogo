@@ -42,6 +42,7 @@ case "$MODE" in
       --key source-sync \
       --state-file "$SYNC_STATE" \
       --threshold 2 \
+      --repeat-hours 24 \
       --severity P1 \
       --title "普通版源包连续同步失败" \
       --message "阿里云普通版 sources.enc.json 同步失败。连续2次失败才触发本告警；旧文件保持不变。\nsha=$sha\nremaining_hours=$remaining" || true
@@ -66,6 +67,7 @@ if (( near_expiry == 1 )); then
     --key source-expiry \
     --state-file "$EXPIRY_STATE" \
     --threshold 2 \
+    --repeat-hours 12 \
     --severity P0 \
     --title "普通版源包即将过期" \
     --message "当前阿里云 sources.enc.json 已连续两次检查剩余有效期不足24小时，需要检查 GitHub 自动续期及分发链。\nsha=$sha\nremaining_hours=$remaining" || true

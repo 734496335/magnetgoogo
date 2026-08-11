@@ -39,6 +39,7 @@ case "$MODE" in
       --key media-publish \
       --state-file "$STATE_FILE" \
       --threshold 1 \
+      --repeat-hours 24 \
       --severity P0 \
       --title "影视自动发布二次失败" \
       --message "每日影视发布首次失败后已自动重试，重试仍失败。生产 current 保持旧 revision，未强行晋级。\n$DETAIL" || true
