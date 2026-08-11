@@ -103,10 +103,10 @@
 - **首次记录**：2026-08-05
 - **业务影响**：媒体二次失败或普通版 source-sync 连续失败若无人主动获知，仍可能形成数小时/数天停更；源包临期尤其需要在过期前主动提醒。
 - **当前方案**：生产已安装独立 fail-open 告警状态机。media 首次失败只触发原有30分钟 retry，retry 再失败才开 P0；source-sync 连续2次小时级失败才开 P1；full 包连续2次检测到剩余有效期<24h 才开 P0。故障打开后24h（expiry 12h）最多重复提醒一次；恢复邮件只在此前真实故障通知成功后发送一次。
-- **发送通道**：首选阿里云 CloudMonitor External Alert + 联系人组邮件，服务器只保存 root-only URL/安全词，不保存收件邮箱或 QQ 密码；同时保留 QQ SMTP 授权码 fallback。`MAGNET_ALERT_TRANSPORT` 默认 disabled，未配置 provider 时绝不误报且不影响业务任务。
-- **验证**：本地 Resource Index 414 passed / 1 skipped；告警/部署定向 40/40；服务器 Python3.6、bash、systemd verify PASS。生产 dry-run 验证 source 第1次失败抑制、第2次通知、24h内抑制、24h后重发、恢复只发1次；media 故障/恢复同样通过。QQ SMTP 465 TLS1.3 握手/证书验证 PASS。
-- **剩余阻塞**：当前 ECS/本机无可用阿里云 API 身份，无法自动创建 CloudMonitor 联系人组/External Alert URL；实际邮箱必须在 CloudMonitor 控制台完成一次联系人激活并生成 URL/安全词（或用户生成 QQ SMTP 授权码）后，才能执行真实邮件验收。
-- **更新日志**：2026-08-11 —— 实现已从“无主动告警”推进到“生产状态机/接线完成、发送通道待激活”；在真实测试邮件收到前不得标记 solved。
+- **发送通道**：首选阿里云 CloudMonitor External Alert + 联系人组邮件；官方支持“安全词”或“Basic Auth”两种安全设置，因此安全词 URL/token 模式可不在 ECS 保存 AccessKey。服务器配置为 root-only；同时保留 QQ SMTP 授权码 fallback。`MAGNET_ALERT_TRANSPORT` 默认 disabled，未配置 provider 时绝不误报且不影响业务任务。
+- **验证**：最新本地 Resource Index 415 passed / 1 skipped；告警/source 定向 28/28；enum 241 ALL VALID。服务器 Python3.6、bash、systemd verify PASS；真实 source-sync 故障注入得到 failures 1→2，恢复后清零且生产 source SHA 前后不变；media helper failure→success 与 source-expiry 23h→23h→25h 均通过。CRLF 中转缺陷被生产注入捕获后已增加 eol=lf 契约并以 Git blob 二进制重部署；`e7125dd` 运行版再次正常 source-sync/media success。QQ SMTP 465 TLS/NOOP=250。
+- **剩余阻塞**：生产目标 QQ 邮箱已写在 `0600 root:root` 的 alert.env，但 transport 仍 disabled。历史 CloudMonitor URL 备份已被旧错误写入破坏，确认不含任何 `https://` token；服务器其他受控目录也未找到副本，因此 strict 测试未实际发信。需要从 CloudMonitor 联系组重新复制 External Alert URL（安全词模式可免AccessKey），或设置 QQ SMTP 授权码后完成真实邮箱验收。
+- **更新日志**：2026-08-12 —— 告警状态机、systemd 接线、故障/恢复、临期、Linux换行与生产注入均完成；仅剩外部邮件调用地址/授权码和真实收件验收，在收到测试邮件前不得标记 solved。
 
 ---
 

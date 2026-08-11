@@ -1,4 +1,28 @@
 ---
+Date/Time: 2026-08-12 00:40 (UTC+8)
+Version: production-alert-final-runtime-acceptance
+Scope: Finish real Aliyun alert-hook fault injection and transport recovery investigation after the initial alert rollout; preserve fail-open production behavior and establish the exact remaining external-delivery prerequisite.
+Modules: Aliyun alert runtime/state, source/media hooks, Linux deployment bytes, CH-009/_progress
+
+### Production acceptance completed
+- Latest local gate on the remote-integrated alert code: Resource Index `415 passed / 1 skipped`, alert/source targeted `28/28`, enum `241 / ALL VALID`.
+- Real source-sync fault injection used an unreachable localhost authority: failure #1 recorded `failures=1/suppressed`, failure #2 recorded `failures=2` at the notification threshold; restoring the real authority reset failures to 0. Production `sources.enc.json` SHA remained `370de74a...` throughout.
+- Media helper failure -> success executed against the real `latest-publish.json` and returned to success/failures=0. Synthetic source verifier 23h -> 23h -> 25h proved the two-observation expiry threshold and recovery path.
+- The first OnFailure injection exposed CRLF runtime bytes in the Windows-intermediate source alert deployment (`/usr/bin/env: bash\r`). Repository Git blobs were LF. Alerts/source-sync now have explicit `eol=lf` coverage and production is deployed from binary Git blob bytes; runtime CRLF count is zero and the same systemd injection subsequently passed.
+- Production legacy shared `state.json` was archived; test state files were removed. `media-publish.json`, `source-sync.json`, and `source-expiry.json` are all 0600, `success`, failures=0, alert_open=false. Related failed units are none; normal source-sync and media-success helpers pass on runtime `e7125dd`.
+
+### External delivery investigation
+- Alibaba documentation confirms External Alert contact groups support either security-keyword validation or Basic Auth. Security-keyword URL/token mode therefore does not require storing an AccessKey on ECS.
+- The server had one historical CloudMonitor URL config backup, but the old file was previously corrupted into a single `nMAGNET_...` line: it contains zero real newline bytes and no `https://` token bytes. A path-only search across controlled server config/history locations found no recoverable external-alert URL.
+- A `--strict` CloudMonitor test consequently failed locally before any HTTP request was sent; no email was emitted. The active `/etc/magnet-alerts/alert.env` remains `MAGNET_ALERT_TRANSPORT=disabled` with the target QQ mailbox present and no SMTP authorization code.
+- QQ SMTP network preflight remains healthy (`smtp.qq.com:465`, TLS/NOOP 250). Cloudflare Email Service is another free option for a verified destination address, but current Cloudflare OAuth lacks email permissions and destination verification is still required.
+
+### Remaining acceptance gate
+- Obtain a fresh CloudMonitor contact-group External Alert URL (recommended: security-keyword mode, no ECS AccessKey) or configure a QQ SMTP authorization code in the root-only env.
+- Run `magnet-alert.py test --strict` and confirm the mailbox actually receives the test message. Until that end-to-end receipt is observed, CH-009 remains `piloting`, not solved.
+---
+
+---
 Date/Time: 2026-08-12 00:25 (UTC+8)
 Version: production-email-alert-state-machine
 Scope: Add fail-open, de-duplicated production alerts for media second failure and ordinary full source-sync failure/expiry; stage CloudMonitor/QQ delivery without exposing recipient data in repository.

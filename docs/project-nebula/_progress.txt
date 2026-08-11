@@ -1,25 +1,26 @@
 TASK: 生产邮件主动告警（media + 普通版 source-sync）
-STATUS: ALERT_STATE_MACHINE_LIVE / DELIVERY_PROVIDER_PENDING
-DATE: 2026-08-11 UTC+8
+STATUS: ALERT_HOOKS_PRODUCTION_TESTED / REAL_MAIL_CHANNEL_PENDING
+DATE: 2026-08-12 UTC+8
 
-PRODUCTION ALERT LOGIC:
+PRODUCTION POLICY:
 - media 首次 daily 失败只走原30分钟 retry；retry 再失败才触发 P0。
-- source-sync 连续2次小时级失败才触发 P1；full 包连续2次剩余<24h 才触发 P0。
-- 同一 open incident：media/source 24h 最多重复1次，expiry 12h；恢复仅在此前真实通知成功后发送1次。
-- 告警 helper 全部 fail-open；发送故障不能反向让 media/source 主任务失败。
+- source-sync 连续2次小时级失败触发 P1；成功同步后仍连续2次 `<24h` 才触发 P0 临期。
+- 首次达到阈值立即通知；未恢复事故 media/source 24h、expiry 12h 低频提醒；恢复只发1次。
+- 告警 fail-open；通知系统故障不能改变 media/source 业务退出码。
+
+PRODUCTION PROOF:
+- 最新 Resource Index 415 passed / 1 skipped；alert/source targeted 28/28；enum 241 ALL VALID。
+- Aliyun Python3.6 / bash / systemd verify PASS；QQ smtp.qq.com:465 TLS NOOP=250。
+- 真实 source-sync 故障注入：failures 1→2；恢复后0；生产 full SHA 前后均 `370de74a...`。
+- media helper failure→success PASS；source-expiry 23h→23h→25h PASS。
+- CRLF 中转故障已留证；alerts/source-sync 强制 eol=lf，Git blob 二进制重部署后生产 CRLF=0。
+- `e7125dd` 运行版再次执行正常 source-sync/media success；三类状态均 success/failures=0/open=false。
 
 DELIVERY:
-- 首选 CloudMonitor External Alert：支持 URL + Security Word，不要求在 ECS 保存阿里云 AK。
-- QQ SMTP 授权码 fallback 已实现；阿里云到 smtp.qq.com:465 TLS1.3/证书验证 PASS。
-- `/etc/magnet-alerts/alert.env` = 0600 root:root，transport 当前 disabled；服务器不存用户 QQ 邮箱。
-- 实际发信仍需 CloudMonitor 控制台一次性激活联系人并生成 External Alert URL/安全词，或提供 QQ SMTP 授权码。
+- CloudMonitor 官方支持安全词 URL/token 或 Basic Auth 两种外部报警安全模式；QQ SMTP 授权码 fallback 已实现。
+- `/etc/magnet-alerts/alert.env` = 0600 root:root，当前 transport=disabled；目标 QQ 邮箱已配置，SMTP授权码为空。
+- 历史 CloudMonitor URL 备份已损坏且确认不含 `https://` token；服务器其他路径无可恢复副本，严格测试未实际发信。
+- Cloudflare Email Service 对已验证目标地址可免费发送，但当前 OAuth 缺 email 权限且仍需一次邮箱验证。
 
-VERIFICATION:
-- remote branch `feature/media-daily-automation` = e7125dd。
-- Resource Index 414 passed / 1 skipped；alert/deploy targeted 40/40；enum 241 ALL VALID。
-- Linux alert/source-sync host files全部 LF；Python3.6/bash/systemd verify PASS。
-- 生产 source-sync 正常：full SHA 370de74a...，剩余约64.9h；success helper 无误报。
-- 生产 dry-run：source 第1次抑制→第2次通知→24h抑制/重发→恢复单次；media failure/recovery PASS。
-
-BLOCKER:
-- 尚未收到真实测试邮件，因此 CH-009 保持 piloting，不标 solved。
+REMAINING:
+- 重新从 CloudMonitor 联系组复制“接入外部报警”调用地址（安全词模式可免AccessKey），或设置 QQ SMTP授权码；执行 strict test 并确认收件箱实际收到后，CH-009 才能标 solved。
