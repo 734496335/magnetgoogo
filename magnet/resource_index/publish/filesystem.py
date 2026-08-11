@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import shutil
 import uuid
@@ -122,10 +123,57 @@ class FilesystemPublisherBackend(PublisherBackend):
         source = Path(current_path)
         if not source.is_file():
             raise ResourceIndexError(PUBLISH_CONFIG_ERROR, "current pointer candidate is missing", {"path": str(source)})
+        candidate_bytes = source.read_bytes()
+        try:
+            candidate = json.loads(candidate_bytes.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ResourceIndexError(PUBLISH_CONFIG_ERROR, "current pointer candidate is invalid JSON", {"path": str(source)}) from exc
+        candidate_revision = candidate.get("pointer_revision") if isinstance(candidate, dict) else None
+        if type(candidate_revision) is not int or candidate_revision < 1:
+            raise ResourceIndexError(
+                PUBLISH_CONFIG_ERROR,
+                "current pointer candidate revision is invalid",
+                {"path": str(source), "pointer_revision": candidate_revision},
+            )
+
         target = self._path("v1/current.json")
         target.parent.mkdir(parents=True, exist_ok=True)
+        if target.is_file():
+            existing_bytes = target.read_bytes()
+            try:
+                existing = json.loads(existing_bytes.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise ResourceIndexError(PUBLISH_CONFLICT, "existing filesystem current pointer is invalid JSON", {}) from exc
+            existing_revision = existing.get("pointer_revision") if isinstance(existing, dict) else None
+            if type(existing_revision) is not int or existing_revision < 1:
+                raise ResourceIndexError(
+                    PUBLISH_CONFLICT,
+                    "existing filesystem current pointer revision is invalid",
+                    {"pointer_revision": existing_revision},
+                )
+            if candidate_revision < existing_revision:
+                raise ResourceIndexError(
+                    PUBLISH_CONFLICT,
+                    "filesystem current pointer rollback is forbidden",
+                    {"candidate_revision": candidate_revision, "existing_revision": existing_revision},
+                )
+            if candidate_revision == existing_revision:
+                if candidate_bytes != existing_bytes:
+                    raise ResourceIndexError(
+                        PUBLISH_CONFLICT,
+                        "filesystem current pointer revision cannot be rebound",
+                        {"pointer_revision": candidate_revision},
+                    )
+                return PublishedObject(
+                    key="v1/current.json",
+                    size=target.stat().st_size,
+                    sha256=sha256_file(target),
+                    etag=None,
+                    metadata=None,
+                )
+
         temporary = target.parent / f".current.{uuid.uuid4().hex}.tmp"
-        shutil.copyfile(source, temporary)
+        temporary.write_bytes(candidate_bytes)
         try:
             temporary.replace(target)
         finally:

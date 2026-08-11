@@ -153,7 +153,7 @@ async function handleConfig(request, env) {
   });
 }
 
-async function handleSources(request, env) {
+async function handleSources(request, env, sourceFile = '/sources.enc.json') {
   const meta = parseRequestMeta(request);
 
   // ── Step 1: Fetch config to get min_version ──
@@ -176,13 +176,8 @@ async function handleSources(request, env) {
     }, 403);
   }
 
-  // ── Step 3: Membership gate (STUB — always returns full sources) ──
-  // TODO Phase 3: validate memberToken, decide source tier
-  //
-  // const tier = await validateMembership(meta.memberToken, meta.deviceId, env);
-  // const sourceFile = tier === 'pro' ? '/sources.pro.enc.json' : '/sources.free.enc.json';
-  //
-  const sourceFile = '/sources.enc.json';
+  // ── Step 3: Membership gate (STUB — explicit route selects full/green pack) ──
+  // TODO Phase 3: validate memberToken, decide source tier.
 
   // ── Step 4: Fetch and return sources ──
   const upstream = await fetchUpstream(env, sourceFile, env.CACHE_TTL, noCache);
@@ -612,7 +607,9 @@ export default {
         case '/config.json':
           return await handleConfig(request, env);
         case '/sources.enc.json':
-          return await handleSources(request, env);
+          return await handleSources(request, env, '/sources.enc.json');
+        case '/sources-green.enc.json':
+          return await handleSources(request, env, '/sources-green.enc.json');
         case '/api/check':
           return await handleCheck(request, env);
         case '/api/feedback':

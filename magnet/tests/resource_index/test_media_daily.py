@@ -125,9 +125,11 @@ def _install_fakes(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(media_daily, "build_media_app_bundle", fake_bundle)
     monkeypatch.setattr(media_daily, "audit_media_app_bundle", lambda **_kwargs: {"status": "pass"})
+    monkeypatch.setattr(media_daily, "verify_document", lambda *_args, **_kwargs: None)
     previous = Path("previous-manifest.json")
     def fake_online_control(_base, run_dir):
         current = run_dir / "previous-current.json"
+        manifest = run_dir / previous
         _write(
             current,
             {
@@ -137,9 +139,15 @@ def _install_fakes(monkeypatch: pytest.MonkeyPatch) -> None:
                 "manifest_sha256": "d" * 64,
             },
         )
+        _write(manifest, {"release_id": "20260729T000000Z-b07630f3"})
         return (
-            {"pointer_revision": 6, "release_id": "20260729T000000Z-b07630f3"},
-            run_dir / previous,
+            {
+                "pointer_revision": 6,
+                "release_id": "20260729T000000Z-b07630f3",
+                "manifest_path": "/v1/releases/previous/manifest.json",
+                "manifest_sha256": "d" * 64,
+            },
+            manifest,
         )
 
     monkeypatch.setattr(media_daily, "_online_control", fake_online_control)
@@ -180,6 +188,15 @@ def _install_fakes(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
     monkeypatch.setattr(media_daily, "build_media_release", fake_release)
+
+
+def _control(revision: int, release_id: str) -> dict:
+    return {
+        "pointer_revision": revision,
+        "release_id": release_id,
+        "manifest_path": f"/v1/releases/{release_id}/manifest.json",
+        "manifest_sha256": "d" * 64,
+    }
 
 
 def _config(tmp_path: Path) -> MediaDailyConfig:
@@ -318,60 +335,119 @@ def test_daily_pipeline_short_circuits_when_content_hash_is_unchanged(
     assert second["stages"]["magnet_only"]["series"]["removed_non_magnet_resource_count"] == 1
 
 
-def test_no_change_pipeline_repairs_public_pointer_mismatch(
+def test_public_control_recovery_repairs_aliyun_when_r2_is_one_revision_ahead(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_fakes(monkeypatch)
     config = _config(tmp_path)
-    first = run_media_daily(config, publish=False)
-    _write(
-        config.state_root / "status" / "state.json",
-        {
-            "schema_version": "media-daily-state/1",
-            "content_sha256": first["content_sha256"],
-            "current_revision": 6,
-            "release_id": "20260729T000000Z-b07630f3",
-        },
-    )
-    checks = 0
+    promoted: list[dict] = []
 
-    def verify(base, _path):
-        nonlocal checks
-        checks += 1
-        if checks == 2:
-            raise ResourceIndexError("CONFIG_ERROR", "Aliyun pointer mismatch", {"base": base})
-        return {"base": base, "pointer_revision": 7, "release_id": "candidate-release"}
+    def online(base: str, run_dir: Path):
+        document = _control(7, "20260730T000000Z-r2ahead0") if base == config.r2_public_base else _control(6, "20260729T000000Z-old00000")
+        current = run_dir / "previous-current.json"
+        manifest = run_dir / "previous-manifest.json"
+        _write(current, document)
+        _write(manifest, {"release_id": document["release_id"]})
+        return document, manifest
 
-    class Backend:
+    class LocalBackend:
         def __init__(self, *_args, **_kwargs):
             pass
 
-        def promote_current(self, _path):
+        def promote_current(self, path):
+            promoted.append(json.loads(Path(path).read_text(encoding="utf-8")))
+
+    monkeypatch.setattr(media_daily, "_online_control", online)
+    monkeypatch.setattr(media_daily, "verify_document", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(media_daily, "_verify_manifest_available", lambda *_args, **_kwargs: "d" * 64)
+    monkeypatch.setattr(media_daily, "_verify_public_control", lambda base, _path: {"base": base, "pointer_revision": 7})
+    monkeypatch.setattr(media_daily, "FilesystemPublisherBackend", LocalBackend)
+
+    current, _manifest, _path, stage = media_daily._reconcile_online_controls(config, tmp_path / "run", publish=True)
+
+    assert current["pointer_revision"] == 7
+    assert promoted == [_control(7, "20260730T000000Z-r2ahead0")]
+    assert stage["action"] == "repair_aliyun_from_r2_authority"
+    assert stage["r2_revision_after"] == stage["aliyun_revision_after"] == 7
+
+
+def test_public_control_recovery_repairs_r2_from_signed_legacy_aliyun_ahead(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _config(tmp_path)
+    promoted: list[dict] = []
+
+    def online(base: str, run_dir: Path):
+        document = _control(6, "20260729T000000Z-old00000") if base == config.r2_public_base else _control(7, "20260730T000000Z-aliyahead")
+        current = run_dir / "previous-current.json"
+        manifest = run_dir / "previous-manifest.json"
+        _write(current, document)
+        _write(manifest, {"release_id": document["release_id"]})
+        return document, manifest
+
+    class R2Backend:
+        def __init__(self, *_args, **_kwargs):
             pass
 
-    monkeypatch.setattr(media_daily, "_verify_public_control", verify)
-    monkeypatch.setattr(media_daily, "FilesystemPublisherBackend", Backend)
-    monkeypatch.setattr(media_daily, "WorkerR2PublisherBackend", Backend)
-    monkeypatch.setattr(
-        media_daily,
-        "publish_media_release",
-        lambda *_args, **_kwargs: SimpleNamespace(
-            status="success",
-            object_count=1,
-            uploaded_count=0,
-            reused_count=1,
-            current_promoted=False,
-        ),
-    )
+        def promote_current(self, path):
+            promoted.append(json.loads(Path(path).read_text(encoding="utf-8")))
+
+    monkeypatch.setattr(media_daily, "_online_control", online)
+    monkeypatch.setattr(media_daily, "verify_document", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(media_daily, "_verify_manifest_available", lambda *_args, **_kwargs: "d" * 64)
+    monkeypatch.setattr(media_daily, "_verify_public_control", lambda base, _path: {"base": base, "pointer_revision": 7})
+    monkeypatch.setattr(media_daily, "WorkerR2PublisherBackend", R2Backend)
     monkeypatch.setenv("TOKEN", "t" * 64)
 
-    result = run_media_daily(config, publish=True)
-    assert result["status"] == "success"
-    assert result["published"] is True
-    assert result["no_change"] is False
-    assert result["current_revision"] == 7
-    assert checks == 4
+    current, _manifest, _path, stage = media_daily._reconcile_online_controls(config, tmp_path / "run", publish=True)
+
+    assert current["pointer_revision"] == 7
+    assert promoted == [_control(7, "20260730T000000Z-aliyahead")]
+    assert stage["action"] == "repair_r2_from_signed_aliyun_ahead"
+
+
+def test_public_control_recovery_rejects_same_revision_rebind(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _config(tmp_path)
+
+    def online(base: str, run_dir: Path):
+        release_id = "20260730T000000Z-releasea" if base == config.r2_public_base else "20260730T000000Z-releaseb"
+        document = _control(7, release_id)
+        current = run_dir / "previous-current.json"
+        manifest = run_dir / "previous-manifest.json"
+        _write(current, document)
+        _write(manifest, {"release_id": release_id})
+        return document, manifest
+
+    monkeypatch.setattr(media_daily, "_online_control", online)
+    monkeypatch.setattr(media_daily, "verify_document", lambda *_args, **_kwargs: None)
+
+    with pytest.raises(ResourceIndexError, match="rebind the same revision"):
+        media_daily._reconcile_online_controls(config, tmp_path / "run", publish=True)
+
+
+def test_public_control_recovery_rejects_unsafe_revision_gap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _config(tmp_path)
+
+    def online(base: str, run_dir: Path):
+        document = _control(9, "20260731T000000Z-release9") if base == config.r2_public_base else _control(6, "20260729T000000Z-release6")
+        current = run_dir / "previous-current.json"
+        manifest = run_dir / "previous-manifest.json"
+        _write(current, document)
+        _write(manifest, {"release_id": document["release_id"]})
+        return document, manifest
+
+    monkeypatch.setattr(media_daily, "_online_control", online)
+    monkeypatch.setattr(media_daily, "verify_document", lambda *_args, **_kwargs: None)
+
+    with pytest.raises(ResourceIndexError, match="gap is unsafe"):
+        media_daily._reconcile_online_controls(config, tmp_path / "run", publish=True)
 
 
 def test_daily_pipeline_keeps_running_when_rating_provider_stage_fails(
@@ -415,6 +491,105 @@ def test_candidate_and_audit_release_artifacts_are_run_scoped(
     assert not (config.state_root / "releases" / "staging" / "pointers").exists()
 
 
+def test_publish_release_is_run_scoped_and_promotes_r2_before_aliyun(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    config = _config(tmp_path)
+    outputs: list[Path] = []
+    promotions: list[str] = []
+    fake_release = media_daily.build_media_release
+
+    def capture_release(release_config):
+        outputs.append(Path(release_config.output_dir))
+        return fake_release(release_config)
+
+    class LocalBackend:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def promote_current(self, _path):
+            promotions.append("aliyun")
+
+    class R2Backend:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def promote_current(self, _path):
+            promotions.append("r2")
+
+    monkeypatch.setattr(media_daily, "build_media_release", capture_release)
+    monkeypatch.setattr(media_daily, "FilesystemPublisherBackend", LocalBackend)
+    monkeypatch.setattr(media_daily, "WorkerR2PublisherBackend", R2Backend)
+    monkeypatch.setattr(
+        media_daily,
+        "publish_media_release",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            status="success",
+            object_count=1,
+            uploaded_count=0,
+            reused_count=1,
+            current_promoted=False,
+        ),
+    )
+    monkeypatch.setenv("TOKEN", "t" * 64)
+
+    result = run_media_daily(config, publish=True, force_publish=True)
+
+    expected = config.state_root.resolve() / "runs" / result["run_id"] / "release-candidate"
+    assert outputs == [expected]
+    assert promotions == ["r2", "aliyun"]
+    assert result["status"] == "success"
+    assert result["current_revision"] == 7
+
+
+def test_publish_recovers_durable_state_after_post_promotion_crash_without_revision_bump(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    config = _config(tmp_path)
+
+    def same_public_release(release_config):
+        output = Path(release_config.output_dir)
+        current = output / "staging" / "pointers" / "candidate.json"
+        release_dir = output / "staging" / "releases" / "20260729T000000Z-b07630f3"
+        _write(
+            current,
+            {
+                "pointer_revision": release_config.pointer_revision,
+                "release_id": "20260729T000000Z-b07630f3",
+                "manifest_path": "/v1/releases/previous/manifest.json",
+                "manifest_sha256": "d" * 64,
+            },
+        )
+        return SimpleNamespace(
+            release_id="20260729T000000Z-b07630f3",
+            release_dir=str(release_dir),
+            current_path=str(current),
+            manifest_path=str(release_dir / "v1" / "releases" / "20260729T000000Z-b07630f3" / "manifest.json"),
+            manifest_sha256="d" * 64,
+            object_count=1,
+            reused=True,
+            release_reused=True,
+            pointer_reused=False,
+            counts={"movie": 1, "series": 1, "resources": 2},
+        )
+
+    monkeypatch.setattr(media_daily, "build_media_release", same_public_release)
+
+    result = run_media_daily(config, publish=True)
+
+    assert result["status"] == "success"
+    assert result["no_change"] is True
+    assert result["state_recovered"] is True
+    assert result["current_revision"] == 6
+    durable = json.loads((config.state_root / "status" / "state.json").read_text(encoding="utf-8"))
+    assert durable["current_revision"] == 6
+    assert durable["release_id"] == "20260729T000000Z-b07630f3"
+
+
 def test_publish_archives_only_unpromoted_future_pointer_candidates(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -433,7 +608,7 @@ def test_publish_archives_only_unpromoted_future_pointer_candidates(
         pointer_dir,
         public_revision=10,
         public_release_id="release-10",
-        public_key_path=tmp_path / "public.pem",
+        config=_config(tmp_path),
         evidence_dir=evidence,
     )
 
@@ -459,7 +634,7 @@ def test_publish_refuses_to_recover_when_public_revision_conflicts_with_staging(
             pointer_dir,
             public_revision=10,
             public_release_id="release-10",
-            public_key_path=tmp_path / "public.pem",
+            config=_config(tmp_path),
             evidence_dir=tmp_path / "evidence",
         )
 

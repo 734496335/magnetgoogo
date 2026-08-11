@@ -159,6 +159,40 @@ def test_prune_media_state_retains_bounded_history_and_pointer_releases(tmp_path
     assert len(list((root / "receipts").glob("*.json"))) == 3
 
 
+def test_prune_media_state_always_retains_durable_current_pointer_and_release(tmp_path: Path) -> None:
+    root = tmp_path / "state"
+    pointer_dir = root / "releases" / "staging" / "pointers"
+    release_dir = root / "releases" / "staging" / "releases"
+    for revision in (10, 11, 12):
+        release_id = f"release-{revision}"
+        release = release_dir / release_id
+        _touch(release / "v1" / "payload", revision)
+        os.utime(release, (1_700_000_000 + revision, 1_700_000_000 + revision))
+        pointer = pointer_dir / f"pointer-{revision}.json"
+        pointer.parent.mkdir(parents=True, exist_ok=True)
+        pointer.write_text(
+            json.dumps({"pointer_revision": revision, "release_id": release_id}),
+            encoding="utf-8",
+        )
+        os.utime(pointer, (1_700_000_000 + revision, 1_700_000_000 + revision))
+    current_pointer = pointer_dir / "pointer-10.json"
+    current_release = release_dir / "release-10"
+    os.utime(current_pointer, (1_600_000_000, 1_600_000_000))
+    os.utime(current_release, (1_600_000_000, 1_600_000_000))
+    _write_state = root / "status" / "state.json"
+    _write_state.parent.mkdir(parents=True, exist_ok=True)
+    _write_state.write_text(
+        json.dumps({"current_revision": 10, "release_id": "release-10"}),
+        encoding="utf-8",
+    )
+
+    prune_media_state(root, RetentionConfig(runs=1, status_history=1, releases=1, receipts=1))
+
+    assert current_pointer.exists()
+    assert current_release.exists()
+    assert (pointer_dir / "pointer-12.json").exists()
+
+
 def test_candidate_soak_requires_seven_distinct_consecutive_days(tmp_path: Path) -> None:
     path = tmp_path / "candidate-soak.json"
     start = date(2026, 8, 1)

@@ -243,15 +243,32 @@ def prune_media_state(root: Path, config: RetentionConfig, *, protected_run_id: 
     pointer_dir = staging / "pointers"
     pointers = list(pointer_dir.glob("*.json")) if pointer_dir.exists() else []
     keep_pointers = _newest(pointers, config.releases)
+    durable_state_path = root / "status" / "state.json"
+    durable_revision = None
+    durable_release_id = None
+    if durable_state_path.is_file():
+        try:
+            durable_state = json.loads(durable_state_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            durable_state = {}
+        if not isinstance(durable_state, dict):
+            durable_state = {}
+        durable_revision = durable_state.get("current_revision")
+        durable_release_id = durable_state.get("release_id")
     retained_release_ids: set[str] = set()
-    for path in keep_pointers:
+    for path in pointers:
         try:
             value = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
         release_id = value.get("release_id")
-        if isinstance(release_id, str) and release_id:
+        revision = value.get("pointer_revision")
+        if revision == durable_revision and release_id == durable_release_id:
+            keep_pointers.add(path)
+        if path in keep_pointers and isinstance(release_id, str) and release_id:
             retained_release_ids.add(release_id)
+    if isinstance(durable_release_id, str) and durable_release_id:
+        retained_release_ids.add(durable_release_id)
     for path in pointers:
         if path not in keep_pointers:
             deleted_bytes += _remove_path(path)

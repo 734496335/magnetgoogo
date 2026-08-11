@@ -230,6 +230,7 @@ def _http_bytes(url: str, *, timeout: float = 60.0, max_attempts: int = 3) -> by
 
 
 def _online_control(base: str, run_dir: Path) -> tuple[dict[str, Any], Path]:
+    run_dir.mkdir(parents=True, exist_ok=True)
     current_bytes = _http_bytes(f"{base}/v1/current.json")
     current_path = run_dir / "previous-current.json"
     current_path.write_bytes(current_bytes)
@@ -241,6 +242,183 @@ def _online_control(base: str, run_dir: Path) -> tuple[dict[str, Any], Path]:
     manifest_path = run_dir / "previous-manifest.json"
     manifest_path.write_bytes(manifest_bytes)
     return current, manifest_path
+
+
+def _verify_with_trusted_media_keys(
+    document: dict[str, Any],
+    *,
+    config: MediaDailyConfig,
+    label: str,
+) -> str:
+    key_paths = [config.public_key_path]
+    if config.previous_public_key_path is not None and config.previous_public_key_path != config.public_key_path:
+        key_paths.append(config.previous_public_key_path)
+    failures: list[str] = []
+    for key_path in key_paths:
+        if not key_path.is_file():
+            failures.append(f"missing:{key_path}")
+            continue
+        try:
+            verify_document(document, key_path)
+        except ResourceIndexError as exc:
+            failures.append(f"{key_path}:{exc.message}")
+            continue
+        return str(key_path)
+    raise ResourceIndexError(
+        CONFIG_ERROR,
+        "online media document is not signed by a trusted key",
+        {"label": label, "failures": failures},
+    )
+
+
+def _validate_online_control(
+    current: dict[str, Any],
+    manifest_path: Path,
+    *,
+    config: MediaDailyConfig,
+    base: str,
+) -> dict[str, Any]:
+    revision = current.get("pointer_revision")
+    release_id = current.get("release_id")
+    if type(revision) is not int or revision < 1 or not isinstance(release_id, str) or not release_id:
+        raise ResourceIndexError(
+            CONFIG_ERROR,
+            "online media current pointer metadata is invalid",
+            {"base": base, "pointer_revision": revision, "release_id": release_id},
+        )
+    current_key = _verify_with_trusted_media_keys(current, config=config, label=f"{base}:current")
+    manifest = _load_json(manifest_path)
+    manifest_key = _verify_with_trusted_media_keys(manifest, config=config, label=f"{base}:manifest")
+    if manifest.get("release_id") != release_id:
+        raise ResourceIndexError(
+            CONFIG_ERROR,
+            "online media manifest release does not match current pointer",
+            {"base": base, "current_release_id": release_id, "manifest_release_id": manifest.get("release_id")},
+        )
+    return {
+        "base": base,
+        "pointer_revision": revision,
+        "release_id": release_id,
+        "current_key": current_key,
+        "manifest_key": manifest_key,
+    }
+
+
+def _verify_manifest_available(base: str, current: dict[str, Any]) -> str:
+    manifest_path = current.get("manifest_path")
+    expected_hash = current.get("manifest_sha256")
+    if not isinstance(manifest_path, str) or not manifest_path.startswith("/v1/releases/"):
+        raise ResourceIndexError(CONFIG_ERROR, "media current manifest path is invalid", {"base": base})
+    if not isinstance(expected_hash, str) or len(expected_hash) != 64:
+        raise ResourceIndexError(CONFIG_ERROR, "media current manifest hash is invalid", {"base": base})
+    manifest_bytes = _http_bytes(f"{base}{manifest_path}")
+    actual_hash = hashlib.sha256(manifest_bytes).hexdigest()
+    if actual_hash != expected_hash:
+        raise ResourceIndexError(
+            CONFIG_ERROR,
+            "media current manifest is unavailable on recovery target",
+            {"base": base, "expected": expected_hash, "actual": actual_hash},
+        )
+    return actual_hash
+
+
+def _pointer_semantics(document: dict[str, Any]) -> bytes:
+    value = dict(document)
+    value.pop("pointer_revision", None)
+    value.pop("signature", None)
+    return canonical_json_bytes(value)
+
+
+def _reconcile_online_controls(
+    config: MediaDailyConfig,
+    run_dir: Path,
+    *,
+    publish: bool,
+) -> tuple[dict[str, Any], Path, Path, dict[str, Any]]:
+    r2_dir = run_dir / "control-r2"
+    aliyun_dir = run_dir / "control-aliyun"
+    r2_current, r2_manifest = _online_control(config.r2_public_base, r2_dir)
+    aliyun_current, aliyun_manifest = _online_control(config.aliyun_public_base, aliyun_dir)
+    _validate_online_control(r2_current, r2_manifest, config=config, base=config.r2_public_base)
+    _validate_online_control(aliyun_current, aliyun_manifest, config=config, base=config.aliyun_public_base)
+    r2_current_path = r2_dir / "previous-current.json"
+    aliyun_current_path = aliyun_dir / "previous-current.json"
+    r2_bytes = r2_current_path.read_bytes()
+    aliyun_bytes = aliyun_current_path.read_bytes()
+    r2_revision = int(r2_current["pointer_revision"])
+    aliyun_revision = int(aliyun_current["pointer_revision"])
+    stage: dict[str, Any] = {
+        "status": "pass",
+        "r2_revision_before": r2_revision,
+        "aliyun_revision_before": aliyun_revision,
+        "action": "none",
+    }
+    if r2_bytes == aliyun_bytes:
+        stage["current_sha256"] = hashlib.sha256(r2_bytes).hexdigest()
+        return r2_current, r2_manifest, r2_current_path, stage
+
+    if not publish:
+        raise ResourceIndexError(
+            CONFIG_ERROR,
+            "media public current pointers diverge during read-only run",
+            {
+                "r2_revision": r2_revision,
+                "aliyun_revision": aliyun_revision,
+                "r2_release_id": r2_current.get("release_id"),
+                "aliyun_release_id": aliyun_current.get("release_id"),
+            },
+        )
+    if r2_revision == aliyun_revision:
+        raise ResourceIndexError(
+            CONFIG_ERROR,
+            "media public current pointers rebind the same revision differently",
+            {
+                "pointer_revision": r2_revision,
+                "r2_release_id": r2_current.get("release_id"),
+                "aliyun_release_id": aliyun_current.get("release_id"),
+            },
+        )
+    if abs(r2_revision - aliyun_revision) != 1:
+        raise ResourceIndexError(
+            CONFIG_ERROR,
+            "media public current revision gap is unsafe to repair automatically",
+            {"r2_revision": r2_revision, "aliyun_revision": aliyun_revision},
+        )
+
+    if r2_revision > aliyun_revision:
+        _verify_manifest_available(config.aliyun_public_base, r2_current)
+        FilesystemPublisherBackend(config.public_root).promote_current(r2_current_path)
+        expected_current = r2_current
+        expected_manifest = r2_manifest
+        expected_path = r2_current_path
+        stage["action"] = "repair_aliyun_from_r2_authority"
+    else:
+        _verify_manifest_available(config.r2_public_base, aliyun_current)
+        token = os.environ.get(config.worker_token_env, "")
+        if len(token) < 32 or not config.worker_url.startswith("https://"):
+            raise ResourceIndexError(CONFIG_ERROR, "production Worker credentials are missing for R2 control repair", {})
+        WorkerR2PublisherBackend(
+            worker_url=config.worker_url,
+            upload_token=token,
+            prefix="",
+            allow_production_root=True,
+            allow_current_promotion=True,
+            max_attempts=4,
+        ).promote_current(aliyun_current_path)
+        expected_current = aliyun_current
+        expected_manifest = aliyun_manifest
+        expected_path = aliyun_current_path
+        stage["action"] = "repair_r2_from_signed_aliyun_ahead"
+
+    verification = [
+        _verify_public_control(config.r2_public_base, expected_path),
+        _verify_public_control(config.aliyun_public_base, expected_path),
+    ]
+    stage["verification"] = verification
+    stage["current_sha256"] = hashlib.sha256(expected_path.read_bytes()).hexdigest()
+    stage["r2_revision_after"] = int(expected_current["pointer_revision"])
+    stage["aliyun_revision_after"] = int(expected_current["pointer_revision"])
+    return expected_current, expected_manifest, expected_path, stage
 
 
 def _filter_feed_to_bundle(feed_path: Path, bundle_dir: Path, output_path: Path) -> dict[str, Any]:
@@ -425,7 +603,7 @@ def _archive_unpromoted_pointer_candidates(
     *,
     public_revision: int,
     public_release_id: str,
-    public_key_path: Path,
+    config: MediaDailyConfig,
     evidence_dir: Path,
 ) -> list[dict[str, Any]]:
     archived: list[dict[str, Any]] = []
@@ -433,7 +611,11 @@ def _archive_unpromoted_pointer_candidates(
         return archived
     for path in sorted(pointer_dir.glob("*.json")):
         document = _load_json(path)
-        verify_document(document, public_key_path)
+        trusted_key = _verify_with_trusted_media_keys(
+            document,
+            config=config,
+            label=f"staged-pointer:{path.name}",
+        )
         revision = document.get("pointer_revision")
         release_id = str(document.get("release_id") or "")
         if type(revision) is not int or revision < 1 or not release_id:
@@ -472,6 +654,7 @@ def _archive_unpromoted_pointer_candidates(
                 "release_id": release_id,
                 "source_path": str(path),
                 "evidence_path": str(target),
+                "trusted_key": trusted_key,
             }
         )
     return archived
@@ -723,43 +906,8 @@ def run_media_daily(
                 sum(len(item.get("resources") or []) for item in movie_final["items"])
                 + sum(len(item.get("resources") or []) for item in series_final["items"])
             )
-            previous_current, previous_manifest_path = _online_control(config.r2_public_base, run_dir)
-            previous_revision = int(previous_current.get("pointer_revision") or 0)
-            status["previous_revision"] = previous_revision
-            if publish and not force_publish and durable_state.get("content_sha256") == fingerprint:
-                expected_revision = durable_state.get("current_revision")
-                expected_release_id = durable_state.get("release_id")
-                if expected_revision == previous_revision and expected_release_id == previous_current.get("release_id"):
-                    previous_current_path = run_dir / "previous-current.json"
-                    try:
-                        verification = [
-                            _verify_public_control(config.r2_public_base, previous_current_path),
-                            _verify_public_control(config.aliyun_public_base, previous_current_path),
-                        ]
-                    except ResourceIndexError as exc:
-                        status["stages"]["verification"] = {
-                            "status": "repair_required",
-                            "error_code": exc.error_code,
-                            "message": exc.message,
-                        }
-                        _write_json(latest_status, status)
-                    else:
-                        status["stages"]["verification"] = verification
-                        status.update(
-                            {
-                                "status": "success",
-                                "no_change": True,
-                                "public_verified": True,
-                                "current_revision": previous_revision,
-                                "release_id": str(previous_current.get("release_id") or ""),
-                                "pointer_sha256": hashlib.sha256(previous_current_path.read_bytes()).hexdigest(),
-                                "finished_at": _iso(),
-                            }
-                        )
-                        _write_json(latest_status, status)
-                        return status
-            if not config.private_key_path.is_file() or not config.public_key_path.is_file():
-                raise ResourceIndexError(CONFIG_ERROR, "media signing keypair is missing", {})
+            if not config.public_key_path.is_file():
+                raise ResourceIndexError(CONFIG_ERROR, "media public signing key is missing", {})
             if config.previous_public_key_path is not None and not config.previous_public_key_path.is_file():
                 raise ResourceIndexError(
                     CONFIG_ERROR,
@@ -767,14 +915,47 @@ def run_media_daily(
                     {"path": str(config.previous_public_key_path)},
                 )
 
-            release_output_dir = root / "releases"
+            previous_current, previous_manifest_path, previous_current_path, control_stage = _reconcile_online_controls(
+                config,
+                run_dir,
+                publish=publish,
+            )
+            status["stages"]["control_recovery"] = control_stage
+            previous_revision = int(previous_current.get("pointer_revision") or 0)
+            status["previous_revision"] = previous_revision
+            if publish and not force_publish and durable_state.get("content_sha256") == fingerprint:
+                expected_revision = durable_state.get("current_revision")
+                expected_release_id = durable_state.get("release_id")
+                if expected_revision == previous_revision and expected_release_id == previous_current.get("release_id"):
+                    verification = [
+                        _verify_public_control(config.r2_public_base, previous_current_path),
+                        _verify_public_control(config.aliyun_public_base, previous_current_path),
+                    ]
+                    status["stages"]["verification"] = verification
+                    status.update(
+                        {
+                            "status": "success",
+                            "no_change": True,
+                            "public_verified": True,
+                            "current_revision": previous_revision,
+                            "release_id": str(previous_current.get("release_id") or ""),
+                            "pointer_sha256": hashlib.sha256(previous_current_path.read_bytes()).hexdigest(),
+                            "finished_at": _iso(),
+                        }
+                    )
+                    _write_json(latest_status, status)
+                    return status
+            if not config.private_key_path.is_file():
+                raise ResourceIndexError(CONFIG_ERROR, "media private signing key is missing", {})
+
+            release_output_dir = run_dir / "release-candidate"
             if publish:
                 archived_pointers = _archive_unpromoted_pointer_candidates(
-                    release_output_dir / "staging" / "pointers",
+                    root / "releases" / "staging" / "pointers",
                     public_revision=previous_revision,
                     public_release_id=str(previous_current.get("release_id") or ""),
-                    public_key_path=config.public_key_path,
-                    evidence_dir=run_dir / "unpromoted-pointer-evidence",
+                    config=config,
+                    evidence_dir=root / "evidence" / "unpromoted-pointers" / run_id,
                 )
                 status["stages"]["pointer_recovery"] = {
                     "status": "pass",
@@ -782,8 +963,6 @@ def run_media_daily(
                     "archived": archived_pointers,
                 }
                 _write_json(latest_status, status)
-            else:
-                release_output_dir = run_dir / "release-candidate"
 
             release_result = build_media_release(
                 MediaReleaseConfig(
@@ -807,6 +986,38 @@ def run_media_daily(
             current_path = Path(release_result.current_path)
             status["stages"]["release"] = release_result.__dict__
             _write_json(latest_status, status)
+            if publish and not force_publish:
+                candidate_current = _load_json(current_path)
+                if _pointer_semantics(candidate_current) == _pointer_semantics(previous_current):
+                    verification = [
+                        _verify_public_control(config.r2_public_base, previous_current_path),
+                        _verify_public_control(config.aliyun_public_base, previous_current_path),
+                    ]
+                    status["stages"]["verification"] = verification
+                    status.update(
+                        {
+                            "status": "success",
+                            "no_change": True,
+                            "public_verified": True,
+                            "state_recovered": True,
+                            "current_revision": previous_revision,
+                            "release_id": str(previous_current.get("release_id") or ""),
+                            "pointer_sha256": hashlib.sha256(previous_current_path.read_bytes()).hexdigest(),
+                            "finished_at": _iso(),
+                        }
+                    )
+                    _write_json(
+                        durable_state_path,
+                        {
+                            "schema_version": "media-daily-state/1",
+                            "content_sha256": fingerprint,
+                            "current_revision": previous_revision,
+                            "release_id": str(previous_current.get("release_id") or ""),
+                            "updated_at": status["finished_at"],
+                        },
+                    )
+                    _write_json(latest_status, status)
+                    return status
             if not publish:
                 status.update(
                     {
@@ -868,19 +1079,8 @@ def run_media_daily(
             _write_json(latest_status, status)
 
             candidate_bytes = current_path.read_bytes()
-            previous_local = config.public_root / "v1" / "current.json"
-            previous_local_bytes = previous_local.read_bytes() if previous_local.exists() else None
+            r2_backend.promote_current(current_path)
             local_backend.promote_current(current_path)
-            try:
-                r2_backend.promote_current(current_path)
-            except BaseException:
-                if previous_local_bytes is None:
-                    previous_local.unlink(missing_ok=True)
-                else:
-                    rollback = run_dir / "rollback-current.json"
-                    rollback.write_bytes(previous_local_bytes)
-                    local_backend.promote_current(rollback)
-                raise
 
             verification = [
                 _verify_public_control(config.r2_public_base, current_path),

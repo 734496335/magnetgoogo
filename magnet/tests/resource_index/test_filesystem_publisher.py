@@ -58,3 +58,49 @@ def test_filesystem_publisher_promotes_current_atomically(tmp_path: Path) -> Non
 
     assert published.sha256 == hashlib.sha256(current.read_bytes()).hexdigest()
     assert (tmp_path / "mirror" / "v1" / "current.json").read_bytes() == current.read_bytes()
+
+
+def test_filesystem_publisher_rejects_current_revision_rebind(tmp_path: Path) -> None:
+    backend = FilesystemPublisherBackend(tmp_path / "mirror")
+    first = tmp_path / "first.json"
+    first.write_bytes(b'{"pointer_revision":7,"release_id":"release-a"}')
+    conflicting = tmp_path / "conflicting.json"
+    conflicting.write_bytes(b'{"pointer_revision":7,"release_id":"release-b"}')
+    backend.promote_current(first)
+
+    with pytest.raises(ResourceIndexError) as exc:
+        backend.promote_current(conflicting)
+
+    assert exc.value.error_code == PUBLISH_CONFLICT
+    assert "cannot be rebound" in exc.value.message
+    assert (tmp_path / "mirror" / "v1" / "current.json").read_bytes() == first.read_bytes()
+
+
+def test_filesystem_publisher_rejects_current_revision_rollback(tmp_path: Path) -> None:
+    backend = FilesystemPublisherBackend(tmp_path / "mirror")
+    current = tmp_path / "current.json"
+    current.write_bytes(b'{"pointer_revision":8,"release_id":"release-8"}')
+    rollback = tmp_path / "rollback.json"
+    rollback.write_bytes(b'{"pointer_revision":7,"release_id":"release-7"}')
+    backend.promote_current(current)
+
+    with pytest.raises(ResourceIndexError) as exc:
+        backend.promote_current(rollback)
+
+    assert exc.value.error_code == PUBLISH_CONFLICT
+    assert "rollback is forbidden" in exc.value.message
+    assert (tmp_path / "mirror" / "v1" / "current.json").read_bytes() == current.read_bytes()
+
+
+def test_filesystem_publisher_reuses_identical_current_revision(tmp_path: Path) -> None:
+    backend = FilesystemPublisherBackend(tmp_path / "mirror")
+    current = tmp_path / "current.json"
+    current.write_bytes(b'{"pointer_revision":7,"release_id":"release-a"}')
+    backend.promote_current(current)
+    before = (tmp_path / "mirror" / "v1" / "current.json").stat().st_mtime_ns
+
+    published = backend.promote_current(current)
+
+    after = (tmp_path / "mirror" / "v1" / "current.json").stat().st_mtime_ns
+    assert published.sha256 == hashlib.sha256(current.read_bytes()).hexdigest()
+    assert after == before
