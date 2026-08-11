@@ -6,6 +6,8 @@ ALERT_BIN="${MAGNET_ALERT_BIN:-/opt/magnet-alerts/magnet-alert.py}"
 PYTHON_BIN="${MAGNET_SOURCE_PYTHON_BIN:-/usr/bin/python3}"
 VERIFIER="${MAGNET_SOURCE_VERIFIER:-/opt/magnet-source-sync/verify-source-packs.py}"
 TARGET="${MAGNET_SOURCE_TARGET_ROOT:-/var/www/magnetgoogo-site}/sources.enc.json"
+SYNC_STATE="${MAGNET_SOURCE_SYNC_ALERT_STATE:-/var/lib/magnet-alerts/source-sync.json}"
+EXPIRY_STATE="${MAGNET_SOURCE_EXPIRY_ALERT_STATE:-/var/lib/magnet-alerts/source-expiry.json}"
 
 [[ -x "$ALERT_BIN" ]] || exit 0
 
@@ -34,33 +36,43 @@ PY
   fi
 fi
 
-if [[ "$MODE" == "failure" ]]; then
-  "$ALERT_BIN" failure \
-    --key source-sync \
-    --threshold 3 \
-    --repeat-hours 24 \
-    --severity P1 \
-    --title "普通版源包连续同步失败" \
-    --message "阿里云普通版 sources.enc.json 同步失败。连续3次失败才触发本告警；旧文件保持不变。\nsha=$sha\nremaining_hours=$remaining" || true
-else
-  "$ALERT_BIN" success \
-    --key source-sync \
-    --severity P1 \
-    --title "普通版源包同步已恢复" \
-    --message "阿里云普通版 sources.enc.json 同步当前执行成功。\nsha=$sha\nremaining_hours=$remaining" || true
-fi
+case "$MODE" in
+  failure)
+    "$ALERT_BIN" failure \
+      --key source-sync \
+      --state-file "$SYNC_STATE" \
+      --threshold 2 \
+      --severity P1 \
+      --title "普通版源包连续同步失败" \
+      --message "阿里云普通版 sources.enc.json 同步失败。连续2次失败才触发本告警；旧文件保持不变。\nsha=$sha\nremaining_hours=$remaining" || true
+    exit 0
+    ;;
+  success)
+    "$ALERT_BIN" success \
+      --key source-sync \
+      --state-file "$SYNC_STATE" \
+      --severity P1 \
+      --title "普通版源包同步已恢复" \
+      --message "阿里云普通版 sources.enc.json 同步当前执行成功。\nsha=$sha\nremaining_hours=$remaining" || true
+    ;;
+  *)
+    echo "unsupported source-sync alert mode: $MODE" >&2
+    exit 2
+    ;;
+esac
 
 if (( near_expiry == 1 )); then
   "$ALERT_BIN" failure \
     --key source-expiry \
-    --threshold 1 \
-    --repeat-hours 12 \
+    --state-file "$EXPIRY_STATE" \
+    --threshold 2 \
     --severity P0 \
     --title "普通版源包即将过期" \
-    --message "当前阿里云 sources.enc.json 剩余有效期不足24小时，需要检查 GitHub 自动续期及分发链。\nsha=$sha\nremaining_hours=$remaining" || true
+    --message "当前阿里云 sources.enc.json 已连续两次检查剩余有效期不足24小时，需要检查 GitHub 自动续期及分发链。\nsha=$sha\nremaining_hours=$remaining" || true
 else
   "$ALERT_BIN" success \
     --key source-expiry \
+    --state-file "$EXPIRY_STATE" \
     --severity P0 \
     --title "普通版源包有效期已恢复" \
     --message "当前阿里云 sources.enc.json 剩余有效期已恢复到安全范围。\nsha=$sha\nremaining_hours=$remaining" || true

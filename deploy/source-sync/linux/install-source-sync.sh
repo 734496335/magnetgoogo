@@ -2,6 +2,10 @@
 set -euo pipefail
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ALERT_INSTALLER="$SOURCE_DIR/../../alerts/linux/install-alerts.sh"
+if [[ -f "$ALERT_INSTALLER" ]]; then
+  /usr/bin/bash "$ALERT_INSTALLER"
+fi
 install -d -m 0755 /opt/magnet-source-sync
 install -d -m 0700 /etc/magnet-source-sync
 if [[ ! -f /etc/magnet-source-sync/source-sync.env ]]; then

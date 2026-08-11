@@ -20,6 +20,9 @@ PIP_INDEX_URL=${MAGNET_MEDIA_PIP_INDEX_URL:-https://pypi.org/simple}
 
 install -d -m 0755 /opt/magnet-media "$APP_ROOT" "$STATE_ROOT"
 install -d -m 0700 "$CONFIG_ROOT"
+if [[ -f "$APP_ROOT/deploy/alerts/linux/install-alerts.sh" ]]; then
+  /usr/bin/bash "$APP_ROOT/deploy/alerts/linux/install-alerts.sh"
+fi
 install -d -m 0755 \
   "$STATE_ROOT/status" \
   "$STATE_ROOT/runs" \

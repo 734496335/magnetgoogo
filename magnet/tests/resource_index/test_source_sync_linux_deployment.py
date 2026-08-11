@@ -155,14 +155,14 @@ def test_source_sync_installer_requires_key_and_installs_verifier_before_enablin
     assert verifier < alert_script < alert_service < enable < start
 
 
-def test_source_sync_alert_requires_three_failures_but_expiry_is_immediate() -> None:
+def test_source_sync_alert_requires_two_consecutive_failures_and_low_expiry_observations() -> None:
     script = (LINUX / "source-sync-alert.sh").read_text(encoding="utf-8")
     service = (LINUX / "magnet-source-sync-alert.service").read_text(encoding="utf-8")
     assert "--key source-sync" in script
-    assert "--threshold 3" in script
     assert "--key source-expiry" in script
-    assert "--threshold 1" in script
+    assert script.count("--threshold 2") == 2
     assert "value < 24" in script
+    assert "--repeat-hours" not in script
     assert "EnvironmentFile=-/etc/magnet-alerts/alert.env" in service
     assert "ReadWritePaths=/var/lib/magnet-alerts /var/tmp" in service
 

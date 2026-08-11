@@ -5,6 +5,7 @@ MODE="${1:-success}"
 ALERT_BIN="${MAGNET_ALERT_BIN:-/opt/magnet-alerts/magnet-alert.py}"
 STATUS="${MAGNET_MEDIA_STATUS_FILE:-/var/lib/magnet-media/status/latest-publish.json}"
 PYTHON_BIN="${MAGNET_MEDIA_ALERT_PYTHON:-/usr/bin/python3}"
+STATE_FILE="${MAGNET_MEDIA_ALERT_STATE:-/var/lib/magnet-alerts/media-publish.json}"
 
 [[ -x "$ALERT_BIN" ]] || exit 0
 
@@ -36,8 +37,8 @@ case "$MODE" in
   failure)
     "$ALERT_BIN" failure \
       --key media-publish \
+      --state-file "$STATE_FILE" \
       --threshold 1 \
-      --repeat-hours 24 \
       --severity P0 \
       --title "影视自动发布二次失败" \
       --message "每日影视发布首次失败后已自动重试，重试仍失败。生产 current 保持旧 revision，未强行晋级。\n$DETAIL" || true
@@ -45,6 +46,7 @@ case "$MODE" in
   success)
     "$ALERT_BIN" success \
       --key media-publish \
+      --state-file "$STATE_FILE" \
       --severity P0 \
       --title "影视自动发布已恢复" \
       --message "影视自动发布当前执行成功，R2/Aliyun 正常路径已恢复。\n$DETAIL" || true

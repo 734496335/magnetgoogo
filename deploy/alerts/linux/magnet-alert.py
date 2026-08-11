@@ -9,6 +9,7 @@ reported to stderr but the process exits 0 unless --strict is supplied.
 """
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -63,7 +64,9 @@ def _atomic_write(path, value):
 
 def _cloudmonitor_send(title, message):
     url = os.environ.get("MAGNET_ALERT_CLOUDMONITOR_URL", "").strip()
-    if not url:
+    access_key = os.environ.get("MAGNET_ALERT_CLOUDMONITOR_ACCESS_KEY_ID", "").strip()
+    access_secret = os.environ.get("MAGNET_ALERT_CLOUDMONITOR_ACCESS_KEY_SECRET", "").strip()
+    if not url or not access_key or not access_secret:
         return False, "cloudmonitor_not_configured"
     security_word = os.environ.get("MAGNET_ALERT_CLOUDMONITOR_SECURITY_WORD", "").strip()
     body_message = message
@@ -77,11 +80,13 @@ def _cloudmonitor_send(title, message):
         },
         ensure_ascii=False,
     ).encode("utf-8")
-    request = urllib.request.Request(
-        url,
-        data=payload,
-        headers={"Content-Type": "application/json", "User-Agent": "MagnetGoogo-Alert/1.0"},
-    )
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "MagnetGoogo-Alert/1.0",
+    }
+    basic = base64.b64encode((access_key + ":" + access_secret).encode("utf-8")).decode("ascii")
+    headers["Authorization"] = "Basic " + basic
+    request = urllib.request.Request(url, data=payload, headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=15) as response:
             raw = response.read()
@@ -129,13 +134,22 @@ def _deliver(title, message, dry_run=False):
     if dry_run:
         print("ALERT_DRY_RUN title=%s" % title)
         return True, "dry_run"
-    cloud_ok, cloud_detail = _cloudmonitor_send(title, message)
-    if cloud_ok:
-        return True, cloud_detail
-    smtp_ok, smtp_detail = _smtp_send(title, message)
-    if smtp_ok:
-        return True, smtp_detail
-    return False, "%s;%s" % (cloud_detail, smtp_detail)
+    transport = os.environ.get("MAGNET_ALERT_TRANSPORT", "disabled").strip().lower()
+    if transport == "disabled":
+        return False, "disabled"
+    if transport == "cloudmonitor":
+        return _cloudmonitor_send(title, message)
+    if transport == "smtp":
+        return _smtp_send(title, message)
+    if transport == "auto":
+        cloud_ok, cloud_detail = _cloudmonitor_send(title, message)
+        if cloud_ok:
+            return True, cloud_detail
+        smtp_ok, smtp_detail = _smtp_send(title, message)
+        if smtp_ok:
+            return True, smtp_detail
+        return False, "%s;%s" % (cloud_detail, smtp_detail)
+    return False, "transport_invalid"
 
 
 def _entry(state, key):
@@ -145,15 +159,14 @@ def _entry(state, key):
     return value
 
 
-def record_failure(state_path, key, threshold, repeat_hours, severity, title, message, now, dry_run):
+def record_failure(state_path, key, threshold, severity, title, message, now, dry_run):
     state = _load_state(state_path)
     entry = _entry(state, key)
     previous_status = entry.get("status")
     failures = int(entry.get("consecutive_failures") or 0) + 1 if previous_status == "failed" else 1
     last_alert = int(entry.get("last_alert_epoch") or 0)
     alert_open = bool(entry.get("alert_open"))
-    repeat_due = alert_open and (now - last_alert >= int(repeat_hours * 3600))
-    should_send = failures >= threshold and (not alert_open or repeat_due)
+    should_send = failures >= threshold and not alert_open
     delivered = False
     provider = "suppressed"
     if should_send:
@@ -212,13 +225,12 @@ def record_success(state_path, key, title, message, now, dry_run):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("status", choices=("failure", "success"))
+    parser.add_argument("status", choices=("failure", "success", "test"))
     parser.add_argument("--key", required=True)
     parser.add_argument("--title", required=True)
     parser.add_argument("--message", required=True)
     parser.add_argument("--severity", default="P1")
     parser.add_argument("--threshold", type=int, default=1)
-    parser.add_argument("--repeat-hours", type=float, default=24.0)
     parser.add_argument("--state-file", type=Path, default=DEFAULT_STATE)
     parser.add_argument("--now-epoch", type=int)
     parser.add_argument("--dry-run", action="store_true")
@@ -226,8 +238,6 @@ def main():
     args = parser.parse_args()
     if args.threshold < 1:
         raise ValueError("threshold must be >= 1")
-    if args.repeat_hours < 1:
-        raise ValueError("repeat-hours must be >= 1")
     now = args.now_epoch if args.now_epoch is not None else _now_epoch()
     title = "[%s] %s" % (args.severity, args.title)
     message = "%s\n\nTime: %s\nHost: %s" % (
@@ -240,17 +250,20 @@ def main():
             args.state_file,
             args.key,
             args.threshold,
-            args.repeat_hours,
             args.severity,
             title,
             message,
             now,
             args.dry_run,
         )
-    else:
+    elif args.status == "success":
         delivered, detail = record_success(args.state_file, args.key, "[恢复] " + args.title, message, now, args.dry_run)
-    if args.strict and not delivered and detail not in ("suppressed",):
-        return 2
+    else:
+        delivered, detail = _deliver("[测试] " + args.title, message, dry_run=args.dry_run)
+        print("ALERT_TEST sent=%s provider=%s" % (str(delivered).lower(), detail))
+    if args.strict and not delivered:
+        if args.status == "test" or detail not in ("suppressed", "disabled"):
+            return 2
     return 0
 
 
@@ -259,4 +272,4 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except Exception as exc:
         print("magnet-alert: %s: %s" % (type(exc).__name__, exc), file=sys.stderr)
-        raise SystemExit(0)
+        raise SystemExit(2 if "--strict" in sys.argv else 0)
