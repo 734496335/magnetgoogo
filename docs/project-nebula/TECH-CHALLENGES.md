@@ -38,6 +38,35 @@
 | [CH-007](#challenge-007--resource-index-跨电脑长任务编排与恢复) | Resource Index 跨电脑长任务编排与恢复 | **blocker** | solved in implementation | 2026-07-25 portable latest runner complete |
 | [CH-008](#challenge-008--dytt旧资源域名失效导致100条资源可靠性不足) | DYTT旧资源域名失效导致100条资源可靠性不足 | **high** | open | 2026-07-30 100条在线审计FAIL |
 | [CH-009](#challenge-009--影视自动发布二次失败缺少外部主动告警) | 影视自动发布二次失败缺少外部主动告警 | medium | open | 2026-08-05 已有一次自动重试，待接外部通知 |
+| [CH-010](#challenge-010--影视candidate污染生产revision命名空间) | 影视 candidate 污染生产 revision 命名空间 | **blocker** | solved ✅ | 2026-08-11 run-scoped candidate + 未晋级pointer归档恢复上线 |
+| [CH-011](#challenge-011--aliyun源包续期传播依赖人工同步) | Aliyun 源包续期传播依赖人工同步 | **high** | solved ✅ | 2026-08-11 每小时双证据原子同步上线 |
+
+---
+
+## CHALLENGE-010 — 影视candidate污染生产revision命名空间
+
+- **严重程度**：blocker
+- **状态**：solved ✅
+- **首次记录**：2026-08-11
+- **业务影响**：公网 revision 10 后，8月5日只读 audit 把 revision 11 candidate 写入正式 `releases/staging/pointers`；后续每日内容变化后仍按公网 revision+1 请求 11，触发“同 revision 不可重绑定”安全门禁，导致爬取正常但生产连续约6天不更新。
+- **当前方案 & 缺陷**：原安全门禁本身正确，缺陷是 candidate/audit 与正式 publish 共用永久 pointer 命名空间；既有单元测试和现场演练只覆盖单次运行、同内容重跑、锁/重试/无变化路径，没有覆盖“audit占N+1→次日内容变化→publish N+1”的跨运行序列。
+- **已尝试**：2026-08-05 曾完成448-test和真实失败演练并判定无人值守稳定；2026-08-11用线上 revision10/旧revision11 状态重放后确认该判定遗漏多日状态机。
+- **解决方案**：candidate/audit 全部改写到 `runs/<run_id>/release-candidate`；正式 publish 以公网 current 为唯一 revision authority，签名验证后把所有高于公网 revision 的未晋级 pointer 原子移动到本次 run evidence；与公网同 revision 但 release 不同仍硬停，未弱化不可重绑定门禁。
+- **验证**：生产旧 revision11 已归档证据并成功发布新 revision11；发布后 audit 生成 run-scoped revision12，但全局 pointer 仍只有9/10/11；随后同内容正式 publish 返回 `no_change=true/public_verified=true` 且 revision 保持11。
+- **更新日志**：2026-08-11 —— revision11 `20260811T000000Z-8fc684c7` 双端上线，274电影/299剧/4238磁力；R2/Aliyun pointer和Manifest字节一致。
+
+---
+
+## CHALLENGE-011 — Aliyun源包续期传播依赖人工同步
+
+- **严重程度**：high
+- **状态**：solved ✅
+- **首次记录**：2026-08-11
+- **业务影响**：上次源故障修复后5个公网入口可自动跟随 GitHub authority，但 `cn.magnetgoogo.com` 仍只靠人工 SCP；8月9日新包自动续期后，Aliyun 继续停在8月7日已过期包，备用链再次形成隐患。
+- **当前方案 & 缺陷**：此前验证只证明“人工同步后的即时六端点收敛”，没有执行“下一次自动续期发生且无人操作”的时间推进测试；Aliyun 主机又无法稳定直连 GitHub Raw，所以简单 cron wget Raw 不可靠。
+- **解决方案**：新增 persistent systemd hourly sync；从 `magnetgoogo.com` authority Worker 获取并强制要求 `X-Source-Authority: github-raw`，同时从 jsDelivr 独立取第二份；full/green 均须外层加密结构合法且双路字节完全一致，才允许临时文件原子替换生产静态文件。
+- **验证**：首次运行把 full/green 更新为 `427d490a...` / `d1c65ef0...`；第二次运行明确输出两份 `already current`；Aliyun 本地文件、自访问 `cn` 与 authority SHA 完全一致，timer 已启用并持续调度；故意让 CDN 第二证据不可达时脚本非零退出且两份目标文件哈希完全不变，fail-closed PASS。
+- **更新日志**：2026-08-11 —— 从“人工点时同步”改为“未来续期自动收敛”，任何双证据不一致时保持旧文件并等待下次重试。
 
 ---
 

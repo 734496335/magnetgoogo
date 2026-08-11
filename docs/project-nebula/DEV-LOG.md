@@ -1,4 +1,36 @@
 ---
+Date/Time: 2026-08-11 17:02 (UTC+8)
+Version: media-pointer-lifecycle-and-aliyun-source-convergence-fix
+Scope: Close the cross-run media revision tombstone defect, recover six days of unpublished media, and make Aliyun encrypted source renewal converge without human SCP
+Modules: magnet/resource_index/pipeline/media_daily.py, magnet/tests/resource_index/test_media_daily.py, deploy/source-sync/linux/**, magnet/tests/resource_index/test_source_sync_linux_deployment.py, Aliyun production media/source runtime, docs/project-nebula/{_progress.txt,DEV-LOG.md,TECH-CHALLENGES.md,_failures/*}
+
+### Why the previous stability audit still missed production failure
+- The 2026-08-05 unattended audit correctly tested revision immutability, same-input no-change, stale locks, retry, endpoint verification and failure recovery, but it did not execute a multi-run time sequence where a read-only audit first consumes `public_revision+1` and a later changed-content publish requests that same revision.
+- Candidate/audit and production publish shared `releases/staging/pointers`; therefore the strict and correct “one revision can never point to two releases” gate turned an unpromoted audit pointer into a permanent production tombstone. The bug was lifecycle/namespace design, not crawler failure or a weak revision guard.
+- The same class could also occur after a real publish failed before current promotion, so deleting the single revision-11 file would have been a temporary cleanup rather than a fix.
+
+### P0 media state-machine repair and production recovery
+- Non-publish candidate/audit releases are now run-scoped under `runs/<run_id>/release-candidate` and cannot reserve production revisions.
+- Before a real publish, the pipeline reads public R2 current as authority, signature-verifies staged pointers and moves every pointer above the public revision into the current run's `unpromoted-pointer-evidence`; a staged pointer equal to public revision but with a different release remains a hard failure.
+- Added cross-run regression coverage for run-scoped candidates, future-pointer archival and public/staging same-revision conflict refusal. Targeted suite 53/53 PASS; full Resource Index 383 passed / 1 skipped; compileall and 241-rule enum gate PASS.
+- On production, the old `11 -> 20260805T000000Z-8013b446` pointer was preserved as evidence and replaced through the normal signed publication path by revision 11 / `20260811T000000Z-8fc684c7`.
+- R2 and Aliyun current bytes match SHA `ce287929...`; Manifest bytes match SHA `36ed35a2...`; production now exposes 274 movies, 299 series and 4,238 magnet resources with all release quality counters clean.
+- A post-release audit generated revision-12 only inside its run-scoped candidate directory; the global pointer directory stayed 9/10/11. A following same-content real publish returned `no_change=true`, `public_verified=true` and kept revision 11.
+
+### P1 Aliyun source-pack convergence repair
+- Confirmed the prior source repair automated the five authority-following endpoints but left Aliyun as a one-time manual SCP copy; point-in-time convergence passed while the next renewal event was never tested without human action.
+- Aliyun cannot reliably reach GitHub Raw directly, so the new hourly persistent systemd sync obtains each full/green pack from the `magnetgoogo.com` authority Worker, requires `X-Source-Authority: github-raw`, independently obtains jsDelivr bytes, validates the encrypted envelope structure and atomically replaces the static file only when both copies are byte-identical.
+- First production run updated Aliyun full/green to `427d490a...` / `d1c65ef0...`; a second run returned `already current` for both. Aliyun local files, `cn` self-HTTP and authority bytes match exactly.
+- Fail-closed injection pointed the independent CDN witness at an unreachable localhost port: sync exited non-zero and both pre-existing target file hashes remained byte-identical, proving a witness outage cannot partially overwrite production.
+
+### Deployment / rollback / residual
+- Repair commit `13a6d55908b35e02f8a6e9706604122b9f8d7d51` is on `feature/media-daily-automation`; production image `b26acfbc12e2...` is tagged `latest` and `13a6d55`.
+- Pre-fix image remains tagged `magnet-media-daily:pre-pointer-fix-20260811`; old code/source/pointer evidence is backed up under `/opt/magnet-media/backups/20260811T1607`.
+- Initial Docker Hub base-image lookup timed out from Aliyun; this environment failure is preserved in `_failures/20260811-1627-media-pointer-fix-dockerhub-timeout.log`. Rebuild succeeded from the cached 1Panel Python image plus Aliyun PyPI.
+- Remaining unrelated media operational debt is CH-009: no external alert if both the normal daily run and its single delayed retry fail.
+---
+
+---
 Date/Time: 2026-08-05 10:00 (UTC+8)
 Version: media-crawler-sixv-stale-root-cause-revision9
 Scope: Diagnose why SixV updates were absent from the App, restore the failed systemd execution chain, prove the supplied 17 titles through the complete signed release path and harden four-source catch-up

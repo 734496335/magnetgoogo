@@ -1,41 +1,26 @@
-TASK: 影视自动抓取与发布长期无人值守稳定性终审
-STATUS: PASS_WITH_EXTERNAL_ALERTING_RESIDUAL / REVISION10_PRODUCTION_PASS
-DATE: 2026-08-05 UTC+8
+TASK: 影视发布 revision 生命周期修复 + Aliyun 源包自动传播闭环
+STATUS: PRODUCTION_RECOVERED / REVISION11_LIVE / ALIYUN_SOURCE_SYNC_AUTOMATED
+DATE: 2026-08-11 UTC+8
 
-PRODUCTION:
-- revision 10 / release 20260805T000000Z-8013b446。
-- pointer SHA d5c0be581d8bd26fb08509a5ffa810a7996054586ec7f267fc2ef324ce187eb5。
-- manifest SHA f57967515c709ee4018469c349539a61109b9c2cdc36cfed1c86e6fba640ba21。
-- 247电影、249电视剧、3892磁力、0 cloud；496条影视非法评分0。
-- R2、阿里云和服务器本地current字节一致。
+P0 ROOT CAUSE:
+- audit/candidate 与正式 publish 共用 releases/staging/pointers，都会按公网 revision+1 写永久 pointer candidate。
+- 2026-08-05 audit 留下 11 -> 20260805T000000Z-8013b446；后续新内容 publish 仍请求 revision 11，被不可重绑定安全门禁持续阻断。
+- 既有 448-test/live-drill 覆盖单次安全性、同内容重跑、锁/重试，但缺少“audit占N+1 -> 次日内容变化 -> publish N+1”的跨运行状态机序列。
 
-STABILITY_CLOSED:
-- 单源临时故障可回退最近可信数据库，默认最长168小时；过期或不完整继续硬停。
-- 无变化路径仍验证R2/阿里云双端，异常时进入修复发布，不再假成功。
-- 评分状态确定性重放；清理0分、越界分和整页垃圾评分文本。
-- 中文长标题评分缓存改为有界前缀+SHA并原子写入。
-- 主锁和发布锁均增加30秒心跳、10分钟过期恢复、hostname/token归属。
-- systemd结束后清理匹配容器、CID和所属主锁。
-- 正式发布失败30分钟后最多自动重试一次；已有较新成功时取消重试。
-- publish/audit/candidate状态文件隔离，保留策略不删除权威状态。
+P0 FIX/LIVE:
+- candidate/audit release 改为 runs/<run_id>/release-candidate，永不占生产 pointer 命名空间。
+- publish 前以公网 current 为 authority，签名验证并归档所有 > public revision 的未晋级 pointer 到本次 run evidence；同 revision 冲突仍硬停。
+- 旧 revision11 墓碑已归档；正式 revision11 / 20260811T000000Z-8fc684c7 已双端上线。
+- Production counts: 274 movies / 299 series / 4238 magnets；R2/Aliyun current + Manifest 字节一致。
+- 发布后 audit 生成 run-scoped revision12 candidate；global pointers 仍只有 9/10/11。
+- 再跑 same-content publish: no_change=true, public_verified=true, revision 保持11。
 
-LIVE_DRILLS:
-- revision 10发布PASS；同输入第二次19秒返回no_change=true、public_verified=true，revision保持10。
-- 预置PID=1陈旧锁和停止容器，周审计自动恢复并PASS，结束后零容器/零锁/零CID。
-- 人为注入SixV LIVE_HTTP_ERROR，回退到4.22小时前100/100可信数据库。
-- 延迟重试缩短为1秒演练，识别已有新成功并取消重复发布。
-- R2陈旧发布锁自动恢复；约18分钟上传验证期间锁心跳持续刷新。
+P1 ROOT CAUSE/FIX:
+- 上次修复自动化了5个 authority-following 端点，但 Aliyun 仍只是一次性人工 SCP；点时收敛测试未覆盖“下一次续期无人值守”。
+- Aliyun 无法稳定直连 GitHub Raw；新增每小时 systemd sync，从 magnetgoogo.com authority Worker + jsDelivr 双路取证，结构校验+字节一致后原子替换。
+- Aliyun full/green 已更新为 427d490a... / d1c65ef0...；二次运行明确 already current。
 
-VERIFICATION:
-- 448 passed、1 skipped。
-- compileall PASS；241条枚举ALL VALID；Shell语法PASS；systemd verify PASS。
-- 服务器剩余约16GB，磁盘59%，inode21%，无OOM。
-- 下一次每日Timer：2026-08-06 03:34:54（UTC+8）。
-- 下一次周审计：2026-08-09 14:31:46（UTC+8）。
-
-RESIDUAL:
-- 第二次自动重试仍失败时只有systemd日志和结构化状态，尚未接企业微信/飞书/邮件等外部主动告警；不影响数据安全与current原子性，但影响故障发现速度。
-
-EVIDENCE:
-- docs/project-nebula/MEDIA-CRAWLER-SIXV-STALE-ROOT-CAUSE-20260805.md
-- docs/project-nebula/MEDIA-UNATTENDED-STABILITY-AUDIT-20260805.md
+GATES:
+- Commit 13a6d55908b35e02f8a6e9706604122b9f8d7d51 on feature/media-daily-automation.
+- Resource Index 383 passed / 1 skipped; targeted 53/53; compileall PASS; enum 241 ALL VALID.
+- New production image b26acfbc12e2... is latest; old image retained as pre-pointer-fix-20260811.
