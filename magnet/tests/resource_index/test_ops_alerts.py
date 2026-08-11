@@ -229,6 +229,18 @@ def test_source_sync_alert_wires_two_failures_and_two_low_expiry_observations() 
     assert "--repeat-hours" not in helper
 
 
+def test_alert_and_source_sync_deployment_files_use_lf_line_endings() -> None:
+    paths = list((ROOT / "deploy" / "alerts" / "linux").iterdir()) + list(SOURCE_LINUX.iterdir())
+    relevant = [
+        path
+        for path in paths
+        if path.is_file() and (path.suffix in {".sh", ".py", ".service", ".timer", ".env"})
+    ]
+    assert relevant
+    for path in relevant:
+        assert b"\r\n" not in path.read_bytes(), path
+
+
 def test_installers_keep_alert_component_present_without_overwriting_config() -> None:
     alert_installer = (ROOT / "deploy" / "alerts" / "linux" / "install-alerts.sh").read_text(encoding="utf-8")
     media_installer = (MEDIA_LINUX / "install-media-daily.sh").read_text(encoding="utf-8")
