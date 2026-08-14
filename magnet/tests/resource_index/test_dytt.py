@@ -28,7 +28,7 @@ from magnet.resource_index.domain.movie_models import (
     MovieListingCandidate,
     MovieResource,
 )
-from magnet.resource_index.errors import LIVE_HTTP_ERROR, LIVE_URL_REJECTED, NOT_FOUND, ResourceIndexError
+from magnet.resource_index.errors import LIVE_EMPTY_RESULT, LIVE_HTTP_ERROR, LIVE_URL_REJECTED, NOT_FOUND, ResourceIndexError
 from magnet.resource_index.pipeline.latest_crawl import (
     LatestCrawlPaths,
     run_deployment_doctor,
@@ -649,6 +649,70 @@ def test_safe_automation_charges_full_reservation_after_crash(
         requested_requests=2,
     )
     assert allowed.allowed is True
+    repo.close()
+
+
+def test_safe_automation_refunds_unused_reservation_for_structured_snapshot_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from magnet.resource_index.adapters import movie_registry
+
+    source_id = "test-movie-structured-failure-budget"
+
+    class _StructuredFailureCrawler:
+        http_requests = 1
+
+        def crawl_latest_candidates(self, *, limit: int, max_listing_pages: int):
+            raise ResourceIndexError(LIVE_EMPTY_RESULT, "temporary empty listing", {})
+
+        def crawl_movie_detail(self, candidate: MovieListingCandidate):
+            raise AssertionError("detail should not run")
+
+    spec = MovieSourceSpec(
+        source_id=source_id,
+        snapshot_schema="movie-latest/structured-failure/1",
+        default_count=2,
+        minimum_delay_seconds=10,
+        minimum_check_interval_hours=12,
+        daily_request_budget=10,
+        default_batch_size=1,
+        automatic_max_batches=1,
+        snapshot_max_requests=1,
+        batch_max_requests=1,
+        max_listing_pages=1,
+        robots_url=None,
+        allowed_origins=("https://www.dytt8899.com",),
+        allowed_path_prefixes=("/i/",),
+        crawler_factory=lambda _policy: _StructuredFailureCrawler(),
+    )
+    monkeypatch.setitem(movie_registry._SPECS, source_id, spec)
+    with pytest.raises(ResourceIndexError, match="temporary empty listing"):
+        run_safe_movie_source(
+            source_id=source_id,
+            output_dir=tmp_path / "out",
+            clock=lambda: NOW,
+        )
+    paths = LatestCrawlPaths.for_output_dir(
+        tmp_path / "out",
+        source_id=source_id,
+        target_count=2,
+    )
+    repo = SqliteResourceRepository(paths.db_path)
+    repo.init_schema()
+    store = MovieSourceStateStore(repo)
+    status = store.status(source_id=source_id, daily_budget=10)
+    assert status["daily_reserved_requests"] == 1
+    assert status["remaining_daily_requests"] == 9
+    assert status["consecutive_failures"] == 1
+    recovery = store.reserve(
+        source_id=source_id,
+        now=NOW + timedelta(minutes=15),
+        minimum_interval_hours=0,
+        daily_budget=10,
+        requested_requests=2,
+    )
+    assert recovery.allowed is True
     repo.close()
 
 

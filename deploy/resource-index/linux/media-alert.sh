@@ -6,6 +6,7 @@ ALERT_BIN="${MAGNET_ALERT_BIN:-/opt/magnet-alerts/magnet-alert.py}"
 STATUS="${MAGNET_MEDIA_STATUS_FILE:-/var/lib/magnet-media/status/latest-publish.json}"
 PYTHON_BIN="${MAGNET_MEDIA_ALERT_PYTHON:-/usr/bin/python3}"
 STATE_FILE="${MAGNET_MEDIA_ALERT_STATE:-/var/lib/magnet-alerts/media-publish.json}"
+FRESHNESS_STATE_FILE="${MAGNET_MEDIA_FRESHNESS_ALERT_STATE:-/var/lib/magnet-alerts/media-source-freshness.json}"
 
 [[ -x "$ALERT_BIN" ]] || exit 0
 
@@ -22,6 +23,9 @@ parts = [
     "run_id=%s" % (value.get("run_id") or "unknown"),
     "revision=%s" % (value.get("current_revision") or value.get("previous_revision") or "unknown"),
     "release=%s" % (value.get("release_id") or "unknown"),
+    "quality_status=%s" % (value.get("quality_status") or "unknown"),
+    "degraded_sources=%s" % ",".join(value.get("degraded_sources") or []),
+    "required_degraded_sources=%s" % ",".join(value.get("required_degraded_sources") or []),
     "movies=%s" % (value.get("movie_count") if value.get("movie_count") is not None else "unknown"),
     "series=%s" % (value.get("series_count") if value.get("series_count") is not None else "unknown"),
     "resources=%s" % (value.get("resource_count") if value.get("resource_count") is not None else "unknown"),
@@ -30,6 +34,19 @@ if error:
     parts.append("error_code=%s" % (error.get("error_code") or "unknown"))
     parts.append("error=%s" % str(error.get("message") or error.get("type") or "unknown")[:500])
 print("\n".join(parts))
+PY
+)"
+
+REQUIRED_DEGRADED="$($PYTHON_BIN - "$STATUS" <<'PY'
+import json, sys
+from pathlib import Path
+try:
+    value = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+except Exception:
+    value = {}
+items = value.get("required_degraded_sources")
+if isinstance(items, list):
+    print(",".join(str(item) for item in items if str(item)))
 PY
 )"
 
@@ -45,6 +62,23 @@ case "$MODE" in
       --message "每日影视发布首次失败后已自动重试，重试仍失败。生产 current 保持旧 revision，未强行晋级。\n$DETAIL" || true
     ;;
   success)
+    if [[ -n "$REQUIRED_DEGRADED" ]]; then
+      "$ALERT_BIN" failure \
+        --key media-source-freshness \
+        --state-file "$FRESHNESS_STATE_FILE" \
+        --threshold 1 \
+        --repeat-hours 24 \
+        --severity P1 \
+        --title "影视主源抓取持续降级" \
+        --message "主影视源首次抓取失败后已执行延迟单源重试，但仍在使用 last-known-good 数据。发布链可用，但相关新内容可能滞后。\n$DETAIL" || true
+    else
+      "$ALERT_BIN" success \
+        --key media-source-freshness \
+        --state-file "$FRESHNESS_STATE_FILE" \
+        --severity P1 \
+        --title "影视主源抓取已恢复" \
+        --message "影视主源抓取已恢复为实时数据。\n$DETAIL" || true
+    fi
     "$ALERT_BIN" success \
       --key media-publish \
       --state-file "$STATE_FILE" \

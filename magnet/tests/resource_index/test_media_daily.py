@@ -238,7 +238,26 @@ def test_media_daily_config_defaults_to_v023(tmp_path: Path) -> None:
             "sources": [{"source_id": "sixv", "count": 100}],
         },
     )
-    assert load_media_daily_config(config_path).min_app_version == "0.2.3"
+    loaded = load_media_daily_config(config_path)
+    assert loaded.min_app_version == "0.2.3"
+    assert loaded.source_fallback_retry_delay_seconds == 900
+    assert loaded.sources[0].freshness_required is False
+
+
+def test_media_daily_config_rejects_non_boolean_freshness_flag(tmp_path: Path) -> None:
+    config_path = tmp_path / "media-daily.json"
+    _write(
+        config_path,
+        {
+            "state_root": str(tmp_path / "state"),
+            "public_root": str(tmp_path / "public"),
+            "private_key_path": str(tmp_path / "private.pem"),
+            "public_key_path": str(tmp_path / "public.pem"),
+            "sources": [{"source_id": "sixv", "count": 100, "freshness_required": "yes"}],
+        },
+    )
+    with pytest.raises(ResourceIndexError, match="freshness flag"):
+        load_media_daily_config(config_path)
 
 
 @pytest.mark.parametrize(
@@ -251,6 +270,7 @@ def test_media_daily_config_defaults_to_v023(tmp_path: Path) -> None:
         ("disk_max_used_percent", 100),
         ("disk_min_free_bytes", -1),
         ("source_fallback_max_age_hours", 0),
+        ("source_fallback_retry_delay_seconds", -1),
     ],
 )
 def test_media_daily_config_rejects_unsafe_maintenance_settings(
@@ -698,6 +718,255 @@ def test_daily_pipeline_falls_back_to_recent_source_database_on_transient_failur
     assert crawl[0]["reason"] == "last_known_good_database"
     assert crawl[0]["error"]["error_code"] == "LIVE_HTTP_ERROR"
     assert result["status"] == "success"
+
+
+def test_daily_pipeline_recovers_required_source_after_one_fallback_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    db_path = tmp_path / "state" / "sources" / "sixv_latest_10.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    db_path.write_bytes(b"sqlite-placeholder")
+    calls = {"count": 0}
+
+    def run_source(**kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise ResourceIndexError("LIVE_EMPTY_RESULT", "temporary empty listing", {"http_requests": 1})
+        return SimpleNamespace(
+            source_id=kwargs["source_id"],
+            status="ran",
+            reason="scheduled_check",
+            target_count=10,
+            invocation_http_requests=5,
+            reserved_requests=10,
+            snapshot_changed=True,
+            job_status="success",
+            covered_count=10,
+            remaining_daily_requests=84,
+            db_path=str(db_path),
+            feed_path=str(tmp_path / "feed.json"),
+        )
+
+    monkeypatch.setattr(media_daily, "run_safe_movie_source", run_source)
+    monkeypatch.setattr(
+        media_daily,
+        "safe_movie_source_status",
+        lambda **_kwargs: {
+            "job": {
+                "status": "success",
+                "covered_count": 10,
+                "db_path": str(db_path),
+                "completed_at": media_daily._iso(),
+            },
+            "source": {"last_completed_at": media_daily._iso()},
+        },
+    )
+    base = _config(tmp_path)
+    config = MediaDailyConfig(
+        **{
+            **base.__dict__,
+            "sources": (DailySourceConfig("sixv", 10, True),),
+            "source_fallback_retry_delay_seconds": 0,
+        }
+    )
+    result = run_media_daily(config, publish=False)
+    assert calls["count"] == 2
+    assert result["quality_status"] == "healthy"
+    assert result["degraded_sources"] == []
+    assert result["required_degraded_sources"] == []
+    assert result["stages"]["crawl"][0]["status"] == "recovered"
+    assert result["stages"]["crawl"][0]["reason"] == "fallback_retry"
+
+
+def test_daily_pipeline_surfaces_required_source_when_recovery_retry_still_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    db_path = tmp_path / "state" / "sources" / "sixv_latest_10.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    db_path.write_bytes(b"sqlite-placeholder")
+    calls = {"count": 0}
+
+    def run_source(**_kwargs):
+        calls["count"] += 1
+        raise ResourceIndexError("LIVE_EMPTY_RESULT", "temporary empty listing", {"http_requests": 1})
+
+    monkeypatch.setattr(media_daily, "run_safe_movie_source", run_source)
+    monkeypatch.setattr(
+        media_daily,
+        "safe_movie_source_status",
+        lambda **_kwargs: {
+            "job": {
+                "status": "success",
+                "covered_count": 10,
+                "db_path": str(db_path),
+                "completed_at": media_daily._iso(),
+            },
+            "source": {"last_completed_at": media_daily._iso()},
+        },
+    )
+    base = _config(tmp_path)
+    config = MediaDailyConfig(
+        **{
+            **base.__dict__,
+            "sources": (DailySourceConfig("sixv", 10, True),),
+            "source_fallback_retry_delay_seconds": 0,
+        }
+    )
+    result = run_media_daily(config, publish=False)
+    assert calls["count"] == 2
+    assert result["status"] == "success"
+    assert result["quality_status"] == "degraded"
+    assert result["degraded_sources"] == ["sixv"]
+    assert result["required_degraded_sources"] == ["sixv"]
+    crawl = result["stages"]["crawl"][0]
+    assert crawl["status"] == "fallback"
+    assert crawl["recovery"]["succeeded"] is False
+
+
+def test_daily_pipeline_retries_required_source_blocked_by_failure_backoff(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    db_path = tmp_path / "state" / "sources" / "sixv_latest_10.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    db_path.write_bytes(b"sqlite-placeholder")
+    calls = {"count": 0}
+
+    def run_source(**kwargs):
+        calls["count"] += 1
+        if not kwargs.get("recovery_retry"):
+            return SimpleNamespace(
+                source_id="sixv",
+                status="skipped",
+                reason="failure_backoff",
+                target_count=10,
+                invocation_http_requests=0,
+                reserved_requests=0,
+                snapshot_changed=None,
+                job_status="success",
+                covered_count=10,
+                remaining_daily_requests=99,
+                db_path=str(db_path),
+                feed_path=str(tmp_path / "feed.json"),
+            )
+        return SimpleNamespace(
+            source_id="sixv",
+            status="ran",
+            reason="scheduled_check",
+            target_count=10,
+            invocation_http_requests=2,
+            reserved_requests=10,
+            snapshot_changed=True,
+            job_status="success",
+            covered_count=10,
+            remaining_daily_requests=88,
+            db_path=str(db_path),
+            feed_path=str(tmp_path / "feed.json"),
+        )
+
+    monkeypatch.setattr(media_daily, "run_safe_movie_source", run_source)
+    monkeypatch.setattr(
+        media_daily,
+        "safe_movie_source_status",
+        lambda **_kwargs: {
+            "job": {
+                "status": "success",
+                "covered_count": 10,
+                "db_path": str(db_path),
+                "completed_at": media_daily._iso(),
+            },
+            "source": {"last_completed_at": media_daily._iso()},
+        },
+    )
+    base = _config(tmp_path)
+    config = MediaDailyConfig(
+        **{
+            **base.__dict__,
+            "sources": (DailySourceConfig("sixv", 10, True),),
+            "source_fallback_retry_delay_seconds": 0,
+        }
+    )
+    result = run_media_daily(config, publish=False)
+    assert calls["count"] == 2
+    assert result["quality_status"] == "healthy"
+    assert result["stages"]["crawl"][0]["status"] == "recovered"
+
+
+def test_daily_pipeline_retries_required_source_that_returns_pending(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    db_path = tmp_path / "state" / "sources" / "sixv_latest_10.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    db_path.write_bytes(b"sqlite-placeholder")
+    calls = {"count": 0}
+
+    def run_source(**kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            return SimpleNamespace(
+                source_id="sixv",
+                status="ran",
+                reason="scheduled_check",
+                target_count=10,
+                invocation_http_requests=10,
+                reserved_requests=10,
+                snapshot_changed=True,
+                job_status="pending",
+                covered_count=8,
+                remaining_daily_requests=90,
+                db_path=str(db_path),
+                feed_path=str(tmp_path / "feed.json"),
+            )
+        assert kwargs.get("recovery_retry") is True
+        return SimpleNamespace(
+            source_id="sixv",
+            status="ran",
+            reason="resume",
+            target_count=10,
+            invocation_http_requests=2,
+            reserved_requests=2,
+            snapshot_changed=True,
+            job_status="success",
+            covered_count=10,
+            remaining_daily_requests=88,
+            db_path=str(db_path),
+            feed_path=str(tmp_path / "feed.json"),
+        )
+
+    monkeypatch.setattr(media_daily, "run_safe_movie_source", run_source)
+    monkeypatch.setattr(
+        media_daily,
+        "safe_movie_source_status",
+        lambda **_kwargs: {
+            "job": {
+                "status": "success",
+                "covered_count": 10,
+                "db_path": str(db_path),
+                "completed_at": media_daily._iso(),
+            },
+            "source": {"last_completed_at": media_daily._iso()},
+        },
+    )
+    base = _config(tmp_path)
+    config = MediaDailyConfig(
+        **{
+            **base.__dict__,
+            "sources": (DailySourceConfig("sixv", 10, True),),
+            "source_fallback_retry_delay_seconds": 0,
+        }
+    )
+    result = run_media_daily(config, publish=False)
+    assert calls["count"] == 2
+    assert result["quality_status"] == "healthy"
+    assert result["stages"]["crawl"][0]["status"] == "recovered"
+    assert result["stages"]["crawl"][0]["initial_result"]["initial_result"]["job_status"] == "pending"
 
 
 def test_daily_pipeline_rejects_stale_source_fallback(

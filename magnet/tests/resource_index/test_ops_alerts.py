@@ -234,6 +234,11 @@ def test_media_alert_wires_only_second_failure_and_success_recovery() -> None:
     assert "EnvironmentFile=-/etc/magnet-alerts/alert.env" in retry_unit
     assert '--title "影视自动发布二次失败"' in helper
     assert "/var/lib/magnet-alerts/media-publish.json" in helper
+    assert "--key media-source-freshness" in helper
+    assert "/var/lib/magnet-alerts/media-source-freshness.json" in helper
+    assert '--title "影视主源抓取持续降级"' in helper
+    assert '--title "影视主源抓取已恢复"' in helper
+    assert "required_degraded_sources" in helper
     assert "--repeat-hours 24" in helper
 
 

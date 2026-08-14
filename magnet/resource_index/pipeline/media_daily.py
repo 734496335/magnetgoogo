@@ -66,6 +66,7 @@ from magnet.resource_index.release.protocol import canonical_json_bytes, sha256_
 class DailySourceConfig:
     source_id: str
     count: int
+    freshness_required: bool = False
 
 
 @dataclass(frozen=True)
@@ -93,6 +94,7 @@ class MediaDailyConfig:
     disk_max_used_percent: float = 80.0
     disk_min_free_bytes: int = 2 * 1024 * 1024 * 1024
     source_fallback_max_age_hours: int = 168
+    source_fallback_retry_delay_seconds: int = 0
 
 
 def _utc_now() -> datetime:
@@ -153,7 +155,10 @@ def load_media_daily_config(path: str | Path) -> MediaDailyConfig:
         count = item.get("count")
         if type(count) is not int or count < 1:
             raise ResourceIndexError(CONFIG_ERROR, "media daily source count is invalid", {"entry": item})
-        sources.append(DailySourceConfig(str(item["source_id"]), count))
+        freshness_required = item.get("freshness_required", False)
+        if type(freshness_required) is not bool:
+            raise ResourceIndexError(CONFIG_ERROR, "media daily source freshness flag is invalid", {"entry": item})
+        sources.append(DailySourceConfig(str(item["source_id"]), count, freshness_required))
     return MediaDailyConfig(
         state_root=Path(str(source["state_root"])).expanduser(),
         public_root=Path(str(source["public_root"])).expanduser(),
@@ -196,6 +201,12 @@ def load_media_daily_config(path: str | Path) -> MediaDailyConfig:
             "source_fallback_max_age_hours",
             168,
             minimum=1,
+        ),
+        source_fallback_retry_delay_seconds=_config_int(
+            source,
+            "source_fallback_retry_delay_seconds",
+            900,
+            minimum=0,
         ),
     )
 
@@ -788,6 +799,7 @@ def run_media_daily(
             _write_json(latest_status, status)
             source_results: list[dict[str, Any]] = []
             library_feeds: list[Path] = []
+            recovery_candidates: list[tuple[int, DailySourceConfig, Path]] = []
             source_root = root / "sources"
             for source in config.sources:
                 if skip_crawl:
@@ -799,7 +811,12 @@ def run_media_daily(
                         target_count=source.count,
                     )
                     db_path = str(current["job"]["db_path"])
-                    source_results.append({"source_id": source.source_id, "status": "crawl_skipped", "db_path": db_path})
+                    source_results.append({
+                        "source_id": source.source_id,
+                        "status": "crawl_skipped",
+                        "db_path": db_path,
+                        "freshness_required": source.freshness_required,
+                    })
                 else:
                     try:
                         result = run_safe_movie_source(
@@ -808,7 +825,37 @@ def run_media_daily(
                             target_count=source.count,
                         )
                         db_path = result.db_path
-                        source_results.append(result.__dict__)
+                        result_payload = {**result.__dict__, "freshness_required": source.freshness_required}
+                        result_status = str(getattr(result, "status", "") or "")
+                        result_reason = str(getattr(result, "reason", "") or "")
+                        result_job_status = str(getattr(result, "job_status", "") or "")
+                        freshness_incomplete = (
+                            result_status == "paused"
+                            or result_job_status in {"pending", "paused", "partial"}
+                            or (result_status == "skipped" and result_reason == "failure_backoff")
+                        )
+                        if source.freshness_required and freshness_incomplete:
+                            synthetic = ResourceIndexError(
+                                LIVE_RATE_LIMITED,
+                                "freshness-required source did not complete a fresh crawl",
+                                {
+                                    "source_id": source.source_id,
+                                    "reason": result_reason,
+                                    "status": result_status,
+                                    "job_status": result_job_status,
+                                },
+                            )
+                            db_path, fallback = _source_fallback(
+                                source=source,
+                                source_root=source_root,
+                                error=synthetic,
+                                max_age_hours=config.source_fallback_max_age_hours,
+                            )
+                            fallback["freshness_required"] = True
+                            fallback["initial_result"] = result_payload
+                            source_results.append(fallback)
+                        else:
+                            source_results.append(result_payload)
                     except BaseException as exc:
                         db_path, fallback = _source_fallback(
                             source=source,
@@ -816,6 +863,7 @@ def run_media_daily(
                             error=exc,
                             max_age_hours=config.source_fallback_max_age_hours,
                         )
+                        fallback["freshness_required"] = source.freshness_required
                         source_results.append(fallback)
                 library_path = run_dir / "library" / f"{source.source_id}.json"
                 export_source_library_feed(
@@ -824,6 +872,66 @@ def run_media_daily(
                     output_path=library_path,
                 )
                 library_feeds.append(library_path)
+                if source.freshness_required and source_results[-1].get("status") == "fallback":
+                    recovery_candidates.append((len(source_results) - 1, source, library_path))
+
+            if recovery_candidates and not skip_crawl:
+                if config.source_fallback_retry_delay_seconds > 0:
+                    time.sleep(config.source_fallback_retry_delay_seconds)
+                for result_index, source, library_path in recovery_candidates:
+                    initial_result = dict(source_results[result_index])
+                    try:
+                        retry = run_safe_movie_source(
+                            source_id=source.source_id,
+                            output_dir=source_root,
+                            target_count=source.count,
+                            recovery_retry=True,
+                        )
+                        retry_payload = retry.__dict__
+                        recovered = (
+                            retry.status == "ran"
+                            and retry.job_status == "success"
+                            and retry.covered_count == source.count
+                        )
+                        if recovered:
+                            export_source_library_feed(
+                                db_path=retry.db_path,
+                                source_id=source.source_id,
+                                output_path=library_path,
+                            )
+                            source_results[result_index] = {
+                                **retry_payload,
+                                "status": "recovered",
+                                "reason": "fallback_retry",
+                                "freshness_required": True,
+                                "initial_result": initial_result,
+                            }
+                        else:
+                            source_results[result_index]["recovery"] = {
+                                **retry_payload,
+                                "succeeded": False,
+                            }
+                    except BaseException as retry_exc:
+                        source_results[result_index]["recovery"] = {
+                            "succeeded": False,
+                            "error": {
+                                "type": type(retry_exc).__name__,
+                                "error_code": (
+                                    retry_exc.error_code
+                                    if isinstance(retry_exc, ResourceIndexError)
+                                    else "UNEXPECTED"
+                                ),
+                                "message": str(retry_exc),
+                            },
+                        }
+
+            degraded = [item for item in source_results if item.get("status") == "fallback"]
+            required_degraded = [item for item in degraded if item.get("freshness_required") is True]
+            status["quality_status"] = "degraded" if degraded else "healthy"
+            status["degraded_sources"] = [str(item.get("source_id") or "") for item in degraded]
+            status["required_degraded_sources"] = [
+                str(item.get("source_id") or "") for item in required_degraded
+            ]
             status["stages"]["crawl"] = source_results
             _write_json(latest_status, status)
 

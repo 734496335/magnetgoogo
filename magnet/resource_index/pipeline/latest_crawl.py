@@ -480,6 +480,19 @@ class LatestCrawlRunner:
             )
         return snapshot
 
+    @staticmethod
+    def _crawler_http_requests(crawler: Any) -> int:
+        direct = getattr(crawler, "http_requests", None)
+        if isinstance(direct, int):
+            return max(0, direct)
+        for owner_name in ("fetcher", "client"):
+            owner = getattr(crawler, owner_name, None)
+            request_budget = getattr(owner, "request_budget", None)
+            used = getattr(request_budget, "used", None)
+            if isinstance(used, int):
+                return max(0, used)
+        return 0
+
     def _fetch_snapshot(self) -> dict[str, Any]:
         policy = LiveFetchPolicy(
             enabled=True,
@@ -497,10 +510,20 @@ class LatestCrawlRunner:
                 "source does not support latest-list snapshots",
                 {"source_id": self.source_id},
             )
-        raw_candidates = crawl_latest(
-            limit=self.target_count,
-            max_listing_pages=self.max_listing_pages,
-        )
+        try:
+            raw_candidates = crawl_latest(
+                limit=self.target_count,
+                max_listing_pages=self.max_listing_pages,
+            )
+        except ResourceIndexError as exc:
+            request_count = self._crawler_http_requests(crawler)
+            if request_count <= 0 or "http_requests" in exc.context:
+                raise
+            raise ResourceIndexError(
+                exc.error_code,
+                exc.message,
+                {**exc.context, "http_requests": request_count},
+            ) from exc
         items: list[dict[str, Any]] = []
         seen_urls: set[str] = set()
         for candidate in raw_candidates:

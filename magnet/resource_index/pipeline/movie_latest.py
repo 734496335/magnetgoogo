@@ -445,6 +445,16 @@ class MovieLatestRunner:
                 )
         self._invocation_http_requests += total_requests
         if candidates is None or selected_endpoint is None:
+            if isinstance(last_error, ResourceIndexError):
+                raise ResourceIndexError(
+                    last_error.error_code,
+                    last_error.message,
+                    {
+                        **last_error.context,
+                        "http_requests": total_requests,
+                        "endpoint_attempts": attempts,
+                    },
+                ) from last_error
             if last_error is not None:
                 raise last_error
             raise ResourceIndexError(

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Callable
 
 from magnet.resource_index.adapters.movie_registry import get_movie_source
+from magnet.resource_index.errors import ResourceIndexError
 from magnet.resource_index.pipeline.latest_crawl import (
     LatestCrawlPaths,
     _canonical_snapshot_bytes,
@@ -87,6 +88,7 @@ def run_safe_movie_source(
     target_count: int | None = None,
     clock: Clock = _utc_now,
     logger: logging.Logger | None = None,
+    recovery_retry: bool = False,
 ) -> SafeMovieSourceResult:
     spec = get_movie_source(source_id)
     count = int(target_count or spec.default_count)
@@ -119,7 +121,7 @@ def run_safe_movie_source(
             source_id=source_id,
             now=clock(),
             minimum_interval_hours=(
-                0 if durable_job_status == "pending" else spec.minimum_check_interval_hours
+                0 if recovery_retry or durable_job_status == "pending" else spec.minimum_check_interval_hours
             ),
             daily_budget=spec.daily_request_budget,
             requested_requests=reserved_requests,
@@ -161,12 +163,17 @@ def run_safe_movie_source(
                 refresh=not resume,
                 max_batches=spec.automatic_max_batches,
             )
-        except BaseException:
+        except BaseException as exc:
+            actual_requests = reservation.reserved_requests
+            if isinstance(exc, ResourceIndexError):
+                reported = exc.context.get("http_requests")
+                if type(reported) is int and 0 <= reported <= reservation.reserved_requests:
+                    actual_requests = reported
             state.complete(
                 source_id=source_id,
                 now=clock(),
                 reserved_requests=reservation.reserved_requests,
-                actual_requests=reservation.reserved_requests,
+                actual_requests=actual_requests,
                 snapshot_hash=_snapshot_hash(paths.snapshot_path),
                 success=False,
             )
