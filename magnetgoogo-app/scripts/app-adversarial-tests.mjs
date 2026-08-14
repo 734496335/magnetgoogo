@@ -421,6 +421,7 @@ await test('U2', 'bottom navigation and search hero respect the usable screen ar
 
 await test('U3', 'movie and regional series channels form one lightweight discovery experience', () => {
   const screen = read('app/(tabs)/resources.tsx');
+  const feedClient = read('src/core/resourceFeed.ts');
   const detail = read('app/movie/[movieId].tsx');
   const ratings = read('src/core/movieRatings.ts');
   const tagRow = read('src/components/MovieTagRow.tsx');
@@ -466,9 +467,13 @@ await test('U3', 'movie and regional series channels form one lightweight discov
   assert.match(screen, /new ResourceAutoSyncGate\(\)/);
   assert.match(screen, /autoSyncGate\.current\.tryStart\(kind\)/);
   assert.match(screen, /autoSyncGate\.current\.complete\(kind, succeeded\)/);
+  assert.match(screen, /loaded\.refreshSucceeded/);
+  assert.doesNotMatch(screen, /loaded\.origin === 'network'/);
   assert.match(screen, /autoSyncGate\.current\.markSuccess\(kind\)/);
   assert.match(screen, /auto_sync_reason: reason/);
   assert.doesNotMatch(screen, /backgroundSyncStarted/);
+  assert.match(feedClient, /refreshSucceeded: true/);
+  assert.match(feedClient, /refreshSucceeded: false/);
   assert.match(screen, /key=\{activeChannel\}/);
   assert.equal((screen.match(/<FlatList/g) || []).length, 1);
   assert.match(screen, /item\.update_status \|\| item\.episode_label/);

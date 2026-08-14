@@ -383,7 +383,7 @@ export default function ResourcesScreen() {
     setFailedKinds((current) => ({ ...current, [kind]: false }));
     try {
       const loaded = await loadResourceFeed(kind, forceRefresh);
-      if (forceRefresh && loaded.origin === 'network') {
+      if (forceRefresh && loaded.refreshSucceeded) {
         autoSyncGate.current.markSuccess(kind);
       }
       setFeeds((current) => ({ ...current, [kind]: loaded.feed }));

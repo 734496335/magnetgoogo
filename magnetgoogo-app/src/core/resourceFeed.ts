@@ -26,6 +26,11 @@ export interface LoadedResourceFeed {
   origin: ResourceFeedOrigin;
 }
 
+export interface ResourceFeedLoadResult extends LoadedResourceFeed {
+  /** True only when this loadResourceFeed call completed a live network refresh. */
+  refreshSucceeded: boolean;
+}
+
 const memoryCache: Partial<Record<MediaKind, LoadedResourceFeed>> = {};
 const networkSyncs: Partial<Record<MediaKind, Promise<LoadedResourceFeed>>> = {};
 
@@ -121,40 +126,46 @@ export async function syncResourceFeed(kind: MediaKind): Promise<LoadedResourceF
 export async function loadResourceFeed(
   kind: MediaKind = 'movie',
   forceRefresh = false,
-): Promise<LoadedResourceFeed> {
+): Promise<ResourceFeedLoadResult> {
   if (forceRefresh) {
     try {
-      return await syncResourceFeed(kind);
+      const loaded = await syncResourceFeed(kind);
+      return { ...loaded, refreshSucceeded: true };
     } catch (error) {
       logResourceFeedFailure(kind, 'force_refresh', 'MEDIA_FORCE_REFRESH_FAILED', error);
-      if (memoryCache[kind]) return memoryCache[kind] as LoadedResourceFeed;
+      if (memoryCache[kind]) {
+        return { ...(memoryCache[kind] as LoadedResourceFeed), refreshSucceeded: false };
+      }
       const cached = await loadCached(kind);
       if (cached) {
         memoryCache[kind] = cached;
-        return cached;
+        return { ...cached, refreshSucceeded: false };
       }
-      return loadBundled(kind);
+      const bundled = await loadBundled(kind);
+      return { ...bundled, refreshSucceeded: false };
     }
   }
   if (memoryCache[kind]) {
     const loaded = memoryCache[kind] as LoadedResourceFeed;
     logResourceFeedSuccess(kind, 'memory_feed_ready', loaded.origin, loaded.feed.items.length);
-    return loaded;
+    return { ...loaded, refreshSucceeded: false };
   }
   const cached = await loadCached(kind);
   if (cached) {
     memoryCache[kind] = cached;
     logResourceFeedSuccess(kind, 'disk_feed_ready', cached.origin, cached.feed.items.length);
-    return cached;
+    return { ...cached, refreshSucceeded: false };
   }
   try {
     const loaded = await loadBundled(kind);
     memoryCache[kind] = loaded;
     logResourceFeedSuccess(kind, 'bundled_feed_ready', loaded.origin, loaded.feed.items.length);
-    return loaded;
+    return { ...loaded, refreshSucceeded: false };
   } catch (error) {
     logResourceFeedFailure(kind, 'bundled_load', 'BUNDLED_MEDIA_FEED_FAILED', error);
-    if (memoryCache[kind]) return memoryCache[kind] as LoadedResourceFeed;
+    if (memoryCache[kind]) {
+      return { ...(memoryCache[kind] as LoadedResourceFeed), refreshSucceeded: false };
+    }
     throw new Error(`${kind.toUpperCase()}_FEED_UNAVAILABLE`);
   }
 }
