@@ -467,6 +467,8 @@ await test('U3', 'movie and regional series channels form one lightweight discov
   assert.match(screen, /new ResourceAutoSyncGate\(\)/);
   assert.match(screen, /autoSyncGate\.current\.tryStart\(kind\)/);
   assert.match(screen, /autoSyncGate\.current\.complete\(kind, succeeded\)/);
+  assert.match(screen, /sameRemoteResourceRelease\(previous, loaded\.feed\)/);
+  assert.doesNotMatch(screen, /previous\.snapshot_captured_at === loaded\.feed\.snapshot_captured_at/);
   assert.match(screen, /loaded\.refreshSucceeded/);
   assert.doesNotMatch(screen, /loaded\.origin === 'network'/);
   assert.match(screen, /autoSyncGate\.current\.markSuccess\(kind\)/);

@@ -25,7 +25,7 @@ import { MovieTagRow } from '../../src/components/MovieTagRow';
 import { getMovieScoreTier } from '../../src/core/movieRatings';
 import { seriesStatusForDisplay } from '../../src/core/mediaResourceTitle';
 import { getResourceCopy } from '../../src/core/resourceCopy';
-import { ResourceAutoSyncGate } from '../../src/core/resourceAutoSync';
+import { ResourceAutoSyncGate, sameRemoteResourceRelease } from '../../src/core/resourceAutoSync';
 import { loadResourceFeed, movieCoverUri, syncResourceFeed } from '../../src/core/resourceFeed';
 import {
   resourceFeedItemKey,
@@ -419,14 +419,7 @@ export default function ResourcesScreen() {
       succeeded = true;
       setFeeds((current) => {
         const previous = current[kind];
-        if (
-          previous
-          && previous.snapshot_captured_at === loaded.feed.snapshot_captured_at
-          && previous.generated_at === loaded.feed.generated_at
-          && previous.items.length === loaded.feed.items.length
-        ) {
-          return current;
-        }
+        if (previous && sameRemoteResourceRelease(previous, loaded.feed)) return current;
         return { ...current, [kind]: loaded.feed };
       });
     } catch (error) {

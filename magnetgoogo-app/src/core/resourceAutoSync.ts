@@ -1,6 +1,12 @@
-import type { MediaKind } from './resourceFeedProtocol';
+import type { MediaKind, MovieFeed } from './resourceFeedProtocol';
 
 export const RESOURCE_AUTO_SYNC_MIN_INTERVAL_MS = 60_000;
+
+export function sameRemoteResourceRelease(left: MovieFeed, right: MovieFeed): boolean {
+  const leftReleaseId = left.items.find((item) => item.remote_release_id)?.remote_release_id ?? null;
+  const rightReleaseId = right.items.find((item) => item.remote_release_id)?.remote_release_id ?? null;
+  return leftReleaseId !== null && rightReleaseId !== null && leftReleaseId === rightReleaseId;
+}
 
 /**
  * Small focus/foreground revalidation gate.

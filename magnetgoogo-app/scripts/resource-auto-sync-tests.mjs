@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   RESOURCE_AUTO_SYNC_MIN_INTERVAL_MS,
   ResourceAutoSyncGate,
+  sameRemoteResourceRelease,
 } from '../src/core/resourceAutoSync.ts';
 
 function test(name, fn) {
@@ -59,6 +60,27 @@ test('wall-clock rollback cannot suppress refresh indefinitely', () => {
   const gate = new ResourceAutoSyncGate();
   gate.markSuccess('movie', 100_000);
   assert.equal(gate.tryStart('movie', 90_000), true);
+});
+
+test('different immutable release IDs replace feed even when timestamps and counts match', () => {
+  const previous = {
+    generated_at: '2026-08-13T00:00:00Z',
+    snapshot_captured_at: '2026-08-13T00:00:00Z',
+    items: [{ remote_release_id: 'release-13' }],
+  };
+  const next = {
+    generated_at: previous.generated_at,
+    snapshot_captured_at: previous.snapshot_captured_at,
+    items: [{ remote_release_id: 'release-14' }],
+  };
+  assert.equal(sameRemoteResourceRelease(previous, next), false);
+});
+
+test('same immutable release ID suppresses redundant feed replacement', () => {
+  const previous = { items: [{ remote_release_id: 'release-14' }] };
+  const next = { items: [{ remote_release_id: 'release-14' }] };
+  assert.equal(sameRemoteResourceRelease(previous, next), true);
+  assert.equal(sameRemoteResourceRelease({ items: [{}] }, next), false);
 });
 
 console.log('RESOURCE_AUTO_SYNC_TESTS_PASS');
