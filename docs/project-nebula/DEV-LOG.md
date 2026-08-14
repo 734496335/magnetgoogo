@@ -1,4 +1,28 @@
 ---
+Date/Time: 2026-08-14 (UTC+8)
+Version: app-resource-focus-auto-revalidation
+Scope: Fix the v0.2.5 Resource tab stale-cache trap where users could remain on old media indefinitely unless they discovered pull-to-refresh.
+Modules: magnetgoogo-app/app/(tabs)/resources.tsx, src/core/resourceAutoSync.ts, scripts/{resource-auto-sync-tests.mjs,app-adversarial-tests.mjs}, package.json
+
+### Root cause
+- The screen added each media kind to `backgroundSyncStarted` before the first network attempt and never removed it on failure. One transient failure therefore disabled automatic retry for the lifetime of the mounted tab.
+- Even when the first sync succeeded, each kind was only revalidated once per component mount. Expo Router tabs remain mounted, so returning to Resource hours or days later could keep showing the old disk/memory feed forever.
+- Pull-to-refresh bypassed this one-shot gate, explaining why manual refresh appeared to be the only way to receive newly published resources.
+
+### Fix
+- Preserve stale-while-revalidate UX: memory/disk/bundled feed renders immediately; focus revalidation is background-only and failure never blanks the page.
+- `useFocusEffect` now checks the current media kind whenever the Resource tab regains focus; an `AppState` active transition checks again after background/foreground return.
+- Added `ResourceAutoSyncGate`: per-kind single-flight, 60-second cooldown after successful sync only, immediate retry after failed sync, clock-rollback safety, and manual-refresh success sharing the same cooldown.
+- Removed the permanent `backgroundSyncStarted` marker. Pull-to-refresh remains as a manual fallback.
+
+### Verification
+- `npm run test:resource-auto-sync`: 6/6 behavioral cases PASS, including failed-attempt retry, success cooldown, single-flight, kind isolation, manual refresh sharing, and wall-clock rollback.
+- `npx tsc --noEmit`: PASS. Clean Expo prebuild followed by App adversarial suite: 36/36 PASS. Resource-feed M1-M7 PASS; M8 skipped only because the local untracked SixV fixture is absent. Release-build contract PASS.
+- Deep-worktree Android build exposed only Windows path-length constraints; rebuilding commit `66376ba` from short path `D:\lpproduct\ar` completed full arm64 Debug/Hermes/native build successfully. K30S production app was not uninstalled or overwritten; side-by-side test-package installation reached only the MIUI user-confirmation gate and was canceled on-device.
+- media-network/security tests cannot run in this clean worktree because the historical untracked `media_releases_m1_final` fixture is absent; failure evidence is preserved. `validate_enum.py` also reports a pre-existing `meta.total_rules` mismatch in both clean and current root trees; this fix does not modify sources data.
+---
+
+---
 Date/Time: 2026-07-30 17:45 (UTC+8)
 Version: app-update-china-r2-fallback
 Scope: Prioritize Lanzou ahead of GitHub in the App update prompt, replace the unstable domestic APK primary with an R2-backed custom-domain path, and add deterministic multi-path download fallback for the next App release

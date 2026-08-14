@@ -36,6 +36,21 @@
 | [CH-005](#challenge-005--域名漂移--死链发现滞后) | 域名漂移 / 死链发现滞后 | medium | open | — |
 | [CH-006](#challenge-006--resource-index-live-抓取可复现性与数据不退化) | Resource Index live 抓取可复现性与数据不退化 | **blocker** | solved ✅ | 2026-07-25 R6 complete; independent re-review pending |
 | [CH-007](#challenge-007--resource-index-跨电脑长任务编排与恢复) | Resource Index 跨电脑长任务编排与恢复 | **blocker** | solved in implementation | 2026-07-25 portable latest runner complete |
+| [CH-014](#challenge-014--资源页长驻缓存导致新资源不自动可见) | 资源页长驻缓存导致新资源不自动可见 | **blocker** | solved ✅ | 2026-08-14 focus/foreground revalidation + retryable gate |
+
+---
+
+## CHALLENGE-014 — 资源页长驻缓存导致新资源不自动可见
+
+- **严重程度**：blocker
+- **状态**：solved ✅（代码与 Android 构建门禁通过，正式版本发布另行执行）
+- **首次记录**：2026-08-14
+- **业务影响**：资源生产链即使每天正确发布，客户端 Resource Tab 也可能长期停留在旧 memory/disk feed。多数用户不知道下拉刷新，因此服务端新增影视资源无法自然触达，直接削弱日更价值。
+- **根因**：`resources.tsx` 的 `backgroundSyncStarted` 在网络结果返回前就永久标记 media kind。首次同步失败后不清标记，后续 focus 不重试；首次成功时也仅同步一次，而 Tab 长驻不卸载，数天后重新进入仍不会检查新 pointer。
+- **解决方案**：移除永久 one-shot 标记；缓存优先立即渲染；Resource Tab focus 与 App foreground 都后台调用 `syncResourceFeed`。新增 `ResourceAutoSyncGate`，仅成功同步后进入60秒冷却，失败立即释放，下次 focus/foreground 可重试；movie/series 独立 single-flight；手动下拉刷新继续保留并共享成功冷却。
+- **验证**：状态机行为测试6/6、TypeScript PASS、clean prebuild 后 App adversarial 36/36、resource-feed M1-M7 PASS、release-build contract PASS；短路径 arm64 Android Debug/Hermes/native 全链 BUILD SUCCESSFUL。K30S 并存包安装仅因 MIUI 用户端取消 USB 安装确认而未完成 UI 验收，未破坏正式 App。
+- **边界**：clean worktree 缺历史未跟踪 media release fixture，因此 media-network/security 套件无法进入断言；已留失败证据。`validate_enum.py` 的 `meta.total_rules` 不一致是当前仓库既有数据问题，与本修复无关。
+- **更新日志**：2026-08-14 —— fix commit `66376ba`，将“用户必须知道下拉刷新”改为自动 stale-while-revalidate。
 
 ---
 

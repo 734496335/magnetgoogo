@@ -1,26 +1,27 @@
-TASK: App国内更新下载链路优化
-STATUS: REMOTE_CONFIG_LIVE / R2_PRIMARY_PASS / NEXT_APP_FALLBACK_READY
-DATE: 2026-07-30 UTC+8
+TASK: 修复 v0.2.5 资源页进入后不自动更新、依赖手动下拉的问题
+STATUS: ROOT_CAUSE_FIXED / CODE_GATES_PASS / ANDROID_BUILD_PASS / K30S_UI_ACCEPTANCE_PENDING
+DATE: 2026-08-14 UTC+8
 
-DONE:
-- 正式0.2.2 APK上传至R2：api.naoshiquan.com/download/v0.2.2/magnetgoogo-v0.2.2.apk。
-- 公网完整回下载：33,562,462字节，SHA-256与正式APK一致。
-- 远程主下载切换R2；备用顺序固定为蓝奏云第一、GitHub最后。
-- mg-data提交并推送：f7b945ee8365c0f2932909ca4ad7ec56ebeb437b。
-- 阿里云、CF Pages、Raw、两个网关、固定CDN配置收敛。
-- CF配置增加no-store/no-cache，消除旧配置边缘缓存。
-- App新增顺序归一、直链自动重试、APK大小/ZIP头校验和失败浏览器回退。
+ROOT CAUSE:
+- resources.tsx 用 backgroundSyncStarted 永久记录“已尝试同步”。
+- 首次后台同步失败也不清除标记，后续进入资源页不再自动重试。
+- 即使首次成功，Tabs 长驻后 movie/series 每个 kind 也只自动检查一次；以后数天重新进入仍可显示旧缓存。
+
+FIX:
+- 缓存/本地 feed 仍立即展示，不阻塞页面。
+- Resource Tab 每次重新 focus 自动 revalidate；App 从后台回 active 时也自动 revalidate。
+- ResourceAutoSyncGate：成功后60s防抖；失败不进入冷却，下一次 focus/foreground立即可重试；movie/series独立 single-flight。
+- 手动下拉保留，并与自动同步共享成功冷却，避免重复网络请求。
 
 VERIFIED:
-- TypeScript：PASS。
-- update-download策略测试：PASS。
-- release-build契约：PASS。
-- App adversarial：52/52 PASS。
-- R2 APK完整字节校验：PASS。
+- resource-auto-sync 行为测试 6/6 PASS。
+- TypeScript npx tsc --noEmit PASS。
+- App adversarial 36/36 PASS（clean prebuild 后）。
+- resource-feed M1-M7 PASS；M8仅因本地未跟踪 bundle 缺失而 SKIP。
+- release-build contract PASS。
+- 短路径 Android arm64 debug 全链 BUILD SUCCESSFUL；K30S 并存安装仅被 MIUI 用户确认取消拦截，未卸载/覆盖正式 App。
 
 BOUNDARY:
-- 客户端自动重试代码需随下一版APK生效；当前旧版已即时获得R2主地址和备用顺序。
-- K30S本轮未连接，未做真机点击验证。
-- cn.magnetgoogo.com证书至2026-08-02；续期timer已恢复active，但HTTP-01仍403/重置，未关闭。
-
-EVIDENCE: docs/project-nebula/APP-UPDATE-DOWNLOAD-CHINA-OPTIMIZATION-20260730.md
+- media-network/security 在 clean worktree 缺历史 untracked release fixture，未进入断言，已留失败证据。
+- validate_enum 基线已有 meta.total_rules 不一致，本修复未改 sources.json。
+- 代码提交 66376ba；待推独立修复分支并同步运行时文件到当前主工作区。
