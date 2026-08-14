@@ -48,6 +48,7 @@ class MovieSourceSpec:
     catalog_role: str = "supplemental"
     metadata_priority: int = 0
     publish_count: int | None = None
+    detail_requests_per_item_upper_bound: int | None = None
 
 
 _SPECS: dict[str, MovieSourceSpec] = {}
@@ -84,6 +85,7 @@ def list_movie_sources() -> dict[str, dict[str, object]]:
             "catalog_role": spec.catalog_role,
             "metadata_priority": spec.metadata_priority,
             "publish_count": spec.publish_count,
+            "detail_requests_per_item_upper_bound": spec.detail_requests_per_item_upper_bound,
         }
         for source_id, spec in sorted(_SPECS.items())
     }
@@ -119,6 +121,7 @@ def _ensure_builtin_movie_sources() -> None:
                 parser_variant="sixv_legacy",
                 catalog_role="primary",
                 metadata_priority=300,
+                detail_requests_per_item_upper_bound=1,
             )
         )
     if "sixv-series" not in _SPECS:
@@ -154,6 +157,7 @@ def _ensure_builtin_movie_sources() -> None:
                 parser_variant="sixv_legacy",
                 catalog_role="supplemental",
                 metadata_priority=200,
+                detail_requests_per_item_upper_bound=1,
             )
         )
     if "meijumi" not in _SPECS:
@@ -185,6 +189,7 @@ def _ensure_builtin_movie_sources() -> None:
                 parser_variant="meijumi_wordpress",
                 catalog_role="primary",
                 metadata_priority=300,
+                detail_requests_per_item_upper_bound=1,
             )
         )
     if "dytt8899" not in _SPECS:
@@ -217,5 +222,6 @@ def _ensure_builtin_movie_sources() -> None:
                 catalog_role="supplemental",
                 metadata_priority=200,
                 publish_count=100,
+                detail_requests_per_item_upper_bound=1,
             )
         )

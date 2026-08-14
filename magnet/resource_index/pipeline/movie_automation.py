@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Callable
 
 from magnet.resource_index.adapters.movie_registry import get_movie_source
-from magnet.resource_index.errors import ResourceIndexError
+from magnet.resource_index.errors import CONFIG_ERROR, ResourceIndexError
 from magnet.resource_index.pipeline.latest_crawl import (
     LatestCrawlPaths,
     _canonical_snapshot_bytes,
@@ -81,6 +81,26 @@ def _snapshot_hash(path: Path) -> str | None:
         return None
 
 
+def _reserved_request_upper_bound(spec, *, resume: bool) -> int:
+    detail_requests_per_batch = spec.batch_max_requests
+    per_item = spec.detail_requests_per_item_upper_bound
+    if per_item is not None:
+        if per_item <= 0:
+            raise ResourceIndexError(
+                CONFIG_ERROR,
+                "detail request upper bound must be positive",
+                {"source_id": spec.source_id, "value": per_item},
+            )
+        detail_requests_per_batch = min(
+            spec.batch_max_requests,
+            spec.default_batch_size * per_item,
+        )
+    reserved_requests = spec.automatic_max_batches * detail_requests_per_batch
+    if not resume:
+        reserved_requests += spec.snapshot_max_requests
+    return reserved_requests
+
+
 def run_safe_movie_source(
     *,
     source_id: str,
@@ -113,9 +133,7 @@ def run_safe_movie_source(
         )
         durable_job_status = str(durable_status.get("status") or "")
         resume = durable_job_status in {"pending", "paused"}
-        reserved_requests = spec.automatic_max_batches * spec.batch_max_requests
-        if not resume:
-            reserved_requests += spec.snapshot_max_requests
+        reserved_requests = _reserved_request_upper_bound(spec, resume=resume)
         state = MovieSourceStateStore(repo)
         reservation = state.reserve(
             source_id=source_id,

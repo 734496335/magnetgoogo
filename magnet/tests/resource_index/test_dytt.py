@@ -20,6 +20,7 @@ from magnet.resource_index.adapters.dytt.parser import (
 )
 from magnet.resource_index.adapters.movie_registry import (
     MovieSourceSpec,
+    get_movie_source,
     list_movie_sources,
 )
 from magnet.resource_index.adapters.registry import get_crawler_factory, list_sources
@@ -35,6 +36,7 @@ from magnet.resource_index.pipeline.latest_crawl import (
 )
 from magnet.resource_index.pipeline.movie_automation import (
     SafeMovieSourceResult,
+    _reserved_request_upper_bound,
     run_safe_movie_source,
 )
 from magnet.resource_index.pipeline.movie_latest import MovieLatestRunner, _qualified_publish_item
@@ -578,6 +580,32 @@ def test_movie_source_state_interval_budget_refund_and_date_reset(tmp_path: Path
     )
     assert after_backoff.allowed is True
     repo.close()
+
+
+def test_request_reservation_uses_explicit_per_item_upper_bound_without_relaxing_unknown_sources() -> None:
+    sixv = get_movie_source("sixv")
+    assert sixv.detail_requests_per_item_upper_bound == 1
+    assert _reserved_request_upper_bound(sixv, resume=False) == 42
+    assert _reserved_request_upper_bound(sixv, resume=True) == 30
+
+    conservative = MovieSourceSpec(
+        source_id="conservative-budget",
+        snapshot_schema="movie-latest/conservative/1",
+        default_count=100,
+        minimum_delay_seconds=10,
+        minimum_check_interval_hours=12,
+        daily_request_budget=100,
+        default_batch_size=5,
+        automatic_max_batches=6,
+        snapshot_max_requests=12,
+        batch_max_requests=12,
+        max_listing_pages=5,
+        robots_url=None,
+        allowed_origins=("https://example.test",),
+        allowed_path_prefixes=("/",),
+        crawler_factory=lambda _policy: None,
+    )
+    assert _reserved_request_upper_bound(conservative, resume=False) == 84
 
 
 def test_safe_automation_charges_full_reservation_after_crash(
