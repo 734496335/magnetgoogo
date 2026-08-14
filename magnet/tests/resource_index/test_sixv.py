@@ -31,6 +31,13 @@ from magnet.resource_index.store.sqlite_repository import SqliteResourceReposito
 NOW = datetime(2026, 7, 25, 12, 0, tzinfo=timezone.utc)
 
 
+def test_sixv_source_snapshot_window_can_cover_default_catalog() -> None:
+    spec = get_movie_source("sixv")
+    assert spec.default_count == 100
+    assert spec.max_listing_pages == 5
+    assert spec.snapshot_max_requests >= spec.max_listing_pages
+
+
 def test_movie_title_normalization_removes_listing_noise() -> None:
     assert normalize_movie_title(
         "2026科幻惊悚《揭秘日》1080p.HD中英双字",

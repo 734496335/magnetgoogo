@@ -105,7 +105,7 @@ def _ensure_builtin_movie_sources() -> None:
                 automatic_max_batches=6,
                 snapshot_max_requests=12,
                 batch_max_requests=12,
-                max_listing_pages=4,
+                max_listing_pages=5,
                 robots_url=None,
                 allowed_origins=("https://www.6v520.com",),
                 allowed_path_prefixes=("/dy/",),
