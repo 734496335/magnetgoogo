@@ -176,6 +176,22 @@ def test_listing_parser_preserves_red_recommendation() -> None:
     assert items[1].rank == 2
 
 
+def test_listing_parser_accepts_registered_mirror_host_without_allowing_cross_origin_links() -> None:
+    mirror_items = parse_latest_listing(
+        LISTING_HTML,
+        page_url="https://www.6v520.net/dy/",
+    )
+    assert len(mirror_items) == 2
+    assert mirror_items[0].detail_url.startswith("https://www.6v520.net/")
+
+    hostile = """
+    <html><body><div id="main"><ul class="list">
+    <li><span>2026-08-14</span><a href="https://evil.example/12345.html">外部伪造条目</a></li>
+    </ul></div></body></html>
+    """
+    assert parse_latest_listing(hostile, page_url="https://www.6v520.net/dy/") == []
+
+
 def test_detail_parser_extracts_movie_and_download_resources() -> None:
     candidate = parse_latest_listing(
         LISTING_HTML,

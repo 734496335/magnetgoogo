@@ -195,6 +195,9 @@ def parse_latest_listing(
 ) -> list[SixVListingCandidate]:
     soup = BeautifulSoup(html, "html.parser")
     rows = soup.select("#main ul.list > li")
+    page_host = (urlparse(page_url).hostname or "").casefold()
+    if not page_host:
+        return []
     candidates: list[SixVListingCandidate] = []
     for row in rows:
         anchor = row.find("a", href=True)
@@ -202,7 +205,7 @@ def parse_latest_listing(
             continue
         detail_url = urljoin(page_url, str(anchor["href"]))
         parsed = urlparse(detail_url)
-        if parsed.hostname not in {"www.6v520.com", "6v520.com"}:
+        if (parsed.hostname or "").casefold() != page_host:
             continue
         code_match = re.search(r"/(\d+)\.html$", parsed.path)
         if code_match is None:
