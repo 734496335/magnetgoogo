@@ -9,6 +9,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test:resource-feed": "node scripts/resource-feed-tests.mjs",
+    "test:resource-auto-sync": "node scripts/resource-auto-sync-tests.mjs",
     "test:media-network": "node scripts/media-release-network-tests.mjs",
     "test:media-security": "node scripts/media-release-security-tests.mjs",
     "test:media-cache": "node scripts/media-cache-policy-tests.mjs",

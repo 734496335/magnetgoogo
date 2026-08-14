@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   FlatList,
   Image,
   RefreshControl,
@@ -16,7 +17,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLang } from '../../src/core/LangContext';
 import { useTheme, type Colors } from '../../src/core/ThemeContext';
@@ -24,6 +25,7 @@ import { MovieTagRow } from '../../src/components/MovieTagRow';
 import { getMovieScoreTier } from '../../src/core/movieRatings';
 import { seriesStatusForDisplay } from '../../src/core/mediaResourceTitle';
 import { getResourceCopy } from '../../src/core/resourceCopy';
+import { ResourceAutoSyncGate } from '../../src/core/resourceAutoSync';
 import { loadResourceFeed, movieCoverUri, syncResourceFeed } from '../../src/core/resourceFeed';
 import {
   resourceFeedItemKey,
@@ -366,10 +368,11 @@ export default function ResourcesScreen() {
   const [refreshingKind, setRefreshingKind] = useState<MediaKind | null>(null);
   const [failedKinds, setFailedKinds] = useState<Partial<Record<MediaKind, boolean>>>({});
   const [titleCopyToastNonce, setTitleCopyToastNonce] = useState(0);
-  const backgroundSyncStarted = useRef(new Set<MediaKind>());
+  const autoSyncGate = useRef(new ResourceAutoSyncGate());
 
   const activeKind = channelKind(activeChannel);
   const feed = feeds[activeKind] ?? null;
+  const hasActiveFeed = feed !== null;
   const loading = loadingKind === activeKind;
   const refreshing = refreshingKind === activeKind;
   const failed = failedKinds[activeKind] === true;
@@ -380,6 +383,9 @@ export default function ResourcesScreen() {
     setFailedKinds((current) => ({ ...current, [kind]: false }));
     try {
       const loaded = await loadResourceFeed(kind, forceRefresh);
+      if (forceRefresh && loaded.origin === 'network') {
+        autoSyncGate.current.markSuccess(kind);
+      }
       setFeeds((current) => ({ ...current, [kind]: loaded.feed }));
     } catch (error) {
       console.warn('[ResourcesScreen]', {
@@ -405,23 +411,49 @@ export default function ResourcesScreen() {
     }
   }, [activeKind, feeds, load, loadingKind]);
 
-  useEffect(() => {
-    if (!feeds[activeKind] || backgroundSyncStarted.current.has(activeKind)) return undefined;
-    backgroundSyncStarted.current.add(activeKind);
-    syncResourceFeed(activeKind)
-      .then((loaded) => {
-        setFeeds((current) => ({ ...current, [activeKind]: loaded.feed }));
-      })
-      .catch((error) => {
-        console.warn('[ResourcesScreen]', {
-          stage: 'background_media_sync',
-          error_code: 'MEDIA_BACKGROUND_SYNC_FAILED',
-          content_kind: activeKind,
-          error: error instanceof Error ? error.message : String(error),
-        });
+  const autoSync = useCallback(async (kind: MediaKind, reason: 'focus' | 'foreground') => {
+    if (!autoSyncGate.current.tryStart(kind)) return;
+    let succeeded = false;
+    try {
+      const loaded = await syncResourceFeed(kind);
+      succeeded = true;
+      setFeeds((current) => {
+        const previous = current[kind];
+        if (
+          previous
+          && previous.snapshot_captured_at === loaded.feed.snapshot_captured_at
+          && previous.generated_at === loaded.feed.generated_at
+          && previous.items.length === loaded.feed.items.length
+        ) {
+          return current;
+        }
+        return { ...current, [kind]: loaded.feed };
       });
-    return undefined;
-  }, [activeKind, feeds]);
+    } catch (error) {
+      console.warn('[ResourcesScreen]', {
+        stage: 'auto_media_sync',
+        error_code: 'MEDIA_AUTO_SYNC_FAILED',
+        content_kind: kind,
+        auto_sync_reason: reason,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      autoSyncGate.current.complete(kind, succeeded);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasActiveFeed) return undefined;
+      void autoSync(activeKind, 'focus');
+      const subscription = AppState.addEventListener('change', (state) => {
+        if (state === 'active') {
+          void autoSync(activeKind, 'foreground');
+        }
+      });
+      return () => subscription.remove();
+    }, [activeKind, autoSync, hasActiveFeed]),
+  );
 
   useEffect(() => {
     setActiveGenre(null);

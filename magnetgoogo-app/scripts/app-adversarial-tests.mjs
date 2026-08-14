@@ -461,6 +461,14 @@ await test('U3', 'movie and regional series channels form one lightweight discov
   assert.doesNotMatch(screen, /overlayLabel=\{item\.content_kind === 'series' \? status : null\}/);
   assert.doesNotMatch(screen, /排行榜|热播榜|榜第\s*\d/);
   assert.match(screen, /loadResourceFeed\(kind, forceRefresh\)/);
+  assert.match(screen, /useFocusEffect\(/);
+  assert.match(screen, /AppState\.addEventListener\('change'/);
+  assert.match(screen, /new ResourceAutoSyncGate\(\)/);
+  assert.match(screen, /autoSyncGate\.current\.tryStart\(kind\)/);
+  assert.match(screen, /autoSyncGate\.current\.complete\(kind, succeeded\)/);
+  assert.match(screen, /autoSyncGate\.current\.markSuccess\(kind\)/);
+  assert.match(screen, /auto_sync_reason: reason/);
+  assert.doesNotMatch(screen, /backgroundSyncStarted/);
   assert.match(screen, /key=\{activeChannel\}/);
   assert.equal((screen.match(/<FlatList/g) || []).length, 1);
   assert.match(screen, /item\.update_status \|\| item\.episode_label/);
