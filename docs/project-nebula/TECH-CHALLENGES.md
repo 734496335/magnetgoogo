@@ -37,9 +37,9 @@
 | [CH-006](#challenge-006--resource-index-live-抓取可复现性与数据不退化) | Resource Index live 抓取可复现性与数据不退化 | **blocker** | solved ✅ | 2026-07-25 R6 complete; independent re-review pending |
 | [CH-007](#challenge-007--resource-index-跨电脑长任务编排与恢复) | Resource Index 跨电脑长任务编排与恢复 | **blocker** | solved in implementation | 2026-07-25 portable latest runner complete |
 | [CH-008](#challenge-008--dytt旧资源域名失效导致100条资源可靠性不足) | DYTT旧资源域名失效导致100条资源可靠性不足 | **high** | open | 2026-07-30 100条在线审计FAIL |
-| [CH-009](#challenge-009--影视自动发布二次失败缺少外部主动告警) | 影视/源同步连续失败缺少外部主动告警 | **high** | piloting | 2026-08-11 告警状态机/systemd 已上线，待激活实际邮件通道 |
+| [CH-009](#challenge-009--影视自动发布二次失败缺少外部主动告警) | 影视/源同步连续失败缺少外部主动告警 | **high** | piloting | 2026-08-16 strict 实测确认现存 CloudMonitor 字段为占位配置，真实邮件仍待有效 provider |
 | [CH-010](#challenge-010--影视candidate污染生产revision命名空间) | 影视 candidate 污染生产 revision 命名空间 | **blocker** | solved ✅ | 2026-08-11 run-scoped candidate + 未晋级pointer归档恢复上线 |
-| [CH-011](#challenge-011--aliyun源包续期传播依赖人工同步) | Aliyun 源包续期传播依赖人工同步 | **high** | solved ✅ | 2026-08-11 authority+GitHub API+crypto/freshness/cohort 自动同步上线 |
+| [CH-011](#challenge-011--aliyun源包续期传播依赖人工同步) | Aliyun 源包续期传播依赖人工同步 | **high** | solved ✅ | 2026-08-16 新一轮真实自动续期→Aliyun→五入口→K30S搜索全链闭环 |
 | [CH-012](#challenge-012--影视双端promotion硬断电一致性窗口) | 影视双端 promotion 硬断电一致性窗口 | **blocker** | solved ✅ | 2026-08-11 R2-first + 双端签名恢复 + revision不可重绑上线 |
 | [CH-013](#challenge-013--green源包gateway备用入口缺失) | green 源包 Gateway 备用入口缺失 | low | abandoned | 2026-08-11 合规版暂时弃用，普通版 full-only 成为唯一生产 SLA |
 
@@ -91,8 +91,8 @@
 - **业务影响**：上次源故障修复后5个公网入口可自动跟随 GitHub authority，但 `cn.magnetgoogo.com` 仍只靠人工 SCP；8月9日新包自动续期后，Aliyun 继续停在8月7日已过期包，备用链再次形成隐患。
 - **当前方案 & 缺陷**：此前验证只证明“人工同步后的即时六端点收敛”，没有执行“下一次自动续期发生且无人操作”的时间推进测试；Aliyun 主机又无法稳定直连 GitHub Raw，所以简单 cron wget Raw 不可靠。
 - **解决方案**：新增 persistent systemd hourly sync；强证据改为 `magnetgoogo.com` authority Worker（必须 `X-Source-Authority: github-raw`）+ GitHub Contents API 解码后的原始字节，两者必须一致；jsDelivr 仅作 optional CDN 观察。下载后在 Aliyun 用 root-only key 执行 HMAC、AES、gzip、schema、剩余有效期>=12h、full/green 同 cohort 与计数一致性验证，全部通过才成对替换生产静态文件。
-- **验证**：2026-08-11 09:15Z 真实自动续期时 jsDelivr 连续滞后约2小时，旧实现 17:19/18:22 正确 fail-closed 但无法更新；新实现 19:25 在 jsDelivr 仍旧时通过 authority+GitHub API+crypto/freshness 校验，把 Aliyun 更新到 full `370de74a...` / green `4bf88e74...`，二次运行 `already current`。错误加密 key 实际注入时 HMAC 失败且目标零写入；随后 jsDelivr purge 后也收敛。
-- **更新日志**：2026-08-11 —— 去除 mutable CDN 强依赖；mg-data 任一 cohort 成员触发时 full/green 同时重签，CI 增加4个跨代状态机测试、required public authority convergence 和 optional jsDelivr purge。
+- **验证**：2026-08-11 09:15Z 真实自动续期时 jsDelivr 连续滞后约2小时，旧实现 17:19/18:22 正确 fail-closed 但无法更新；新实现 19:25 在 jsDelivr 仍旧时通过 authority+GitHub API+crypto/freshness 校验，把 Aliyun 更新到 full `370de74a...` / green `4bf88e74...`，二次运行 `already current`。错误加密 key 实际注入时 HMAC 失败且目标零写入；随后 jsDelivr purge 后也收敛。2026-08-16 再次完成无人值守实证：`f9c5105` 把72h envelope的刷新阈值从24h提前到32h，`ea6fa71` 增加仅针对 renewal workflow/script/test 的非循环 push 自验；随后 `source-envelope-bot` 自动提交 `122533e`，新 full SHA=`fa4e4d4954990f46f0c237c4a6e54f970cbe2f1cdb979d987b97a047ddd0f2b2`，issued=`2026-08-15T16:19:12Z`、expires=`2026-08-18T16:19:12Z`。Aliyun hourly systemd 在本地 00:19:21 自动发现，00:19:26 完成加密/签名/schema/freshness 校验与原子安装，剩余71.997h；source-expiry 状态自动恢复。随后 magnetgoogo.com / GitHub Raw / Gateway / jsDelivr / cn.magnetgoogo.com 五入口字节完全一致，K30S 私有缓存也是同一 SHA、148源、72h，并在该新包上完成 Inception 174/174高相关、52池、0 skipped、quality hard=0。
+- **更新日志**：2026-08-11 —— 去除 mutable CDN 强依赖；mg-data 任一 cohort 成员触发时 full/green 同时重签，CI 增加4个跨代状态机测试、required public authority convergence 和 optional jsDelivr purge。2026-08-16 —— 普通版 full-only 路径再次真实续期并贯通至 K30S 搜索消费；续期安全余量扩大到32h阈值，renewal代码变更具备非循环 push 自验。
 
 ---
 
@@ -105,8 +105,8 @@
 - **当前方案**：生产已安装独立 fail-open 告警状态机。media 首次失败只触发原有30分钟 retry，retry 再失败才开 P0；source-sync 连续2次小时级失败才开 P1；full 包连续2次检测到剩余有效期<24h 才开 P0。故障打开后24h（expiry 12h）最多重复提醒一次；恢复邮件只在此前真实故障通知成功后发送一次。
 - **发送通道**：首选阿里云 CloudMonitor External Alert + 联系人组邮件；官方支持“安全词”或“Basic Auth”两种安全设置，因此安全词 URL/token 模式可不在 ECS 保存 AccessKey。服务器配置为 root-only；同时保留 QQ SMTP 授权码 fallback。`MAGNET_ALERT_TRANSPORT` 默认 disabled，未配置 provider 时绝不误报且不影响业务任务。
 - **验证**：最新本地 Resource Index 415 passed / 1 skipped；告警/source 定向 28/28；enum 241 ALL VALID。服务器 Python3.6、bash、systemd verify PASS；真实 source-sync 故障注入得到 failures 1→2，恢复后清零且生产 source SHA 前后不变；media helper failure→success 与 source-expiry 23h→23h→25h 均通过。CRLF 中转缺陷被生产注入捕获后已增加 eol=lf 契约并以 Git blob 二进制重部署；`e7125dd` 运行版再次正常 source-sync/media success。QQ SMTP 465 TLS/NOOP=250。
-- **剩余阻塞**：生产目标 QQ 邮箱已写在 `0600 root:root` 的 alert.env，但 transport 仍 disabled。历史 CloudMonitor URL 备份已被旧错误写入破坏，确认不含任何 `https://` token；服务器其他受控目录也未找到副本，因此 strict 测试未实际发信。需要从 CloudMonitor 联系组重新复制 External Alert URL（安全词模式可免AccessKey），或设置 QQ SMTP 授权码后完成真实邮箱验收。
-- **更新日志**：2026-08-12 —— 告警状态机、systemd 接线、故障/恢复、临期、Linux换行与生产注入均完成；仅剩外部邮件调用地址/授权码和真实收件验收，在收到测试邮件前不得标记 solved。
+- **剩余阻塞**：生产目标 QQ 邮箱已写在 `0600 root:root` 的 alert.env。2026-08-16 形态检查发现 CloudMonitor URL/security字段虽然“非空”，但并非有效 provider：transport 临时切到 cloudmonitor 后，通过 systemd `EnvironmentFile=` 执行真实 strict 测试，告警程序确实进入 CloudMonitor provider，但 URL 被解析为占位字面值并在任何 HTTP 请求前失败（exit2）；仅检查字段形态可见 URL 非 HTTPS 且异常短，security字段也异常短。为避免生产任务持续打必失败 provider，transport 已恢复 disabled，原占位字段保留作证据。需要重新写入真实 CloudMonitor External Alert URL + security word，或 QQ SMTP 授权码，然后再做 strict provider=cloudmonitor/smtp 成功和真实收件箱验收。
+- **更新日志**：2026-08-12 —— 告警状态机、systemd 接线、故障/恢复、临期、Linux换行与生产注入均完成。2026-08-16 —— 首次真正穿过 systemd EnvironmentFile 到 provider 的 strict 测试确认当前字段是占位配置、未发出HTTP；transport安全恢复disabled。在真实邮箱收到测试邮件前仍不得标记 solved。
 
 ---
 

@@ -1,4 +1,34 @@
 ---
+Date/Time: 2026-08-16 00:30 (UTC+8)
+Version: source-renewal-real-e2e-and-alert-provider-verdict
+Scope: Close the current source-renewal cycle with real unattended evidence, preserve media GO status, and replace ambiguous alert-provider state with a strict tested verdict.
+Modules: mg-data renewal, Aliyun source-sync, public source mirrors, K30S consumption/search, media audit, production alert provider
+
+### Real source renewal completed without manual copy
+- Renewal safety margin was widened from <=24h to <=32h while preserving 72h envelope validity (`f9c5105`). GitHub schedule history showed actual cron starts can drift materially, so the larger pre-expiry margin is operationally justified rather than cosmetic.
+- `ea6fa71` added a non-looping push trigger restricted to the renewal workflow/script/tests; bot commits to `sources.enc.json` do not recurse. The trigger immediately exercised the real secret-bearing workflow after the renewal logic changed.
+- `source-envelope-bot` produced commit `122533e` at 2026-08-15T16:19:12Z. New encrypted source SHA=`fa4e4d4954990f46f0c237c4a6e54f970cbe2f1cdb979d987b97a047ddd0f2b2`, expiry=`2026-08-18T16:19:12Z`, 357 rules /148 GREEN.
+- Aliyun hourly `magnet-source-sync` started at local 00:19:21, independently verified the new envelope and atomically installed it by 00:19:26 with 71.997h remaining. source-sync and source-expiry alert state both returned to success automatically.
+- Five live delivery surfaces—magnetgoogo.com, GitHub Raw, Gateway, jsDelivr and cn.magnetgoogo.com—then byte-matched the new SHA exactly. K30S cached the same encrypted bytes, count148, expiryHours72, origin magnetgoogo.com; a post-renewal Inception search completed 174/174 high-relevance results across52 pools with0 skipped and quality hard=0.
+
+### Media remains GO
+- Production media remains revision16 / `20260815T000000Z-8cf00f8a`, 286 movies /315 series /4462 resources. R2/Aliyun control files and stratified data-object verification remain byte/hash/size consistent.
+- `snapshot_only` quality masking fix `f9303ff` remains deployed. The real audit is successful, degraded only for supplemental dytt8899, required_degraded=[], published=false; public current was not advanced by the audit.
+- Full Resource Index remains 434 passed /1 skipped; enum241 ALL VALID; no failed magnet systemd units.
+
+### Alert-provider strict verdict
+- The root-only alert env remained 0600 root:root. Nonempty-field checks were insufficient: after temporarily enabling CloudMonitor and loading the file through systemd `EnvironmentFile=`, a strict test reached the actual CloudMonitor provider but the stored endpoint parsed as a placeholder and failed before any HTTP request.
+- Shape-only inspection showed the URL field was not HTTPS and abnormally short; the security field was likewise abnormally short. No provider credential value was copied into Git or logs.
+- Transport was immediately restored to disabled so healthy media/source jobs do not repeatedly call a known-invalid provider. Existing placeholder fields were preserved for evidence.
+- CH-009 therefore remains piloting: alert state machines and systemd hooks are production-ready, but real mailbox acceptance requires a valid CloudMonitor External Alert endpoint/security word or QQ SMTP authorization code. No email delivery is claimed.
+
+### Operational verdict
+- CH-011 remains solved with a fresh 2026-08-16 end-to-end unattended renewal proof, not only historical evidence.
+- Media and source production readiness are GO. Alert execution logic is GO, but outbound provider configuration is HOLD until real strict delivery + inbox acceptance.
+- All failed harness/provider attempts remain under `_failures`; successful reruns do not erase them.
+---
+
+---
 Date/Time: 2026-08-15 23:40 (UTC+8)
 Version: media-production-second-adversarial-audit
 Scope: Re-run the media supply chain as a release-freeze audit, migrate parser-epoch durable state safely, close snapshot-only quality masking, and prove public control/data planes without forcing a revision.
