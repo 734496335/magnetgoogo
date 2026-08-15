@@ -133,14 +133,14 @@ def run_safe_movie_source(
             target_count=count,
         )
         durable_job_status = str(durable_status.get("status") or "")
-        resume = durable_job_status in {"pending", "paused"}
+        resume = durable_job_status in {"pending", "paused", "snapshot_only"}
         reserved_requests = _reserved_request_upper_bound(spec, resume=resume)
         state = MovieSourceStateStore(repo)
         reservation = state.reserve(
             source_id=source_id,
             now=clock(),
             minimum_interval_hours=(
-                0 if recovery_retry or durable_job_status == "pending" else spec.minimum_check_interval_hours
+                0 if recovery_retry or resume else spec.minimum_check_interval_hours
             ),
             daily_budget=spec.daily_request_budget,
             requested_requests=reserved_requests,
