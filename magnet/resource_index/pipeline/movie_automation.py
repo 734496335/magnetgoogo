@@ -69,6 +69,7 @@ class SafeMovieSourceResult:
     remaining_daily_requests: int
     db_path: str
     feed_path: str
+    publish_ready: bool
 
 
 def _snapshot_hash(path: Path) -> str | None:
@@ -158,6 +159,7 @@ def run_safe_movie_source(
                 remaining_daily_requests=reservation.remaining_daily_requests,
                 db_path=str(paths.db_path),
                 feed_path=str(paths.feed_path),
+                publish_ready=False,
             )
         runner = MovieLatestRunner(
             repo=repo,
@@ -196,7 +198,9 @@ def run_safe_movie_source(
                 success=False,
             )
             raise
-        operation_ok = result.status in {"success", "pending"}
+        operation_ok = result.status in {"success", "pending"} or (
+            result.status == "partial" and result.publish_ready
+        )
         state.complete(
             source_id=source_id,
             now=clock(),
@@ -219,6 +223,7 @@ def run_safe_movie_source(
             remaining_daily_requests=int(current["remaining_daily_requests"]),
             db_path=str(paths.db_path),
             feed_path=str(paths.feed_path),
+            publish_ready=result.publish_ready,
         )
     finally:
         repo.close()
@@ -245,17 +250,27 @@ def safe_movie_source_status(
     repo = SqliteResourceRepository(paths.db_path)
     try:
         repo.init_schema()
+        job = read_latest_status(
+            repo=repo,
+            paths=paths,
+            source_id=source_id,
+            target_count=count,
+        )
+        publish_ready = job.get("status") == "success"
+        if spec.publish_count is not None and count >= spec.publish_count:
+            publish_ready = False
+            try:
+                feed_payload = json.loads(paths.feed_path.read_text(encoding="utf-8-sig"))
+                publish_ready = int(feed_payload.get("summary", {}).get("record_count") or 0) >= spec.publish_count
+            except (OSError, json.JSONDecodeError, TypeError, ValueError):
+                publish_ready = False
+        job["publish_ready"] = publish_ready
         return {
             "source": MovieSourceStateStore(repo).status(
                 source_id=source_id,
                 daily_budget=spec.daily_request_budget,
             ),
-            "job": read_latest_status(
-                repo=repo,
-                paths=paths,
-                source_id=source_id,
-                target_count=count,
-            ),
+            "job": job,
             "policy": {
                 "minimum_delay_seconds": spec.minimum_delay_seconds,
                 "minimum_check_interval_hours": spec.minimum_check_interval_hours,

@@ -827,6 +827,55 @@ def test_daily_pipeline_surfaces_required_source_when_recovery_retry_still_fails
     assert crawl["recovery"]["succeeded"] is False
 
 
+def test_publish_withholds_public_promotion_when_required_source_remains_degraded(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    db_path = tmp_path / "state" / "sources" / "sixv_latest_10.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    db_path.write_bytes(b"sqlite-placeholder")
+
+    monkeypatch.setattr(
+        media_daily,
+        "run_safe_movie_source",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            ResourceIndexError("LIVE_EMPTY_RESULT", "temporary empty listing", {"http_requests": 1})
+        ),
+    )
+    monkeypatch.setattr(
+        media_daily,
+        "safe_movie_source_status",
+        lambda **_kwargs: {
+            "job": {
+                "status": "success",
+                "covered_count": 10,
+                "publish_ready": True,
+                "db_path": str(db_path),
+                "completed_at": media_daily._iso(),
+            },
+            "source": {"last_completed_at": media_daily._iso()},
+        },
+    )
+    base = _config(tmp_path)
+    config = MediaDailyConfig(
+        **{
+            **base.__dict__,
+            "sources": (DailySourceConfig("sixv", 10, True),),
+            "source_fallback_retry_delay_seconds": 0,
+        }
+    )
+    result = run_media_daily(config, publish=True)
+    assert result["status"] == "success"
+    assert result["quality_status"] == "degraded"
+    assert result["required_degraded_sources"] == ["sixv"]
+    assert result["publish_withheld"] is True
+    assert result["publish_withheld_reason"] == "required_source_degraded"
+    assert result["current_revision"] == 6
+    assert result["public_verified"] is True
+    assert "publish" not in result["stages"]
+
+
 def test_daily_pipeline_retries_required_source_blocked_by_failure_backoff(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

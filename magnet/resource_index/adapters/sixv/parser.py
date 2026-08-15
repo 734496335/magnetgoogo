@@ -14,6 +14,7 @@ from magnet.resource_index.adapters.sixv.models import (
     SixVMovieDetail,
     SixVMovieResource,
 )
+from magnet.resource_index.errors import DETAIL_DOM_DRIFT, ResourceIndexError
 from magnet.resource_index.normalize.magnets import normalize_magnet_uri
 from magnet.resource_index.normalize.text import normalize_whitespace
 
@@ -421,7 +422,11 @@ def parse_movie_detail(
     soup = BeautifulSoup(html, "html.parser")
     end_text = soup.select_one("#endText")
     if end_text is None:
-        raise ValueError("6V detail page is missing #endText")
+        raise ResourceIndexError(
+            DETAIL_DOM_DRIFT,
+            "6V detail page is missing the expected content root",
+            {"detail_url": candidate.detail_url, "selector": "#endText"},
+        )
     metadata = _metadata(end_text)
     h1 = soup.find("h1")
     heading = normalize_whitespace(h1.get_text(" ", strip=True)) if h1 else candidate.listing_title

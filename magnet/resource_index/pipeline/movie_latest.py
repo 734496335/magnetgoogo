@@ -82,6 +82,7 @@ class MovieLatestResult:
     feed_path: str
     snapshot_changed: bool
     invocation_http_requests: int
+    publish_ready: bool
 
 
 class MovieLatestRunner:
@@ -881,13 +882,20 @@ class MovieLatestRunner:
         summary = self.job_store.summary(job_id)
         job = self.job_store.get_job(job_id)
         assert job is not None
+        spec = get_movie_source(self.source_id)
+        movie_count = int(feed["summary"]["record_count"])
+        publish_ready = (
+            movie_count >= spec.publish_count
+            if spec.publish_count is not None and self.target_count >= spec.publish_count
+            else summary["covered_count"] == self.target_count
+        )
         return MovieLatestResult(
             job_id=job_id,
             status=status,
             target_count=self.target_count,
             covered_count=summary["covered_count"],
             failed_count=summary["failed_count"],
-            movie_count=int(feed["summary"]["record_count"]),
+            movie_count=movie_count,
             recommended_count=int(feed["summary"]["recommended_count"]),
             resource_count=int(feed["summary"]["resource_count"]),
             snapshot_http_requests=int(job["snapshot_http_requests"] or 0),
@@ -897,6 +905,7 @@ class MovieLatestRunner:
             feed_path=str(self.paths.feed_path),
             snapshot_changed=self._snapshot_changed,
             invocation_http_requests=self._invocation_http_requests,
+            publish_ready=publish_ready,
         )
 
     def run(
@@ -1072,17 +1081,8 @@ class MovieLatestRunner:
 
             summary = self.job_store.summary(job_id)
             feed = self._export_feed(job_id, snapshot)
-            source_publish_count = get_movie_source(self.source_id).publish_count
-            publish_count = (
-                source_publish_count
-                if source_publish_count is not None and self.target_count >= source_publish_count
-                else None
-            )
-            qualified_count = int(feed["summary"]["record_count"])
             if stopped_by_policy:
                 status = "paused"
-            elif publish_count is not None and summary["pending_count"] == 0:
-                status = "success" if qualified_count >= publish_count else "partial"
             elif summary["covered_count"] == self.target_count:
                 status = "success"
             elif summary["exhausted_count"] > 0 and summary["pending_count"] == 0:

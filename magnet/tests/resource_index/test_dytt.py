@@ -32,6 +32,7 @@ from magnet.resource_index.domain.movie_models import (
 from magnet.resource_index.errors import LIVE_EMPTY_RESULT, LIVE_HTTP_ERROR, LIVE_URL_REJECTED, NOT_FOUND, ResourceIndexError
 from magnet.resource_index.pipeline.latest_crawl import (
     LatestCrawlPaths,
+    read_latest_status,
     run_deployment_doctor,
 )
 from magnet.resource_index.pipeline.movie_automation import (
@@ -933,6 +934,97 @@ def test_runner_publishes_qualified_subset_from_larger_discovery_window(
         "missing_publishable_resources": 1,
     }
     assert all(resource["resource_type"] == "magnet" for item in payload["items"] for resource in item["resources"])
+    assert result.publish_ready is True
+    repo.close()
+
+
+def test_publish_ready_does_not_masquerade_as_complete_job_success(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from magnet.resource_index.adapters import movie_registry
+
+    source_id = "test-publish-ready-partial"
+    candidates = [_candidate(1), _candidate(2), _candidate(3)]
+    calls = {"snapshot": 0, "detail": 0}
+
+    class _PartialCrawler(_FakeCrawler):
+        def crawl_movie_detail(self, candidate: MovieListingCandidate):
+            self.calls["detail"] += 1
+            self.http_requests += 1
+            if candidate.rank == 3:
+                raise ResourceIndexError(NOT_FOUND, "missing", {"status": 404})
+            detail = _detail(candidate, source_id=source_id)
+            resource = MovieResource(
+                resource_type="magnet",
+                provider="magnet",
+                resource_url=f"magnet:?xt=urn:btih:{candidate.rank:040x}",
+                info_hash=f"{candidate.rank:040x}",
+                display_title=f"测试电影{candidate.rank}",
+                extraction_code=None,
+                quality_tags=(),
+            )
+            return replace(detail, resources=(resource,))
+
+    spec = MovieSourceSpec(
+        source_id=source_id,
+        snapshot_schema="movie-latest/publish-ready-partial/1",
+        default_count=3,
+        minimum_delay_seconds=0,
+        minimum_check_interval_hours=0,
+        daily_request_budget=20,
+        default_batch_size=3,
+        automatic_max_batches=3,
+        snapshot_max_requests=1,
+        batch_max_requests=3,
+        max_listing_pages=1,
+        robots_url=None,
+        allowed_origins=("https://www.dytt8899.com",),
+        allowed_path_prefixes=("/i/",),
+        crawler_factory=lambda _policy: _PartialCrawler(candidates, calls, source_id=source_id),
+        publish_count=2,
+    )
+    monkeypatch.setitem(movie_registry._SPECS, source_id, spec)
+    paths = LatestCrawlPaths.for_output_dir(tmp_path / "out", source_id=source_id, target_count=3)
+    repo = SqliteResourceRepository(paths.db_path)
+    runner = MovieLatestRunner(
+        repo=repo,
+        paths=paths,
+        source_id=source_id,
+        target_count=3,
+        batch_size=3,
+        max_attempts=1,
+        snapshot_max_requests=1,
+        batch_max_requests=3,
+        max_listing_pages=1,
+        crawler_builder=lambda _policy: _PartialCrawler(candidates, calls, source_id=source_id),
+    )
+    result = runner.run(refresh=True)
+    assert result.status == "partial"
+    assert result.covered_count == 2
+    assert result.movie_count == 2
+    assert result.publish_ready is True
+    status = read_latest_status(
+        repo=repo,
+        paths=paths,
+        source_id=source_id,
+        target_count=3,
+    )
+    assert status["status"] == "partial"
+    assert status["covered_count"] == 2
+    repo.conn.execute(
+        "UPDATE latest_crawl_jobs SET status = 'success' WHERE job_id = ?",
+        (result.job_id,),
+    )
+    repaired = read_latest_status(
+        repo=repo,
+        paths=paths,
+        source_id=source_id,
+        target_count=3,
+    )
+    assert repaired["stored_status"] == "success"
+    assert repaired["status"] == "partial"
+    assert repaired["status_consistent"] is False
     repo.close()
 
 
@@ -996,6 +1088,7 @@ def test_safe_cli_continues_after_one_source_fails(
             remaining_daily_requests=8,
             db_path="movie.db",
             feed_path="movie_feed.json",
+            publish_ready=True,
         )
 
     monkeypatch.setattr(cli_module, "run_safe_movie_source", fake_run)

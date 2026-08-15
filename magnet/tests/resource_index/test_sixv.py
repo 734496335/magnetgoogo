@@ -22,7 +22,7 @@ from magnet.resource_index.adapters.sixv.parser import (
     parse_latest_listing,
     parse_movie_detail,
 )
-from magnet.resource_index.errors import LIVE_RATE_LIMITED, ResourceIndexError
+from magnet.resource_index.errors import DETAIL_DOM_DRIFT, LIVE_RATE_LIMITED, ResourceIndexError
 from magnet.resource_index.pipeline.latest_crawl import LatestCrawlPaths, read_latest_status
 from magnet.resource_index.pipeline.sixv_latest import SixVLatestRunner
 from magnet.resource_index.store.movie_repository import MovieRepository
@@ -36,6 +36,13 @@ def test_sixv_source_snapshot_window_can_cover_default_catalog() -> None:
     assert spec.default_count == 100
     assert spec.max_listing_pages == 5
     assert spec.snapshot_max_requests >= spec.max_listing_pages
+
+
+def test_detail_parser_reports_dom_drift_with_stable_error_code() -> None:
+    with pytest.raises(ResourceIndexError) as exc_info:
+        parse_movie_detail("<html><body>unexpected</body></html>", candidate=_candidate(1))
+    assert exc_info.value.error_code == DETAIL_DOM_DRIFT
+    assert exc_info.value.context["selector"] == "#endText"
 
 
 def test_movie_title_normalization_removes_listing_noise() -> None:

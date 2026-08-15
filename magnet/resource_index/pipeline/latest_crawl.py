@@ -945,8 +945,18 @@ def read_latest_status(
         for item in store.items(job["job_id"])
         if item["status"] != "success"
     ]
+    stored_status = str(job["status"] or "")
+    effective_status = stored_status
+    if stored_status == "success" and summary["covered_count"] != target_count:
+        effective_status = (
+            "partial"
+            if summary["exhausted_count"] > 0 and summary["pending_count"] == 0
+            else "pending"
+        )
     return {
-        "status": job["status"],
+        "status": effective_status,
+        "stored_status": stored_status,
+        "status_consistent": effective_status == stored_status,
         "job_id": job["job_id"],
         "source_id": source_id,
         "target_count": target_count,

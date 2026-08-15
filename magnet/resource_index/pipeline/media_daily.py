@@ -817,6 +817,7 @@ def run_media_daily(
                         "target_count": source.count,
                         "job_status": str(current_job.get("status") or ""),
                         "covered_count": int(current_job.get("covered_count") or 0),
+                        "publish_ready": bool(current_job.get("publish_ready")),
                         "db_path": db_path,
                         "freshness_required": source.freshness_required,
                     })
@@ -832,9 +833,13 @@ def run_media_daily(
                         result_status = str(getattr(result, "status", "") or "")
                         result_reason = str(getattr(result, "reason", "") or "")
                         result_job_status = str(getattr(result, "job_status", "") or "")
+                        result_publish_ready = bool(
+                            getattr(result, "publish_ready", result_job_status == "success")
+                        )
                         freshness_incomplete = (
                             result_status == "paused"
                             or result_job_status in {"pending", "paused", "partial"}
+                            or not result_publish_ready
                             or (result_status == "skipped" and result_reason == "failure_backoff")
                         )
                         if source.freshness_required and freshness_incomplete:
@@ -895,6 +900,7 @@ def run_media_daily(
                             retry.status == "ran"
                             and retry.job_status == "success"
                             and retry.covered_count == source.count
+                            and bool(getattr(retry, "publish_ready", retry.job_status == "success"))
                         )
                         if recovered:
                             export_source_library_feed(
@@ -935,6 +941,7 @@ def run_media_daily(
                 return (
                     source_status in {"fallback", "paused"}
                     or job_status in {"pending", "paused", "partial"}
+                    or item.get("publish_ready") is False
                     or (source_status == "skipped" and source_reason == "failure_backoff")
                 )
 
@@ -1166,6 +1173,27 @@ def run_media_daily(
                             "resource_count": status["resource_count"],
                         },
                     )
+                _write_json(latest_status, status)
+                return status
+
+            if required_degraded:
+                verification = [
+                    _verify_public_control(config.r2_public_base, previous_current_path),
+                    _verify_public_control(config.aliyun_public_base, previous_current_path),
+                ]
+                status["stages"]["verification"] = verification
+                status.update(
+                    {
+                        "status": "success",
+                        "publish_withheld": True,
+                        "publish_withheld_reason": "required_source_degraded",
+                        "public_verified": True,
+                        "current_revision": previous_revision,
+                        "release_id": str(previous_current.get("release_id") or ""),
+                        "pointer_sha256": hashlib.sha256(previous_current_path.read_bytes()).hexdigest(),
+                        "finished_at": _iso(),
+                    }
+                )
                 _write_json(latest_status, status)
                 return status
 
