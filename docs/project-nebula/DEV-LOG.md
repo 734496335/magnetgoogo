@@ -1,4 +1,30 @@
 ---
+Date/Time: 2026-08-15 23:40 (UTC+8)
+Version: media-production-second-adversarial-audit
+Scope: Re-run the media supply chain as a release-freeze audit, migrate parser-epoch durable state safely, close snapshot-only quality masking, and prove public control/data planes without forcing a revision.
+Modules: media daily quality semantics, safe-source durable jobs, R2/Aliyun public release, systemd audit runtime, source-sync/alert readiness
+
+### Findings and repair
+- Initial read-only audit exposed parser-epoch migration state: sixv/meijumi durable jobs appeared `snapshot_only` even though last-known-good feeds existed. Safe-source runners rebuilt current identity from historical observations with zero HTTP requests and returned both required sources to 100/100.
+- dytt8899 required only one real request and remains 249/250 partial because one rank is permanently bad. Its explicit supplemental contract is discovery target=250 and publish_count=100; the durable-all library contains 100 valid media rows, so it stays publishable but correctly degraded.
+- Found a remaining observability defect: supplemental `snapshot_only` was not in `source_is_degraded`, allowing an identity-missing source to contribute to a global `healthy` label. Added `snapshot_only` to the common degraded set and a permanent skip-crawl regression test.
+- Commit `f9303ff` (`fix(media): mark snapshot-only sources degraded`) was pushed. Production snapshot diff proved the runtime file differed by exactly that one token before deployment.
+
+### Production/data-plane verification
+- The deployed runtime file SHA matches the verified local file. Host Python compile attempts were deliberately abandoned after proving they were invalid verifiers (one nonexistent venv path; host Python3.6 cannot parse the project future-annotations syntax). The real systemd/Docker runtime is authoritative.
+- Real `magnet-media-audit.service` then returned Result=success, quality=degraded, degraded=[dytt8899], required_degraded=[], published=false, 286 movies /316 series /4464 resources. Public current remained revision16 / release `20260815T000000Z-8cf00f8a` with unchanged pointer SHA.
+- R2 and Aliyun `/v1/current.json` are byte-identical; both manifests are byte-identical and match the current-declared manifest SHA. Manifest contains 1763 objects with 539 covers, 601 details, 22 catalog objects and 4462 resources.
+- Six stratified objects covering cover/catalog/detail/resource paths were fetched independently from both public planes. Every pair was byte-identical and matched both manifest hash and manifest byte size.
+- No failed magnet systemd units; media/source timers active; filesystem ~61% used with ~15GiB free. Full Resource Index 434 passed /1 skipped and enum 241 ALL VALID.
+
+### Source/alert boundary
+- Production source-sync remains healthy on full pack SHA `9dd9c886...`, 357 rules /148 GREEN. mg-data shows real bot renewals through Aug13 and the next <24h refresh window is around Aug16 00:17; this session has not yet observed that future cycle, so no false renewal claim is recorded.
+- App-side source delivery also received an authority-first fix so a fast stale jsDelivr response cannot beat healthy authority endpoints; final K30S cold boot used an authority and loaded all 148 sources.
+- Alert state machines/hooks remain live and fail-open. Production transport is still disabled because a usable CloudMonitor URL/token is not available in this execution context; no real mailbox receipt is claimed.
+- All harness failures from quoting/path/runtime-verifier mistakes were preserved under `_failures` and were not overwritten by subsequent successful verification.
+---
+
+---
 Date/Time: 2026-08-15 11:12 (UTC+8)
 Version: v0.2.6-media-freshness-production-closure
 Scope: Close sixv freshness recovery and budget defects, restore current media publication, and adversarially fix incomplete supplemental-source quality reporting without changing source health states.

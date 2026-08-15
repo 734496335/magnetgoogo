@@ -1,28 +1,26 @@
-TASK: media freshness/recovery/quality observability + production alert closure
-STATUS: MEDIA_PRODUCTION_FIXED / QUALITY_OBSERVABILITY_FIXED / REAL_EMAIL_TRANSPORT_BLOCKED
-DATE: 2026-08-15 UTC+8
+TASK: media/source production deep audit + alert closure support for v0.2.6 release freeze
+STATUS: MEDIA_DATA_PLANE_PASS / QUALITY_OBSERVABILITY_DEPLOYED / SOURCE_VALID / REAL_EMAIL_TRANSPORT_BLOCKED
+DATE: 2026-08-15 23:40 UTC+8
 
 MEDIA PRODUCTION:
-- Public media current verified revision16 / release 20260815T000000Z-8cf00f8a; R2/Aliyun pointer bytes match; 286 movies / 315 series / 4462 magnet resources.
-- sixv defects closed: structured failure actual-request accounting, same-origin mirror parsing, 100-item snapshot window=5 pages, explicit per-detail request upper bound.
-- sixv durable recovery reached 100/100 with 9 real HTTP requests and retained safe daily budget.
-- freshness_required fallback now gets delayed single-source retry; unrecovered main-source fallback becomes degraded and enters freshness alert state.
-- final review found supplemental pending/partial/paused could still report global healthy; these now enter degraded_sources but not required_degraded_sources.
-- skip-crawl publish/audit now carries durable job_status/covered_count into the same quality gate; removed an inner import that had made this path bypass dependency injection tests.
-- Resource Index 427 passed / 1 skipped; compileall PASS; enum 241 ALL VALID.
-- production latest image overlay: sha256:0f97daba31f83b58303fc6f52955617605f55380ffbed688f6400495821f84f1; rollback tags retained.
-- real production audit mode proved sixv-series durable pending 99/100 => quality=degraded, degraded_sources=[sixv-series], required=[]; public pointer SHA stayed 03e07a... before/after.
+- Public current remains revision16 / release 20260815T000000Z-8cf00f8a; R2/Aliyun current+manifest bytes match; 286 movies / 315 series / 4462 resources.
+- Parser-epoch migration: sixv and meijumi rebuilt current durable identity at 100/100 with 0 HTTP; sixv-series=100/100.
+- dytt8899=249/250 partial because one rank remains bad, but it is supplemental with explicit publish_count=100 and durable library feed=100; publishability and completeness remain separate.
+- Found and fixed snapshot_only quality masking: snapshot_only now always enters degraded_sources; required alerting still depends on freshness_required.
+- Commit f9303ff pushed and the exact one-line runtime diff deployed; real magnet-media-audit.service PASS under Docker runtime.
+- Latest audit: success / degraded=[dytt8899] / required_degraded=[] / published=false / 286 movies / 316 series / 4464 resources; public current SHA unchanged.
+- R2/Aliyun current SHA=03e07a... and manifest SHA=a47eb9e...; manifest has 1763 objects.
+- Six stratified cover/catalog/detail/resource objects matched across both planes by bytes, manifest SHA and manifest size.
+- Resource Index 434 passed / 1 skipped; enum rules=241 ALL VALID; no failed magnet units; disk ~61%, ~15GiB free.
 
 SOURCE SYNC:
-- hourly service success; current full pack SHA 9dd9c8863ff28c79778494ae533f1a0a4d27dc90153bbd7b8e1ede303080c782.
-- 357 rules / 148 GREEN; authority/jsDelivr/Aliyun converged; ~31h validity remained at 10:19 CST.
+- hourly service healthy; current full pack SHA 9dd9c8863ff28c79778494ae533f1a0a4d27dc90153bbd7b8e1ede303080c782; 357 rules /148 GREEN.
+- mg-data has real source-envelope-bot renewals through 2026-08-13; every-8h workflow refreshes when <24h to a 72h envelope.
+- current pack was still valid (~18h at final App test); next renewal window ~2026-08-16 00:17 has not yet been observed this session.
 - no sources.json health.status mutation.
 
-ALERTS:
-- media retry-failure, required-source freshness degradation, source-sync failure and source-expiry state machines/hooks are installed and fail-open.
-- root-only /etc/magnet-alerts/alert.env remains mode 0600; recipient field restored; transport remains disabled.
-- strict alert test returns rc=2 as expected while no CloudMonitor URL / SMTP auth credential exists; no email delivery is claimed.
-
-REMAINING:
-- Real email delivery requires one external credential: preferred CloudMonitor External Alert URL/security keyword, or QQ SMTP authorization code.
-- Next unattended media run will apply the new supplemental-source degraded status semantics; no public revision was forced just to test observability.
+ALERTS / REMAINING:
+- media retry-failure, required-source freshness, source-sync failure and source-expiry state machines/hooks remain installed and fail-open.
+- root-only /etc/magnet-alerts/alert.env remains protected; outbound transport is still disabled because no usable CloudMonitor URL/token value is available in this execution context.
+- real email acceptance remains pending; do not mark alert delivery solved until strict provider test returns success and inbox receipt is confirmed.
+- App-side stale CDN source race was also fixed on the v0.2.6 branch with authority-first delivery; final K30S clean boot loaded 148 remote sources from an authority, not jsDelivr.
