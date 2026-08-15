@@ -1,4 +1,28 @@
 ---
+Date/Time: 2026-08-16 00:50 (UTC+8)
+Version: v0.2.6-release-freeze-evidence-correction
+Scope: Correct stale final-audit claims with exact-current K30S acceptance, current media/source production evidence, and revalidated signing/email blockers.
+Modules: magnetgoogo-app K30S/search/lifecycle, crawler_v3 test fixtures, production media/source timers, cf-gateway, release signing, alert transport
+
+### Exact current App / K30S closure
+- Rebuilt standalone Debug from current HEAD and fixed the artifact identity at SHA256 `2d5b9ca87ae653bfb89ba07507d4eb9ea416e563d274c3fc2e76633d2ca63bdd`, package `com.magnetgoogo.app.debug`, v0.2.6/code10. `adb install -r` succeeded on K30S; formal `com.magnetgoogo.app` remained v0.2.5/code9.
+- After Debug-only `pm clear`, the exact current APK completed the four UX categories EN movie / ZH movie / ZH anime / EN series. Aggregate result-quality audit is PASS with 4 reports, hard=0 and hash-placeholder=0; runtime loaded 148 hosts /52 pools. `流浪地球` returned 123/123 high-relevance; `Breaking Bad` 200/200. Raw source errors and the single low-precision warning remain in the report.
+- Lifecycle acceptance passed: background return HOT 149ms; force-stop recovery COLD 360ms; process alive; no matching Fatal/ANR in the cleared-logcat test window.
+- Full App gates were independently rerun and passed. Resource Index current rerun is 201 passed; crawler_v3 initially exposed two stale cookie tests using invalid `btih:abc`. The first failure was preserved, fixtures were replaced with a syntactically valid 40-hex BTIH, then focused 3/3 and full non-integration 61 passed /2 deselected.
+
+### Source renewal / Gateway / media production evidence
+- The widened source renewal path completed a real cycle: bot commit `122533e` issued the new envelope at 2026-08-15T16:19:12Z, expiry 2026-08-18T16:19:12Z, SHA `fa4e4d49...`; Aliyun `magnet-source-sync.service` installed it automatically at 00:19:26 local with exit 0/SUCCESS. The exact current K30S APK then decrypted/cached the renewed pack and loaded 148 hosts /52 pools.
+- Pages, GitHub Raw, Gateway, jsDelivr and old workers.dev returned byte-identical `sources.enc.json`; `cn.magnetgoogo.com` hit a Windows Schannel TLS handshake failure in the final probe and is retained as degraded fallback evidence rather than falsely counted as converged.
+- Gateway mutable-config total-authority-outage was found fail-open (`0.0.0`) and fixed fail-closed. Contract tests now require `/config`, `/api/check` and source version gating to return 502 when both config authorities fail. Version `56ccec57...` passed preview + 5% canary smoke and was promoted to 100%; normal production config/check/source behavior remained correct.
+- Latest real media audit `20260815T152929Z-4263f0b3` is status=success, candidate_verified=true, published=false. Required sixv/meijumi are 100/100 and publish-ready; sixv-series is 100/100; supplemental dytt8899 is 249/250 partial but publish-ready, so quality is degraded only for dytt with `required_degraded_sources=[]`. Audit-only revision17 candidate is 286 movies /316 series /4464 resources; public revision16 remains unchanged. `media.magnetgoogo.com` and Gateway current/manifest hashes match exactly (1763 manifest objects).
+
+### Remaining release blockers
+- Signing remains unverified: the release keystore exists, but all three release signing variables are absent at Windows Process/User/Machine scope and from the root `.env`; no `secrets.enc` recovery artifact is present. A formal signed code10 APK cannot be truthfully built or compared to the v0.2.5 signer in this environment.
+- Real email remains unverified: server alert env is root:root 0600 but its CloudMonitor URL is still a short placeholder, provider security/access-key fields are empty, transport is disabled, and the strict acceptance transient unit remains failed with exit status 2 before provider HTTP. Local `D:\lpproduct\magnet\.env` currently contains only `ADMIN_SECRET` and `MIMO_API_KEY` key names, so the previously supplied CloudMonitor URL/token was not persisted there.
+- Final release verdict remains **HOLD / NO-GO** solely on formal signing continuity and real alert-provider/mailbox acceptance. Exact-current Debug/K30S, source renewal/delivery, Gateway fail-closed, App main flows and media supply chain have no known P0/P1.
+---
+
+---
 Date/Time: 2026-08-16 00:30 (UTC+8)
 Version: v0.2.6-release-freeze-final-audit
 Scope: Finalize the cross-layer release audit with real source renewal, Gateway mutable-control-plane fail-closed rollout, post-renewal K30S consumption/search evidence, and an explicit HOLD on unresolved release-signing/email gates.

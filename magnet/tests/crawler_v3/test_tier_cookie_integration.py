@@ -30,7 +30,7 @@ class TestTier0CookieInjection:
         mock_fetch.return_value = "<html>" * 200 + "result</html>"
 
         with patch("magnet.crawler_v3.tiers.tier0_http._looks_like_anti_bot", return_value=False):
-            with patch("magnet.crawler_v3.tiers.tier0_http.extract_results_from_html", return_value=[SearchResult(title="t", magnet="magnet:?xt=urn:btih:abc")]):
+            with patch("magnet.crawler_v3.tiers.tier0_http.extract_results_from_html", return_value=[SearchResult(title="t", magnet="magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567")]):
                 tier0.search(simple_source, "test")
 
         # Verify _fetch was called with Cookie header
@@ -46,7 +46,7 @@ class TestTier0CookieInjection:
         mock_fetch.return_value = "<html>" * 200 + "result</html>"
 
         with patch("magnet.crawler_v3.tiers.tier0_http._looks_like_anti_bot", return_value=False):
-            with patch("magnet.crawler_v3.tiers.tier0_http.extract_results_from_html", return_value=[SearchResult(title="t", magnet="magnet:?xt=urn:btih:abc")]):
+            with patch("magnet.crawler_v3.tiers.tier0_http.extract_results_from_html", return_value=[SearchResult(title="t", magnet="magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567")]):
                 tier0.search(simple_source, "test")
 
         call_kwargs = mock_fetch.call_args
@@ -72,7 +72,7 @@ class TestTier1CookieHarvest:
                     mock_browser.new_page.return_value = mock_page
                     mock_launch.return_value = mock_browser
 
-                    with patch("magnet.crawler_v3.tiers.tier1_cloak.extract_results_from_html", return_value=[SearchResult(title="t", magnet="magnet:?xt=urn:btih:abc")]):
+                    with patch("magnet.crawler_v3.tiers.tier1_cloak.extract_results_from_html", return_value=[SearchResult(title="t", magnet="magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567")]):
                         from magnet.crawler_v3.tiers.tier1_cloak import Tier1Cloak
                         tier1 = Tier1Cloak.__new__(Tier1Cloak)
                         tier1.headless = True
