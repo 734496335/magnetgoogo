@@ -1,26 +1,26 @@
-TASK: 生产邮件主动告警（media + 普通版 source-sync）
-STATUS: ALERT_HOOKS_PRODUCTION_TESTED / REAL_MAIL_CHANNEL_PENDING
-DATE: 2026-08-12 UTC+8
+TASK: media freshness/recovery/quality observability + production alert closure
+STATUS: MEDIA_PRODUCTION_FIXED / QUALITY_OBSERVABILITY_FIXED / REAL_EMAIL_TRANSPORT_BLOCKED
+DATE: 2026-08-15 UTC+8
 
-PRODUCTION POLICY:
-- media 首次 daily 失败只走原30分钟 retry；retry 再失败才触发 P0。
-- source-sync 连续2次小时级失败触发 P1；成功同步后仍连续2次 `<24h` 才触发 P0 临期。
-- 首次达到阈值立即通知；未恢复事故 media/source 24h、expiry 12h 低频提醒；恢复只发1次。
-- 告警 fail-open；通知系统故障不能改变 media/source 业务退出码。
+MEDIA PRODUCTION:
+- Public media current verified revision16 / release 20260815T000000Z-8cf00f8a; R2/Aliyun pointer bytes match; 286 movies / 315 series / 4462 magnet resources.
+- sixv defects closed: structured failure actual-request accounting, same-origin mirror parsing, 100-item snapshot window=5 pages, explicit per-detail request upper bound.
+- sixv durable recovery reached 100/100 with 9 real HTTP requests and retained safe daily budget.
+- freshness_required fallback now gets delayed single-source retry; unrecovered main-source fallback becomes degraded and enters freshness alert state.
+- final review found supplemental pending/partial/paused could still report global healthy; commit 0b5bf3f now includes these in degraded_sources but not required_degraded_sources.
+- Resource Index 426 passed / 1 skipped; compileall PASS; enum 241 ALL VALID.
+- production latest image overlay: sha256:3dc498a7c7a65ba3697803cd4e2192ecdd1ca18f385b6b5362d2a891457b825e; backup tag retained.
 
-PRODUCTION PROOF:
-- 最新 Resource Index 415 passed / 1 skipped；alert/source targeted 28/28；enum 241 ALL VALID。
-- Aliyun Python3.6 / bash / systemd verify PASS；QQ smtp.qq.com:465 TLS NOOP=250。
-- 真实 source-sync 故障注入：failures 1→2；恢复后0；生产 full SHA 前后均 `370de74a...`。
-- media helper failure→success PASS；source-expiry 23h→23h→25h PASS。
-- CRLF 中转故障已留证；alerts/source-sync 强制 eol=lf，Git blob 二进制重部署后生产 CRLF=0。
-- `e7125dd` 运行版再次执行正常 source-sync/media success；三类状态均 success/failures=0/open=false。
+SOURCE SYNC:
+- hourly service success; current full pack SHA 9dd9c8863ff28c79778494ae533f1a0a4d27dc90153bbd7b8e1ede303080c782.
+- 357 rules / 148 GREEN; authority/jsDelivr/Aliyun converged; ~31h validity remained at 10:19 CST.
+- no sources.json health.status mutation.
 
-DELIVERY:
-- CloudMonitor 官方支持安全词 URL/token 或 Basic Auth 两种外部报警安全模式；QQ SMTP 授权码 fallback 已实现。
-- `/etc/magnet-alerts/alert.env` = 0600 root:root，当前 transport=disabled；目标 QQ 邮箱已配置，SMTP授权码为空。
-- 历史 CloudMonitor URL 备份已损坏且确认不含 `https://` token；服务器其他路径无可恢复副本，严格测试未实际发信。
-- Cloudflare Email Service 对已验证目标地址可免费发送，但当前 OAuth 缺 email 权限且仍需一次邮箱验证。
+ALERTS:
+- media retry-failure, required-source freshness degradation, source-sync failure and source-expiry state machines/hooks are installed and fail-open.
+- root-only /etc/magnet-alerts/alert.env remains mode 0600; recipient field restored; transport remains disabled.
+- strict alert test returns rc=2 as expected while no CloudMonitor URL / SMTP auth credential exists; no email delivery is claimed.
 
 REMAINING:
-- 重新从 CloudMonitor 联系组复制“接入外部报警”调用地址（安全词模式可免AccessKey），或设置 QQ SMTP授权码；执行 strict test 并确认收件箱实际收到后，CH-009 才能标 solved。
+- Real email delivery requires one external credential: preferred CloudMonitor External Alert URL/security keyword, or QQ SMTP authorization code.
+- Next unattended media run will apply the new supplemental-source degraded status semantics; no public revision was forced just to test observability.

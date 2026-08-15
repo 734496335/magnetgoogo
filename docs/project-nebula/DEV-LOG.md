@@ -1,4 +1,28 @@
 ---
+Date/Time: 2026-08-15 11:12 (UTC+8)
+Version: v0.2.6-media-freshness-production-closure
+Scope: Close sixv freshness recovery and budget defects, restore current media publication, and adversarially fix incomplete supplemental-source quality reporting without changing source health states.
+Modules: media daily runner/source registry/sixv parser/request budgeting, Linux production media image, source-sync and alert runtime
+
+### Root causes closed
+- Structured source failures no longer consume the whole pre-reserved request budget when the thrown ResourceIndexError reports actual physical requests.
+- 6V mirror failover was previously fake because the parser hardcoded the `.com` hostname; parser now accepts only the same host as the verified listing page, enabling registered `.net/.cc` mirrors without allowing external-link injection.
+- sixv `default_count=100` with four listing pages could only provide at most 96 items. Production probe proved five pages provide exactly 100; max listing pages is now 5 within the snapshot request ceiling.
+- Safe-source reservation previously assumed every batch could consume `batch_max_requests`; all registered media crawlers were audited and each detail item performs at most one physical request. Source specs now expose that upper bound, making sixv fresh reservation 42 instead of a false 84 while unknown crawlers retain conservative behavior.
+
+### Production recovery / publication
+- sixv durable recovery completed 100/100 with 9 actual HTTP requests and retained 73 requests of daily budget. New Aug13/Aug14 titles were verified with real magnets before aggregation.
+- Candidate quality gate passed and the public chain subsequently advanced to revision16 / `20260815T000000Z-8cf00f8a`; R2 and Aliyun pointer SHA are identical, exposing 286 movies / 315 series / 4462 resources.
+- Final review found current sixv-series could be `pending` 99/100 while global `quality_status` still said healthy. Commit `0b5bf3f` now treats fallback/paused/pending/partial/failure_backoff as degraded for operations, but only `freshness_required=true` degradation enters required-source alerting.
+- Production latest image was updated by an offline code-layer overlay only, retaining the previous image as rollback; new image `sha256:3dc498a7c7a65ba3697803cd4e2192ecdd1ca18f385b6b5362d2a891457b825e` passed host/image SHA equality and Python compile smoke.
+
+### Verification / residual
+- Media daily targeted 37/37; full Resource Index 426 passed / 1 skipped; compileall PASS; enum 241 ALL VALID. Branch `feature/media-daily-automation` pushed through `0b5bf3f`.
+- Hourly source-sync remains success with 357 rules / 148 GREEN and current authority/jsDelivr/Aliyun SHA convergence; no `sources.json health.status` was changed.
+- Alert hooks/state machines are installed and recipient is restored in root-only mode-0600 config, but transport remains disabled. Strict test returns rc=2 until a fresh CloudMonitor External Alert URL or QQ SMTP authorization code is supplied; no real email receipt is claimed.
+---
+
+---
 Date/Time: 2026-08-12 00:40 (UTC+8)
 Version: production-alert-final-runtime-acceptance
 Scope: Finish real Aliyun alert-hook fault injection and transport recovery investigation after the initial alert rollout; preserve fail-open production behavior and establish the exact remaining external-delivery prerequisite.
