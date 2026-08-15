@@ -232,6 +232,27 @@ try {
     `${env.GITHUB_RAW}/config.json`,
     'https://magnetgoogo.com/config.json',
   ]);
+
+  globalThis.fetch = async () => { throw new Error('synthetic_config_outage'); };
+  const unavailableConfig = await call('/config.json');
+  assert.equal(unavailableConfig.status, 502);
+  assert.equal(unavailableConfig.headers.get('Cache-Control'), 'no-store');
+  assert.equal((await unavailableConfig.json()).error, 'config_unavailable');
+
+  const unavailableCheck = await call('/api/check', {
+    headers: { 'X-App-Version': '0.2.6' },
+  });
+  assert.equal(unavailableCheck.status, 502,
+    'check must fail closed instead of claiming 0.0.0 when both config authorities fail');
+  assert.equal((await unavailableCheck.json()).error, 'config_unavailable');
+
+  const unavailableSources = await call('/sources.enc.json', {
+    headers: { 'X-App-Version': '0.2.6' },
+  });
+  assert.equal(unavailableSources.status, 502,
+    'source version gate must fail closed when min_version authority is unavailable');
+  assert.equal((await unavailableSources.json()).error, 'config_unavailable');
+
   assert.ok((source.match(/loadMutableConfig\(env\)/g) || []).length >= 3,
     'config route, check route and source version gate must share one authority loader');
 } finally {

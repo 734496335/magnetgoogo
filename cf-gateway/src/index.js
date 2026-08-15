@@ -200,11 +200,13 @@ async function handleSources(request, env) {
 
   // ── Step 1: Fetch authoritative config to get min_version ──
   const noCache = (request.headers.get('Cache-Control') || '').includes('no-cache');
-  let minVersion = '0.0.0';
+  let minVersion;
   try {
     const loaded = await loadMutableConfig(env);
-    minVersion = loaded.config.min_version || '0.0.0';
-  } catch { /* use default */ }
+    minVersion = loaded.config.min_version;
+  } catch {
+    return jsonResponse({ error: 'config_unavailable' }, 502, { 'Cache-Control': 'no-store' });
+  }
 
   // ── Step 2: Version gate ──
   if (meta.appVersion && semverCompare(meta.appVersion, minVersion) < 0) {
@@ -245,13 +247,15 @@ async function handleCheck(request, env) {
 
   // Fetch correctness-sensitive config from the same authority path used by
   // /config.json and the source-pack version gate.
-  let config = {};
+  let config;
   try {
     config = (await loadMutableConfig(env)).config;
-  } catch { /* ignore */ }
+  } catch {
+    return jsonResponse({ error: 'config_unavailable' }, 502, { 'Cache-Control': 'no-store' });
+  }
 
-  const minVersion = config.min_version || '0.0.0';
-  const latestVersion = config.latest_version || '0.0.0';
+  const minVersion = config.min_version;
+  const latestVersion = config.latest_version;
 
   const forceUpdate = meta.appVersion
     ? semverCompare(meta.appVersion, minVersion) < 0
