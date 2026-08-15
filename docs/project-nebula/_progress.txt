@@ -1,26 +1,26 @@
 TASK: v0.2.6 release-freeze audit: App main flows + source renewal/delivery + media supply chain + production alerts
-STATUS: APP_K30S_PASS / MEDIA_DATA_PLANE_PASS / SOURCE_AUTHORITY_HARDENED / RELEASE_SIGNING_AND_EMAIL_PENDING
-DATE: 2026-08-15 23:40 UTC+8
+STATUS: APP_CODE_GATES_PASS / LAST_K30S_FULL_PASS_ON_808061DD / FINAL_4D3EA8C_DEVICE_INSTALL_BLOCKED / MEDIA_PASS / SIGNING_EMAIL_PENDING
+DATE: 2026-08-15 23:55 UTC+8
 
 APP v0.2.6:
-- Final Debug candidate SHA256 808061dd940079217898b1269b55a079251a8a7e3343d53ba903974a8999736; formal com.magnetgoogo.app remains 0.2.5/code9 untouched.
-- K30S clean-data startup: 147 bundled -> 148 remote; final remote authority=https://api.naoshiquan.com, not jsDelivr; source pack still valid (~18h at test time).
-- Final K30S Inception: 168/168 high-relevance, 67 hosts / 52 pools, 0 skipped, quality hard=0; final Chinese run: 120/120, 52 pools, hard=0.
-- Resource page on final APK revalidated public media revision16 / release 20260815T000000Z-8cf00f8a / pointer 03e07a... / manifest a47eb9e....
-- Fixed stale-fast source race with authority-first policy + dynamic stale-mirror fault test; fixed common date canonicalization, invalid Unicode stripping, and nondeterministic same-hash size conflict handling.
-- App full gates PASS: resource/media/security/cache/update/release/analytics/auto-sync, adversarial 56/56, fluency 17/17, TypeScript; Android standalone Debug BUILD SUCCESSFUL.
-- Gateway media R2 fallback + IPv4-first + honest resource revalidation landed; Gateway contract PASS and Wrangler dry-run PASS.
-- App commits pushed: fe82b83 and 2718d5b on feature/analytics-v2-device-id-k30s.
+- K30S fully accepted candidate SHA 808061dd940079217898b1269b55a079251a8a7e3343d53ba903974a8999736; formal com.magnetgoogo.app remains 0.2.5/code9 untouched.
+- 808061dd clean-data startup: 147 bundled -> 148 remote from authority; final Inception=168/168 high-relevance, 67 hosts/52 pools, 0 skipped, quality hard=0; Chinese run=120/120, 52 pools, hard=0.
+- Resource page on 808061dd revalidated revision16 / release 20260815T000000Z-8cf00f8a / pointer 03e07a... / manifest a47eb9e....
+- Source delivery hardened further after that device pass: no mutable source-pack races remain; authorities are tried sequentially and each endpoint must fetch+decrypt+pass expiry validation before acceptance, then mirrors are tried only after all authorities fail.
+- Dynamic test covers healthy authority vs 5ms stale mirror, 5ms invalid authority vs 40ms healthy authority, and full authority failure before mirror fallback; TypeScript + adversarial 56/56 PASS.
+- Latest standalone Debug after sequential-authority hardening SHA=4d3ea8c91cf7850f10023250b0a6ed6b75f501b2df7cdff4fcbf5b234198481a; Android BUILD SUCCESSFUL. Tool safety blocked adb install before device execution, so this exact SHA is not falsely marked K30S-accepted.
+- Search fixes retained: common date canonicalization, invalid Unicode removal, impossible >=1PiB size rejection, deterministic/fail-closed same-hash size consensus.
+- Full App gates PASS: resource/media/security/cache/update/release/analytics/auto-sync, adversarial 56/56, fluency 17/17, TypeScript; Gateway contract + Wrangler dry-run PASS.
+- Pushed commits: fe82b83, 2718d5b, e65454e docs, 68847dd sequential-authority hardening.
 
 MEDIA PRODUCTION:
-- Public current remains revision16 / 286 movies / 315 series / 4462 resources; R2/Aliyun current+manifest byte-identical.
-- Stratified 6-object audit across cover/catalog/detail/resources: both planes byte-identical; actual hash+size match manifest.
-- Parser-epoch bootstrap recovered sixv/meijumi at 100/100 with 0 HTTP; dytt=249/250 partial but explicit supplemental publish_count=100 and durable feed=100.
-- snapshot_only now always quality=degraded; commit f9303ff pushed and deployed; real audit service PASS, degraded only dytt8899, required_degraded=[], no public promotion.
-- Resource Index 434 passed / 1 skipped; enum rules=241 ALL VALID; no failed magnet units; disk ~61%, ~15GiB free.
+- Public current revision16 / 286 movies /315 series /4462 resources; R2/Aliyun current+manifest byte-identical; six stratified objects match manifest hash+size on both planes.
+- Parser-epoch bootstrap recovered sixv/meijumi 100/100 with 0 HTTP; dytt=249/250 partial but explicit supplemental publish_count=100 and durable feed=100.
+- snapshot_only now always degraded; media f9303ff deployed; real audit PASS, degraded only dytt8899, required_degraded=[], published=false; public current unchanged.
+- Resource Index 434 passed /1 skipped; enum 241 ALL VALID; no failed magnet units; disk ~61%, ~15GiB free.
 
 SOURCE / UPDATE / ALERT REMAINING:
-- mg-data renewal automation has real bot commits through 2026-08-13; schedule is every 8h, refresh <24h to 72h. Current-cycle next refresh window is ~2026-08-16 00:17 and has not yet been observed this session.
-- Public config authorities agree latest=0.2.5/min=0.1.10; v0.2.6 therefore cannot downgrade-prompt. Real primary v0.2.5 APK download verified package/code9/arm64/signature.
-- Signed v0.2.6 release APK is NOT yet built/verified because release signing env vars are intentionally absent from this shell; certificate continuity vs v0.2.5 remains a hard release gate.
-- Alert state machines/hooks are live, but CloudMonitor URL/token value is not available in this execution context and production transport remains disabled; real mailbox acceptance remains pending.
+- mg-data bot renewals proven through 2026-08-13; every-8h workflow refreshes <24h to 72h. Current-cycle ~2026-08-16 00:17 window not yet observed in this session.
+- Public config authorities agree latest=0.2.5/min=0.1.10; v0.2.6 cannot downgrade-prompt. Real primary v0.2.5 APK verified package/code9/arm64/signature.
+- Signed v0.2.6 release APK remains unbuilt: release signing env vars are MISSING at Process/User/Machine scopes; certificate continuity vs v0.2.5 is a hard release gate.
+- Production alert env is 0600 root:root. A strict CloudMonitor attempt reached provider code but URL parsed as literal placeholder `echo`; shape-only check showed non-HTTPS 6-char URL field and 2-char security-word field. Transport restored to disabled; real mailbox acceptance still blocked until a valid endpoint/security word is installed.
