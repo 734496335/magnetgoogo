@@ -57,8 +57,8 @@ export async function checkConfig(): Promise<ConfigCheckResult> {
   // allowed to run. The canonical first-party endpoint therefore cannot be
   // pre-empted by a faster but older Aliyun/jsDelivr response.
   const authoritativeUrls = [
-    `${CF_PAGES}/config.json`,
     `${RAW_BASE}/config.json`,
+    `${CF_PAGES}/config.json`,
     `${GATEWAY_BASE}/config.json`,
   ];
   const fallbackUrls = [
