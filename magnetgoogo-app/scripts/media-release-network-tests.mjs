@@ -116,7 +116,12 @@ const legacyMigrationSource = fs.readFileSync(path.join(process.cwd(), 'src/core
 assert.match(protocolSource, /tweetnacl/);
 assert.match(protocolSource, /94eLTKi0Gz1RIQEssMSHrk1ND5WRjdIWzQqjAhrsCb4=/);
 assert.match(clientSource, /https:\/\/media\.magnetgoogo\.com/);
-assert.match(clientSource, /https:\/\/cn\.magnetgoogo\.com\/media/);
+assert.match(clientSource, /https:\/\/api\.naoshiquan\.com\/media/);
+assert.doesNotMatch(clientSource, /https:\/\/cn\.magnetgoogo\.com\/media/);
+assert.match(clientSource, /CURRENT_TIMEOUT_MS = 10_000/);
+assert.match(clientSource, /CURRENT_MAX_ATTEMPTS = 2/);
+assert.match(clientSource, /MEDIA_CURRENT_TRANSIENT_RETRY/);
+assert.match(clientSource, /message\.startsWith\('HTTP_5'\)/);
 assert.match(clientSource, /pointer_revision/);
 assert.match(clientSource, /manifest_refresh_skipped: true/);
 assert.match(clientSource, /detailSyncs/);
@@ -146,7 +151,7 @@ const expectedResourceCount = process.env.MEDIA_EXPECTED_RESOURCE_COUNT
 let acceptedPointerHash = null;
 let acceptedPointerBytes = null;
 
-const liveEndpoints = (process.env.MEDIA_TEST_ENDPOINTS || 'https://media.magnetgoogo.com,https://cn.magnetgoogo.com/media')
+const liveEndpoints = (process.env.MEDIA_TEST_ENDPOINTS || 'https://media.magnetgoogo.com,https://api.naoshiquan.com/media')
   .split(',')
   .map((value) => value.trim())
   .filter(Boolean);

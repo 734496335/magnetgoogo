@@ -5,6 +5,7 @@ import path from 'node:path';
 
 const require = createRequire(import.meta.url);
 const { applyReleaseSigning } = require('../plugins/with-release-signing.js');
+const { applyIpv4FirstNetworking } = require('../plugins/with-network-ipv4-preference.js');
 const {
   buildSourceBootstrap,
   decryptBootstrap,
@@ -52,6 +53,25 @@ assert.equal(appJson.expo.android.package, 'com.magnetgoogo.app');
 assert.ok(appJson.expo.android.permissions.includes('android.permission.REQUEST_INSTALL_PACKAGES'));
 assert.ok(appJson.expo.plugins.includes('./plugins/with-release-signing'));
 assert.ok(appJson.expo.plugins.includes('./plugins/with-source-bootstrap'));
+assert.ok(appJson.expo.plugins.includes('./plugins/with-network-ipv4-preference'));
+
+const mainApplicationFixture = `package com.magnetgoogo.app
+
+import android.app.Application
+import android.content.res.Configuration
+
+class MainApplication : Application() {
+  override fun onCreate() {
+    super.onCreate()
+  }
+}
+`;
+const ipv4Patched = applyIpv4FirstNetworking(mainApplicationFixture);
+assert.match(ipv4Patched, /MAGNETGOOGO_IPV4_FIRST_NETWORK_V1/);
+assert.match(ipv4Patched, /OkHttpClientProvider\.setOkHttpClientFactory/);
+assert.match(ipv4Patched, /Dns\.SYSTEM\.lookup\(hostname\)\.sortedBy/);
+assert.match(ipv4Patched, /address is Inet4Address/);
+assert.equal(applyIpv4FirstNetworking(ipv4Patched), ipv4Patched);
 const buildPropertiesPlugin = appJson.expo.plugins.find(
   (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-build-properties',
 );

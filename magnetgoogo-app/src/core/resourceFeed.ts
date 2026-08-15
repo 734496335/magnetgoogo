@@ -33,7 +33,7 @@ export interface ResourceFeedLoadResult extends LoadedResourceFeed {
 }
 
 const memoryCache: Partial<Record<MediaKind, LoadedResourceFeed>> = {};
-const networkSyncs: Partial<Record<MediaKind, Promise<LoadedResourceFeed>>> = {};
+const networkSyncs: Partial<Record<MediaKind, Promise<ResourceFeedLoadResult>>> = {};
 
 function safeAssetParts(relativePath: string): string[] {
   const parts = relativePath.split('/').filter(Boolean);
@@ -104,13 +104,24 @@ async function loadCached(kind: MediaKind): Promise<LoadedResourceFeed | null> {
   }
 }
 
-export async function syncResourceFeed(kind: MediaKind): Promise<LoadedResourceFeed> {
-  if (networkSyncs[kind]) return networkSyncs[kind] as Promise<LoadedResourceFeed>;
+export async function syncResourceFeed(kind: MediaKind): Promise<ResourceFeedLoadResult> {
+  if (networkSyncs[kind]) return networkSyncs[kind] as Promise<ResourceFeedLoadResult>;
   const task = syncMediaFeed(kind)
-    .then((feed): LoadedResourceFeed => {
-      const loaded: LoadedResourceFeed = { feed, origin: 'network' };
-      memoryCache[kind] = loaded;
-      logResourceFeedSuccess(kind, 'network_feed_ready', loaded.origin, feed.items.length);
+    .then((result): ResourceFeedLoadResult => {
+      const origin: ResourceFeedOrigin = result.remoteRevalidated ? 'network' : 'disk-cache';
+      const loaded: ResourceFeedLoadResult = {
+        feed: result.feed,
+        origin,
+        refreshSucceeded: result.remoteRevalidated,
+        ...(result.remoteRevalidated ? {} : { refreshErrorCode: 'MEDIA_REMOTE_REVALIDATION_UNAVAILABLE' }),
+      };
+      memoryCache[kind] = { feed: result.feed, origin };
+      logResourceFeedSuccess(
+        kind,
+        result.remoteRevalidated ? 'network_feed_ready' : 'network_feed_offline_cache',
+        origin,
+        result.feed.items.length,
+      );
       return loaded;
     })
     .catch((error) => {
@@ -130,8 +141,7 @@ export async function loadResourceFeed(
 ): Promise<ResourceFeedLoadResult> {
   if (forceRefresh) {
     try {
-      const loaded = await syncResourceFeed(kind);
-      return { ...loaded, refreshSucceeded: true };
+      return await syncResourceFeed(kind);
     } catch (error) {
       logResourceFeedFailure(kind, 'force_refresh', 'MEDIA_FORCE_REFRESH_FAILED', error);
       if (memoryCache[kind]) {

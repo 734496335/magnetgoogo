@@ -41,9 +41,10 @@ import {
 
 const MEDIA_ENDPOINTS = [
   'https://media.magnetgoogo.com',
-  'https://cn.magnetgoogo.com/media',
+  'https://api.naoshiquan.com/media',
 ] as const;
-const CURRENT_TIMEOUT_MS = 4500;
+const CURRENT_TIMEOUT_MS = 10_000;
+const CURRENT_MAX_ATTEMPTS = 2;
 const OBJECT_TIMEOUT_MS = 9000;
 
 interface ActiveRelease {
@@ -122,23 +123,49 @@ function parseJson(bytes: Uint8Array, context: string): unknown {
   }
 }
 
+function isTransientCurrentError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message === 'Network request failed'
+    || message.startsWith('REQUEST_TIMEOUT_')
+    || message.startsWith('HTTP_5');
+}
+
 async function fetchCurrent(endpoint: string): Promise<MediaCurrentCandidate> {
-  const bytes = await fetchBytes(`${endpoint}/v1/current.json`, CURRENT_TIMEOUT_MS);
-  const pointer = parseCurrentPointer(parseJson(bytes, 'CURRENT'));
-  if (compareSemver(getAppVersion(), pointer.min_app_version) < 0) {
-    throw new Error(`APP_VERSION_TOO_OLD:${pointer.min_app_version}`);
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= CURRENT_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const bytes = await fetchBytes(`${endpoint}/v1/current.json`, CURRENT_TIMEOUT_MS);
+      const pointer = parseCurrentPointer(parseJson(bytes, 'CURRENT'));
+      if (compareSemver(getAppVersion(), pointer.min_app_version) < 0) {
+        throw new Error(`APP_VERSION_TOO_OLD:${pointer.min_app_version}`);
+      }
+      return {
+        endpoint,
+        pointer,
+        pointer_revision: pointer.pointer_revision,
+        pointer_sha256: sha256Hex(bytes),
+        release_id: pointer.release_id,
+        manifest_sha256: pointer.manifest_sha256,
+      };
+    } catch (error) {
+      lastError = error;
+      if (attempt >= CURRENT_MAX_ATTEMPTS || !isTransientCurrentError(error)) throw error;
+      logMediaNetworkFailure('fetch_current_retry', 'MEDIA_CURRENT_TRANSIENT_RETRY', error, {
+        endpoint,
+        attempt,
+      });
+    }
   }
-  return {
-    endpoint,
-    pointer,
-    pointer_revision: pointer.pointer_revision,
-    pointer_sha256: sha256Hex(bytes),
-    release_id: pointer.release_id,
-    manifest_sha256: pointer.manifest_sha256,
-  };
+  throw lastError instanceof Error ? lastError : new Error('MEDIA_CURRENT_UNAVAILABLE');
 }
 
 type RemotePointerState = 'same' | 'changed' | 'unavailable';
+
+export interface MediaFeedSyncResult {
+  feed: MovieFeed;
+  remoteRevalidated: boolean;
+  remoteState: RemotePointerState;
+}
 
 async function remotePointerState(identity: MediaPointerIdentity): Promise<RemotePointerState> {
   for (const endpoint of MEDIA_ENDPOINTS) {
@@ -337,7 +364,7 @@ function catalogRefs(manifest: MediaManifest, kind: MediaKind): MediaObjectRef[]
   });
 }
 
-export async function syncMediaFeed(kind: MediaKind): Promise<MovieFeed> {
+export async function syncMediaFeed(kind: MediaKind): Promise<MediaFeedSyncResult> {
   const [cachedFeed, cachedIdentity, needsConsumerRefresh] = await Promise.all([
     cachedMediaFeed(kind),
     cachedMediaFeedIdentity(kind),
@@ -354,7 +381,11 @@ export async function syncMediaFeed(kind: MediaKind): Promise<MovieFeed> {
         item_count: cachedFeed.items.length,
         incremental_network_bytes: pointerState === 'same' ? 'current_only' : 'unavailable',
       });
-      return cachedFeed;
+      return {
+        feed: cachedFeed,
+        remoteRevalidated: pointerState === 'same',
+        remoteState: pointerState,
+      };
     }
     if (pointerState === 'same' && needsConsumerRefresh) {
       logMediaNetworkSuccess('feed_consumer_schema_refresh', {
@@ -433,7 +464,11 @@ export async function syncMediaFeed(kind: MediaKind): Promise<MovieFeed> {
     catalog_cache_hits: catalogs.filter((catalog) => catalog.cacheHit).length,
     catalog_downloads: catalogs.filter((catalog) => !catalog.cacheHit).length,
   });
-  return feed;
+  return {
+    feed,
+    remoteRevalidated: true,
+    remoteState: 'changed',
+  };
 }
 
 function detailEndpointOrder(item: MovieFeedItem): string[] {

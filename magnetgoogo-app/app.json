@@ -55,6 +55,7 @@
       "./plugins/with-search-background",
       "./plugins/with-startup-overlay",
       "./plugins/with-source-bootstrap",
+      "./plugins/with-network-ipv4-preference",
       "./plugins/with-resource-feed",
       "./plugins/with-release-signing",
       [

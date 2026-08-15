@@ -30,6 +30,11 @@ id = "6dead29b039c4343b97a3601412f7ef6"
 bucket_name = "maggoogo-releases"
 binding = "RELEASES"
 
+# R2 bucket for public media releases (read-only at runtime)
+[[r2_buckets]]
+bucket_name = "magnetgoogo-media"
+binding = "MEDIA"
+
 # R2 bucket for analytics events
 [[r2_buckets]]
 bucket_name = "maggoogo-analytics"

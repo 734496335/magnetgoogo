@@ -26,6 +26,10 @@ class MemoryR2 {
     const item = this.objects.get(key);
     if (!item) return null;
     return {
+      body: item.body,
+      size: new TextEncoder().encode(item.body).byteLength,
+      httpMetadata: item.options?.httpMetadata || {},
+      httpEtag: `\"${key}\"`,
       async json() { return JSON.parse(item.body); },
     };
   }
@@ -45,8 +49,17 @@ class MemoryR2 {
 }
 
 const analytics = new MemoryR2();
+const releases = new MemoryR2();
+await releases.put('v1/current.json', JSON.stringify({ pointer_revision: 16, release_id: 'release-16' }), {
+  httpMetadata: { contentType: 'application/json' },
+});
+await releases.put('v1/releases/release-16/manifest.json', JSON.stringify({ release_id: 'release-16' }), {
+  httpMetadata: { contentType: 'application/json' },
+});
 const env = {
   ANALYTICS: analytics,
+  RELEASES: new MemoryR2(),
+  MEDIA: releases,
   ADMIN_SECRET: 'test-secret',
 };
 
@@ -156,6 +169,20 @@ assert.equal((await incompletePage.json()).error, 'analytics_page_object_read_fa
 
 const unauthorized = await call(`/api/events?raw=1&day=${day}`);
 assert.equal(unauthorized.status, 401);
+
+const mediaCurrent = await call('/media/v1/current.json');
+assert.equal(mediaCurrent.status, 200);
+assert.equal(mediaCurrent.headers.get('Cache-Control'), 'no-store, no-cache, must-revalidate');
+assert.equal((await mediaCurrent.json()).pointer_revision, 16);
+const mediaManifest = await call('/media/v1/releases/release-16/manifest.json');
+assert.equal(mediaManifest.status, 200);
+assert.equal(mediaManifest.headers.get('Cache-Control'), 'public, max-age=31536000, immutable');
+const mediaHead = await call('/media/v1/current.json', { method: 'HEAD' });
+assert.equal(mediaHead.status, 200);
+assert.equal(await mediaHead.text(), '');
+assert.equal((await call('/media/secret')).status, 400);
+assert.equal((await call('/media/v1/releases/missing.json')).status, 404);
+assert.equal((await call('/media/v1/current.json', { method: 'POST' })).status, 405);
 
 const oversized = await call('/api/events', {
   method: 'POST',

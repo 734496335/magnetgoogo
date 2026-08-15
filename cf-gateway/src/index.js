@@ -737,6 +737,47 @@ async function handleEventsGet(request, env) {
 }
 
 // ────────────────────────────────────────────────────────────────────
+// Media release proxy (read-only R2 network fallback)
+// ────────────────────────────────────────────────────────────────────
+
+async function handleMediaRelease(request, env, path) {
+  if (!['GET', 'HEAD'].includes(request.method)) {
+    return jsonResponse({ error: 'method_not_allowed' }, 405);
+  }
+  if (!env.MEDIA) {
+    return jsonResponse({ error: 'media_release_store_unavailable' }, 503);
+  }
+  const key = path.slice('/media/'.length);
+  if (
+    !key
+    || !key.startsWith('v1/')
+    || key.includes('..')
+    || key.includes('\\')
+    || key.startsWith('/')
+  ) {
+    return jsonResponse({ error: 'invalid_media_path' }, 400);
+  }
+  const obj = await env.MEDIA.get(key);
+  if (!obj) {
+    return jsonResponse({ error: 'media_object_not_found' }, 404);
+  }
+  const headers = new Headers(corsHeaders());
+  headers.set('Content-Type', obj.httpMetadata?.contentType || (key.endsWith('.json') ? 'application/json' : 'application/octet-stream'));
+  headers.set('Content-Length', String(obj.size));
+  if (obj.httpEtag) headers.set('ETag', obj.httpEtag);
+  headers.set(
+    'Cache-Control',
+    key === 'v1/current.json'
+      ? 'no-store, no-cache, must-revalidate'
+      : 'public, max-age=31536000, immutable',
+  );
+  return new Response(request.method === 'HEAD' ? null : obj.body, {
+    status: 200,
+    headers,
+  });
+}
+
+// ────────────────────────────────────────────────────────────────────
 // APK download proxy (mirrors GitHub Releases for China users)
 // ────────────────────────────────────────────────────────────────────
 
@@ -826,6 +867,9 @@ export default {
           // Handle /api/feedback/:id DELETE
           if (path.startsWith('/api/feedback/') && request.method === 'DELETE') {
             return await handleFeedbackDelete(request, env, path);
+          }
+          if (path.startsWith('/media/')) {
+            return await handleMediaRelease(request, env, path);
           }
           // Handle /download/vX.Y.Z/filename.apk
           if (path.startsWith('/download/')) {

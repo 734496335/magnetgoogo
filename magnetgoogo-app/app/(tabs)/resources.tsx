@@ -459,9 +459,9 @@ export default function ResourcesScreen() {
     let succeeded = false;
     try {
       const loaded = await syncResourceFeed(kind);
-      succeeded = true;
+      succeeded = loaded.refreshSucceeded;
       const releaseId = resourceFeedReleaseId(loaded.feed);
-      const changed = releaseId !== null && releaseId !== previousReleaseId;
+      const changed = loaded.refreshSucceeded && releaseId !== null && releaseId !== previousReleaseId;
       releaseIds.current[kind] = releaseId;
       setFeeds((current) => {
         const previous = current[kind];
@@ -471,10 +471,11 @@ export default function ResourcesScreen() {
       trackResourceFeedRefreshResult({
         kind,
         reason,
-        success: true,
+        success: loaded.refreshSucceeded,
         changed,
         releaseId,
         durationMs: Date.now() - startedAt,
+        errorCode: loaded.refreshErrorCode,
       });
     } catch (error) {
       console.warn('[ResourcesScreen]', {
