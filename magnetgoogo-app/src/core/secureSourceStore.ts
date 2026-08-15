@@ -57,28 +57,6 @@ function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 80
   });
 }
 
-async function raceFetchOk(
-  urls: string[],
-  path: string,
-  headers: Record<string, string>,
-  timeoutMs = 12000,
-): Promise<{ text: string; url: string }> {
-  const promises = urls.map(async (base) => {
-    const fullUrl = `${base}${path}`;
-    const resp = await fetchWithTimeout(fullUrl, { headers }, timeoutMs);
-    if (resp.status === 403) {
-      const errBody = await resp.json().catch(() => ({}));
-      throw new Error(errBody.message || '请更新App到最新版本');
-    }
-    if (!resp.ok) throw new Error(`HTTP ${resp.status} from ${base}`);
-    const text = await resp.text();
-    if (!text || text.length < 10) throw new Error(`Empty response from ${base}`);
-    console.log(`[SourceStore] ${base} responded first`);
-    return { text, url: base };
-  });
-  return Promise.any(promises);
-}
-
 export interface SourceMeta {
   updatedAt: string;
   count: number;
@@ -384,21 +362,9 @@ export async function syncSources(url?: string): Promise<{ sources: SourceRule[]
     selected = await fetchAuthorityThenFallback(
       authoritativeEndpoints,
       fallbackEndpoints,
-      async (endpoints) => {
-        try {
-          const result = await raceFetchOk([...endpoints], SOURCE_FILE, headers, 12000);
-          const decrypted = decryptSources(result.text);
-          const raw = JSON.parse(decrypted);
-          assertFreshEnvelope(raw, `remote source pack from ${result.url}`);
-          return { raw, encPayload: result.text, usedUrl: result.url };
-        } catch (error: any) {
-          console.log(`[SourceStore] Authority tier failed: ${error.message}, trying fallback mirrors sequentially...`);
-          throw error;
-        }
-      },
       async (base) => {
         try {
-          const resp = await fetchWithTimeout(`${base}${SOURCE_FILE}`, { headers }, 20000);
+          const resp = await fetchWithTimeout(`${base}${SOURCE_FILE}`, { headers }, 12000);
           if (resp.status === 403) {
             const errBody = await resp.json().catch(() => ({}));
             throw new Error(errBody.message || '请更新App到最新版本');
@@ -409,10 +375,14 @@ export async function syncSources(url?: string): Promise<{ sources: SourceRule[]
           const decrypted = decryptSources(text);
           const raw = JSON.parse(decrypted);
           assertFreshEnvelope(raw, `remote source pack from ${base}`);
-          console.log(`[SourceStore] Fallback succeeded via ${base}`);
+          console.log(
+            fallbackEndpoints.includes(base)
+              ? `[SourceStore] Fallback succeeded via ${base}`
+              : `[SourceStore] Authority succeeded via ${base}`,
+          );
           return { raw, encPayload: text, usedUrl: base };
         } catch (error: any) {
-          console.log(`[SourceStore] ${base} failed: ${error.message}`);
+          console.log(`[SourceStore] ${base} failed validation or fetch: ${error.message}`);
           throw error;
         }
       },

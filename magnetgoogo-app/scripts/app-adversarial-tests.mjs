@@ -722,7 +722,7 @@ await test('P1B', 'expired encrypted source packs are rejected on disk, debug ov
   assert.match(code, /function assertFreshEnvelope/);
   assert.match(code, /assertFreshEnvelope\(raw, 'disk source cache'\)/);
   assert.match(code, /assertFreshEnvelope\(envelope, 'debug source pack'\)/);
-  assert.match(code, /assertFreshEnvelope\(raw, `remote source pack from \$\{result\.url\}`\)/);
+  assert.match(code, /assertFreshEnvelope\(raw, `remote source pack from \$\{base\}`\)/);
   assert.match(code, /SOURCE_EXPIRY_GRACE_MS/);
   assert.doesNotMatch(code, /source-quarantine\.json/);
   const canonicalSources = JSON.parse(read('../sources.json'));
@@ -739,32 +739,52 @@ await test('P1C', 'source renewal cannot let a fast stale mirror beat a healthy 
   assert.match(code, /fetchAuthorityThenFallback\(/);
   assert.doesNotMatch(code, /\[CN_BASE, GATEWAY_BASE, CDN_BASE, RAW_BASE, GATEWAY_OLD, CN_ALI\]/);
 
-  let fallbackCalls = 0;
+  const healthyOrder = [];
   const fresh = await fetchAuthorityThenFallback(
     ['authority-a', 'authority-b'],
     ['stale-fast-mirror'],
-    async () => new Promise((resolve) => setTimeout(() => resolve('fresh-authority'), 40)),
-    async () => {
-      fallbackCalls += 1;
+    async (endpoint) => {
+      healthyOrder.push(endpoint);
+      if (endpoint === 'authority-a') {
+        return new Promise((resolve) => setTimeout(() => resolve('fresh-authority'), 40));
+      }
       return new Promise((resolve) => setTimeout(() => resolve('stale-mirror'), 5));
     },
   );
   assert.equal(fresh, 'fresh-authority');
-  assert.equal(fallbackCalls, 0);
+  assert.deepEqual(healthyOrder, ['authority-a']);
+
+  const validationOrder = [];
+  const recoveredAuthority = await fetchAuthorityThenFallback(
+    ['invalid-fast-authority', 'fresh-slow-authority'],
+    ['stale-fast-mirror'],
+    async (endpoint) => {
+      validationOrder.push(endpoint);
+      if (endpoint === 'invalid-fast-authority') {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        throw new Error('expired-envelope');
+      }
+      if (endpoint === 'fresh-slow-authority') {
+        return new Promise((resolve) => setTimeout(() => resolve('fresh-slow-authority'), 40));
+      }
+      return 'stale-mirror';
+    },
+  );
+  assert.equal(recoveredAuthority, 'fresh-slow-authority');
+  assert.deepEqual(validationOrder, ['invalid-fast-authority', 'fresh-slow-authority']);
 
   const fallbackOrder = [];
   const recovered = await fetchAuthorityThenFallback(
-    ['authority-a'],
+    ['authority-a', 'authority-b'],
     ['mirror-a', 'mirror-b'],
-    async () => { throw new Error('authority-down'); },
     async (endpoint) => {
       fallbackOrder.push(endpoint);
-      if (endpoint === 'mirror-a') throw new Error('mirror-a-down');
-      return 'mirror-b-fresh';
+      if (endpoint === 'mirror-b') return 'mirror-b-fresh';
+      throw new Error(`${endpoint}-down`);
     },
   );
   assert.equal(recovered, 'mirror-b-fresh');
-  assert.deepEqual(fallbackOrder, ['mirror-a', 'mirror-b']);
+  assert.deepEqual(fallbackOrder, ['authority-a', 'authority-b', 'mirror-a', 'mirror-b']);
 });
 
 await test('P2', 'Chinese sync failures use the error visual state', () => {
