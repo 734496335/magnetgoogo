@@ -14,7 +14,7 @@ MEDIA PRODUCTION:
 
 SOURCE SYNC:
 - hourly service healthy; current full pack SHA 9dd9c8863ff28c79778494ae533f1a0a4d27dc90153bbd7b8e1ede303080c782; 357 rules /148 GREEN.
-- mg-data has real source-envelope-bot renewals through 2026-08-13; every-8h workflow refreshes when <24h to 72h envelope.
+- mg-data has real source-envelope-bot renewals through 2026-08-13; production commit f9c5105 widens the every-8h refresh threshold from <=24h to <=32h while keeping 72h validity.
 - current pack remained valid (~18h at final App test); next renewal window ~2026-08-16 00:17 has not yet been observed this session.
 - App source delivery is now fully sequential by trust tier: each authority must fetch+decrypt+pass expiry before next authority/fallback; mutable source packs no longer race.
 - no sources.json health.status mutation.
