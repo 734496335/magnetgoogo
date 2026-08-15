@@ -10,7 +10,8 @@ MEDIA PRODUCTION:
 - final review found supplemental pending/partial/paused could still report global healthy; these now enter degraded_sources but not required_degraded_sources.
 - skip-crawl publish/audit now carries durable job_status/covered_count into the same quality gate; removed an inner import that had made this path bypass dependency injection tests.
 - Resource Index 427 passed / 1 skipped; compileall PASS; enum 241 ALL VALID.
-- production latest image overlay: sha256:3dc498a7c7a65ba3697803cd4e2192ecdd1ca18f385b6b5362d2a891457b825e; backup tag retained.
+- production latest image overlay: sha256:0f97daba31f83b58303fc6f52955617605f55380ffbed688f6400495821f84f1; rollback tags retained.
+- real production audit mode proved sixv-series durable pending 99/100 => quality=degraded, degraded_sources=[sixv-series], required=[]; public pointer SHA stayed 03e07a... before/after.
 
 SOURCE SYNC:
 - hourly service success; current full pack SHA 9dd9c8863ff28c79778494ae533f1a0a4d27dc90153bbd7b8e1ede303080c782.
