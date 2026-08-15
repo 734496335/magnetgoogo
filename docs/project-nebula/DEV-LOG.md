@@ -20,7 +20,7 @@ Modules: media daily quality semantics, safe-source durable jobs, R2/Aliyun publ
 ### Source/alert boundary
 - Production source-sync remains healthy on full pack SHA `9dd9c886...`, 357 rules /148 GREEN. mg-data shows real bot renewals through Aug13 and the next <24h refresh window is around Aug16 00:17; this session has not yet observed that future cycle, so no false renewal claim is recorded.
 - App-side source delivery also received an authority-first fix so a fast stale jsDelivr response cannot beat healthy authority endpoints; final K30S cold boot used an authority and loaded all 148 sources.
-- Alert state machines/hooks remain live and fail-open. Production transport is still disabled because a usable CloudMonitor URL/token is not available in this execution context; no real mailbox receipt is claimed.
+- Alert state machines/hooks remain live and fail-open. Shape-only inspection found nonempty CloudMonitor fields, so transport was temporarily switched to `cloudmonitor` and a strict test was executed via systemd `EnvironmentFile=` without exposing values. The alert program reached CloudMonitor code but parsed the URL as literal `echo` and failed before HTTP (exit2); the raw field is non-HTTPS length6 and security field length2, consistent with quoted placeholders rather than a usable endpoint. Transport was restored to disabled and placeholder fields preserved unchanged; no real mailbox receipt is claimed.
 - All harness failures from quoting/path/runtime-verifier mistakes were preserved under `_failures` and were not overwritten by subsequent successful verification.
 ---
 

@@ -1,26 +1,26 @@
 TASK: media/source production deep audit + alert closure support for v0.2.6 release freeze
-STATUS: MEDIA_DATA_PLANE_PASS / QUALITY_OBSERVABILITY_DEPLOYED / SOURCE_VALID / REAL_EMAIL_TRANSPORT_BLOCKED
-DATE: 2026-08-15 23:40 UTC+8
+STATUS: MEDIA_DATA_PLANE_PASS / QUALITY_OBSERVABILITY_DEPLOYED / SOURCE_VALID / CLOUDMONITOR_CONFIG_PLACEHOLDER / REAL_EMAIL_BLOCKED
+DATE: 2026-08-15 23:55 UTC+8
 
 MEDIA PRODUCTION:
-- Public current remains revision16 / release 20260815T000000Z-8cf00f8a; R2/Aliyun current+manifest bytes match; 286 movies / 315 series / 4462 resources.
+- Public current remains revision16 / release 20260815T000000Z-8cf00f8a; R2/Aliyun current+manifest bytes match; 286 movies /315 series /4462 resources.
 - Parser-epoch migration: sixv and meijumi rebuilt current durable identity at 100/100 with 0 HTTP; sixv-series=100/100.
 - dytt8899=249/250 partial because one rank remains bad, but it is supplemental with explicit publish_count=100 and durable library feed=100; publishability and completeness remain separate.
-- Found and fixed snapshot_only quality masking: snapshot_only now always enters degraded_sources; required alerting still depends on freshness_required.
-- Commit f9303ff pushed and the exact one-line runtime diff deployed; real magnet-media-audit.service PASS under Docker runtime.
-- Latest audit: success / degraded=[dytt8899] / required_degraded=[] / published=false / 286 movies / 316 series / 4464 resources; public current SHA unchanged.
-- R2/Aliyun current SHA=03e07a... and manifest SHA=a47eb9e...; manifest has 1763 objects.
-- Six stratified cover/catalog/detail/resource objects matched across both planes by bytes, manifest SHA and manifest size.
-- Resource Index 434 passed / 1 skipped; enum rules=241 ALL VALID; no failed magnet units; disk ~61%, ~15GiB free.
+- snapshot_only now always enters degraded_sources; required alerting still depends on freshness_required.
+- Commit f9303ff pushed and exact runtime diff deployed; real magnet-media-audit.service PASS under Docker runtime.
+- Latest audit: success / degraded=[dytt8899] / required_degraded=[] / published=false / 286 movies /316 series /4464 resources; public current SHA unchanged.
+- R2/Aliyun current SHA=03e07a... and manifest SHA=a47eb9e...; six stratified cover/catalog/detail/resource objects match both planes, manifest SHA and manifest size.
+- Resource Index 434 passed /1 skipped; enum rules=241 ALL VALID; no failed magnet units; disk ~61%, ~15GiB free.
 
 SOURCE SYNC:
 - hourly service healthy; current full pack SHA 9dd9c8863ff28c79778494ae533f1a0a4d27dc90153bbd7b8e1ede303080c782; 357 rules /148 GREEN.
-- mg-data has real source-envelope-bot renewals through 2026-08-13; every-8h workflow refreshes when <24h to a 72h envelope.
-- current pack was still valid (~18h at final App test); next renewal window ~2026-08-16 00:17 has not yet been observed this session.
+- mg-data has real source-envelope-bot renewals through 2026-08-13; every-8h workflow refreshes when <24h to 72h envelope.
+- current pack remained valid (~18h at final App test); next renewal window ~2026-08-16 00:17 has not yet been observed this session.
+- App source delivery is now fully sequential by trust tier: each authority must fetch+decrypt+pass expiry before next authority/fallback; mutable source packs no longer race.
 - no sources.json health.status mutation.
 
 ALERTS / REMAINING:
 - media retry-failure, required-source freshness, source-sync failure and source-expiry state machines/hooks remain installed and fail-open.
-- root-only /etc/magnet-alerts/alert.env remains protected; outbound transport is still disabled because no usable CloudMonitor URL/token value is available in this execution context.
-- real email acceptance remains pending; do not mark alert delivery solved until strict provider test returns success and inbox receipt is confirmed.
-- App-side stale CDN source race was also fixed on the v0.2.6 branch with authority-first delivery; final K30S clean boot loaded 148 remote sources from an authority, not jsDelivr.
+- root-only /etc/magnet-alerts/alert.env remains 0600 root:root.
+- URL/security fields were nonempty, so transport was temporarily enabled and strict test executed through systemd EnvironmentFile. Provider code parsed URL as literal `echo` and failed before HTTP (exit2); shape-only check: URL non-HTTPS length6, security field length2, consistent with quoted placeholders.
+- transport was restored to disabled; placeholder fields were preserved unchanged as evidence. Real mailbox acceptance requires a valid CloudMonitor endpoint/security word or QQ SMTP auth code.
