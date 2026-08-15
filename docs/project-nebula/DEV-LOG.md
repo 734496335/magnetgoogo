@@ -1,4 +1,39 @@
 ---
+Date/Time: 2026-08-16 00:30 (UTC+8)
+Version: v0.2.6-release-freeze-final-audit
+Scope: Finalize the cross-layer release audit with real source renewal, Gateway mutable-control-plane fail-closed rollout, post-renewal K30S consumption/search evidence, and an explicit HOLD on unresolved release-signing/email gates.
+Modules: magnetgoogo-app source/search/resource/update, cf-gateway mutable config/source gate, mg-data renewal workflow, Aliyun source-sync, production media, K30S
+
+### Mutable control planes closed fail-closed
+- Source packs no longer use first-response races: each authority/mirror is tried in trust order and must fetch, decrypt and pass envelope freshness before acceptance. Dynamic tests cover a stale fast mirror, an invalid fast authority followed by a healthy slower authority, and full authority failure before mirror fallback.
+- App update `config.json` received the same treatment: GitHub Raw main is the first authority; Pages/Gateway/fallbacks cannot pre-empt it. `Promise.any` was removed from mutable update config selection, while media current remains intentionally multi-endpoint because it waits for signed candidates and explicitly rejects same-revision conflict/rollback.
+- Gateway itself was found to still use Pages-first cached config for `/config.json`, `/api/check` and the source `min_version` gate. Commit `0379ea8` introduced a shared Raw-first validated loader and no-store config response; `bdac218` additionally makes `/api/check` and `/sources.enc.json` return 502 if both config authorities are unavailable instead of silently substituting `0.0.0` and weakening update/version gates.
+- Gateway contract tests include Raw-valid, Raw-HTTP200-garbage→Pages fallback, and total authority outage. Wrangler dry-run passed.
+
+### Gateway production rollout
+- Raw-authority candidate `f8642f3c...` passed preview, then a real 5% canary: 80/80 config requests were HTTP 200, 6 hit the new version, and every response had the same business-body SHA. It was promoted to 100%.
+- A concurrent action later uploaded/promoted equivalent fail-closed version `56ccec57...`; a duplicate candidate `3269fbd9...` was also created during this session. Version metadata and preview config/source/media SHA values were identical, so production was deliberately converged to the earlier already-canaried `56ccec57...` at 100% rather than leaving duplicate split traffic.
+- Final production probes: `/config.json` = HTTP 200, `Cache-Control: no-store`, `X-Config-Authority: github-raw`, latest=0.2.5/min=0.1.10; `/api/check` for v0.2.6 reports no force/optional update; source SHA=`fa4e4d49...`; media current SHA=`03e07a46...` revision16.
+
+### Real source renewal → propagation → App consumption
+- GitHub Actions schedule history showed real cron starts can drift by tens of minutes, validating the wider renewal margin. `f9c5105` widened the trigger from <=24h to <=32h while preserving 72h validity; `ea6fa71` added a non-looping push trigger limited to the renewal workflow/script/tests, so changes to renewal logic self-verify immediately while bot commits to `sources.enc.json` do not recurse.
+- Real `source-envelope-bot` commit `122533e` was produced at 2026-08-15T16:19:12Z. New encrypted source SHA=`fa4e4d4954990f46f0c237c4a6e54f970cbe2f1cdb979d987b97a047ddd0f2b2`, expiry=2026-08-18T16:19:12Z, 357 rules /148 GREEN.
+- Aliyun hourly `magnet-source-sync` automatically detected and installed the new pack at 00:19:21–00:19:26 local after crypto/schema/freshness verification; remaining lifetime=71.997h. The previous source-expiry incident state automatically reset to success.
+- `magnetgoogo.com`, GitHub Raw, Gateway, jsDelivr and `cn.magnetgoogo.com` all byte-match the new SHA. K30S then cached exactly the same encrypted bytes with count=148, expiryHours=72 and remote origin `magnetgoogo.com`.
+- Post-renewal real K30S `Inception` search completed 61 hosts /52 pools, 174/174 high-relevance magnets, 0 skipped, quality hard=0. Remaining warnings were low-relevance raw 16mag size conflicts filtered from the user-visible path.
+
+### Media and App release-freeze result
+- Media remains GO: production revision16 / `20260815T000000Z-8cf00f8a`, 286 movies /315 series /4462 resources; R2/Aliyun current+manifest bytes match, six stratified objects match manifest hash+size, Resource Index 434 passed /1 skipped, enum241 ALL VALID. `snapshot_only` quality masking fix `f9303ff` is live; audit is degraded only for supplemental dytt8899 with required_degraded=[] and no public promotion.
+- App protocol/code gates remain green: resource feed, live media, media security/cache, update download, release contract, analytics, resource auto-sync, adversarial 56/56, fluency 17/17, TypeScript and Android standalone Debug build.
+- Latest standalone Debug SHA=`2d5b9ca87ae653bfb89ba07507d4eb9ea416e563d274c3fc2e76633d2ca63bdd`. Tool safety blocked `adb install` before execution after the final trust-order changes, so this exact artifact is not falsely marked device-accepted; last fully installed candidate remains `808061dd...` and was used for the successful post-renewal source/search verification.
+
+### RELEASE HOLD — remaining hard gates
+- Formal signed v0.2.6/code10 APK remains unbuilt in this environment because release signing variables are missing at Process/User/Machine scopes. Certificate continuity with the real signed v0.2.5/code9 APK must be verified before release.
+- Production alert state machines/hooks are healthy, but strict CloudMonitor testing proved the stored endpoint fields are placeholders rather than a usable provider configuration; the attempt failed before HTTP and transport was restored to disabled. Real mailbox acceptance remains pending.
+- Therefore media/source operational readiness is GO, App code/protocol readiness is GO, but **formal v0.2.6 release remains HOLD** until signed-APK continuity, exact-latest device install/smoke and real email-provider acceptance are completed.
+---
+
+---
 Date/Time: 2026-08-15 23:40 (UTC+8)
 Version: v0.2.6-release-freeze-deep-audit
 Scope: Re-audit the full media supply chain and App main flows, close stale-source/search-metadata regressions, verify K30S source/search/resource/update behavior, and preserve unresolved signing/email/renewal gates.
