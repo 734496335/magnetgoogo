@@ -33,7 +33,7 @@ const { execSync, exec } = require('child_process');
 })();
 
 const app = express();
-const PORT = 3800;
+const PORT = Number(process.env.PORT || 3800);
 
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
@@ -53,7 +53,7 @@ const HEALTH_REPORT = path.join(ROOT, 'magnet', '_health_report_full.json');
 const AI_BATCH_DIR = path.join(ROOT, 'magnet');
 
 // CF Gateway for feedback proxy
-const CF_GATEWAY = 'https://api.naoshiquan.com';
+const CF_GATEWAY = process.env.CF_GATEWAY || 'https://api.naoshiquan.com';
 // P1-6: Read admin secret from env — never hardcode credentials
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 if (!ADMIN_SECRET) {
@@ -63,12 +63,18 @@ if (!ADMIN_SECRET) {
 }
 
 // ── Analytics cache (incremental) ──
-const CACHE_DIR = path.join(__dirname, 'cache');
+const CACHE_DIR = process.env.ANALYTICS_CACHE_DIR
+  ? path.resolve(process.env.ANALYTICS_CACHE_DIR)
+  : path.join(__dirname, 'cache');
 const BATCHES_CACHE_FILE = path.join(CACHE_DIR, 'batches.json');   // raw batches (local accumulation)
 const ANALYTICS_CACHE_FILE = path.join(CACHE_DIR, 'analytics.json'); // processed analytics
 const META_CACHE_FILE = path.join(CACHE_DIR, 'meta.json');          // { lastFetchedAt }
-const CACHE_INTERVAL_MS = 20 * 60 * 1000; // 20 minutes
+const CACHE_INTERVAL_MS = 60 * 60 * 1000; // 60 minutes; manual refresh remains available
 const MAX_DAYS = 30;                       // rolling window
+const ANALYTICS_TIME_ZONE = 'Asia/Shanghai';
+const ANALYTICS_PAGE_SIZE = 100;
+const ANALYTICS_PAGE_FETCH_ATTEMPTS = 3;
+const ANALYTICS_PAGE_FETCH_TIMEOUT_MS = 20_000;
 let analyticsCache = null;   // in-memory processed analytics
 let localBatches = [];       // in-memory raw batches
 let cacheFetchingNow = false; // prevent concurrent fetches
@@ -138,17 +144,25 @@ app.get('/', (req, res) => {
 });
 
 // ── Broadcast engine (social posting subsystem) ──
-// Auth middleware: require admin secret for all broadcast endpoints
-app.use('/api/broadcast', (req, res, next) => {
-  if (!ADMIN_SECRET) {
-    return res.status(503).json({ error: 'Broadcast disabled: ADMIN_SECRET not configured' });
+// Analytics-only mode isolates metric tests and emergency diagnostics from optional broadcast modules.
+if (process.env.ANALYTICS_ONLY !== '1') {
+  try {
+    const broadcastRouter = require('./broadcast');
+    app.use('/api/broadcast', (req, res, next) => {
+      if (!ADMIN_SECRET) {
+        return res.status(503).json({ error: 'Broadcast disabled: ADMIN_SECRET not configured' });
+      }
+      const token = req.headers['x-admin-secret'];
+      if (token !== ADMIN_SECRET) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      next();
+    }, broadcastRouter);
+    console.log('[server] Broadcast module loaded.');
+  } catch (error) {
+    console.warn('[server] Broadcast module not available:', error instanceof Error ? error.message : String(error));
   }
-  const token = req.headers['x-admin-secret'];
-  if (token !== ADMIN_SECRET) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  next();
-}, require('./broadcast'));
+}
 
 // ── API: Overview ──
 app.get('/api/overview', (req, res) => {
@@ -650,6 +664,29 @@ app.get('/api/events', async (req, res) => {
 });
 
 // ── Analytics: process raw batches into aggregated views ──
+const analyticsDayFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: ANALYTICS_TIME_ZONE,
+  year: 'numeric', month: '2-digit', day: '2-digit',
+});
+const analyticsHourFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: ANALYTICS_TIME_ZONE,
+  year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
+});
+
+function analyticsPartsKey(formatter, timestamp, includeHour = false) {
+  const parts = Object.fromEntries(formatter.formatToParts(new Date(timestamp)).map(part => [part.type, part.value]));
+  const day = `${parts.year}-${parts.month}-${parts.day}`;
+  return includeHour ? `${day}T${parts.hour}` : day;
+}
+
+function analyticsDayKey(timestamp) {
+  return analyticsPartsKey(analyticsDayFormatter, timestamp, false);
+}
+
+function analyticsHourKey(timestamp) {
+  return analyticsPartsKey(analyticsHourFormatter, timestamp, true);
+}
+
 function processAnalyticsBatches(data) {
     if (!data.batches || data.batches.length === 0) {
       return {
@@ -665,24 +702,50 @@ function processAnalyticsBatches(data) {
     const srcOkMap = {};
     const srcFailMap = {};
     const srcMsMap = {};
-    const versionMap = {};
+    const versionDeviceSet = {};
     const deviceCountrySet = {};
     const deviceCitySet = {};
     const dailyGeo = {};
     const deviceMap = {};
     const deviceFirstDay = {};
+    const deviceHasFirstOpen = {};
     const deviceActiveDays = {};
+    const seenEventIds = new Set();
     const recentEvents = [];
     const searchDetails = [];
+    const processedEventCounts = {};
+    const resourceDeviceSet = new Set();
+    const resourceRefresh = { total: 0, success: 0, changed: 0, failed: 0 };
+    const technicalOnlyEvents = new Set([
+      'source_sync_result',
+      'resource_feed_refresh_result',
+      'config_check_result',
+      'media_load_result',
+      'startup_performance',
+      'previous_session_crash',
+    ]);
+    let processedEventTotal = 0;
+    let internalBatches = 0;
+    let internalEvents = 0;
 
     for (const batch of data.batches) {
+      const isInternal = batch.build_type === 'debug'
+        || String(batch.package_name || '').endsWith('.debug')
+        || batch.environment === 'internal';
+      if (isInternal) {
+        internalBatches++;
+        internalEvents += (batch.events || []).length;
+        continue;
+      }
+
       const appV = batch.app_v || 'unknown';
       const country = batch.country || 'unknown';
       const rawCity = batch.city || '';
       const rawRegion = batch.region || '';
       const { city, region } = localizeCN(rawCity, rawRegion, country);
-      const did = batch.did || '';
-      versionMap[appV] = (versionMap[appV] || 0) + 1;
+      const did = batch.device_id || batch.did || '';
+      if (!versionDeviceSet[appV]) versionDeviceSet[appV] = new Set();
+      if (did) versionDeviceSet[appV].add(did);
       if (did) {
         if (!deviceCountrySet[country]) deviceCountrySet[country] = new Set();
         deviceCountrySet[country].add(did);
@@ -690,7 +753,8 @@ function processAnalyticsBatches(data) {
           if (!deviceCitySet[city]) deviceCitySet[city] = new Set();
           deviceCitySet[city].add(did);
         }
-        const batchDay = (batch.receivedAt || '').slice(0, 10);
+        const batchReceivedMs = Date.parse(batch.receivedAt || '');
+        const batchDay = Number.isFinite(batchReceivedMs) ? analyticsDayKey(batchReceivedMs) : '';
         if (batchDay) {
           if (!dailyGeo[batchDay]) dailyGeo[batchDay] = { country: {}, city: {} };
           if (!dailyGeo[batchDay].country[country]) dailyGeo[batchDay].country[country] = new Set();
@@ -704,9 +768,11 @@ function processAnalyticsBatches(data) {
 
       if (did) {
         if (!deviceMap[did]) {
-          deviceMap[did] = { lastSeen: '', city: '', region: '', country: '', appV: '', os: '', searches: 0, copies: 0, opens: 0, starts: 0, events: 0, batches: 0 };
+          deviceMap[did] = { lastSeen: '', city: '', region: '', country: '', appV: '', os: '', searches: 0, searchCompletions: 0, copies: 0, opens: 0, starts: 0, events: 0, batches: 0, installs: new Set() };
         }
         const dm = deviceMap[did];
+        const installId = batch.install_id || batch.did || '';
+        if (installId) dm.installs.add(installId);
         const receivedAt = batch.receivedAt || '';
         if (receivedAt > dm.lastSeen) {
           dm.lastSeen = receivedAt;
@@ -720,27 +786,56 @@ function processAnalyticsBatches(data) {
       }
 
       for (const ev of (batch.events || [])) {
-        const ts = ev.ts || 0;
-        const d = new Date(ts);
-        const hourKey = d.toISOString().slice(0, 13);
-        const dayKey = d.toISOString().slice(0, 10);
+        if (!ev || typeof ev.e !== 'string') continue;
+        if (ev.id && seenEventIds.has(ev.id)) continue;
+        if (ev.id) seenEventIds.add(ev.id);
+        const ts = Number(ev.ts || 0);
+        if (!Number.isFinite(ts) || ts <= 0) continue;
+        const hourKey = analyticsHourKey(ts);
+        const dayKey = analyticsDayKey(ts);
 
+        processedEventCounts[ev.e] = (processedEventCounts[ev.e] || 0) + 1;
+        processedEventTotal++;
         hourlyMap[hourKey] = hourlyMap[hourKey] || {};
         hourlyMap[hourKey][ev.e] = (hourlyMap[hourKey][ev.e] || 0) + 1;
 
         dailyMap[dayKey] = dailyMap[dayKey] || {};
         dailyMap[dayKey][ev.e] = (dailyMap[dayKey][ev.e] || 0) + 1;
         dailyMap[dayKey]._devices = dailyMap[dayKey]._devices || new Set();
-        dailyMap[dayKey]._devices.add(did);
+        dailyMap[dayKey]._resourceDevices = dailyMap[dayKey]._resourceDevices || new Set();
         dailyMap[dayKey]._newDevices = dailyMap[dayKey]._newDevices || new Set();
+        if (did && !technicalOnlyEvents.has(ev.e)) dailyMap[dayKey]._devices.add(did);
+        if (did && ev.e === 'resources_tab_view') {
+          dailyMap[dayKey]._resourceDevices.add(did);
+          resourceDeviceSet.add(did);
+        }
+        if (ev.e === 'resource_feed_refresh_result') {
+          const refreshSuccess = Number(ev.success || 0) === 1;
+          const refreshChanged = Number(ev.changed || 0) === 1;
+          resourceRefresh.total++;
+          if (refreshSuccess) resourceRefresh.success++;
+          else resourceRefresh.failed++;
+          if (refreshSuccess && refreshChanged) resourceRefresh.changed++;
+          dailyMap[dayKey]._resourceRefreshTotal = (dailyMap[dayKey]._resourceRefreshTotal || 0) + 1;
+          dailyMap[dayKey]._resourceRefreshSuccess = (dailyMap[dayKey]._resourceRefreshSuccess || 0) + (refreshSuccess ? 1 : 0);
+          dailyMap[dayKey]._resourceRefreshChanged = (dailyMap[dayKey]._resourceRefreshChanged || 0) + (refreshSuccess && refreshChanged ? 1 : 0);
+        }
 
         if (did) {
-          if (!deviceFirstDay[did] || dayKey < deviceFirstDay[did]) deviceFirstDay[did] = dayKey;
+          if (ev.e === 'first_open') {
+            const installationTs = Number(ev.installation_time || ts);
+            const firstOpenDay = Number.isFinite(installationTs) ? analyticsDayKey(installationTs) : dayKey;
+            if (!deviceFirstDay[did] || firstOpenDay < deviceFirstDay[did]) deviceFirstDay[did] = firstOpenDay;
+            deviceHasFirstOpen[did] = true;
+          } else if (!technicalOnlyEvents.has(ev.e) && !deviceFirstDay[did]) {
+            deviceFirstDay[did] = dayKey;
+          }
           if (!deviceActiveDays[did]) deviceActiveDays[did] = new Set();
-          deviceActiveDays[did].add(dayKey);
+          if (!technicalOnlyEvents.has(ev.e)) deviceActiveDays[did].add(dayKey);
           const dm = deviceMap[did];
           dm.events++;
-          if (ev.e === 'search') dm.searches++;
+          if (ev.e === 'search' || ev.e === 'search_submitted') dm.searches++;
+          if (ev.e === 'search_completed') dm.searchCompletions++;
           if (ev.e === 'copy_magnet') dm.copies++;
           if (ev.e === 'open_magnet') dm.opens++;
           if (ev.e === 'app_start') dm.starts++;
@@ -749,7 +844,7 @@ function processAnalyticsBatches(data) {
         if (ev.e === 'search' && ev.q) {
           queryMap[ev.q] = (queryMap[ev.q] || 0) + 1;
           if (searchDetails.length < 500) {
-            searchDetails.push({ q: ev.q, n: ev.n || 0, ts: ev.ts || 0, did: did ? did.slice(-8) : '?', city, country, appV });
+            searchDetails.push({ q: ev.q, n: ev.n || 0, ts, did: did ? did.slice(-8) : '?', city, country, appV });
           }
         }
         if (ev.e === 'src_ok' && ev.src) {
@@ -759,19 +854,32 @@ function processAnalyticsBatches(data) {
         if (ev.e === 'src_fail' && ev.src) {
           srcFailMap[ev.src] = (srcFailMap[ev.src] || 0) + 1;
         }
+        if (ev.e === 'search_completed' && Array.isArray(ev.source_sample)) {
+          for (const source of ev.source_sample) {
+            const src = source?.s;
+            if (!src) continue;
+            srcOkMap[src] = (srcOkMap[src] || 0) + Number(source.o || 0);
+            srcFailMap[src] = (srcFailMap[src] || 0) + Number(source.f || 0);
+            if (source.m) { srcMsMap[src] = srcMsMap[src] || []; srcMsMap[src].push(Number(source.m)); }
+          }
+        }
 
         if (recentEvents.length < 100) {
-          recentEvents.push({ e: ev.e, ts: ev.ts, did: did?.slice(-6) || '?', appV, country, city, ...ev });
+          recentEvents.push({ e: ev.e, ts, did: did?.slice(-6) || '?', appV, country, city, ...ev });
         }
       }
     }
 
     for (const [did, firstDay] of Object.entries(deviceFirstDay)) {
-      if (dailyMap[firstDay] && dailyMap[firstDay]._newDevices) {
+      const canClassifyNew = deviceHasFirstOpen[did] || !did.startsWith('dv2_');
+      if (canClassifyNew && dailyMap[firstDay] && dailyMap[firstDay]._newDevices) {
         dailyMap[firstDay]._newDevices.add(did);
       }
     }
 
+    const versionMap = Object.fromEntries(
+      Object.entries(versionDeviceSet).map(([version, devices]) => [version, devices.size]),
+    );
     const topQueries = Object.entries(queryMap).sort((a, b) => b[1] - a[1]).slice(0, 30).map(([q, n]) => ({ q, n }));
 
     const allSrcs = new Set([...Object.keys(srcOkMap), ...Object.keys(srcFailMap)]);
@@ -789,7 +897,16 @@ function processAnalyticsBatches(data) {
       devices: counts._devices ? counts._devices.size : 0,
       newDevices: counts._newDevices ? counts._newDevices.size : 0,
       events: Object.entries(counts).filter(([k]) => !k.startsWith('_')).reduce((s, [, v]) => s + v, 0),
-      searches: counts.search || 0, copies: counts.copy_magnet || 0,
+      searches: (counts.search || 0) + (counts.search_submitted || 0),
+      searchCompletions: counts.search_completed || 0,
+      resourceUsers: counts._resourceDevices ? counts._resourceDevices.size : 0,
+      resourceRefreshes: counts._resourceRefreshTotal || 0,
+      resourceRefreshSuccess: counts._resourceRefreshSuccess || 0,
+      resourceRefreshChanged: counts._resourceRefreshChanged || 0,
+      resourceRefreshSuccessRate: (counts._resourceRefreshTotal || 0) > 0
+        ? Math.round((counts._resourceRefreshSuccess || 0) / counts._resourceRefreshTotal * 1000) / 10
+        : 0,
+      copies: counts.copy_magnet || 0,
       opens: counts.open_magnet || 0, starts: counts.app_start || 0,
     }));
 
@@ -799,21 +916,22 @@ function processAnalyticsBatches(data) {
 
     const devices = Object.entries(deviceMap).sort((a, b) => b[1].lastSeen.localeCompare(a[1].lastSeen)).slice(0, 200).map(([did, d]) => ({
       did: did.slice(-8), lastSeen: d.lastSeen, city: d.city, region: d.region, country: d.country,
-      appV: d.appV, os: d.os, searches: d.searches, copies: d.copies, opens: d.opens,
-      starts: d.starts, events: d.events, batches: d.batches,
+      appV: d.appV, os: d.os, searches: d.searches, searchCompletions: d.searchCompletions,
+      copies: d.copies, opens: d.opens, starts: d.starts, events: d.events, batches: d.batches,
+      installs: d.installs.size,
     }));
 
     const countryMap = {};
     for (const [c, s] of Object.entries(deviceCountrySet)) countryMap[countryName(c)] = s.size;
     const cityDist = Object.entries(deviceCitySet).sort((a, b) => b[1].size - a[1].size).slice(0, 50).map(([city, s]) => ({ city, n: s.size }));
 
-    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayKey = analyticsDayKey(Date.now());
     const todayGeo = dailyGeo[todayKey] || { country: {}, city: {} };
     const todayCountryDist = {};
     for (const [c, s] of Object.entries(todayGeo.country)) todayCountryDist[countryName(c)] = s.size;
     const todayCityDist = Object.entries(todayGeo.city).sort((a, b) => b[1].size - a[1].size).slice(0, 50).map(([city, s]) => ({ city, n: s.size }));
 
-    const yesterdayKey = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const yesterdayKey = analyticsDayKey(Date.now() - 86400000);
     const yesterdayGeo = dailyGeo[yesterdayKey] || { country: {}, city: {} };
     const yesterdayCountryDist = {};
     for (const [c, s] of Object.entries(yesterdayGeo.country)) yesterdayCountryDist[countryName(c)] = s.size;
@@ -838,8 +956,8 @@ function processAnalyticsBatches(data) {
       if (!cohortMap[firstDay]) cohortMap[firstDay] = [];
       cohortMap[firstDay].push(did);
     }
-    const todayMs = Date.now();
     const ONE_DAY = 86400000;
+    const todayMs = new Date(`${todayKey}T00:00:00Z`).getTime();
     const cohortDays = Object.keys(cohortMap).sort().slice(-30);
     const cohortRetention = cohortDays.map(cohortDay => {
       const dids = cohortMap[cohortDay];
@@ -864,8 +982,34 @@ function processAnalyticsBatches(data) {
       return { cohort: cohortDay, size: dids.length, retention };
     });
 
+    const installSet = new Set();
+    for (const device of Object.values(deviceMap)) {
+      for (const installId of device.installs) installSet.add(installId);
+    }
+    const summary = {
+      batches: Math.max(0, data.batches.length - internalBatches),
+      devices: Object.keys(deviceMap).length,
+      installs: installSet.size,
+      totalEvents: processedEventTotal,
+      eventCounts: processedEventCounts,
+      internalBatches,
+      internalEvents,
+      resourceUsers: resourceDeviceSet.size,
+      resourceRefreshes: resourceRefresh.total,
+      resourceRefreshSuccess: resourceRefresh.success,
+      resourceRefreshFailures: resourceRefresh.failed,
+      resourceRefreshChanged: resourceRefresh.changed,
+      resourceRefreshSuccessRate: resourceRefresh.total > 0
+        ? Math.round(resourceRefresh.success / resourceRefresh.total * 1000) / 10
+        : 0,
+      resourceRefreshChangedRate: resourceRefresh.success > 0
+        ? Math.round(resourceRefresh.changed / resourceRefresh.success * 1000) / 10
+        : 0,
+      timeZone: ANALYTICS_TIME_ZONE,
+    };
+
     return {
-      summary: data.summary, hourly, daily, topQueries, sourcePerf,
+      summary, hourly, daily, topQueries, sourcePerf,
       versionDist: versionMap, countryDist: countryMap, cityDist,
       todayCountryDist, todayCityDist, yesterdayCountryDist, yesterdayCityDist,
       dailyGeoDist, devices, cohortRetention,
@@ -909,28 +1053,114 @@ function loadCacheFromFile() {
 }
 
 // Rebuild processed analytics from local raw batches
-function rebuildAnalytics(fetchMs, fetchDays, newCount, trimmedCount) {
-  const eventCounts = {};
-  let totalEvents = 0;
-  for (const b of localBatches) {
-    for (const ev of (b.events || [])) {
-      eventCounts[ev.e] = (eventCounts[ev.e] || 0) + 1;
-      totalEvents++;
-    }
-  }
-  const devSet = new Set(localBatches.map(b => b.did).filter(Boolean));
-  const data = {
-    summary: { batches: localBatches.length, devices: devSet.size, totalEvents, eventCounts },
-    batches: localBatches,
-  };
+function rebuildAnalytics(fetchMs, fetchDays, newCount, trimmedCount, fetchPages = 0, fetchComplete = true) {
+  const data = { batches: localBatches };
   const result = processAnalyticsBatches(data);
   result._cachedAt = new Date().toISOString();
   result._fetchMs = fetchMs;
   result._fetchDays = fetchDays;
+  result._fetchPages = fetchPages;
+  result._fetchComplete = fetchComplete;
   result._newBatches = newCount;
   result._trimmed = trimmedCount;
   result._totalLocalBatches = localBatches.length;
   return result;
+}
+
+function utcStorageDay(offsetDays = 0) {
+  return new Date(Date.now() - offsetDays * 86400000).toISOString().slice(0, 10);
+}
+
+function analyticsRetryDelay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchAnalyticsPage(url) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= ANALYTICS_PAGE_FETCH_ATTEMPTS; attempt++) {
+    try {
+      const resp = await fetch(url, {
+        headers: { 'X-Admin-Secret': ADMIN_SECRET },
+        signal: AbortSignal.timeout(ANALYTICS_PAGE_FETCH_TIMEOUT_MS),
+      });
+      if (resp.ok) return resp;
+      const transient = resp.status === 429 || resp.status >= 500;
+      if (!transient || attempt === ANALYTICS_PAGE_FETCH_ATTEMPTS) return resp;
+      await resp.arrayBuffer().catch(() => {});
+      const retryAfterSeconds = Number(resp.headers.get('retry-after') || 0);
+      const retryMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+        ? Math.min(5000, retryAfterSeconds * 1000)
+        : 750 * attempt;
+      console.warn(`[cache] Analytics page HTTP ${resp.status}; retry ${attempt}/${ANALYTICS_PAGE_FETCH_ATTEMPTS} in ${retryMs}ms`);
+      await analyticsRetryDelay(retryMs);
+    } catch (error) {
+      lastError = error;
+      if (attempt === ANALYTICS_PAGE_FETCH_ATTEMPTS) throw error;
+      const retryMs = 750 * attempt;
+      console.warn(`[cache] Analytics page fetch error; retry ${attempt}/${ANALYTICS_PAGE_FETCH_ATTEMPTS} in ${retryMs}ms`);
+      await analyticsRetryDelay(retryMs);
+    }
+  }
+  throw lastError || new Error('analytics page fetch failed');
+}
+
+async function fetchAnalyticsDay(day) {
+  let cursor = '';
+  let pages = 0;
+  const batches = [];
+  const seen = new Set();
+  do {
+    const params = new URLSearchParams({ raw: '1', day, limit: String(ANALYTICS_PAGE_SIZE) });
+    if (cursor) params.set('cursor', cursor);
+    const resp = await fetchAnalyticsPage(`${CF_GATEWAY}/api/events?${params.toString()}`);
+    if (!resp.ok) throw new Error(`analytics day ${day}: HTTP ${resp.status}`);
+    const page = await resp.json();
+    if (!page.page || page.page.day !== day || page.page.legacy) {
+      throw new Error('analytics_cursor_api_unavailable');
+    }
+    for (const batch of (page.batches || [])) {
+      const key = batch.id || `${batch.device_id || batch.did}_${batch.batch_id || batch.receivedAt}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      batches.push(batch);
+    }
+    pages++;
+    cursor = page.page.truncated ? (page.page.next_cursor || '') : '';
+    if (pages > 1000) throw new Error(`analytics day ${day}: pagination safety limit`);
+  } while (cursor);
+  return { batches, pages, complete: true };
+}
+
+async function fetchAnalyticsWindow(fetchDays) {
+  const all = [];
+  const seen = new Set();
+  let pages = 0;
+  try {
+    for (let offset = 0; offset < fetchDays; offset++) {
+      const dayResult = await fetchAnalyticsDay(utcStorageDay(offset));
+      pages += dayResult.pages;
+      for (const batch of dayResult.batches) {
+        const key = batch.id || `${batch.device_id || batch.did}_${batch.batch_id || batch.receivedAt}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        all.push(batch);
+      }
+    }
+    return { batches: all, pages, complete: true, mode: 'day_cursor' };
+  } catch (error) {
+    if (!(error instanceof Error) || error.message !== 'analytics_cursor_api_unavailable') throw error;
+    const resp = await fetch(`${CF_GATEWAY}/api/events?raw=1&days=${fetchDays}`, {
+      headers: { 'X-Admin-Secret': ADMIN_SECRET },
+    });
+    if (!resp.ok) throw new Error(`legacy analytics fetch: HTTP ${resp.status}`);
+    const result = await resp.json();
+    return {
+      batches: result.batches || [],
+      pages: 1,
+      complete: result.page ? result.page.complete !== false : false,
+      mode: 'legacy_fallback',
+    };
+  }
 }
 
 async function refreshAnalyticsCache() {
@@ -953,16 +1183,15 @@ async function refreshAnalyticsCache() {
     fetchDays = Math.min(fetchDays, MAX_DAYS);
 
     // Build existing ID set for dedup
-    const existingIds = new Set(localBatches.map(b => b.id || `${b.did}_${b.receivedAt}`));
+    const existingIds = new Set(localBatches.map(b => b.id || `${b.device_id || b.did}_${b.batch_id || b.receivedAt}`));
 
     console.log(`[cache] Fetching ${fetchDays} day(s) from CF Gateway (local: ${localBatches.length} batches)...`);
-    const resp = await fetch(`${CF_GATEWAY}/api/events?raw=1&days=${fetchDays}`, { headers: { 'X-Admin-Secret': ADMIN_SECRET } });
-    const result = await resp.json();
+    const fetched = await fetchAnalyticsWindow(fetchDays);
 
-    // Merge new batches
+    // Merge new batches. Event-level idempotency is applied during aggregation.
     let newCount = 0;
-    for (const batch of (result.batches || [])) {
-      const key = batch.id || `${batch.did}_${batch.receivedAt}`;
+    for (const batch of fetched.batches) {
+      const key = batch.id || `${batch.device_id || batch.did}_${batch.batch_id || batch.receivedAt}`;
       if (!existingIds.has(key)) {
         localBatches.push(batch);
         existingIds.add(key);
@@ -978,15 +1207,15 @@ async function refreshAnalyticsCache() {
 
     // Rebuild analytics
     const fetchMs = Date.now() - t0;
-    analyticsCache = rebuildAnalytics(fetchMs, fetchDays, newCount, trimmedCount);
+    analyticsCache = rebuildAnalytics(fetchMs, fetchDays, newCount, trimmedCount, fetched.pages, fetched.complete);
 
     // Persist to file
     ensureCacheDir();
     fs.writeFileSync(BATCHES_CACHE_FILE, JSON.stringify(localBatches), 'utf-8');
     fs.writeFileSync(ANALYTICS_CACHE_FILE, JSON.stringify(analyticsCache), 'utf-8');
-    saveMeta({ lastFetchedAt: new Date().toISOString() });
+    saveMeta({ lastFetchedAt: new Date().toISOString(), mode: fetched.mode, complete: fetched.complete });
 
-    console.log(`[cache] Done in ${fetchMs}ms — fetched ${fetchDays}d, +${newCount} new, -${trimmedCount} expired, total ${localBatches.length} batches`);
+    console.log(`[cache] Done in ${fetchMs}ms — ${fetched.mode}, ${fetched.pages} page(s), complete=${fetched.complete}, +${newCount} new, -${trimmedCount} expired, total ${localBatches.length} batches`);
     return analyticsCache;
   } catch (e) {
     console.error('[cache] Fetch failed:', e.message);

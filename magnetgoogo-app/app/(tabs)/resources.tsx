@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   FlatList,
   Image,
   RefreshControl,
@@ -16,7 +17,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLang } from '../../src/core/LangContext';
 import { useTheme, type Colors } from '../../src/core/ThemeContext';
@@ -28,6 +29,17 @@ import {
 } from '../../src/core/movieRatings';
 import { seriesStatusForDisplay } from '../../src/core/mediaResourceTitle';
 import { getResourceCopy } from '../../src/core/resourceCopy';
+import {
+  RESOURCE_AUTO_SYNC_FOREGROUND_INTERVAL_MS,
+  ResourceAutoSyncGate,
+  resourceFeedReleaseId,
+  sameRemoteResourceRelease,
+} from '../../src/core/resourceAutoSync';
+import {
+  trackResourceFeedRefreshResult,
+  trackResourcesTabView,
+  type ResourceRefreshReason,
+} from '../../src/core/analytics';
 import { loadResourceFeed, movieCoverUri, syncResourceFeed } from '../../src/core/resourceFeed';
 import {
   resourceFeedItemKey,
@@ -370,10 +382,12 @@ export default function ResourcesScreen() {
   const [refreshingKind, setRefreshingKind] = useState<MediaKind | null>(null);
   const [failedKinds, setFailedKinds] = useState<Partial<Record<MediaKind, boolean>>>({});
   const [titleCopyToastNonce, setTitleCopyToastNonce] = useState(0);
-  const backgroundSyncStarted = useRef(new Set<MediaKind>());
+  const autoSyncGate = useRef(new ResourceAutoSyncGate());
+  const releaseIds = useRef<Partial<Record<MediaKind, string | null>>>({});
 
   const activeKind = channelKind(activeChannel);
   const feed = feeds[activeKind] ?? null;
+  const hasActiveFeed = feed !== null;
   const loading = loadingKind === activeKind;
   const refreshing = refreshingKind === activeKind;
   const failed = failedKinds[activeKind] === true;
@@ -382,9 +396,27 @@ export default function ResourcesScreen() {
     if (forceRefresh) setRefreshingKind(kind);
     else setLoadingKind(kind);
     setFailedKinds((current) => ({ ...current, [kind]: false }));
+    const startedAt = Date.now();
+    const previousReleaseId = releaseIds.current[kind] ?? null;
     try {
       const loaded = await loadResourceFeed(kind, forceRefresh);
+      const releaseId = resourceFeedReleaseId(loaded.feed);
+      if (forceRefresh && loaded.refreshSucceeded) {
+        autoSyncGate.current.markSuccess(kind);
+      }
+      releaseIds.current[kind] = releaseId;
       setFeeds((current) => ({ ...current, [kind]: loaded.feed }));
+      if (forceRefresh) {
+        trackResourceFeedRefreshResult({
+          kind,
+          reason: 'manual',
+          success: loaded.refreshSucceeded,
+          changed: loaded.refreshSucceeded && releaseId !== null && releaseId !== previousReleaseId,
+          releaseId,
+          durationMs: Date.now() - startedAt,
+          errorCode: loaded.refreshErrorCode,
+        });
+      }
     } catch (error) {
       console.warn('[ResourcesScreen]', {
         stage: 'load_media_feed',
@@ -392,6 +424,17 @@ export default function ResourcesScreen() {
         content_kind: kind,
         error: error instanceof Error ? error.message : String(error),
       });
+      if (forceRefresh) {
+        trackResourceFeedRefreshResult({
+          kind,
+          reason: 'manual',
+          success: false,
+          changed: false,
+          releaseId: previousReleaseId,
+          durationMs: Date.now() - startedAt,
+          errorCode: 'MEDIA_FEED_LOAD_FAILED',
+        });
+      }
       setFailedKinds((current) => ({ ...current, [kind]: true }));
     } finally {
       setLoadingKind((current) => current === kind ? null : current);
@@ -409,23 +452,75 @@ export default function ResourcesScreen() {
     }
   }, [activeKind, feeds, load, loadingKind]);
 
-  useEffect(() => {
-    if (!feeds[activeKind] || backgroundSyncStarted.current.has(activeKind)) return undefined;
-    backgroundSyncStarted.current.add(activeKind);
-    syncResourceFeed(activeKind)
-      .then((loaded) => {
-        setFeeds((current) => ({ ...current, [activeKind]: loaded.feed }));
-      })
-      .catch((error) => {
-        console.warn('[ResourcesScreen]', {
-          stage: 'background_media_sync',
-          error_code: 'MEDIA_BACKGROUND_SYNC_FAILED',
-          content_kind: activeKind,
-          error: error instanceof Error ? error.message : String(error),
-        });
+  const autoSync = useCallback(async (kind: MediaKind, reason: Exclude<ResourceRefreshReason, 'manual'>) => {
+    if (!autoSyncGate.current.tryStart(kind)) return;
+    const startedAt = Date.now();
+    const previousReleaseId = releaseIds.current[kind] ?? null;
+    let succeeded = false;
+    try {
+      const loaded = await syncResourceFeed(kind);
+      succeeded = true;
+      const releaseId = resourceFeedReleaseId(loaded.feed);
+      const changed = releaseId !== null && releaseId !== previousReleaseId;
+      releaseIds.current[kind] = releaseId;
+      setFeeds((current) => {
+        const previous = current[kind];
+        if (previous && sameRemoteResourceRelease(previous, loaded.feed)) return current;
+        return { ...current, [kind]: loaded.feed };
       });
-    return undefined;
-  }, [activeKind, feeds]);
+      trackResourceFeedRefreshResult({
+        kind,
+        reason,
+        success: true,
+        changed,
+        releaseId,
+        durationMs: Date.now() - startedAt,
+      });
+    } catch (error) {
+      console.warn('[ResourcesScreen]', {
+        stage: 'auto_media_sync',
+        error_code: 'MEDIA_AUTO_SYNC_FAILED',
+        content_kind: kind,
+        auto_sync_reason: reason,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      trackResourceFeedRefreshResult({
+        kind,
+        reason,
+        success: false,
+        changed: false,
+        releaseId: previousReleaseId,
+        durationMs: Date.now() - startedAt,
+        errorCode: 'MEDIA_AUTO_SYNC_FAILED',
+      });
+    } finally {
+      autoSyncGate.current.complete(kind, succeeded);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasActiveFeed) return undefined;
+      trackResourcesTabView(activeKind);
+      if (AppState.currentState === 'active') {
+        void autoSync(activeKind, 'focus');
+      }
+      const subscription = AppState.addEventListener('change', (state) => {
+        if (state === 'active') {
+          void autoSync(activeKind, 'foreground');
+        }
+      });
+      const interval = setInterval(() => {
+        if (AppState.currentState === 'active') {
+          void autoSync(activeKind, 'foreground_interval');
+        }
+      }, RESOURCE_AUTO_SYNC_FOREGROUND_INTERVAL_MS);
+      return () => {
+        subscription.remove();
+        clearInterval(interval);
+      };
+    }, [activeKind, autoSync, hasActiveFeed]),
+  );
 
   useEffect(() => {
     setActiveGenre(null);

@@ -1,30 +1,26 @@
-TASK: MagnetGoogo v0.2.5全链路公开发布
-STATUS: PUBLIC_RELEASE_PASS / PRODUCTION_UPDATE_E2E_PASS
-DATE: 2026-08-05 UTC+8
-BRANCH: release/v0.2.5
-SOURCE:
-- head=cdcf4a8c1677e6983619ae4dad4a7ca8d94dc4dd
-- tag=v0.2.5
-ARTIFACT:
-- package=com.magnetgoogo.app / version=0.2.5 / code9 / arm64-v8a
-- bytes=38,510,706
-- sha256=642447c18e12f81b167f5a9b711726a6ced28079d7f078678151d05bdea9da70
-- certificate=475fc1647359524cef27e180421ef17401171f476e4ab41f8b423746ef0ef49d
-CHANNELS:
-- GitHub Release PASS
-- R2 primary PASS
-- Aliyun stable+versioned APK PASS
-- Lanzou landing PASS / password 8888
-- Pages+Aliyun website PASS
-- mg-data=355b76d / maggoogo-sources=24c9ba6
-CONFIG:
-- latest=0.2.5 / min=0.1.10 / announcement=3 lines
-- six config endpoints PASS
-K30S:
-- formal 0.2.3 detected public 0.2.5
-- in-App R2 download -> MIUI scan -> user confirmation -> code9 PASS
-- firstInstallTime retained; ratings/cache retained
-- Fatal=0 ANR=0 residual services=0
-EVIDENCE:
-- docs/project-nebula/TEST-RESULT-20260805-v0.2.5全链路公开发布与0.2.3公网升级验收.md
-- 12:23 final evidence correction PASS / R2 full SHA verified / production unchanged
+TASK: v0.2.6 Analytics V2 + Resource auto-refresh + media freshness production closure + K30S acceptance
+STATUS: SERVER_PRODUCTION_HARDENED / APP_GATES_PASS / K30S_INSTALL_CONFIRMATION_BLOCKED
+DATE: 2026-08-15 UTC+8
+
+PRODUCTION MEDIA:
+- Public current verified revision16 / release 20260815T000000Z-8cf00f8a; R2/Aliyun pointer SHA identical; 286 movies / 315 series / 4462 resources.
+- sixv recovery defects closed: mirror parser same-origin, 100-item snapshot uses 5 pages, structured failures charge actual requests, source reservation uses explicit detail-request upper bound.
+- freshness_required source fallback now retries after 15m and unrecovered fallback is degraded + alert state; supplemental pending/partial/paused now also makes quality_status=degraded without required-source alert.
+- media branch feature/media-daily-automation at 0b5bf3f; full Resource Index 426 passed / 1 skipped; enum 241 ALL VALID.
+- production media image overlay = sha256:3dc498a7c7a65ba3697803cd4e2192ecdd1ca18f385b6b5362d2a891457b825e.
+
+ANALYTICS V2 / GATEWAY / ADMIN:
+- Gateway V2 production version 8e82c68e-c462-4def-938a-43a88875db96 at 100%; bindings preserved; config/source canary 12/12 byte-stable.
+- cursor page size 100 reduced real 2-day refresh from ~92 pages/202s to 38 pages/~132s; complete=true.
+- Gateway request body is now streamed/bounded at 32KiB; any listed R2 object read failure returns 503 instead of false complete=true.
+- Admin has 20s/page + max3 retries for network/429/5xx only; auth/ordinary4xx fail immediately; optional Broadcast dependency cannot crash main Admin.
+- technical-only events no longer create DAU/retention activity or cohort denominators; resource UV/refresh success/changed metrics are available.
+
+APP v0.2.6:
+- version 0.2.6 / code10; focus + foreground + 15min foreground-only Resource revalidation; immutable remote_release_id identity; failure retry and manual-refresh semantics hardened.
+- Analytics V2 queue/init race fixed; request timeout timer always cleared; App/Gateway/Admin Analytics tests PASS; adversarial 54/54; fluency 17/17; media/feed/security/cache/update/release/TypeScript all PASS.
+- K30S Debug APK: com.magnetgoogo.app.debug, SHA256 c30825b6c2b8e9803add770139fd7e4d05f51195616c1566a337ae54b4bbe10f, local Analytics receiver embedded.
+
+REMAINING HARD BLOCKERS:
+- K30S MIUI refuses adb install until one on-device “允许/继续安装” confirmation; formal com.magnetgoogo.app 0.2.5/code9 remains untouched.
+- Alert hooks/state machines are live but outbound transport remains disabled; root-only recipient is configured, CloudMonitor External Alert URL or QQ SMTP authorization code is still required for real email delivery.

@@ -382,7 +382,7 @@ export default function MovieDetailScreen() {
   const copyResource = useCallback(async (resource: MovieResource) => {
     try {
       await Clipboard.setStringAsync(resource.url);
-      trackCopy();
+      trackCopy({ surface: 'media_detail', action: 'single' });
       Vibration.vibrate(Platform.OS === 'android' ? 30 : 10);
       setCopiedResourceUrl(resource.url);
     } catch (error) {
@@ -402,7 +402,7 @@ export default function MovieDetailScreen() {
     if (!batchText) return;
     try {
       await Clipboard.setStringAsync(batchText);
-      trackCopy();
+      trackCopy({ surface: 'media_detail', action: 'all' });
       Vibration.vibrate(Platform.OS === 'android' ? 35 : 10);
       setCopiedAllMagnets(true);
     } catch (error) {
@@ -418,7 +418,7 @@ export default function MovieDetailScreen() {
   }, [magnetResources, movie?.movie_id, t.copyFailed]);
 
   const openResource = useCallback((resource: MovieResource) => {
-    trackOpen();
+    trackOpen({ surface: 'media_detail', action: 'single' });
     Linking.openURL(resource.url).catch((error) => {
       console.warn('[MovieDetail]', {
         stage: 'open_magnet',

@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "test:analytics-v2": "node scripts/analytics-v2-integration-tests.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0",

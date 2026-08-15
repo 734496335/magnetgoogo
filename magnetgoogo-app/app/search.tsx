@@ -826,7 +826,7 @@ export default function SearchScreen() {
   const handleCopy = useCallback(async (model: ResultCardModel) => {
     try {
       await Clipboard.setStringAsync(model.magnet);
-      trackCopy(_session?.searchId);
+      trackCopy({ searchId: _session?.searchId, surface: 'search', action: 'single' });
       Vibration.vibrate(Platform.OS === 'android' ? 30 : 10);
       setCopiedId(model.id);
       setTimeout(() => setCopiedId(null), 2000);
@@ -836,7 +836,7 @@ export default function SearchScreen() {
   }, [t]);
 
   const handleOpen = useCallback((magnet: string) => {
-    trackOpen(_session?.searchId);
+    trackOpen({ searchId: _session?.searchId, surface: 'search', action: 'single' });
     Linking.openURL(magnet).catch(() =>
       Alert.alert(t.cannotOpen, t.cannotOpenMsg),
     );

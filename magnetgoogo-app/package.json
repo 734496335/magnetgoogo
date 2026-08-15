@@ -1,6 +1,6 @@
 {
   "name": "magnetgoogo-app",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
@@ -14,6 +14,8 @@
     "test:media-cache": "node scripts/media-cache-policy-tests.mjs",
     "test:update-download": "node scripts/update-download-policy-tests.mjs",
     "test:release-build": "node scripts/release-build-contract-tests.mjs",
+    "test:analytics-v2": "node scripts/analytics-v2-tests.mjs",
+    "test:resource-auto-sync": "node scripts/resource-auto-sync-tests.mjs",
     "audit:series-resources": "node scripts/series-resource-audit.mjs"
   },
   "dependencies": {

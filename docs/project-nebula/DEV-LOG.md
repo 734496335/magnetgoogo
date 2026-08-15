@@ -1,4 +1,77 @@
 ---
+Date/Time: 2026-08-15 11:10 (UTC+8)
+Version: v0.2.6-production-hardening-pre-k30s-final
+Scope: Close media freshness/recovery defects, productionize Analytics V2 Gateway/Admin safely, add Resource refresh telemetry, and adversarially harden completeness before K30S acceptance.
+Modules: magnetgoogo-app Analytics/Resource runtime, cf-gateway Analytics V2, admin-server V2 aggregation, production media/source services, Aliyun/Cloudflare runtime
+
+### Production media closure
+- Recovered sixv with 100/100 durable coverage after fixing three independent hidden blockers: mirror parser hardcoded `.com`, 100-item target with only four 24-item listing pages, and request reservations sized to theoretical batch request ceilings instead of explicit per-detail upper bounds.
+- Public media is now revision16 / `20260815T000000Z-8cf00f8a`; R2 and Aliyun pointer SHA match and expose 286 movies / 315 series / 4462 magnet resources.
+- Freshness-required fallback now performs delayed single-source retry and marks unrecovered main-source fallback degraded. Final adversarial review found supplemental `pending/partial/paused` was still reported globally healthy; media branch commit `0b5bf3f` now surfaces those as `degraded_sources` without escalating them to required-source alerts. Full Resource Index 426 passed / 1 skipped; enum 241 ALL VALID.
+
+### Analytics V2 / Gateway / Admin production closure
+- Gateway was reconstructed without losing remote bindings, uploaded with `--keep-vars --strict`, canaried before each promotion, and is now on integrity version `8e82c68e-c462-4def-938a-43a88875db96` at 100%.
+- Cursor page size 100 was A/B tested from Aliyun; real two-day Admin refresh fell from roughly 92 pages / 202s to 38 pages / ~132s with `complete=true`.
+- Added fail-closed Gateway integrity: Analytics request bodies are streamed and stopped above 32KiB; if any R2 object listed for a cursor page cannot be read/decoded, the entire page returns 503 instead of silently claiming completeness.
+- Admin now retries only transient network/429/5xx page failures, with 20s timeout and max3 attempts. Optional Broadcast native dependency failure cannot crash the main dashboard. Technical-only events no longer create DAU activity or retention cohort denominators.
+- Resource tab view and refresh-result telemetry now provide Resource UV, refresh success/failure and changed rates while Debug traffic remains excluded from production metrics.
+
+### App v0.2.6 closure
+- Resource tab uses focus, foreground return and 15-minute foreground-only revalidation with per-kind single-flight, success-only cooldown and immutable `remote_release_id` comparison. Failed refresh keeps old content and stays retryable.
+- Analytics V2 initialization merges disk + early in-memory events instead of overwriting startup events; network timeout timers are cleared even when fetch throws; search terms are not uploaded in V2.
+- Final gates: Analytics PASS, Resource auto-sync PASS, App adversarial 54/54, Resource Feed PASS, Media Network/Security/Cache PASS, Update/Release PASS, Fluency 17/17, TypeScript PASS, Android Debug BUILD SUCCESSFUL.
+- K30S candidate is `com.magnetgoogo.app.debug` 0.2.6/code10, SHA256 `c30825b6c2b8e9803add770139fd7e4d05f51195616c1566a337ae54b4bbe10f`, with localhost-only Analytics receiver. Formal 0.2.5/code9 was not overwritten.
+
+### Remaining external blockers
+- K30S Debug install is blocked only by MIUI's on-device USB-install confirmation (`INSTALL_FAILED_USER_RESTRICTED`). Full focus/foreground/offline/revision/telemetry/Fatal-ANR acceptance cannot be truthfully marked PASS until that one manual confirmation occurs.
+- Production alert hooks/state machines are installed and tested, and the root-only recipient field is restored, but transport remains disabled. A fresh CloudMonitor External Alert URL or QQ SMTP authorization code is still required before strict real-email delivery can pass.
+---
+
+---
+Date/Time: 2026-08-14 22:20 (UTC+8)
+Version: analytics-v2-resource-autorefresh-integration
+Scope: Merge the hardened Resource focus/foreground auto-revalidation fix into the real Analytics V2 candidate and rerun the combined 0.2.6 code gates.
+Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,src/core/resourceFeed.ts,src/core/resourceAutoSync.ts,scripts/resource-auto-sync-tests.mjs,scripts/app-adversarial-tests.mjs,package.json}, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Integration
+- Removed the candidate's inherited `backgroundSyncStarted` one-shot media sync. Resource focus and App foreground now perform stale-while-revalidate while cached content remains immediately visible.
+- Added per-kind single-flight and success-only 60-second cooldown. Failed auto refresh remains immediately retryable on the next focus/foreground event.
+- Integrated second-audit hardening: `loadResourceFeed` now returns explicit `refreshSucceeded`; manual force-refresh cache/bundle fallback cannot masquerade as a successful current network request and start a false cooldown.
+- Replaced timestamp/count feed equality with immutable `remote_release_id`. Production revision13/14 prove `published_at` and manifest `generated_at` can be identical across different releases, so the old metadata heuristic could discard a same-count new revision.
+- This candidate still preserves all Analytics V2 identity/queue/search-summary changes; the merge did not replace those uncommitted candidate edits.
+
+### Verification / boundary
+- Analytics V2 tests PASS (`4774` compact bytes vs `11511` old source-rollup bytes); Resource auto-sync 8/8 PASS; TypeScript PASS; App adversarial 54/54 PASS.
+- K30S `a1ea223a` is online again, so the Aug5 ADB-offline blocker is obsolete; combined-candidate device lifecycle acceptance is still pending.
+- App/Gateway/Admin Analytics V2 remain candidate-only and are not production deployed. The broad operations plan still exceeds the currently implemented event set; media-refresh/view and full update/session funnel events require a separate release decision.
+---
+
+---
+Date/Time: 2026-08-05 21:26 (UTC+8)
+Version: analytics-v2-performance-cost-and-k30s-candidate
+Scope: Redesign anonymous identity and analytics delivery for lower client overhead, complete R2/Admin integrity fixes, quantify Cloudflare Free usage and prepare an isolated K30S validation APK
+Modules: magnetgoogo-app/{src/core/analytics.ts,src/core/analyticsPolicy.ts,app/search.tsx,app/movie/[movieId].tsx,scripts/analytics-v2-tests.mjs,scripts/analytics-v2-local-receiver.mjs,scripts/app-adversarial-tests.mjs,package.json}, cf-gateway/{src/index.js,scripts/analytics-v2-contract-tests.mjs,package.json}, admin-server/{server.js,scripts/analytics-v2-integration-tests.mjs,package.json}, admin_templates/dashboard.html, docs/project-nebula/{REVIEW-20260805-埋点V2性能免费额度技术优化与K30S测试.md,TECH-CHALLENGES.md,_progress.txt,DEV-LOG.md}
+
+### Client and identity
+- Added hashed Android application-scoped `device_id`, native-install-time-derived `install_id` and retained `legacy_did`; raw Android ID is never uploaded. First-open state is bound to the concrete install ID so Auto Backup restoration cannot hide a reinstall.
+- Replaced per-event storage churn with 250ms debounced serialized persistence, byte-aware 24 KiB batches, 16-event/20-second coalescing, network timeout, Retry-After and exponential backoff.
+- Replaced full per-search 147-source payloads with aggregate totals plus deterministic 10% compact samples capped at 48 sources; current search terms are no longer uploaded.
+
+### Gateway, R2 and dashboard
+- Added event and batch idempotency, legacy-client deterministic batch IDs, UTF-8 body limits, event/time validation, lightweight device/IP guards and explicit day+cursor R2 pagination.
+- Admin now deduplicates events, distinguishes anonymous users and installs, excludes Debug/internal traffic, groups by Asia/Shanghai, counts new/legacy searches correctly and refreshes hourly instead of every 20 minutes.
+- Enabled production R2 lifecycle `analytics-events-30d` for prefix `events/`; App, Worker and Admin production code were not deployed.
+
+### Cost and verification
+- Actual 25-day cache: 20,921 objects / 55.45 MiB. Projected monthly writes 25,105, 30-day storage 66.53 MiB; Class B replay reads fall from about 3.61M/month to 1.20M/month after hourly refresh.
+- Gateway contract and wrangler dry-run PASS; Admin cursor/integrity integration PASS; App Analytics and TypeScript PASS; adversarial 54/54, fluency 17/17, resource/media/update/release gates PASS.
+- Built isolated `com.magnetgoogo.app.debug 0.2.5/code9`, 74,410,981 bytes, SHA-256 `acf41c949413fd126026d60cc042c1431b06407c8652d44db48d40a3a75b6933`, pointing only to local `127.0.0.1:8787` analytics receiver.
+
+### Boundary
+- K30S was not visible through ADB, mDNS or Windows PnP, so installation and device-level ID/reinstall/offline/performance tests remain blocked. No claim of K30S PASS is made.
+---
+
+---
 Date/Time: 2026-08-05 12:23 (UTC+8)
 Version: v0.2.5-public-release-evidence-correction
 Scope: Correct the independent release record after a successful full R2 re-download and rerun the final release gates

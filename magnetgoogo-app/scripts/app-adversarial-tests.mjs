@@ -963,6 +963,7 @@ await test('U2', 'bottom navigation, top favorites and search hero respect the u
 
 await test('U3', 'movie and regional series channels form one lightweight discovery experience', () => {
   const screen = read('app/(tabs)/resources.tsx');
+  const feedClient = read('src/core/resourceFeed.ts');
   const detail = read('app/movie/[movieId].tsx');
   const ratings = read('src/core/movieRatings.ts');
   const tagRow = read('src/components/MovieTagRow.tsx');
@@ -1004,6 +1005,29 @@ await test('U3', 'movie and regional series channels form one lightweight discov
   assert.doesNotMatch(screen, /overlayLabel=\{item\.content_kind === 'series' \? status : null\}/);
   assert.doesNotMatch(screen, /排行榜|热播榜|榜第\s*\d/);
   assert.match(screen, /loadResourceFeed\(kind, forceRefresh\)/);
+  assert.match(screen, /useFocusEffect\(/);
+  assert.match(screen, /AppState\.addEventListener\('change'/);
+  assert.match(screen, /AppState\.currentState === 'active'/);
+  assert.match(screen, /setInterval\(\(\) => \{/);
+  assert.match(screen, /RESOURCE_AUTO_SYNC_FOREGROUND_INTERVAL_MS/);
+  assert.match(screen, /'foreground_interval'/);
+  assert.match(screen, /clearInterval\(interval\)/);
+  assert.match(screen, /new ResourceAutoSyncGate\(\)/);
+  assert.match(screen, /autoSyncGate\.current\.tryStart\(kind\)/);
+  assert.match(screen, /autoSyncGate\.current\.complete\(kind, succeeded\)/);
+  assert.match(screen, /sameRemoteResourceRelease\(previous, loaded\.feed\)/);
+  assert.doesNotMatch(screen, /previous\.snapshot_captured_at === loaded\.feed\.snapshot_captured_at/);
+  assert.match(screen, /loaded\.refreshSucceeded/);
+  assert.doesNotMatch(screen, /loaded\.origin === 'network'/);
+  assert.match(screen, /autoSyncGate\.current\.markSuccess\(kind\)/);
+  assert.match(screen, /auto_sync_reason: reason/);
+  assert.match(screen, /trackResourcesTabView\(activeKind\)/);
+  assert.match(screen, /trackResourceFeedRefreshResult\(/);
+  assert.match(screen, /resourceFeedReleaseId\(loaded\.feed\)/);
+  assert.doesNotMatch(screen, /backgroundSyncStarted/);
+  assert.match(feedClient, /refreshSucceeded: true/);
+  assert.match(feedClient, /refreshSucceeded: false/);
+  assert.match(feedClient, /refreshErrorCode: 'MEDIA_FORCE_REFRESH_FAILED'/);
   assert.match(screen, /key=\{activeChannel\}/);
   assert.equal((screen.match(/<FlatList/g) || []).length, 1);
   assert.match(screen, /item\.update_status \|\| item\.episode_label/);
@@ -1119,8 +1143,9 @@ await test('U4', 'movie detail exposes only prominent magnet cards with search-e
   assert.match(detail, /MagnetResourceCard/);
   assert.match(detail, /t\.copyMagnet/);
   assert.match(detail, /t\.openMagnet/);
-  assert.match(detail, /trackCopy\(\)/);
-  assert.match(detail, /trackOpen\(\)/);
+  assert.match(detail, /trackCopy\(\{ surface: 'media_detail', action: 'single' \}\)/);
+  assert.match(detail, /trackCopy\(\{ surface: 'media_detail', action: 'all' \}\)/);
+  assert.match(detail, /trackOpen\(\{ surface: 'media_detail', action: 'single' \}\)/);
   assert.match(detail, /resourceList/);
   assert.match(detail, /isLast=\{index === visibleMagnetResources\.length - 1\}/);
   assert.match(detail, /borderBottomWidth: StyleSheet\.hairlineWidth/);

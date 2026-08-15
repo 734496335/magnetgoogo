@@ -38,6 +38,7 @@
 | [CH-007](#challenge-007--resource-index-跨电脑长任务编排与恢复) | Resource Index 跨电脑长任务编排与恢复 | **blocker** | solved in implementation | 2026-07-25 portable latest runner complete |
 | [CH-008](#challenge-008--搜索资源大小单位与合并权威不一致) | 搜索资源大小单位与合并权威不一致 | high | solved ✅ | 2026-08-01 148源大小/日期/文件数闭环 |
 | [CH-009](#challenge-009--四评分跨协议缓存与ui量纲一致性) | 四评分跨协议、缓存与UI量纲一致性 | high | solved ✅ | 2026-08-03 v0.2.5旧缓存迁移真机闭环 |
+| [CH-010](#challenge-010--匿名设备标识与r2小对象埋点链路) | 匿名设备标识与R2小对象埋点链路 | high | piloting | 2026-08-15 Gateway/Admin已生产化，等待0.2.6 K30S终验 |
 
 ---
 
@@ -413,6 +414,31 @@
   - 2026-08-01 —— 四评分客户端消费、量纲、UI、缓存和业务口径闭环。
   - 2026-08-03 —— 正式0.2.3保留数据升级复验发现同revision旧Feed缓存不会补齐RT/Bangumi；Feed/Detail消费缓存升级为`/3`，旧`/2`离线保留、在线同revision自动用原始Catalog重映射。K30S不清数据后“超级少女”成功补齐烂番茄52%，断网强杀仍恢复三评分、简介和资源，Fatal/ANR为0。证据：`TEST-RESULT-20260803-v0.2.5正式包K30S充分验收.md`。
   - 2026-08-04 —— 根据K30S视觉反馈移除详情页两列大评分卡，恢复0.2.3同款紧凑胶囊；四评分字段、顺序、量纲、主评分规则和缓存均不变。
+
+---
+
+## CHALLENGE-010 — 匿名设备标识与R2小对象埋点链路
+
+- **严重程度**：high
+- **状态**：piloting（Gateway/Admin 已生产化，App 0.2.6 自动化 PASS；K30S Debug 安装仍需 MIUI 端确认）
+- **首次记录**：2026-08-05
+- **业务影响**：现有 DAU 只能识别 AsyncStorage 安装 ID，卸载重装会重复计数；新用户、搜索次数和留存口径失真。后台每 20 分钟重读两天 R2 小对象，按当前量估算约消耗 361 万次 Class B/月，且高峰日存在静默截断。
+- **当前方案 & 缺陷**：
+  - 旧客户端：随机 `mg_device_id`、逐事件持久化、完整源明细、无批次幂等；
+  - 旧 Worker：R2 每批一对象、忽略 batch_id、无 event.id 去重、读取完整性不显式；
+  - 旧后台：UTC 日界线、把首次出现当新增、只统计旧 `search`、Debug 流量混入。
+- **已尝试**：
+  - 2026-08-05：完成 device/install/legacy 三标识、SHA-256 应用域匿名设备 ID、安装时间派生安装 ID；
+  - 2026-08-05：完成 24 KiB 字节切批、队列持久化串行化、搜索摘要与 10% 源样本；
+  - 2026-08-05：完成 Worker 事件/批次幂等、旧客户端稳定批次 ID、日+游标分页、Debug 过滤与 Asia/Shanghai 聚合；
+  - 2026-08-05：生产 R2 `events/` 已启用 30 天过期规则。
+- **候选方案**：
+  - 当前规模：继续 R2 原始事件 + 一小时增量回读，成本低且改造最小；
+  - 增长到当前约 8 倍：迁移 D1 设备/安装表和每日聚合，R2 仅保留短期原始事件；
+  - 更大规模：Queues/Pipelines 汇聚后写 Parquet/R2 Data Catalog，避免小对象逐条回读。
+- **下一步**：K30S 确认一次 USB 安装后，验证 Resource focus/foreground/offline recovery、Debug 本地埋点、搜索/复制/打开完整链路及 Fatal/ANR；App 通过后再决定 0.2.6 正式 APK 发布。
+- **更新日志**：2026-08-05 —— V2 自动化、Debug APK 和 R2 生命周期完成；K30S 当时不在线。
+- **更新日志**：2026-08-15 —— Gateway 已经 canary 后生产化；日游标 page100 + fail-closed R2 object read，Admin 2日 refresh 38页/~132s/complete=true，并加入瞬时 429/5xx 有界重试及 technical-only cohort 排除。K30S 当前在线，但 MIUI 返回 `INSTALL_FAILED_USER_RESTRICTED`，等待设备端一次安装确认。
 
 ---
 

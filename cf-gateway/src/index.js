@@ -342,19 +342,128 @@ async function handleFeedbackDelete(request, env, path) {
 // This allows efficient prefix-based listing by date range.
 // ────────────────────────────────────────────────────────────────────
 
-function eventsR2Key(did, ts) {
+const ANALYTICS_MAX_BODY_BYTES = 32768;
+const ANALYTICS_MAX_EVENTS_PER_BATCH = 100;
+const ANALYTICS_PAGE_SIZE_MAX = 100; // 100 R2 GETs + one list remain far below the internal-service subrequest ceiling while reducing cursor round trips.
+const ANALYTICS_MAX_EVENT_AGE_MS = 45 * 86400_000;
+const ANALYTICS_MAX_FUTURE_SKEW_MS = 5 * 60_000;
+const ANALYTICS_EVENT_NAMES = new Set([
+  'first_open', 'app_start', 'source_sync_result',
+  'search', 'search_submitted', 'search_completed',
+  'open_magnet', 'copy_magnet',
+  'src_ok', 'src_fail', 'src_empty', 'verify',
+  'session_start', 'session_summary',
+  'update_prompt_shown', 'update_action', 'update_download_started',
+  'update_download_result', 'installer_launched', 'post_update_start',
+  'resources_tab_view', 'resource_feed_refresh_result', 'media_detail_view', 'media_load_result',
+  'media_resource_action', 'favorite_changed', 'config_check_result', 'crash_summary',
+]);
+
+function analyticsToken(value, fallback, maxLength = 160) {
+  const normalized = String(value || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9_.-]/g, '_')
+    .slice(0, maxLength);
+  return normalized || fallback;
+}
+
+function analyticsStableHash(value) {
+  let hash = 2166136261;
+  const input = String(value || '');
+  for (let index = 0; index < input.length; index++) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function analyticsDayPrefix(day) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day || '')) return '';
+  const [year, month, date] = day.split('-');
+  return `events/${year}/${month}/${date}/`;
+}
+
+function eventsR2Key(deviceId, ts, batchId) {
   const d = new Date(ts);
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, '0');
   const dd = String(d.getUTCDate()).padStart(2, '0');
-  return `events/${y}/${m}/${dd}/${did}_${ts}.json`;
+  const safeDevice = analyticsToken(deviceId, 'unknown-device', 96);
+  const safeBatch = analyticsToken(batchId, `legacy_${ts}`, 180);
+  return `events/${y}/${m}/${dd}/${safeDevice}/${safeBatch}.json`;
+}
+
+function dedupeAnalyticsEvents(events, now = Date.now()) {
+  const seen = new Set();
+  const result = [];
+  for (const event of Array.isArray(events) ? events : []) {
+    if (!event || typeof event !== 'object') continue;
+    const name = typeof event.e === 'string' ? event.e.trim().slice(0, 64) : '';
+    const ts = Number(event.ts);
+    if (!ANALYTICS_EVENT_NAMES.has(name) || !Number.isFinite(ts) || ts <= 0) continue;
+    if (ts < now - ANALYTICS_MAX_EVENT_AGE_MS || ts > now + ANALYTICS_MAX_FUTURE_SKEW_MS) continue;
+    const id = typeof event.id === 'string' ? event.id.trim().slice(0, 180) : '';
+    if (id && seen.has(id)) continue;
+    if (id) seen.add(id);
+    result.push({ ...event, e: name, ts, ...(id ? { id } : {}) });
+    if (result.length >= ANALYTICS_MAX_EVENTS_PER_BATCH) break;
+  }
+  return result;
+}
+
+function summarizeAnalyticsBatches(batches) {
+  const devices = new Set();
+  const eventIds = new Set();
+  const eventCounts = {};
+  let totalEvents = 0;
+  for (const batch of batches) {
+    const deviceId = batch.device_id || batch.did;
+    if (deviceId) devices.add(deviceId);
+    for (const event of (batch.events || [])) {
+      if (event.id && eventIds.has(event.id)) continue;
+      if (event.id) eventIds.add(event.id);
+      eventCounts[event.e] = (eventCounts[event.e] || 0) + 1;
+      totalEvents += 1;
+    }
+  }
+  return { batches: batches.length, devices: devices.size, totalEvents, eventCounts };
+}
+
+async function readAnalyticsRequestBody(request) {
+  const declaredLength = Number.parseInt(request.headers.get('content-length') || '', 10);
+  if (Number.isFinite(declaredLength) && declaredLength > ANALYTICS_MAX_BODY_BYTES) {
+    return { tooLarge: true, body: '' };
+  }
+  if (!request.body) return { tooLarge: false, body: '' };
+
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let totalBytes = 0;
+  let body = '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > ANALYTICS_MAX_BODY_BYTES) {
+        await reader.cancel('analytics payload too large').catch(() => {});
+        return { tooLarge: true, body: '' };
+      }
+      body += decoder.decode(value, { stream: true });
+    }
+    body += decoder.decode();
+    return { tooLarge: false, body };
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 async function handleEventsPost(request, env) {
-  const body = await request.text();
-  if (body.length > 32768) {
-    return jsonResponse({ error: 'payload_too_large', max: 32768 }, 400);
+  const bodyResult = await readAnalyticsRequestBody(request);
+  if (bodyResult.tooLarge) {
+    return jsonResponse({ error: 'payload_too_large', max: ANALYTICS_MAX_BODY_BYTES }, 400);
   }
+  const body = bodyResult.body;
 
   let data;
   try {
@@ -363,44 +472,117 @@ async function handleEventsPost(request, env) {
     return jsonResponse({ error: 'invalid_json' }, 400);
   }
 
-  if (!data.did || !Array.isArray(data.events) || data.events.length === 0) {
+  const now = Date.now();
+  const installId = analyticsToken(data.install_id || data.did, '', 120);
+  const legacyDid = analyticsToken(data.legacy_did || data.did, installId, 120);
+  const deviceId = analyticsToken(data.device_id || data.did || installId, '', 120);
+  const events = dedupeAnalyticsEvents(data.events, now);
+  const legacyBatchId = `legacy_${analyticsStableHash(JSON.stringify(events))}`;
+  const batchId = analyticsToken(data.batch_id || legacyBatchId, '', 180);
+  if (!deviceId || !installId || events.length === 0) {
     return jsonResponse({ error: 'missing_fields' }, 400);
   }
 
-  // Rate limit: 1 batch per 30s per device ID (Cache API, no KV cost)
+  // Short device and IP guards reduce accidental loops and low-effort endpoint abuse.
   const meta = parseRequestMeta(request);
-  if (await checkRateLimit(`ev_${data.did}`, 30)) {
-    return jsonResponse({ error: 'rate_limited', retry_after: 30 }, 429);
+  if (await checkRateLimit(`ev_${deviceId}`, 5)) {
+    return jsonResponse({ error: 'rate_limited', retry_after: 5 }, 429);
+  }
+  if (meta.ip && await checkRateLimit(`ev_ip_${analyticsToken(meta.ip, 'unknown-ip', 80)}`, 1)) {
+    return jsonResponse({ error: 'rate_limited', retry_after: 1 }, 429);
   }
 
-  const now = Date.now();
-  const id = eventsR2Key(data.did, now);
+  const id = eventsR2Key(deviceId, now, batchId);
   const entry = {
     id,
-    did: data.did,
-    app_v: data.app_v || '',
-    os: data.os || '',
-    os_v: data.os_v || '',
+    schema_v: Number(data.schema_v) || 1,
+    batch_id: batchId,
+    did: installId,
+    legacy_did: legacyDid,
+    device_id: deviceId,
+    device_id_kind: analyticsToken(data.device_id_kind, 'legacy', 40),
+    install_id: installId,
+    app_v: String(data.app_v || '').slice(0, 32),
+    version_code: String(data.version_code || '').slice(0, 24),
+    package_name: String(data.package_name || '').slice(0, 120),
+    build_type: data.build_type === 'debug' ? 'debug' : 'release',
+    distribution: String(data.distribution || '').slice(0, 40),
+    session_id: analyticsToken(data.session_id, '', 160),
+    os: String(data.os || '').slice(0, 24),
+    os_v: String(data.os_v || '').slice(0, 48),
     country: meta.country,
     city: meta.city,
     region: meta.region,
     timezone: meta.timezone,
-    events: data.events.slice(0, 100), // raised cap: 100 events per batch
+    events,
     receivedAt: new Date(now).toISOString(),
   };
 
-  // Write to R2 (primary storage, no TTL — permanent)
+  // R2 is the raw 30-day event store. Bucket lifecycle must expire the events/ prefix.
   if (env.ANALYTICS) {
     await env.ANALYTICS.put(id, JSON.stringify(entry), {
       httpMetadata: { contentType: 'application/json' },
-      customMetadata: { did: data.did, app_v: data.app_v || '', country: meta.country, city: meta.city, region: meta.region },
+      customMetadata: {
+        device_id: deviceId,
+        install_id: installId,
+        app_v: entry.app_v,
+        build_type: entry.build_type,
+        country: meta.country,
+      },
     });
   } else if (env.EVENTS) {
-    // Fallback: write to KV if R2 not configured yet
-    await env.EVENTS.put(`ev_${data.did}_${now}`, JSON.stringify(entry), { expirationTtl: 86400 * 30 });
+    // Fallback: deterministic key also makes retries idempotent in KV.
+    await env.EVENTS.put(`ev_${deviceId}_${batchId}`, JSON.stringify(entry), { expirationTtl: 86400 * 30 });
   }
 
-  return jsonResponse({ ok: true, id, count: entry.events.length });
+  return jsonResponse({ ok: true, id, batch_id: batchId, count: entry.events.length, schema_v: entry.schema_v });
+}
+
+async function handleAnalyticsDayPage(url, env, day, raw) {
+  if (!env.ANALYTICS) {
+    return jsonResponse({ error: 'r2_analytics_not_configured' }, 503);
+  }
+  const prefix = analyticsDayPrefix(day);
+  if (!prefix) return jsonResponse({ error: 'invalid_day', expected: 'YYYY-MM-DD' }, 400);
+
+  const requestedLimit = Number.parseInt(url.searchParams.get('limit') || '', 10);
+  const limit = Math.max(1, Math.min(Number.isFinite(requestedLimit) ? requestedLimit : ANALYTICS_PAGE_SIZE_MAX, ANALYTICS_PAGE_SIZE_MAX));
+  const cursor = url.searchParams.get('cursor') || undefined;
+  const listed = await env.ANALYTICS.list({ prefix, cursor, limit });
+  const values = await Promise.all(listed.objects.map(async (object) => {
+    try {
+      const value = await env.ANALYTICS.get(object.key);
+      if (!value) return { ok: false, key: object.key, batch: null };
+      return { ok: true, key: object.key, batch: await value.json() };
+    } catch {
+      return { ok: false, key: object.key, batch: null };
+    }
+  }));
+  const failedReads = values.filter((item) => !item.ok);
+  if (failedReads.length > 0) {
+    return jsonResponse({
+      error: 'analytics_page_object_read_failed',
+      day,
+      failed_objects: failedReads.length,
+      listed: listed.objects.length,
+    }, 503);
+  }
+  const batches = values.map((item) => item.batch);
+  const summary = summarizeAnalyticsBatches(batches);
+  return jsonResponse({
+    summary,
+    ...(raw ? { batches } : {}),
+    page: {
+      day,
+      prefix,
+      listed: listed.objects.length,
+      returned: batches.length,
+      truncated: Boolean(listed.truncated),
+      next_cursor: listed.truncated ? listed.cursor : null,
+      complete: !listed.truncated,
+      page_size: limit,
+    },
+  });
 }
 
 async function handleEventsGet(request, env) {
@@ -413,9 +595,14 @@ async function handleEventsGet(request, env) {
     return jsonResponse({ error: 'unauthorized' }, 401);
   }
 
-  // Determine date range: ?days=N (default 30, max 90)
-  const days = Math.min(parseInt(url.searchParams.get('days')) || 30, 90);
   const raw = url.searchParams.get('raw') === '1';
+  const day = url.searchParams.get('day');
+  if (day) {
+    return handleAnalyticsDayPage(url, env, day, raw);
+  }
+
+  // Legacy multi-day endpoint remains during the admin migration window.
+  const days = Math.min(parseInt(url.searchParams.get('days')) || 30, 90);
 
   const batches = [];
   let totalEvents = 0;
@@ -423,21 +610,26 @@ async function handleEventsGet(request, env) {
   const eventCounts = {};
 
   const seenIds = new Set();
+  const seenEventIds = new Set();
   const addBatch = (batch) => {
-    const key = batch.id || `${batch.did}_${batch.receivedAt}`;
+    const key = batch.id || `${batch.device_id || batch.did}_${batch.receivedAt}`;
     if (seenIds.has(key)) return;
     seenIds.add(key);
     batches.push(batch);
-    devices.add(batch.did);
-    totalEvents += (batch.events || []).length;
+    const deviceId = batch.device_id || batch.did;
+    if (deviceId) devices.add(deviceId);
     for (const ev of (batch.events || [])) {
+      if (ev.id && seenEventIds.has(ev.id)) continue;
+      if (ev.id) seenEventIds.add(ev.id);
       eventCounts[ev.e] = (eventCounts[ev.e] || 0) + 1;
+      totalEvents += 1;
     }
   };
 
-  // Subrequest budget (Workers limit = 1000)
+  // Legacy compatibility stays below the Workers Free 1000 internal-service subrequest limit.
+  // New admin clients use explicit day+cursor pages for completeness and bounded CPU.
   let subreqs = 0;
-  const SUBREQ_LIMIT = 900; // leave headroom
+  const SUBREQ_LIMIT = 900;
 
   // ── R2 (new data) ──
   if (env.ANALYTICS) {
@@ -534,6 +726,13 @@ async function handleEventsGet(request, env) {
       eventCounts,
     },
     ...(raw ? { batches } : {}),
+    page: {
+      legacy: true,
+      complete: subreqs < SUBREQ_LIMIT,
+      truncated: subreqs >= SUBREQ_LIMIT,
+      subrequests: subreqs,
+      hint: 'Use ?day=YYYY-MM-DD&cursor=... for complete pagination',
+    },
   });
 }
 
