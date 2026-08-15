@@ -969,6 +969,48 @@ def test_daily_pipeline_retries_required_source_that_returns_pending(
     assert result["stages"]["crawl"][0]["initial_result"]["initial_result"]["job_status"] == "pending"
 
 
+def test_daily_pipeline_marks_nonrequired_pending_source_degraded_without_required_alert(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    db_path = tmp_path / "state" / "sources" / "sixv-series_latest_10.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    db_path.write_bytes(b"sqlite-placeholder")
+
+    monkeypatch.setattr(
+        media_daily,
+        "run_safe_movie_source",
+        lambda **_kwargs: SimpleNamespace(
+            source_id="sixv-series",
+            status="ran",
+            reason="scheduled_check",
+            target_count=10,
+            invocation_http_requests=3,
+            reserved_requests=10,
+            snapshot_changed=True,
+            job_status="pending",
+            covered_count=9,
+            remaining_daily_requests=91,
+            db_path=str(db_path),
+            feed_path=str(tmp_path / "feed.json"),
+        ),
+    )
+    base = _config(tmp_path)
+    config = MediaDailyConfig(
+        **{
+            **base.__dict__,
+            "sources": (DailySourceConfig("sixv-series", 10, False),),
+        }
+    )
+    result = run_media_daily(config, publish=False)
+    assert result["status"] == "success"
+    assert result["quality_status"] == "degraded"
+    assert result["degraded_sources"] == ["sixv-series"]
+    assert result["required_degraded_sources"] == []
+    assert result["stages"]["crawl"][0]["job_status"] == "pending"
+
+
 def test_daily_pipeline_rejects_stale_source_fallback(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

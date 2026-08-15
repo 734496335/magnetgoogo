@@ -925,7 +925,17 @@ def run_media_daily(
                             },
                         }
 
-            degraded = [item for item in source_results if item.get("status") == "fallback"]
+            def source_is_degraded(item: dict[str, Any]) -> bool:
+                source_status = str(item.get("status") or "")
+                source_reason = str(item.get("reason") or "")
+                job_status = str(item.get("job_status") or "")
+                return (
+                    source_status in {"fallback", "paused"}
+                    or job_status in {"pending", "paused", "partial"}
+                    or (source_status == "skipped" and source_reason == "failure_backoff")
+                )
+
+            degraded = [item for item in source_results if source_is_degraded(item)]
             required_degraded = [item for item in degraded if item.get("freshness_required") is True]
             status["quality_status"] = "degraded" if degraded else "healthy"
             status["degraded_sources"] = [str(item.get("source_id") or "") for item in degraded]
