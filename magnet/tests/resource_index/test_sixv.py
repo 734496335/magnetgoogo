@@ -258,7 +258,7 @@ def test_detail_parser_falls_back_to_listing_year_when_metadata_omits_year() -> 
     )
     movie = parse_movie_detail(html, candidate=candidate)
     assert movie.year == 2026
-    assert movie.parser_version == "sixv-parser/1.0.1"
+    assert movie.parser_version == "sixv-parser/1.0.2"
 
 
 @pytest.mark.parametrize(
@@ -305,6 +305,19 @@ def test_detail_parser_splits_compact_multifield_paragraph() -> None:
     assert movie.directors == ("亚历克斯·罗素",)
     assert movie.actors == ("西奥多·佩尔兰", "阿奇·马德基")
     assert movie.synopsis == "一段简介。"
+
+
+def test_detail_parser_ignores_malformed_external_href_without_losing_valid_magnets() -> None:
+    html = """
+    <html><body><h1>列表标题</h1><div id="endText">
+      <p>◎标　　题　链接容错示例</p>
+      <a href="https://[%E6%9C%80%E6%96%B0%E7%94%B5%E5%BD%B1www.66e.cc]/bad">坏外链</a>
+      <a href="magnet:?xt=urn:btih:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">1080p</a>
+    </div></body></html>
+    """
+    movie = parse_movie_detail(html, candidate=_candidate(1))
+    assert len(movie.resources) == 1
+    assert movie.resources[0].provider == "magnet"
 
 
 def test_detail_parser_stops_synopsis_before_download_and_footer_sections() -> None:

@@ -1028,6 +1028,90 @@ def test_publish_ready_does_not_masquerade_as_complete_job_success(
     repo.close()
 
 
+def test_parser_epoch_creates_new_job_and_reuses_previous_success_observations(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from magnet.resource_index.adapters import movie_registry
+
+    source_id = "test-parser-epoch"
+    candidates = [_candidate(1), _candidate(2)]
+    first_calls = {"snapshot": 0, "detail": 0}
+
+    class _FirstCrawler(_FakeCrawler):
+        def crawl_movie_detail(self, candidate: MovieListingCandidate):
+            self.calls["detail"] += 1
+            self.http_requests += 1
+            if candidate.rank == 2:
+                raise ResourceIndexError(NOT_FOUND, "broken under parser v1", {"status": 404})
+            return _detail(candidate, source_id=source_id)
+
+    spec = MovieSourceSpec(
+        source_id=source_id,
+        snapshot_schema="movie-latest/parser-epoch/1",
+        default_count=2,
+        minimum_delay_seconds=0,
+        minimum_check_interval_hours=0,
+        daily_request_budget=20,
+        default_batch_size=2,
+        automatic_max_batches=2,
+        snapshot_max_requests=1,
+        batch_max_requests=2,
+        max_listing_pages=1,
+        robots_url=None,
+        allowed_origins=("https://www.dytt8899.com",),
+        allowed_path_prefixes=("/i/",),
+        crawler_factory=lambda _policy: _FirstCrawler(candidates, first_calls, source_id=source_id),
+        parser_epoch="parser-v1",
+    )
+    monkeypatch.setitem(movie_registry._SPECS, source_id, spec)
+    paths = LatestCrawlPaths.for_output_dir(tmp_path / "out", source_id=source_id, target_count=2)
+    repo = SqliteResourceRepository(paths.db_path)
+    first = MovieLatestRunner(
+        repo=repo,
+        paths=paths,
+        source_id=source_id,
+        target_count=2,
+        batch_size=2,
+        max_attempts=1,
+        snapshot_max_requests=1,
+        batch_max_requests=2,
+        max_listing_pages=1,
+        crawler_builder=lambda _policy: _FirstCrawler(candidates, first_calls, source_id=source_id),
+    ).run(refresh=True)
+    assert first.status == "partial"
+    assert first.covered_count == 1
+    assert first_calls["detail"] == 2
+
+    second_calls = {"snapshot": 0, "detail": 0}
+    monkeypatch.setitem(
+        movie_registry._SPECS,
+        source_id,
+        replace(
+            spec,
+            parser_epoch="parser-v2",
+            crawler_factory=lambda _policy: _FakeCrawler(candidates, second_calls, source_id=source_id),
+        ),
+    )
+    second = MovieLatestRunner(
+        repo=repo,
+        paths=paths,
+        source_id=source_id,
+        target_count=2,
+        batch_size=2,
+        max_attempts=1,
+        snapshot_max_requests=1,
+        batch_max_requests=2,
+        max_listing_pages=1,
+        crawler_builder=lambda _policy: _FakeCrawler(candidates, second_calls, source_id=source_id),
+    ).run(refresh=True)
+    assert second.job_id != first.job_id
+    assert second.status == "success"
+    assert second.covered_count == 2
+    assert second_calls["detail"] == 1, "only the previously failed detail should be retried"
+    repo.close()
+
+
 def test_generic_runner_rejects_candidate_outside_registered_boundary(tmp_path: Path) -> None:
     paths = LatestCrawlPaths.for_output_dir(
         tmp_path / "out",

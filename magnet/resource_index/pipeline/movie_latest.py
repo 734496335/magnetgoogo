@@ -35,6 +35,7 @@ from magnet.resource_index.pipeline.latest_crawl import (
     PortableRunLock,
     _atomic_write_json,
     _canonical_snapshot_bytes,
+    _latest_job_identity_hash,
 )
 from magnet.resource_index.store.latest_crawl_jobs import LatestCrawlJobStore
 from magnet.resource_index.store.movie_repository import MovieRepository
@@ -928,7 +929,8 @@ class MovieLatestRunner:
                 snapshot = self._load_snapshot()
                 snapshot_requests = int(snapshot.get("http_requests") or 0)
             snapshot_hash = hashlib.sha256(_canonical_snapshot_bytes(snapshot)).hexdigest()
-            job_id = f"latest-{self.source_id}-{self.target_count}-{snapshot_hash[:16]}"
+            job_identity_hash = _latest_job_identity_hash(self.source_id, snapshot_hash)
+            job_id = f"latest-{self.source_id}-{self.target_count}-{job_identity_hash[:16]}"
             self.current_job_id = job_id
             self.job_store.create_or_get_job(
                 job_id=job_id,
@@ -936,7 +938,7 @@ class MovieLatestRunner:
                 target_count=self.target_count,
                 batch_size=self.batch_size,
                 max_attempts=self.max_attempts,
-                snapshot_hash=snapshot_hash,
+                snapshot_hash=job_identity_hash,
                 snapshot=snapshot,
                 snapshot_path=str(self.paths.snapshot_path),
                 feed_path=str(self.paths.feed_path),

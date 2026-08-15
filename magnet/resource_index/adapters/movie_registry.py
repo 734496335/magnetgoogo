@@ -49,6 +49,7 @@ class MovieSourceSpec:
     metadata_priority: int = 0
     publish_count: int | None = None
     detail_requests_per_item_upper_bound: int | None = None
+    parser_epoch: str = "unknown"
 
 
 _SPECS: dict[str, MovieSourceSpec] = {}
@@ -86,6 +87,7 @@ def list_movie_sources() -> dict[str, dict[str, object]]:
             "metadata_priority": spec.metadata_priority,
             "publish_count": spec.publish_count,
             "detail_requests_per_item_upper_bound": spec.detail_requests_per_item_upper_bound,
+            "parser_epoch": spec.parser_epoch,
         }
         for source_id, spec in sorted(_SPECS.items())
     }
@@ -94,6 +96,7 @@ def list_movie_sources() -> dict[str, dict[str, object]]:
 def _ensure_builtin_movie_sources() -> None:
     if "sixv" not in _SPECS:
         from magnet.resource_index.adapters.sixv.live_crawler import SixVLiveCrawler
+        from magnet.resource_index.adapters.sixv.parser import PARSER_VERSION as SIXV_PARSER_VERSION
 
         register_movie_source(
             MovieSourceSpec(
@@ -122,10 +125,13 @@ def _ensure_builtin_movie_sources() -> None:
                 catalog_role="primary",
                 metadata_priority=300,
                 detail_requests_per_item_upper_bound=1,
+                parser_epoch=SIXV_PARSER_VERSION,
             )
         )
     if "sixv-series" not in _SPECS:
+        from magnet.resource_index.adapters.sixv.parser import PARSER_VERSION as SIXV_BASE_PARSER_VERSION
         from magnet.resource_index.adapters.sixv.series_crawler import SixVSeriesLiveCrawler
+        from magnet.resource_index.adapters.sixv.series_parser import PARSER_VERSION as SIXV_SERIES_PARSER_VERSION
 
         register_movie_source(
             MovieSourceSpec(
@@ -158,10 +164,12 @@ def _ensure_builtin_movie_sources() -> None:
                 catalog_role="supplemental",
                 metadata_priority=200,
                 detail_requests_per_item_upper_bound=1,
+                parser_epoch=f"{SIXV_SERIES_PARSER_VERSION}+{SIXV_BASE_PARSER_VERSION}",
             )
         )
     if "meijumi" not in _SPECS:
         from magnet.resource_index.adapters.meijumi.live_crawler import MeijumiLiveCrawler
+        from magnet.resource_index.adapters.meijumi.parser import PARSER_VERSION as MEIJUMI_PARSER_VERSION
 
         register_movie_source(
             MovieSourceSpec(
@@ -190,10 +198,12 @@ def _ensure_builtin_movie_sources() -> None:
                 catalog_role="primary",
                 metadata_priority=300,
                 detail_requests_per_item_upper_bound=1,
+                parser_epoch=MEIJUMI_PARSER_VERSION,
             )
         )
     if "dytt8899" not in _SPECS:
         from magnet.resource_index.adapters.dytt.live_crawler import DyttLiveCrawler
+        from magnet.resource_index.adapters.dytt.parser import PARSER_VERSION as DYTT_PARSER_VERSION
 
         register_movie_source(
             MovieSourceSpec(
@@ -223,5 +233,6 @@ def _ensure_builtin_movie_sources() -> None:
                 metadata_priority=200,
                 publish_count=100,
                 detail_requests_per_item_upper_bound=1,
+                parser_epoch=DYTT_PARSER_VERSION,
             )
         )

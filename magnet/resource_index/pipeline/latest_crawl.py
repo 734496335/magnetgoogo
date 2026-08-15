@@ -79,6 +79,16 @@ def _canonical_snapshot_bytes(snapshot: dict[str, Any]) -> bytes:
     ).encode("utf-8")
 
 
+def _latest_job_identity_hash(source_id: str, snapshot_hash: str) -> str:
+    try:
+        parser_epoch = get_movie_source(source_id).parser_epoch
+    except ResourceIndexError:
+        return snapshot_hash
+    if not parser_epoch or parser_epoch == "unknown":
+        return snapshot_hash
+    return hashlib.sha256(f"{snapshot_hash}\0{parser_epoch}".encode("utf-8")).hexdigest()
+
+
 def _pid_is_alive(pid: int) -> bool:
     if pid <= 0:
         return False
@@ -917,11 +927,12 @@ def read_latest_status(
             },
         )
     snapshot_hash = hashlib.sha256(_canonical_snapshot_bytes(snapshot)).hexdigest()
+    job_identity_hash = _latest_job_identity_hash(source_id, snapshot_hash)
     store = LatestCrawlJobStore(repo)
     job = store.get_job_by_snapshot(
         source_id=source_id,
         target_count=target_count,
-        snapshot_hash=snapshot_hash,
+        snapshot_hash=job_identity_hash,
     )
     if job is None:
         return {
@@ -929,6 +940,7 @@ def read_latest_status(
             "source_id": source_id,
             "target_count": target_count,
             "snapshot_hash": snapshot_hash,
+            "job_identity_hash": job_identity_hash,
             "db_path": str(paths.db_path),
             "snapshot_path": str(paths.snapshot_path),
             "feed_path": str(paths.feed_path),
@@ -966,6 +978,8 @@ def read_latest_status(
         "updated_at": job["updated_at"],
         "completed_at": job["completed_at"],
         "unresolved": unresolved[:50],
+        "snapshot_hash": snapshot_hash,
+        "job_identity_hash": job_identity_hash,
         "db_path": str(paths.db_path),
         "snapshot_path": str(paths.snapshot_path),
         "feed_path": str(paths.feed_path),

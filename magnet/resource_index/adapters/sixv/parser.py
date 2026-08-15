@@ -19,7 +19,7 @@ from magnet.resource_index.normalize.magnets import normalize_magnet_uri
 from magnet.resource_index.normalize.text import normalize_whitespace
 
 SOURCE_ID = "sixv"
-PARSER_VERSION = "sixv-parser/1.0.1"
+PARSER_VERSION = "sixv-parser/1.0.2"
 ORIGIN = "https://www.6v520.com"
 
 _FIELD_LABELS = (
@@ -341,7 +341,10 @@ def _normalize_external_url(url: str) -> str:
 
 
 def _provider_for(url: str) -> str | None:
-    host = (urlparse(url).hostname or "").casefold()
+    try:
+        host = (urlparse(url).hostname or "").casefold()
+    except ValueError:
+        return None
     if host in _CLOUD_PROVIDERS:
         return _CLOUD_PROVIDERS[host]
     for known, provider in _CLOUD_PROVIDERS.items():
