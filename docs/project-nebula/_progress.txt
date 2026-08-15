@@ -20,7 +20,7 @@ MEDIA PRODUCTION:
 - Resource Index 434 passed /1 skipped; enum 241 ALL VALID; no failed magnet units; disk ~61%, ~15GiB free.
 
 SOURCE / UPDATE / ALERT REMAINING:
-- mg-data bot renewals proven through 2026-08-13; every-8h workflow refreshes <24h to 72h. Current-cycle ~2026-08-16 00:17 window not yet observed in this session.
+- mg-data bot renewals proven through 2026-08-13; production workflow commit f9c5105 widens the every-8h refresh threshold from <=24h to <=32h while keeping 72h validity, raising normal unattended failure margin to ~24–32h. Current-cycle ~2026-08-16 00:17 window not yet observed in this session.
 - Public config authorities agree latest=0.2.5/min=0.1.10; v0.2.6 cannot downgrade-prompt. Real primary v0.2.5 APK verified package/code9/arm64/signature.
 - Signed v0.2.6 release APK remains unbuilt: release signing env vars are MISSING at Process/User/Machine scopes; certificate continuity vs v0.2.5 is a hard release gate.
 - Production alert env is 0600 root:root. A strict CloudMonitor attempt reached provider code but URL parsed as literal placeholder `echo`; shape-only check showed non-HTTPS 6-char URL field and 2-char security-word field. Transport restored to disabled; real mailbox acceptance still blocked until a valid endpoint/security word is installed.
