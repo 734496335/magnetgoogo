@@ -6,8 +6,8 @@ PRODUCTION MEDIA:
 - Public current verified revision16 / release 20260815T000000Z-8cf00f8a; R2/Aliyun pointer SHA identical; 286 movies / 315 series / 4462 resources.
 - sixv recovery defects closed: mirror parser same-origin, 100-item snapshot uses 5 pages, structured failures charge actual requests, source reservation uses explicit detail-request upper bound.
 - freshness_required source fallback now retries after 15m and unrecovered fallback is degraded + alert state; supplemental pending/partial/paused now also makes quality_status=degraded without required-source alert.
-- media branch feature/media-daily-automation at 0b5bf3f; full Resource Index 426 passed / 1 skipped; enum 241 ALL VALID.
-- production media image overlay = sha256:3dc498a7c7a65ba3697803cd4e2192ecdd1ca18f385b6b5362d2a891457b825e.
+- media branch feature/media-daily-automation at c36503c; full Resource Index 427 passed / 1 skipped; enum 241 ALL VALID.
+- production media image overlay = sha256:0f97daba31f83b58303fc6f52955617605f55380ffbed688f6400495821f84f1; audit mode proved sixv-series pending99/100 => degraded without public promotion.
 
 ANALYTICS V2 / GATEWAY / ADMIN:
 - Gateway V2 production version 8e82c68e-c462-4def-938a-43a88875db96 at 100%; bindings preserved; config/source canary 12/12 byte-stable.

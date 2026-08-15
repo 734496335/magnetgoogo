@@ -7,7 +7,7 @@ Modules: magnetgoogo-app Analytics/Resource runtime, cf-gateway Analytics V2, ad
 ### Production media closure
 - Recovered sixv with 100/100 durable coverage after fixing three independent hidden blockers: mirror parser hardcoded `.com`, 100-item target with only four 24-item listing pages, and request reservations sized to theoretical batch request ceilings instead of explicit per-detail upper bounds.
 - Public media is now revision16 / `20260815T000000Z-8cf00f8a`; R2 and Aliyun pointer SHA match and expose 286 movies / 315 series / 4462 magnet resources.
-- Freshness-required fallback now performs delayed single-source retry and marks unrecovered main-source fallback degraded. Final adversarial review found supplemental `pending/partial/paused` was still reported globally healthy; media branch commit `0b5bf3f` now surfaces those as `degraded_sources` without escalating them to required-source alerts. Full Resource Index 426 passed / 1 skipped; enum 241 ALL VALID.
+- Freshness-required fallback now performs delayed single-source retry and marks unrecovered main-source fallback degraded. Final adversarial review also closed supplemental and skip-crawl quality masking: durable `pending/partial/paused` now surfaces in `degraded_sources` without escalating non-required sources. Production audit proved sixv-series `pending 99/100` => degraded while the public pointer SHA remained unchanged. Media branch is at `c36503c`; full Resource Index 427 passed / 1 skipped; enum 241 ALL VALID.
 
 ### Analytics V2 / Gateway / Admin production closure
 - Gateway was reconstructed without losing remote bindings, uploaded with `--keep-vars --strict`, canaried before each promotion, and is now on integrity version `8e82c68e-c462-4def-938a-43a88875db96` at 100%.
