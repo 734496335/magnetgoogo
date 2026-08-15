@@ -1314,14 +1314,15 @@ await test('D1', 'stored history/favorites are sanitized before entering caches'
   assert.match(read('src/core/favorites.ts'), /sanitizeFavoriteItems/);
 });
 
-await test('D2', 'config race validates payloads and cannot let stale CDN beat authorities', () => {
+await test('D2', 'mutable update config is validated sequentially by trust tier', () => {
   const code = read('src/core/configChecker.ts');
   assert.match(code, /if \(!isRemoteConfig\(data\)\) throw new Error\('invalid_config'\)/);
-  assert.match(code, /const authoritativeUrls = \[/);
-  assert.match(code, /const fallbackUrls = \[`\$\{CDN_BASE\}\/config\.json`\]/);
-  assert.match(code, /config = await loadFirstValid\(authoritativeUrls\)/);
-  assert.match(code, /config = await loadFirstValid\(fallbackUrls\)/);
-  assert.ok(code.indexOf('loadFirstValid(authoritativeUrls)') < code.indexOf('loadFirstValid(fallbackUrls)'));
+  assert.match(code, /const authoritativeUrls = \[[\s\S]*?CF_PAGES[\s\S]*?RAW_BASE[\s\S]*?GATEWAY_BASE[\s\S]*?\]/);
+  assert.match(code, /const fallbackUrls = \[[\s\S]*?CN_ALI[\s\S]*?GATEWAY_OLD[\s\S]*?CDN_BASE[\s\S]*?\]/);
+  assert.match(code, /fetchAuthorityThenFallback\(authoritativeUrls, fallbackUrls, loadValid\)/);
+  assert.doesNotMatch(code, /Promise\.any/);
+  assert.ok(code.indexOf('CF_PAGES') < code.indexOf('CN_ALI}/config.json'));
+  assert.ok(code.indexOf('GATEWAY_BASE') < code.indexOf('CDN_BASE}/config.json'));
 });
 
 const passed = results.filter((item) => item.pass).length;

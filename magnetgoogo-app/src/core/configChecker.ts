@@ -9,9 +9,10 @@
 
 import Constants from 'expo-constants';
 import { compareSemver, isRemoteConfig, type ValidRemoteConfig } from './configValidation';
+import { fetchAuthorityThenFallback } from './sourceDeliveryPolicy';
 import { orderUpdateMirrors } from './updateDownloadPolicy';
 
-// Endpoints raced in parallel — first valid response wins.
+// Mutable config endpoints are evaluated sequentially by trust tier.
 const CN_ALI = 'https://cn.magnetgoogo.com';
 const CF_PAGES = 'https://magnetgoogo.com';
 const CDN_BASE = 'https://cdn.jsdelivr.net/gh/734496335/mg-data@f7b945ee8365c0f2932909ca4ad7ec56ebeb437b';
@@ -51,17 +52,20 @@ export function getAppVersion(): string {
 export async function checkConfig(): Promise<ConfigCheckResult> {
   const appVersion = getAppVersion();
 
-  // Race authoritative endpoints first. jsDelivr branch aliases may remain stale
-  // for hours, so it is only a last-resort fallback and can never beat a fresh
-  // first-party / GitHub Raw response.
+  // Mutable config must never race stale mirrors against trusted authorities.
+  // Each endpoint is fetched and schema-validated before the next trust tier is
+  // allowed to run. The canonical first-party endpoint therefore cannot be
+  // pre-empted by a faster but older Aliyun/jsDelivr response.
   const authoritativeUrls = [
-    `${CN_ALI}/config.json`,
     `${CF_PAGES}/config.json`,
     `${RAW_BASE}/config.json`,
     `${GATEWAY_BASE}/config.json`,
-    `${GATEWAY_OLD}/config.json`,
   ];
-  const fallbackUrls = [`${CDN_BASE}/config.json`];
+  const fallbackUrls = [
+    `${CN_ALI}/config.json`,
+    `${GATEWAY_OLD}/config.json`,
+    `${CDN_BASE}/config.json`,
+  ];
 
   const headers = {
     'Cache-Control': 'no-cache',
@@ -71,27 +75,20 @@ export async function checkConfig(): Promise<ConfigCheckResult> {
   let config: RemoteConfig | null = null;
   let error: string | null = null;
 
-  const loadFirstValid = (urls: string[]) => Promise.any(
-    urls.map(async (url) => {
-      const resp = await fetchWithTimeout(url, { headers });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
-      if (!isRemoteConfig(data)) throw new Error('invalid_config');
-      console.log(`[ConfigChecker] ✓ Loaded config from ${url}`);
-      return data;
-    }),
-  );
+  const loadValid = async (url: string): Promise<RemoteConfig> => {
+    const resp = await fetchWithTimeout(url, { headers });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    if (!isRemoteConfig(data)) throw new Error('invalid_config');
+    console.log(`[ConfigChecker] ✓ Loaded config from ${url}`);
+    return data;
+  };
 
   try {
-    config = await loadFirstValid(authoritativeUrls);
-  } catch (authoritativeError: any) {
-    console.log('[ConfigChecker] Authoritative endpoints failed, trying CDN fallback');
-    try {
-      config = await loadFirstValid(fallbackUrls);
-    } catch (fallbackError: any) {
-      error = fallbackError?.message || authoritativeError?.message || String(fallbackError);
-      console.log(`[ConfigChecker] All endpoints failed: ${error}`);
-    }
+    config = await fetchAuthorityThenFallback(authoritativeUrls, fallbackUrls, loadValid);
+  } catch (configError: any) {
+    error = configError?.message || String(configError);
+    console.log(`[ConfigChecker] All endpoints failed: ${error}`);
   }
 
   if (!config) {
