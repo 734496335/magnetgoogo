@@ -58,7 +58,10 @@ function parseMatches(raw?: string): ParsedSize[] {
     const unit = normalizeUnit(match[2]);
     if (!unit || !Number.isFinite(value) || value <= 0) continue;
     const bytes = value * UNIT_MULTIPLIERS[unit];
-    if (!Number.isFinite(bytes) || bytes < 1024) continue;
+    // A malformed DOM/numeric-unit interpretation can otherwise turn a small
+    // torrent into tens of millions of GB. Treat >=1 PiB as impossible input
+    // instead of letting it affect cards, consensus, or final ranking.
+    if (!Number.isFinite(bytes) || bytes < 1024 || bytes >= 1024 ** 5) continue;
     matches.push({ label: `${numericText} ${unit}`, bytes, value, numericText, unit, index });
   }
   return matches;
@@ -219,7 +222,7 @@ function clusterRepresentative(cluster: SizeCluster) {
   return sorted[Math.floor((sorted.length - 1) / 2)];
 }
 
-function chooseTiedCluster(clusters: SizeCluster[]): SizeCluster {
+function chooseTiedCluster(clusters: SizeCluster[]): SizeCluster | null {
   if (clusters.length === 1) return clusters[0];
   const byRepresentative = [...clusters].sort(
     (a, b) => clusterRepresentative(a).parsed.bytes - clusterRepresentative(b).parsed.bytes,
@@ -243,6 +246,13 @@ function chooseTiedCluster(clusters: SizeCluster[]): SizeCluster {
     && highParsed.numericText.endsWith(lowParsed.numericText)
     && ratio > 2
   ) return low;
+
+  // A torrent hash identifies one immutable payload, so independent sources
+  // should not disagree by multiples on total size. With no majority and no
+  // recognizable unit/DOM corruption signature, choosing whichever source
+  // happened to arrive first makes the UI and final ranking nondeterministic.
+  // Hide the ambiguous size instead of guessing.
+  if (ratio >= 4) return null;
 
   return [...clusters].sort((a, b) => a.firstIndex - b.firstIndex)[0];
 }
@@ -269,5 +279,6 @@ export function resolveResourceSizeConsensus(
 
   const maxVotes = Math.max(...clusters.map((cluster) => cluster.items.length));
   const tied = clusters.filter((cluster) => cluster.items.length === maxVotes);
-  return clusterRepresentative(chooseTiedCluster(tied)).parsed.label;
+  const winner = chooseTiedCluster(tied);
+  return winner ? clusterRepresentative(winner).parsed.label : '';
 }

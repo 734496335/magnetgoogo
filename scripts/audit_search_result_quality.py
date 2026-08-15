@@ -36,6 +36,7 @@ BTIH_RE = re.compile(r"^(?:(?:\(brute\)\s*)?magnet:\?\S*|urn:btih:|btih:)\s*[a-z
 URL_RE = re.compile(r"^(?:https?|ftp)://", re.I)
 HTML_RE = re.compile(r"<[^>]+>")
 CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+SURROGATE_RE = re.compile(r"[\ud800-\udfff]")
 CANONICAL_SIZE_RE = re.compile(r"^(\d+(?:\.\d+)?) (B|KB|MB|GB|TB)$")
 CANONICAL_DATE_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
 FULL_HASH_RE = re.compile(r"^[a-f0-9]{40}$", re.I)
@@ -52,6 +53,7 @@ UNIT_BYTES = {
     "GB": 1024 ** 3,
     "TB": 1024 ** 4,
 }
+VISIBLE_RELEVANCE_THRESHOLD = 30
 
 
 @dataclass(frozen=True)
@@ -133,6 +135,8 @@ def audit_item(query: str, source: dict[str, Any], item: dict[str, Any]) -> list
             findings.append(_finding("CONTROL_CHAR_IN_TITLE", "error", query=query, source=source, item=item))
         if "\ufffd" in title:
             findings.append(_finding("MOJIBAKE_REPLACEMENT_CHAR", "error", query=query, source=source, item=item))
+        if SURROGATE_RE.search(title):
+            findings.append(_finding("INVALID_UNICODE_SURROGATE", "error", query=query, source=source, item=item))
         if lower in GENERIC_TITLES:
             findings.append(_finding("GENERIC_TITLE", "error", query=query, source=source, item=item))
         if len(title) > 500:
@@ -181,7 +185,11 @@ def audit_item(query: str, source: dict[str, Any], item: dict[str, Any]) -> list
     return findings
 
 
-def _group_items(reports: Iterable[dict[str, Any]]) -> dict[tuple[str, str], list[tuple[dict[str, Any], dict[str, Any]]]]:
+def _group_items(
+    reports: Iterable[dict[str, Any]],
+    *,
+    minimum_relevance: int | None = None,
+) -> dict[tuple[str, str], list[tuple[dict[str, Any], dict[str, Any]]]]:
     grouped: dict[tuple[str, str], list[tuple[dict[str, Any], dict[str, Any]]]] = collections.defaultdict(list)
     for report in reports:
         query = str(report.get("query") or "")
@@ -191,6 +199,11 @@ def _group_items(reports: Iterable[dict[str, Any]]) -> dict[tuple[str, str], lis
             for item in source.get("items") or []:
                 if not isinstance(item, dict):
                     continue
+                relevance = item.get("relevance")
+                if minimum_relevance is not None and (
+                    not isinstance(relevance, int) or relevance < minimum_relevance
+                ):
+                    continue
                 hash_value = str(item.get("hash") or "").lower().strip()
                 if FULL_HASH_RE.fullmatch(hash_value):
                     grouped[(query, hash_value)].append((source, item))
@@ -199,7 +212,10 @@ def _group_items(reports: Iterable[dict[str, Any]]) -> dict[tuple[str, str], lis
 
 def audit_cross_source(reports: list[dict[str, Any]]) -> list[Finding]:
     findings: list[Finding] = []
-    for (query, hash_value), rows in _group_items(reports).items():
+    for (query, hash_value), rows in _group_items(
+        reports,
+        minimum_relevance=VISIBLE_RELEVANCE_THRESHOLD,
+    ).items():
         origins = {str(source.get("origin") or source.get("name") or "") for source, _ in rows}
         if len(origins) < 2:
             continue
@@ -212,13 +228,30 @@ def audit_cross_source(reports: list[dict[str, Any]]) -> list[Finding]:
             if low and high:
                 ratio = high[2] / low[2]
                 if ratio >= 4:
+                    clusters: list[list[tuple[dict[str, Any], dict[str, Any], int]]] = []
+                    for entry in sorted(sizes, key=lambda value: value[2]):
+                        placed = False
+                        for cluster in clusters:
+                            representative = sorted(value[2] for value in cluster)[(len(cluster) - 1) // 2]
+                            if max(representative, entry[2]) / min(representative, entry[2]) <= 1.15:
+                                cluster.append(entry)
+                                placed = True
+                                break
+                        if not placed:
+                            clusters.append([entry])
+                    votes = sorted((len({str(value[0].get('origin') or value[0].get('name') or '') for value in cluster}) for cluster in clusters), reverse=True)
+                    has_majority = len(votes) >= 2 and votes[0] >= 2 and votes[0] > votes[1]
                     findings.append(_finding(
-                        "CROSS_SOURCE_SIZE_CONFLICT",
-                        "error",
+                        "CROSS_SOURCE_SIZE_OUTLIER_OVERRIDDEN" if has_majority else "CROSS_SOURCE_SIZE_CONFLICT_HIDDEN",
+                        "warning",
                         query=query,
                         source=high[0],
                         item=high[1],
-                        detail=f"hash={hash_value} low={low[1].get('size')}@{low[0].get('name')} high={high[1].get('size')}@{high[0].get('name')} ratio={ratio:.2f}",
+                        detail=(
+                            f"hash={hash_value} low={low[1].get('size')}@{low[0].get('name')} "
+                            f"high={high[1].get('size')}@{high[0].get('name')} ratio={ratio:.2f} "
+                            f"cluster_votes={votes}; final model {'uses majority consensus' if has_majority else 'hides ambiguous size'}"
+                        ),
                     ))
                 elif ratio > 1.2:
                     findings.append(_finding(
@@ -244,6 +277,35 @@ def audit_cross_source(reports: list[dict[str, Any]]) -> list[Finding]:
                 source=high[0],
                 item=high[1],
                 detail=f"hash={hash_value} low={low[2]}@{low[0].get('name')} high={high[2]}@{high[0].get('name')}",
+            ))
+    visible_groups = _group_items(reports, minimum_relevance=VISIBLE_RELEVANCE_THRESHOLD)
+    for (query, hash_value), rows in _group_items(reports).items():
+        visible_origins = {
+            str(source.get("origin") or source.get("name") or "")
+            for source, _ in visible_groups.get((query, hash_value), [])
+        }
+        if len(visible_origins) >= 2:
+            continue
+        sizes = [(source, item, _size_bytes(item.get("size"))) for source, item in rows]
+        sizes = [entry for entry in sizes if entry[2] > 0]
+        origins = {str(entry[0].get("origin") or entry[0].get("name") or "") for entry in sizes}
+        if len(origins) < 2:
+            continue
+        low = min(sizes, key=lambda entry: entry[2])
+        high = max(sizes, key=lambda entry: entry[2])
+        ratio = high[2] / low[2]
+        if ratio >= 4:
+            findings.append(_finding(
+                "FILTERED_RAW_SIZE_CONFLICT",
+                "warning",
+                query=query,
+                source=high[0],
+                item=high[1],
+                detail=(
+                    f"hash={hash_value} low={low[1].get('size')}@{low[0].get('name')} "
+                    f"high={high[1].get('size')}@{high[0].get('name')} ratio={ratio:.2f}; "
+                    "conflict is outside the user-visible relevance threshold"
+                ),
             ))
     return findings
 

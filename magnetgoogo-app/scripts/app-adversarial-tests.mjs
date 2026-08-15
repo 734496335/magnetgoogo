@@ -49,6 +49,7 @@ import {
 } from '../src/core/storageSanitizers.ts';
 import { compareSemver, isRemoteConfig } from '../src/core/configValidation.ts';
 import { normalizeSearchTerm } from '../src/core/searchTerm.ts';
+import { fetchAuthorityThenFallback } from '../src/core/sourceDeliveryPolicy.ts';
 import {
   BACKGROUND_SEARCH_TASK_TIMEOUT_MS,
   backgroundSnapshotMatches,
@@ -333,6 +334,8 @@ await test('M3', 'binary, Chinese and bound detail sizes share one numeric autho
   assert.match(engine, /formatResourceSize\(Number\(item\.length\)\)/);
   assert.match(engine, /formatResourceSize\(Number\(item\.torrentSize\)\)/);
   assert.match(engine, /formatResourceSize\(Number\(item\.size\)\)/);
+  assert.equal(parseResourceSizeLabel('49357914.48 GB'), '');
+  assert.equal(parseSizeBytes('49357914.48 GB'), 0);
   assert.match(engine, /fileCount: Math\.max\(0, Math\.trunc\(Number\(row\.file_count/);
   assert.match(engine, /if \(Array\.isArray\(files\) && files\.length > 0\) fileCount = files\.length/);
   const runner = read('src/core/searchRunner.ts');
@@ -346,6 +349,8 @@ await test('M3D', 'date authority converts known formats and rejects field leaka
   assert.equal(parseResourceDateLabel('26 Июн 26'), '2026-06-26');
   assert.equal(parseResourceDateLabel('4 days, 21 hours', Date.UTC(2026, 7, 1)), '2026-07-27');
   assert.equal(parseResourceDateLabel('2026-08-03', Date.UTC(2026, 7, 1)), '2026-08-03');
+  assert.equal(parseResourceDateLabel('2026/08/03', Date.UTC(2026, 7, 1)), '2026-08-03');
+  assert.match(read('src/core/searchEngine.ts'), /finalized\.push\(\{ \.\.\.item, title, date: cleanDate\(item\.date\) \}\)/);
   assert.equal(parseResourceDateLabel('2026-08-04', Date.UTC(2026, 7, 1)), '');
   assert.equal(parseResourceDateLabel('1893456000', Date.UTC(2026, 7, 1)), '');
   assert.equal(parseResourceDateLabel('1.85 GB'), '');
@@ -414,6 +419,18 @@ await test('M4B', 'same-hash merges use source consensus instead of first or max
     { label: '2.29 GB', source: 'good-b' },
     { label: '2.29 GB', source: 'good-c' },
   ]), '2.29 GB');
+  const ambiguousRealWorld = [
+    { label: '347.07 MB', source: '16mag' },
+    { label: '8.14 GB', source: 'kd705' },
+  ];
+  assert.equal(resolveResourceSizeConsensus(ambiguousRealWorld), '');
+  assert.equal(resolveResourceSizeConsensus([...ambiguousRealWorld].reverse()), '');
+  const ambiguousExtreme = [
+    { label: '10.49 GB', source: 'wuji' },
+    { label: '1451.23 GB', source: '16mag' },
+  ];
+  assert.equal(resolveResourceSizeConsensus(ambiguousExtreme), '');
+  assert.equal(resolveResourceSizeConsensus([...ambiguousExtreme].reverse()), '');
 });
 
 await test('M5', 'stable IDs canonicalize hex, Base32 and tracker order', () => {
@@ -428,6 +445,15 @@ await test('M5', 'stable IDs canonicalize hex, Base32 and tracker order', () => 
     getResultStableId({ title: 'Base32', magnet: `magnet:?xt=urn:btih:${base32}` }),
     getResultStableId({ title: 'Hex', magnet: `magnet:?xt=urn:btih:${canonical}` }),
   );
+});
+
+await test('M5B', 'search title normalization removes malformed Unicode without restoring bad raw text', () => {
+  const engine = read('src/core/searchEngine.ts');
+  assert.match(engine, /function stripInvalidUnicode/);
+  assert.match(engine, /codePoint !== 0xfffd/);
+  assert.match(engine, /codePoint >= 0xd800 && codePoint <= 0xdfff/);
+  assert.match(engine, /stripInvalidUnicode\(raw\)/);
+  assert.doesNotMatch(engine, /\.trim\(\) \|\| raw/);
 });
 
 await test('M6', 'hash placeholders are recovered or rejected before reaching users', () => {
@@ -706,6 +732,41 @@ await test('P1B', 'expired encrypted source packs are rejected on disk, debug ov
   assert.equal(u3c3?.health?.status_detail, 'parsing_failed');
 });
 
+await test('P1C', 'source renewal cannot let a fast stale mirror beat a healthy authority tier', async () => {
+  const code = read('src/core/secureSourceStore.ts');
+  assert.match(code, /const authoritativeEndpoints = url[\s\S]*?\[CN_BASE, RAW_BASE, GATEWAY_BASE\]/);
+  assert.match(code, /const fallbackEndpoints = url[\s\S]*?\[CN_ALI, CDN_BASE, GATEWAY_OLD\]/);
+  assert.match(code, /fetchAuthorityThenFallback\(/);
+  assert.doesNotMatch(code, /\[CN_BASE, GATEWAY_BASE, CDN_BASE, RAW_BASE, GATEWAY_OLD, CN_ALI\]/);
+
+  let fallbackCalls = 0;
+  const fresh = await fetchAuthorityThenFallback(
+    ['authority-a', 'authority-b'],
+    ['stale-fast-mirror'],
+    async () => new Promise((resolve) => setTimeout(() => resolve('fresh-authority'), 40)),
+    async () => {
+      fallbackCalls += 1;
+      return new Promise((resolve) => setTimeout(() => resolve('stale-mirror'), 5));
+    },
+  );
+  assert.equal(fresh, 'fresh-authority');
+  assert.equal(fallbackCalls, 0);
+
+  const fallbackOrder = [];
+  const recovered = await fetchAuthorityThenFallback(
+    ['authority-a'],
+    ['mirror-a', 'mirror-b'],
+    async () => { throw new Error('authority-down'); },
+    async (endpoint) => {
+      fallbackOrder.push(endpoint);
+      if (endpoint === 'mirror-a') throw new Error('mirror-a-down');
+      return 'mirror-b-fresh';
+    },
+  );
+  assert.equal(recovered, 'mirror-b-fresh');
+  assert.deepEqual(fallbackOrder, ['mirror-a', 'mirror-b']);
+});
+
 await test('P2', 'Chinese sync failures use the error visual state', () => {
   const code = read('app/_layout.tsx');
   assert.match(code, /includes\('失败'\)/);
@@ -964,6 +1025,7 @@ await test('U2', 'bottom navigation, top favorites and search hero respect the u
 await test('U3', 'movie and regional series channels form one lightweight discovery experience', () => {
   const screen = read('app/(tabs)/resources.tsx');
   const feedClient = read('src/core/resourceFeed.ts');
+  const mediaClient = read('src/core/mediaReleaseClient.ts');
   const detail = read('app/movie/[movieId].tsx');
   const ratings = read('src/core/movieRatings.ts');
   const tagRow = read('src/components/MovieTagRow.tsx');
@@ -1025,9 +1087,13 @@ await test('U3', 'movie and regional series channels form one lightweight discov
   assert.match(screen, /trackResourceFeedRefreshResult\(/);
   assert.match(screen, /resourceFeedReleaseId\(loaded\.feed\)/);
   assert.doesNotMatch(screen, /backgroundSyncStarted/);
-  assert.match(feedClient, /refreshSucceeded: true/);
+  assert.match(feedClient, /refreshSucceeded: result\.remoteRevalidated/);
+  assert.match(feedClient, /MEDIA_REMOTE_REVALIDATION_UNAVAILABLE/);
   assert.match(feedClient, /refreshSucceeded: false/);
   assert.match(feedClient, /refreshErrorCode: 'MEDIA_FORCE_REFRESH_FAILED'/);
+  assert.match(screen, /succeeded = loaded\.refreshSucceeded/);
+  assert.match(mediaClient, /remoteRevalidated: pointerState === 'same'/);
+  assert.match(mediaClient, /remoteRevalidated: true/);
   assert.match(screen, /key=\{activeChannel\}/);
   assert.equal((screen.match(/<FlatList/g) || []).length, 1);
   assert.match(screen, /item\.update_status \|\| item\.episode_label/);

@@ -11,6 +11,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { decryptSources } from './crypto';
 import { getAppVersion } from './configChecker';
 import { COMPLIANCE_MODE } from './complianceConfig';
+import { fetchAuthorityThenFallback } from './sourceDeliveryPolicy';
 import bootstrapPayload from '../../assets/bootstrap-sources.enc.json';
 
 const NATIVE_BOOTSTRAP_FILE = new File(
@@ -363,9 +364,12 @@ export async function syncSources(url?: string): Promise<{ sources: SourceRule[]
     console.log('[SourceStore] __DEV__ no explicit debug source file, using normal cache + remote sync');
   }
 
-  const endpoints = url
+  const authoritativeEndpoints = url
     ? [url.replace(/\/$/, '')]
-    : [CN_BASE, GATEWAY_BASE, CDN_BASE, RAW_BASE, GATEWAY_OLD, CN_ALI];
+    : [CN_BASE, RAW_BASE, GATEWAY_BASE];
+  const fallbackEndpoints = url
+    ? []
+    : [CN_ALI, CDN_BASE, GATEWAY_OLD];
 
   const appVer = getAppVersion();
   const authToken = await getAuthToken();
@@ -375,46 +379,48 @@ export async function syncSources(url?: string): Promise<{ sources: SourceRule[]
   };
   if (authToken) headers.Authorization = `Bearer ${authToken}`;
 
-  let raw: any;
-  let encPayload = '';
-  let usedUrl = '';
-
+  let selected: { raw: any; encPayload: string; usedUrl: string };
   try {
-    const result = await raceFetchOk(endpoints, SOURCE_FILE, headers, 12000);
-    encPayload = result.text;
-    const decrypted = decryptSources(encPayload);
-    raw = JSON.parse(decrypted);
-    assertFreshEnvelope(raw, `remote source pack from ${result.url}`);
-    usedUrl = result.url;
-  } catch (raceErr: any) {
-    console.log(`[SourceStore] Tier 1 failed: ${raceErr.message}, trying sequentially...`);
-    let found = false;
-    for (const base of endpoints) {
-      try {
-        const resp = await fetchWithTimeout(`${base}${SOURCE_FILE}`, { headers }, 20000);
-        if (resp.status === 403) {
-          const errBody = await resp.json().catch(() => ({}));
-          throw new Error(errBody.message || '请更新App到最新版本');
+    selected = await fetchAuthorityThenFallback(
+      authoritativeEndpoints,
+      fallbackEndpoints,
+      async (endpoints) => {
+        try {
+          const result = await raceFetchOk([...endpoints], SOURCE_FILE, headers, 12000);
+          const decrypted = decryptSources(result.text);
+          const raw = JSON.parse(decrypted);
+          assertFreshEnvelope(raw, `remote source pack from ${result.url}`);
+          return { raw, encPayload: result.text, usedUrl: result.url };
+        } catch (error: any) {
+          console.log(`[SourceStore] Authority tier failed: ${error.message}, trying fallback mirrors sequentially...`);
+          throw error;
         }
-        if (!resp.ok) continue;
-        const text = await resp.text();
-        if (!text || text.length < 10) continue;
-        const decrypted = decryptSources(text);
-        raw = JSON.parse(decrypted);
-        assertFreshEnvelope(raw, `remote source pack from ${base}`);
-        encPayload = text;
-        usedUrl = base;
-        found = true;
-        console.log(`[SourceStore] Fallback succeeded via ${base}`);
-        break;
-      } catch (e: any) {
-        console.log(`[SourceStore] ${base} failed: ${e.message}`);
-      }
-    }
-    if (!found) {
-      throw new Error('所有端点均不可达，请检查网络');
-    }
+      },
+      async (base) => {
+        try {
+          const resp = await fetchWithTimeout(`${base}${SOURCE_FILE}`, { headers }, 20000);
+          if (resp.status === 403) {
+            const errBody = await resp.json().catch(() => ({}));
+            throw new Error(errBody.message || '请更新App到最新版本');
+          }
+          if (!resp.ok) throw new Error(`HTTP ${resp.status} from ${base}`);
+          const text = await resp.text();
+          if (!text || text.length < 10) throw new Error(`Empty response from ${base}`);
+          const decrypted = decryptSources(text);
+          const raw = JSON.parse(decrypted);
+          assertFreshEnvelope(raw, `remote source pack from ${base}`);
+          console.log(`[SourceStore] Fallback succeeded via ${base}`);
+          return { raw, encPayload: text, usedUrl: base };
+        } catch (error: any) {
+          console.log(`[SourceStore] ${base} failed: ${error.message}`);
+          throw error;
+        }
+      },
+    );
+  } catch {
+    throw new Error('源配置权威端点和备用镜像均不可达，请检查网络');
   }
+  const { raw, encPayload, usedUrl } = selected;
 
   let expiryHours = DEFAULT_EXPIRY_HOURS;
   if (raw.payload) {

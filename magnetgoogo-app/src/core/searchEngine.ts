@@ -76,9 +76,18 @@ function normalizeSize(raw: string): string {
   return parseResourceSizeLabel(raw);
 }
 
+function stripInvalidUnicode(raw: string): string {
+  return Array.from(raw)
+    .filter((character) => {
+      const codePoint = character.codePointAt(0) ?? 0;
+      return codePoint !== 0xfffd && !(codePoint >= 0xd800 && codePoint <= 0xdfff);
+    })
+    .join('');
+}
+
 function cleanTitle(raw: string): string {
   return (
-    raw
+    stripInvalidUnicode(raw)
       .replace(/^Details\s+for\s+/i, '')
       .replace(/^Download\s+/i, '')
       .replace(/\s*Torrent\s*$/i, '')
@@ -86,7 +95,7 @@ function cleanTitle(raw: string): string {
         /\s*[-\u2013|:]+\s*(The\s*Pirate\s*Bay|TPB|1337x\.?\w*|torrent\w*|RARBG|EZTV|YTS|YIFY|Kickass|LimeTorrents|TorrentGalaxy).*$/i,
         '',
       )
-      .trim() || raw
+      .trim()
   );
 }
 
@@ -326,7 +335,7 @@ function finalizeSearchResults(items: ResultItem[]): ResultItem[] {
     }
     if (seen.has(infoHash)) continue;
     seen.add(infoHash);
-    finalized.push({ ...item, title });
+    finalized.push({ ...item, title, date: cleanDate(item.date) });
   }
   if (items.length > 0 && finalized.length === 0) {
     if (rejectedInvalidMagnets > 0) throw new Error('INVALID_RESULT_MAGNET_PARSE');
