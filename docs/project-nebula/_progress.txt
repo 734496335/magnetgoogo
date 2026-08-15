@@ -7,8 +7,9 @@ MEDIA PRODUCTION:
 - sixv defects closed: structured failure actual-request accounting, same-origin mirror parsing, 100-item snapshot window=5 pages, explicit per-detail request upper bound.
 - sixv durable recovery reached 100/100 with 9 real HTTP requests and retained safe daily budget.
 - freshness_required fallback now gets delayed single-source retry; unrecovered main-source fallback becomes degraded and enters freshness alert state.
-- final review found supplemental pending/partial/paused could still report global healthy; commit 0b5bf3f now includes these in degraded_sources but not required_degraded_sources.
-- Resource Index 426 passed / 1 skipped; compileall PASS; enum 241 ALL VALID.
+- final review found supplemental pending/partial/paused could still report global healthy; these now enter degraded_sources but not required_degraded_sources.
+- skip-crawl publish/audit now carries durable job_status/covered_count into the same quality gate; removed an inner import that had made this path bypass dependency injection tests.
+- Resource Index 427 passed / 1 skipped; compileall PASS; enum 241 ALL VALID.
 - production latest image overlay: sha256:3dc498a7c7a65ba3697803cd4e2192ecdd1ca18f385b6b5362d2a891457b825e; backup tag retained.
 
 SOURCE SYNC:

@@ -803,17 +803,20 @@ def run_media_daily(
             source_root = root / "sources"
             for source in config.sources:
                 if skip_crawl:
-                    from magnet.resource_index.pipeline.movie_automation import safe_movie_source_status
-
                     current = safe_movie_source_status(
                         source_id=source.source_id,
                         output_dir=source_root,
                         target_count=source.count,
                     )
-                    db_path = str(current["job"]["db_path"])
+                    current_job = current["job"]
+                    db_path = str(current_job["db_path"])
                     source_results.append({
                         "source_id": source.source_id,
                         "status": "crawl_skipped",
+                        "reason": "skip_crawl",
+                        "target_count": source.count,
+                        "job_status": str(current_job.get("status") or ""),
+                        "covered_count": int(current_job.get("covered_count") or 0),
                         "db_path": db_path,
                         "freshness_required": source.freshness_required,
                     })

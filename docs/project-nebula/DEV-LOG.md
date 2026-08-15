@@ -13,11 +13,12 @@ Modules: media daily runner/source registry/sixv parser/request budgeting, Linux
 ### Production recovery / publication
 - sixv durable recovery completed 100/100 with 9 actual HTTP requests and retained 73 requests of daily budget. New Aug13/Aug14 titles were verified with real magnets before aggregation.
 - Candidate quality gate passed and the public chain subsequently advanced to revision16 / `20260815T000000Z-8cf00f8a`; R2 and Aliyun pointer SHA are identical, exposing 286 movies / 315 series / 4462 resources.
-- Final review found current sixv-series could be `pending` 99/100 while global `quality_status` still said healthy. Commit `0b5bf3f` now treats fallback/paused/pending/partial/failure_backoff as degraded for operations, but only `freshness_required=true` degradation enters required-source alerting.
+- Final review found current sixv-series could be `pending` 99/100 while global `quality_status` still said healthy. Runtime now treats fallback/paused/pending/partial/failure_backoff as degraded for operations, but only `freshness_required=true` degradation enters required-source alerting.
+- A follow-up adversarial check found `--skip-crawl` publish/audit discarded durable `job_status/covered_count`, so an incomplete source could again appear healthy. Skip-crawl now preserves those fields through the common quality gate; the redundant inner import of `safe_movie_source_status` was removed so this path is fault-injectable in tests.
 - Production latest image was updated by an offline code-layer overlay only, retaining the previous image as rollback; new image `sha256:3dc498a7c7a65ba3697803cd4e2192ecdd1ca18f385b6b5362d2a891457b825e` passed host/image SHA equality and Python compile smoke.
 
 ### Verification / residual
-- Media daily targeted 37/37; full Resource Index 426 passed / 1 skipped; compileall PASS; enum 241 ALL VALID. Branch `feature/media-daily-automation` pushed through `0b5bf3f`.
+- Media daily targeted 38/38; full Resource Index 427 passed / 1 skipped; compileall PASS; enum 241 ALL VALID. Branch `feature/media-daily-automation` includes the supplemental and skip-crawl quality hardening.
 - Hourly source-sync remains success with 357 rules / 148 GREEN and current authority/jsDelivr/Aliyun SHA convergence; no `sources.json health.status` was changed.
 - Alert hooks/state machines are installed and recipient is restored in root-only mode-0600 config, but transport remains disabled. Strict test returns rc=2 until a fresh CloudMonitor External Alert URL or QQ SMTP authorization code is supplied; no real email receipt is claimed.
 ---

@@ -1011,6 +1011,42 @@ def test_daily_pipeline_marks_nonrequired_pending_source_degraded_without_requir
     assert result["stages"]["crawl"][0]["job_status"] == "pending"
 
 
+def test_skip_crawl_preserves_pending_durable_status_as_degraded(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    monkeypatch.setattr(
+        media_daily,
+        "safe_movie_source_status",
+        lambda **kwargs: {
+            "job": {
+                "db_path": f"/{kwargs['source_id']}.db",
+                "status": "pending",
+                "covered_count": kwargs["target_count"] - 1,
+            },
+            "source": {"last_completed_at": media_daily._iso()},
+        },
+    )
+    base = _config(tmp_path)
+    config = MediaDailyConfig(
+        **{
+            **base.__dict__,
+            "sources": (DailySourceConfig("sixv-series", 10, False),),
+        }
+    )
+    result = run_media_daily(config, publish=False, skip_crawl=True, skip_ratings=True)
+    assert result["status"] == "success"
+    assert result["quality_status"] == "degraded"
+    assert result["degraded_sources"] == ["sixv-series"]
+    assert result["required_degraded_sources"] == []
+    crawl = result["stages"]["crawl"][0]
+    assert crawl["status"] == "crawl_skipped"
+    assert crawl["reason"] == "skip_crawl"
+    assert crawl["job_status"] == "pending"
+    assert crawl["covered_count"] == 9
+
+
 def test_daily_pipeline_rejects_stale_source_fallback(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
