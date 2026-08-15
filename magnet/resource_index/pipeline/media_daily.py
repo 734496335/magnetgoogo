@@ -940,7 +940,7 @@ def run_media_daily(
                 job_status = str(item.get("job_status") or "")
                 return (
                     source_status in {"fallback", "paused"}
-                    or job_status in {"pending", "paused", "partial"}
+                    or job_status in {"snapshot_only", "pending", "paused", "partial"}
                     or item.get("publish_ready") is False
                     or (source_status == "skipped" and source_reason == "failure_backoff")
                 )
