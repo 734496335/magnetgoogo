@@ -1,4 +1,37 @@
 ---
+Date/Time: 2026-08-15 23:40 (UTC+8)
+Version: v0.2.6-release-freeze-deep-audit
+Scope: Re-audit the full media supply chain and App main flows, close stale-source/search-metadata regressions, verify K30S source/search/resource/update behavior, and preserve unresolved signing/email/renewal gates.
+Modules: magnetgoogo-app search/source/media/resource/update runtime, cf-gateway media R2 fallback, mg-data renewal evidence, production media/source services, K30S acceptance
+
+### App/source regressions found and closed
+- Reproduced the old stale-fast/fresh-slow source-delivery hazard in the v0.2.6 client: `secureSourceStore` still raced jsDelivr beside authority endpoints. K30S actually selected jsDelivr before the fix while all bytes happened to be converged.
+- Split delivery into authority (`magnetgoogo.com`, GitHub Raw, `api.naoshiquan.com`) and fallback (`cn`, jsDelivr, old workers.dev) tiers. Added a pure `fetchAuthorityThenFallback` policy and dynamic fault injection proving a 5ms stale mirror cannot beat a healthy 40ms authority; fallback runs only after authority failure.
+- Real K30S clean-data boot on the final candidate loaded 147 bundled sources then 148 remote sources from `api.naoshiquan.com`; formal production package remained 0.2.5/code9.
+- Real search reports exposed three additional data-quality defects: handler dates could bypass the shared canonical date authority, lone UTF-16 surrogate codepoints reached titles, and equal-vote same-hash size conflicts could change with response arrival order. Common exit paths now canonicalize date/title, invalid Unicode is stripped fail-closed, impossible >=1PiB size labels are rejected, and unresolved >=4x two-source size conflicts hide size rather than guess.
+- K30S final candidate SHA256 `808061dd940079217898b1269b55a079251a8a7e3343d53ba903974a8999736`: `Inception` completed 67 hosts / 52 pools with 168 high-relevance magnets, 0 skipped, quality hard=0. Post-fix Chinese run completed 52 pools with 120/120 high-relevance and hard=0; old pre-fix report had 120 invalid-surrogate findings.
+
+### Resource/update/Gateway main-flow closure
+- Resource refresh now distinguishes cached/offline fallback from a real current-pointer revalidation; telemetry/cooldown can no longer call an offline cached return a successful refresh.
+- Replaced the unstable CN media mirror with Gateway read-only R2 media fallback and added Android IPv4-first networking. Gateway contract covers GET/HEAD, immutable objects, no-cache current, invalid paths/methods; Wrangler dry-run confirms the MEDIA R2 binding.
+- Final K30S resource flow wrote cache identity revision16 / release `20260815T000000Z-8cf00f8a`, pointer `03e07a...`, manifest `a47eb9e...`, proving the final APK revalidated the live release instead of only using the bundle.
+- Public config authorities (`magnetgoogo.com`, Gateway, GitHub Raw) agree latest=0.2.5/min=0.1.10, so v0.2.6 cannot be prompted to downgrade. The real primary v0.2.5 APK was downloaded and independently verified as package `com.magnetgoogo.app`, code9, arm64 and a valid signed APK.
+- Signed v0.2.6 release continuity remains intentionally unclaimed: release keystore exists but signing env vars are absent in this shell. A signed code10 APK must still be built in the signing environment and compared to v0.2.5 before release.
+
+### Media supply-chain adversarial audit
+- Parser-epoch migration initially made sixv/meijumi appear `snapshot_only`; safe runners rebuilt current identity from durable evidence with 0 HTTP requests and returned both required sources to 100/100. dytt used only one request and remains 249/250 partial because of one durable bad rank; as a supplemental source it has an explicit publish_count=100 and a 100-row durable library, so publishability and completeness remain separate.
+- Found a monitoring semantic hole: supplemental `snapshot_only` could still yield overall `quality_status=healthy`. Added `snapshot_only` to degraded statuses plus a permanent test. Full Resource Index is 434 passed / 1 skipped; enum 241 ALL VALID.
+- Media commit `f9303ff` was pushed and the one-line runtime change deployed only after diffing the production snapshot; real `magnet-media-audit.service` passed under the Docker runtime, reported degraded only `dytt8899`, required_degraded=[], published=false, and left public current unchanged.
+- Cross-plane validation: R2/Aliyun current and manifest are byte-identical; manifest has 1763 objects. Six stratified cover/catalog/detail/resource samples were fetched from both planes and each matched manifest hash and size exactly. No new media data-plane P0/P1 was found.
+
+### Verification and remaining gates
+- Post-commit App gates PASS: resource feed, live media network, media security/cache, update download, release contract, Analytics V2, resource auto-sync, adversarial 56/56, fluency 17/17 and TypeScript. Gateway contract and Wrangler dry-run PASS. Standalone Android Debug build PASS.
+- Pushed App/Gateway commits `fe82b83` (`fix(app): harden media refresh fallback`) and `2718d5b` (`fix(app): fail closed on stale sources and bad search metadata`) without force push.
+- mg-data has real `source-envelope-bot` renewals through 2026-08-13 and production hourly source-sync remains healthy. This session ended before the next ~2026-08-16 00:17 renewal window, so that particular cycle is not falsely claimed as observed.
+- Alert hooks/state machines remain healthy but outbound transport is still disabled because the CloudMonitor URL/token value is not available in this execution context. Real inbox acceptance remains pending. Failed test-harness attempts were preserved under `_failures` rather than erased by later successful runs.
+---
+
+---
 Date/Time: 2026-08-15 11:10 (UTC+8)
 Version: v0.2.6-production-hardening-pre-k30s-final
 Scope: Close media freshness/recovery defects, productionize Analytics V2 Gateway/Admin safely, add Resource refresh telemetry, and adversarially harden completeness before K30S acceptance.
