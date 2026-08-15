@@ -61,6 +61,8 @@ const env = {
   RELEASES: new MemoryR2(),
   MEDIA: releases,
   ADMIN_SECRET: 'test-secret',
+  GITHUB_RAW: 'https://raw.example.test/main',
+  CACHE_TTL: '300',
 };
 
 function eventBody(overrides = {}) {
@@ -183,6 +185,58 @@ assert.equal(await mediaHead.text(), '');
 assert.equal((await call('/media/secret')).status, 400);
 assert.equal((await call('/media/v1/releases/missing.json')).status, 404);
 assert.equal((await call('/media/v1/current.json', { method: 'POST' })).status, 405);
+
+// Mutable update config is a correctness-sensitive control plane. It must be
+// loaded from GitHub Raw first, fully validated, never served from Gateway
+// cache, and only then fall back to CF Pages.
+const nativeFetch = globalThis.fetch;
+const configPayload = {
+  latest_version: '0.2.5',
+  min_version: '0.1.10',
+  download: { primary: 'https://example.test/app.apk', mirrors: [] },
+  announcement: '',
+};
+const configFetches = [];
+try {
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    configFetches.push(url);
+    if (url === `${env.GITHUB_RAW}/config.json`) {
+      return new Response(JSON.stringify(configPayload), { status: 200 });
+    }
+    throw new Error(`unexpected_config_fetch:${url}`);
+  };
+  const configResponse = await call('/config.json');
+  assert.equal(configResponse.status, 200);
+  assert.equal(configResponse.headers.get('Cache-Control'), 'no-store');
+  assert.equal(configResponse.headers.get('X-Config-Authority'), 'github-raw');
+  assert.deepEqual(configFetches, [`${env.GITHUB_RAW}/config.json`]);
+  assert.deepEqual(await configResponse.json(), configPayload);
+
+  configFetches.length = 0;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    configFetches.push(url);
+    if (url === `${env.GITHUB_RAW}/config.json`) {
+      return new Response('{"latest_version":null}', { status: 200 });
+    }
+    if (url === 'https://magnetgoogo.com/config.json') {
+      return new Response(JSON.stringify(configPayload), { status: 200 });
+    }
+    throw new Error(`unexpected_config_fetch:${url}`);
+  };
+  const fallbackConfig = await call('/config.json');
+  assert.equal(fallbackConfig.status, 200);
+  assert.equal(fallbackConfig.headers.get('X-Config-Authority'), 'cf-pages');
+  assert.deepEqual(configFetches, [
+    `${env.GITHUB_RAW}/config.json`,
+    'https://magnetgoogo.com/config.json',
+  ]);
+  assert.ok((source.match(/loadMutableConfig\(env\)/g) || []).length >= 3,
+    'config route, check route and source version gate must share one authority loader');
+} finally {
+  globalThis.fetch = nativeFetch;
+}
 
 const oversized = await call('/api/events', {
   method: 'POST',

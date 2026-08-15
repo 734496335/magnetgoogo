@@ -108,6 +108,49 @@ async function fetchUpstream(env, path, cacheTtl, skipCache = false) {
   return response;
 }
 
+function isValidMutableConfig(value) {
+  return Boolean(
+    value
+    && typeof value === 'object'
+    && typeof value.latest_version === 'string'
+    && value.latest_version
+    && typeof value.min_version === 'string'
+    && value.min_version
+    && value.download
+    && typeof value.download === 'object'
+  );
+}
+
+// Mutable config is correctness-sensitive control-plane state. Always ask the
+// canonical GitHub Raw authority first and validate the JSON before accepting
+// it. CF Pages is a fallback only; unlike immutable release objects, config is
+// never served from the Gateway Cache API.
+async function loadMutableConfig(env) {
+  const candidates = [
+    { name: 'github-raw', url: `${env.GITHUB_RAW}/config.json` },
+    { name: 'cf-pages', url: `${CF_PAGES_BASE}/config.json` },
+  ];
+  let lastError = null;
+  for (const candidate of candidates) {
+    try {
+      const response = await fetch(candidate.url, {
+        headers: {
+          'User-Agent': 'MagGoogo-Gateway/1.0',
+          'Cache-Control': 'no-cache',
+        },
+      });
+      if (!response.ok) throw new Error(`${candidate.name} ${response.status}`);
+      const text = await response.text();
+      const config = JSON.parse(text);
+      if (!isValidMutableConfig(config)) throw new Error(`${candidate.name} invalid_config`);
+      return { config, text, authority: candidate.name };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('config_unavailable');
+}
+
 // ── Parse common request headers ──
 function parseRequestMeta(request) {
   const cf = request.cf || {};
@@ -135,36 +178,32 @@ async function handleHealth() {
   });
 }
 
-async function handleConfig(request, env) {
-  const noCache = (request.headers.get('Cache-Control') || '').includes('no-cache');
-  const upstream = await fetchUpstream(env, '/config.json', env.CACHE_TTL, noCache);
-  if (!upstream.ok) {
-    return jsonResponse({ error: 'config_unavailable' }, 502);
+async function handleConfig(_request, env) {
+  try {
+    const loaded = await loadMutableConfig(env);
+    return new Response(loaded.text, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'X-Config-Authority': loaded.authority,
+        ...corsHeaders(),
+      },
+    });
+  } catch {
+    return jsonResponse({ error: 'config_unavailable' }, 502, { 'Cache-Control': 'no-store' });
   }
-
-  const body = await upstream.clone().text();
-  return new Response(body, {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': `public, max-age=${env.CACHE_TTL || 300}`,
-      ...corsHeaders(),
-    },
-  });
 }
 
 async function handleSources(request, env) {
   const meta = parseRequestMeta(request);
 
-  // ── Step 1: Fetch config to get min_version ──
+  // ── Step 1: Fetch authoritative config to get min_version ──
   const noCache = (request.headers.get('Cache-Control') || '').includes('no-cache');
   let minVersion = '0.0.0';
   try {
-    const configResp = await fetchUpstream(env, '/config.json', env.CACHE_TTL, noCache);
-    if (configResp.ok) {
-      const config = await configResp.clone().json();
-      minVersion = config.min_version || '0.0.0';
-    }
+    const loaded = await loadMutableConfig(env);
+    minVersion = loaded.config.min_version || '0.0.0';
   } catch { /* use default */ }
 
   // ── Step 2: Version gate ──
@@ -204,11 +243,11 @@ async function handleSources(request, env) {
 async function handleCheck(request, env) {
   const meta = parseRequestMeta(request);
 
-  // Fetch config
+  // Fetch correctness-sensitive config from the same authority path used by
+  // /config.json and the source-pack version gate.
   let config = {};
   try {
-    const configResp = await fetchUpstream(env, '/config.json', env.CACHE_TTL);
-    if (configResp.ok) config = await configResp.json();
+    config = (await loadMutableConfig(env)).config;
   } catch { /* ignore */ }
 
   const minVersion = config.min_version || '0.0.0';
