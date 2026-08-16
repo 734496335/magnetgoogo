@@ -1,27 +1,26 @@
-TASK: v0.2.6 release-freeze audit: App main flows + source renewal/delivery + media supply chain + production alerts
-STATUS: MEDIA_GO / SOURCE_RENEWAL_E2E_PASS / APP_EXACT_DEBUG_K30S_PASS / RELEASE_HOLD_SIGNING_EMAIL
-DATE: 2026-08-16 00:50 UTC+8
+TASK: v0.2.6 release-freeze audit: formal signing + CloudMonitor closure after full App/source/media acceptance
+STATUS: MEDIA_GO / SOURCE_RENEWAL_E2E_PASS / APP_EXACT_DEBUG_K30S_PASS / SIGNING_PASS / CLOUDMONITOR_PASS / HOLD_FINAL_RELEASE_SHA_DEVICE_SMOKE
+DATE: 2026-08-16 09:30 UTC+8
 
 APP / GATEWAY:
-- Exact current standalone Debug SHA256=2d5b9ca87ae653bfb89ba07507d4eb9ea416e563d274c3fc2e76633d2ca63bdd, package=com.magnetgoogo.app.debug, version=0.2.6/code10; rebuilt and installed successfully on K30S. Formal com.magnetgoogo.app remains 0.2.5/code9 untouched.
-- Clean-data/current-APK K30S UX suite completed EN movie, ZH movie, ZH anime and EN series with quality status PASS, reportCount=4, hardFindingCount=0, hash-placeholder=0, 148 loaded hosts /52 pools. 流浪地球=123/123 high-relevance; Breaking Bad=200/200. Device report retained raw source errors/warnings instead of masking them.
-- K30S lifecycle PASS: foreground return HOT 149ms; force-stop recovery COLD 360ms; process alive; no matching Fatal/ANR. New source envelope was actually decrypted/cached and consumed by this exact APK.
-- Mutable source packs and mutable update config are sequential by trust tier; each endpoint must fully validate before acceptance; GitHub Raw is first update-config authority.
-- App full gates PASS: resource/media/security/cache/update/release/analytics/auto-sync, adversarial 56/56, fluency 17/17, TypeScript; Resource Index 201 passed in the current rerun and crawler_v3 non-integration 61 passed/2 deselected after fixing stale invalid-BTIH cookie fixtures.
-- Gateway config authority/fail-closed code at bdac218; production Worker 56ccec57... is 100% after preview + 5% canary. /config=no-store + X-Config-Authority=github-raw; /api/check, source and media probes PASS.
+- Exact current standalone Debug SHA256=2d5b9ca87ae653bfb89ba07507d4eb9ea416e563d274c3fc2e76633d2ca63bdd is K30S-accepted: four UX categories PASS, hard=0, 148 hosts/52 pools; lifecycle HOT 149ms / COLD 360ms; no Fatal/ANR.
+- App full gates remain PASS: release contract, adversarial 56/56 and TypeScript were rerun after formal packaging; Gateway fail-closed production remains on 56ccec57... at 100%.
 
-MEDIA:
-- Public current revision16 / release 20260815T000000Z-8cf00f8a / 286 movies /315 series /4462 resources; `media.magnetgoogo.com` and Gateway current+manifest are byte-identical (pointer 03e07a..., manifest a47eb9e..., 1763 objects).
-- Latest real audit 20260815T152929Z-4263f0b3 returned status=success, candidate_verified=true and published=false. It built candidate revision17 (286 movies /316 series /4464 resources) without promoting it in audit mode.
-- Required sixv=100/100 and meijumi=100/100 are publish-ready; sixv-series=100/100 publish-ready; only supplemental dytt8899 remains 249/250 partial but publish-ready. quality_status=degraded, degraded_sources=[dytt8899], required_degraded_sources=[].
-- Media daily/audit/source timers and retry topology are loaded; latest audit systemd unit exited 0/SUCCESS. No new media P0/P1 found.
+FORMAL SIGNING / RELEASE APK:
+- Historical signing path was recovered from docs/AI-RULES + DEV-LOG: D:\lpproduct\magnet\releases\secrets.enc is the protected authority. `python scripts/git_backup_secrets.py --restore` restored ignored magnet/.env and the备案 keystore without printing credentials.
+- Candidate and original keystore SHA256 are identical. Release build loads only RELEASE_STORE_PASSWORD / RELEASE_KEY_ALIAS / RELEASE_KEY_PASSWORD from the restored ignored env into the Gradle child process.
+- Forced `--rerun-tasks` final APK: `com.magnetgoogo.app` 0.2.6/code10, 33,609,450 bytes, arm64-v8a only, SHA256 `20a010e07c80b515c50c9871db6ce68b61bbeca66ece1de064e3a1f32eae9088`.
+- Certificate SHA256 `475fc164...ef49d` exactly matches formal v0.2.5; Hermes bundle magic c61fbc03. Signing env names/local-debug endpoint/debug package names are absent from bundle. Debug report filename text remains dead code; release uses NoopReportBuilder and SQ5D passes.
+- A pre-rerun formal 0.2.6 artifact installed over formal 0.2.5 successfully with firstInstallTime unchanged. The forced-rerun final SHA `20a010e0...` could not be installed because the execution safety layer blocked adb before device execution; do not claim byte-exact final-release K30S acceptance yet.
 
-SOURCE RENEWAL REAL E2E:
-- mg-data f9c5105 widened refresh threshold 24h->32h; ea6fa71 adds non-looping push self-test for workflow/script/test changes.
-- Real bot renewal 122533e produced SHA fa4e4d4954990f46f0c237c4a6e54f970cbe2f1cdb979d987b97a047ddd0f2b2, issued 2026-08-15T16:19:12Z and expires 2026-08-18T16:19:12Z, 357 rules /148 GREEN.
-- Aliyun hourly source-sync automatically installed it at 00:19:26 local with service exit 0/SUCCESS; K30S exact current Debug subsequently loaded 148 hosts/52 pools from the renewed envelope.
-- magnetgoogo.com / GitHub Raw / Gateway / jsDelivr / old workers.dev byte-match fa4e4d49.... `cn.magnetgoogo.com` was NOT counted as converged in the final probe because the Windows Schannel client hit a TLS handshake failure; it is a fallback after three healthy authorities and retained as degraded evidence.
+CLOUDMONITOR:
+- User-supplied CloudMonitor endpoint/security word installed only in production `/etc/magnet-alerts/alert.env`; file is root:root 0600, transport=cloudmonitor, URL is HTTPS and security word is present. No credential was written to Git/logs.
+- Strict real provider acceptance PASS: `ALERT_TEST sent=true provider=cloudmonitor`, rc=0. Future media/source alert units read the same EnvironmentFile.
 
-RELEASE HOLD — TWO HARD GATES:
-- Release keystore exists, but RELEASE_STORE_PASSWORD / RELEASE_KEY_ALIAS / RELEASE_KEY_PASSWORD are absent from Process/User/Machine scopes and the root .env; no secrets.enc recovery artifact exists in either checkout. Signed v0.2.6/code10 certificate continuity with the real v0.2.5 APK is therefore unverified.
-- Production /etc/magnet-alerts/alert.env is root:root 0600, but CloudMonitor URL remains a short placeholder and provider security/access-key fields are empty; transport is disabled and the strict acceptance transient unit exited status=2 before provider HTTP. Local D:\lpproduct\magnet\.env currently contains only ADMIN_SECRET and MIMO_API_KEY names, so the previously supplied CloudMonitor credential was not actually persisted there. Real mailbox acceptance remains pending.
+MEDIA / SOURCE:
+- Media remains revision16 public and healthy for required sources; only supplemental dytt8899 249/250 is degraded; required_degraded_sources=[]. No new P0/P1.
+- Source renewal real E2E remains PASS: bot commit 122533e -> Aliyun hourly sync -> exact current K30S consumption, 148 hosts/52 pools. Three authorities plus jsDelivr/old Gateway converge; CN fallback Windows Schannel failure remains degraded evidence.
+
+RELEASE VERDICT:
+- Signing and real CloudMonitor provider gates are CLOSED.
+- Only remaining hard evidence gap: install/launch smoke of exact forced-rebuild formal SHA `20a010e0...` on K30S. Public v0.2.5/update config remain untouched.

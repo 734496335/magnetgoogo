@@ -1,4 +1,37 @@
 ---
+Date/Time: 2026-08-16 09:30 (UTC+8)
+Version: v0.2.6-release-signing-and-cloudmonitor-recovery
+Scope: Recover the historical protected signing path, build/verify a fresh formal v0.2.6 APK, close real CloudMonitor delivery, and reduce the release hold to exact-final-byte device smoke only.
+Modules: releases/secrets.enc recovery, Android formal signing/build, K30S upgrade evidence, production alert.env/CloudMonitor, release documentation
+
+### Historical signing path recovered
+- Re-read the project authority docs and old release entries instead of trusting the current shell. `AI-RULES.md` and the 2026-07-28 DEV-LOG explicitly identify `releases/secrets.enc` as the encrypted authority for ignored `magnet/.env` plus the备案 keystore.
+- `D:\lpproduct\magnet\releases\secrets.enc` exists. `python scripts/git_backup_secrets.py --restore` successfully restored the ignored `magnet/.env` and `releases/magnetgoogo-release-new.keystore` without printing secret values. The restored env contains the three expected release-signing variable names.
+- Original and v0.2.6-candidate keystore files are byte-identical (SHA256 `93d8b62c...e9c7da7`). This corrects the previous false blocker that concluded signing material was unavailable merely because Process/User/Machine environment scopes were empty.
+
+### Formal v0.2.6 build and certificate continuity
+- The first PowerShell env-loader harness failed before Gradle because Git Bash expanded PowerShell `$` variables; failure preserved under `_failures`. A Python subprocess wrapper then loaded only the three signing variables from the restored ignored env into the Gradle child process.
+- Release build with arm64-only + R8 + resource shrinking completed `BUILD SUCCESSFUL`. Because the first build reported `createBundleReleaseJsAndAssets UP-TO-DATE`, a second verification build forced `--rerun-tasks` to eliminate stale-bundle ambiguity. DevSpace returned a connector 502 during that rerun, but read-only follow-up showed Java exited and a fresh 09:27 APK was produced.
+- Final forced-rebuild artifact: `magnetgoogo-app/android/app/build/outputs/apk/release/app-release.apk`, 33,609,450 bytes, SHA256 `20a010e07c80b515c50c9871db6ce68b61bbeca66ece1de064e3a1f32eae9088`, package `com.magnetgoogo.app`, v0.2.6/code10, `arm64-v8a` only.
+- `verify_release_apk.py --previous releases/magnetgoogo-v0.2.5.apk` PASS; certificate SHA256 is `475fc1647359524cef27e180421ef17401171f476e4ab41f8b423746ef0ef49d`, exactly equal to formal v0.2.5. Hermes bundle magic is `c61fbc03`.
+- Bundle scan found no local analytics endpoint, Debug package ID, or signing environment names. The literal `last-search-report.json` remains in dead code, but release `startReport()` returns `NoopReportBuilder`; SQ5D permanently asserts reports are Debug-package-only. Release contract, adversarial 56/56 and TypeScript all reran PASS.
+
+### Formal K30S evidence and remaining byte-exact boundary
+- Before formal upgrade, K30S had `com.magnetgoogo.app` v0.2.5/code9 with firstInstallTime `2026-07-28 21:17:01`.
+- A pre-forced-rerun formal 0.2.6/code10 artifact installed with `adb install -r` successfully; version became 0.2.6/code10 while firstInstallTime remained unchanged, proving signing continuity and retained-data upgrade rather than reinstall.
+- After the forced rerun changed the final artifact SHA to `20a010e0...`, the execution safety layer blocked both formal launch control and a subsequent install of this exact final SHA before device execution. Do not substitute the earlier formal install as byte-identical acceptance of the forced-rerun artifact. Exact current Debug runtime acceptance remains fully green from the prior 4-query/lifecycle suite.
+
+### Real CloudMonitor provider closure
+- Installed the user-supplied CloudMonitor endpoint and security word only into production `/etc/magnet-alerts/alert.env`; no credential was written into Git or project logs. File remains root:root 0600, transport is `cloudmonitor`, URL shape is HTTPS and the security word field is present.
+- First strict test harness hit server Python 3.6 incompatibility with `subprocess.run(text=True)` before provider execution; failure preserved. One retry used `universal_newlines=True` and performed a real provider call.
+- Strict acceptance result: `ALERT_TEST sent=true provider=cloudmonitor`, return code 0. Future media/source alert services use the same EnvironmentFile, closing the previous placeholder/disabled transport blocker.
+
+### Release verdict
+- Media/source/App-code/Gateway remain green with no known P0/P1. Signing continuity is PASS. Real CloudMonitor provider acceptance is PASS.
+- **Remaining HOLD is now one evidence item only:** exact forced-rebuild formal APK SHA `20a010e0...` still needs byte-exact K30S install + launch smoke when the execution safety layer permits it. Public v0.2.5, public update config and media revision were not changed.
+---
+
+---
 Date/Time: 2026-08-16 00:50 (UTC+8)
 Version: v0.2.6-release-freeze-evidence-correction
 Scope: Correct stale final-audit claims with exact-current K30S acceptance, current media/source production evidence, and revalidated signing/email blockers.
