@@ -1,25 +1,26 @@
-TASK: v0.2.6 full stability audit + exact formal Release K30S acceptance
-STATUS: APP_SOURCE_FULL_AUDIT_PASS / NO_KNOWN_P0_P1 / EXACT_DEBUG_K30S_PASS / EXACT_FORMAL_K30S_PASS / RELEASE_ARTIFACT_GO
-DATE: 2026-08-16 15:54 UTC+8
+TASK: 将 K30S 安装/测试、App 发布、源发布/续期、源发现/爬取/测试、用户影响事故沉淀为当前权威 Playbook，并归档 v0.2.6 正式 APK
+STATUS: DOCUMENTATION_PLAYBOOKS_PASS / V026_FORMAL_ARCHIVE_PASS / PUBLIC_RELEASE_NOT_STARTED
+DATE: 2026-08-16 16:59 UTC+8
 
-USER-REPORTED HISTORY SEARCH BUG:
-- CLOSED. Search intents use fresh run ids; only same query + same run may restore.
-- Exact final formal APK repeated no-run Inception deep link: first run reached stable state; second same-query intent changed 31.23% of downscaled pixels immediately (MAE 12.3088), then independently restabilized (8s MAE 0.0017). No stale completed-page reuse.
+NEW AUTHORITATIVE DOCS:
+- DOC-INDEX.md: 总入口；根 AGENTS 已强制后续从索引进入当前 Playbook。
+- K30S-INSTALL-PLAYBOOK.md: adb install-r / Debug / App内 content:// installer / MIUI / installed SHA / shell pitfalls。
+- K30S-TEST-PLAYBOOK.md: Debug 深度报告、4/8/24 query、Formal framebuffer/WindowManager/logcat、生命周期、更新E2E。
+- SOURCE-RELEASE-PLAYBOOK.md: content publish vs envelope renewal、encrypt、mg-data、authority/fallback、Pages/Gateway/Aliyun、K30S消费。
+- SOURCE-CRAWL-AND-TEST-PLAYBOOK.md: discovery/funnel/crawler_v3、handler一致性、BTIH/title、Cookie/WAF、双bait GREEN、deterministic/live。
+- USER-IMPACT-INCIDENTS.md: 历史用户影响事故/根因/修复/永久门禁；后续用户影响 bug 必须追加。
+- RELEASE-CHECKLIST.md 已重写为当前 App build/sign/archive/R2/GitHub/Aliyun/Lanzou/config/site/production-E2E authority。
 
-EXACT FORMAL K30S:
-- Canonical `adb install -r` succeeded: Performing Streamed Install / Success.
-- Installed base.apk SHA256 = 1ca02b0d81524ea912afc4bf5fe4f2532cedf288d21c50c1adf78832ec8fff71, exact match to final artifact.
-- Package com.magnetgoogo.app 0.2.6/code10; firstInstallTime remains 2026-07-28 21:17:01; lastUpdateTime 2026-08-16 15:39:37 => retained-data upgrade.
-- Main cold start 243ms; formal search cold 266ms; HOT resume 88ms; force-stop COLD resume 260ms. Process/focus normal.
-- Resources route loaded then fully settled; final frame nonblank (stddev 72.84). Detail route for revision17 known movie id loaded/stable (stddev 54.30; 8s MAE 0.0023). Favorites route stable empty-state.
-- Settings direct deep-link test was blocked by the current tool safety layer; Release source hard-gates debug controls with `__DEV__`, and adversarial 63/63 + release contract PASS cover this invariant.
-- Formal Release is non-debuggable, so old `test_k30s_app_flows.py --package formal` private-cache `run-as` assertions are invalid by design; failure preserved as harness limitation, not source/cache failure.
-- Targeted logcat contains no MagGoogo FATAL EXCEPTION / ANR. Exit-info after test only shows intentional force-stop/user-requested exits and normal WebView isolated-process cleanup.
+LEGACY DOC HARDENING:
+- SOURCE-SECURITY / MIGRATION-mg-data / FAST-DISCOVERY-FUNNEL / SOURCE-DISCOVERY / CRAWLER-ARCHITECTURE 已标注历史边界并指向当前 Playbook。
+- 旧 Promise.any mutable authority、旧 red enum、自动 health.status 写入均明确不得作为当前 production SOP。
 
-APP / SOURCE / MEDIA GATES:
-- TypeScript PASS; adversarial 63/63; update-download PASS; release-build contract PASS; media-security PASS.
-- Resource feed PASS; live media network PASS: both endpoints revision17 / release 20260815T000000Z-b6b1a79a / 287 movies / 318 series / 4481 resources; auto-sync PASS.
-- Prior source deterministic gates remain: crawler_v3 71 passed/2 deselected; resource-index/rating/enum 211 passed; rules=357 ALL VALID; renewal 5/5.
-- Public update authority remains latest=0.2.5 / min=0.1.10, so installed 0.2.6 has no update prompt. Public v0.2.5/config not modified.
+V0.2.6 FORMAL ARCHIVE:
+- releases/magnetgoogo-v0.2.6.apk exists, 33,614,822 bytes, SHA256 1ca02b0d81524ea912afc4bf5fe4f2532cedf288d21c50c1adf78832ec8fff71。
+- verify_release_apk PASS: com.magnetgoogo.app 0.2.6/code10, arm64-v8a only, cert exact v0.2.5 match。
+- releases/RELEASE-v0.2.6.md added; APK ready for user Lanzou upload; public R2/GitHub/Aliyun/config/site remain untouched。
 
-RELEASE VERDICT: current exact formal artifact + K30S acceptance PASS. No known P0/P1. Public release/deployment NOT started.
+VERIFICATION:
+- doc reference check PASS (80 refs / 0 missing after root AGENTS exception); git diff --check PASS; sensitive literal scan PASS。
+- crawler CLI/funnel/K30S script --help checked against docs; validate_enum 357 ALL VALID; crawler_v3 71 passed/2 deselected; App release-build contract PASS。
+- One doc-link shell quoting failure preserved in _failures; no blind retry.

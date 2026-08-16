@@ -3,6 +3,7 @@
 > **每次开始工作前，先读本文件，再读 `docs/project-nebula/DEV-LOG.md` 最新条目，再扫一眼 `docs/project-nebula/TECH-CHALLENGES.md` 当前 open/researching 难点。**
 > Python 引擎侧的详细规范见 `magnet/AGENTS.md`。
 > Web 客户端的规范见 `web/AGENTS.md`。
+> **所有 App/K30S/发版/源/Crawler 操作先从 `docs/project-nebula/DOC-INDEX.md` 进入当前权威 Playbook，禁止从历史 DEV-LOG 自行拼接流程。**
 
 ## 核心规则
 

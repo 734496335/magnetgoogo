@@ -1,5 +1,7 @@
 # 仓库迁移方案：maggoogo-sources → mg-data
 
+> **历史迁移文档，非当前运行时 SOP。** 文中的 `Promise.any`/并行最快者胜出属于旧实现；v0.2.6 当前 source/config mutable authority 已改为按信任层顺序验证。实际发布/续期请读 `SOURCE-RELEASE-PLAYBOOK.md`，App 发版请读 `RELEASE-CHECKLIST.md`。
+
 ## 背景
 旧仓库 `734496335/maggoogo-sources` 切换到新仓库 `734496335/mg-data`。
 好处：

@@ -3,6 +3,8 @@
 更新时间：2026-04-21
 适用范围：Project Nebula 供给侧 / `sources.json` 规则生产线
 
+> **历史经验文档，非当前状态/测试 authority。** 当前执行使用 `SOURCE-CRAWL-AND-TEST-PLAYBOOK.md`；当前 `sources.json` 只允许 `green|yellow|gray`，本文历史 `red` 概念不得写入生产 contract；GREEN 必须满足当前双 bait 差异化 magnet 证据。
+
 ## 1. 目标
 
 本策略文档用于沉淀当前在中国大陆可达环境下，针对磁力站导航页、导航站内部跳转页、候选磁力源本体所采用的实际工作流。

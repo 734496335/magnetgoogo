@@ -4,6 +4,8 @@ updated_at: 2026-04-21
 scope: DataFactory / source discovery & verification
 ---
 
+> **定位**：本文保留 Funnel 设计/参数细节；当前 GREEN 双 bait + overlap 标准、仅 `green|yellow|gray` 枚举、人工确认状态红线，以 `SOURCE-CRAWL-AND-TEST-PLAYBOOK.md` 为准。本文旧的“单次 magnet/hash 即 green”描述不得用于生产状态升级。
+
 ## 0. 目标（时间优先）
 
 在**中国大陆无代理**的现实网络约束下，把“更快发现更多可用磁力源（green）”作为第一目标。

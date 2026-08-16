@@ -1,4 +1,32 @@
 ---
+Date/Time: 2026-08-16 16:59 (UTC+8)
+Version: v0.2.6-operational-playbooks-and-formal-archive
+Scope: Consolidate all recurring K30S install/test, App release/update, source release/renewal, source discovery/crawl/test and user-impact incident knowledge into authoritative indexed playbooks; archive the exact accepted v0.2.6 formal APK for manual Lanzou upload.
+Modules: docs authority/index, K30S installation/testing, Android release/update channels, source delivery/renewal, crawler/funnel testing, incident lessons, releases/v0.2.6
+
+### Durable operational documentation
+- Added `DOC-INDEX.md` as the single execution-document entry point and linked it from root `AGENTS.md`; future App/K30S/release/source/crawler work is directed to current authoritative Playbooks instead of reconstructing procedures from thousands of DEV-LOG lines.
+- Added `K30S-INSTALL-PLAYBOOK.md`: canonical `adb install -r`, Debug install paths, exact installed-APK SHA verification, retained-data upgrade checks, App-origin `content:// + ACTION_VIEW` installer flow, MIUI shell-caller restriction, `/sdcard` MSYS path conversion, URI `&` quoting and Release `run-as` boundary.
+- Added `K30S-TEST-PLAYBOOK.md`: Debug vs Formal evidence boundary, 4-query UX / 8-query benchmark / 24-query validation, repeated-query freshness, Debug private-cache smoke, Formal WindowManager/framebuffer/logcat testing, lifecycle, Fatal/ANR, source-consumption and production update E2E.
+- Rewrote `RELEASE-CHECKLIST.md` as the current App release authority: signing, deterministic gates, forced final Release build, signer verification, exact-SHA K30S gate, `releases/` archive, R2/Aliyun/GitHub/Lanzou channel preparation, current sequential config trust order, Pages/mg-data/site deployment, channel SHA convergence, production old-version→new-version update E2E and rollback.
+- Added `SOURCE-RELEASE-PLAYBOOK.md`: content publish vs envelope-only renewal, manual health-status governance, enum/static/crawler gates, encryption, mg-data, current source authority/fallback validation, Pages/Gateway/Aliyun sync, exact-SHA convergence, 8h/32h/72h renewal state machine, App foreground/6h refresh and K30S consumption.
+- Added `SOURCE-CRAWL-AND-TEST-PLAYBOOK.md`: discovery/navigation restoration, Funnel Stage0-3, crawler_v3 tiers, parse strategies, Python/App handler parity, strict BTIH/title-binding, cookie/WAF rules, current two-bait overlap<0.8 GREEN evidence, deterministic/live separation and K30S final consumer proof.
+- Added `USER-IMPACT-INCIDENTS.md`: reusable incident register seeded with signing loss, bad release-order/link incidents, update permission/back/config bugs, stale history search, async ownership, invalid title/BTIH/metadata, Python/App handler mismatch, source expiry/authority/0-green/cookie/WAF issues, media pointer/detail/cache bugs, persistence races and testing false positives. Future user-impact bugs must append symptom→impact→root cause→fix→permanent gate.
+- Marked `SOURCE-SECURITY.md`, `MIGRATION-mg-data.md`, `FAST-DISCOVERY-FUNNEL.md`, `SOURCE-DISCOVERY-AND-VERIFICATION-STRATEGY.md` and `CRAWLER-ARCHITECTURE.md` with explicit historical/current-authority boundaries so old Promise.any mutable races, obsolete `red` status, weak single-hit GREEN criteria or auto-status operations are not reused as production SOP.
+
+### v0.2.6 formal archive for Lanzou
+- Archived the already exact-K30S-accepted formal APK to `releases/magnetgoogo-v0.2.6.apk`: 33,614,822 bytes, SHA256 `1ca02b0d81524ea912afc4bf5fe4f2532cedf288d21c50c1adf78832ec8fff71`.
+- `verify_release_apk.py` PASS on the archived file: `com.magnetgoogo.app`, v0.2.6/code10, arm64-v8a only, certificate SHA256 exactly equals formal v0.2.5. Added tracked `releases/RELEASE-v0.2.6.md` manifest. APK itself remains intentionally gitignored local release material, ready for the user's manual Lanzou upload.
+- No R2/GitHub Release/Aliyun APK/config/Pages/public latest-version deployment was performed in this documentation/archive task.
+
+### Verification / audit
+- Verified current CLI contracts with `--help` for crawler_v3, Funnel, K30S search and K30S app-flow scripts; current Wrangler `r2 object put` syntax was checked against the installed CLI before documenting it.
+- `python magnet/validate_enum.py` => `rules=357 / ALL VALID`; crawler_v3 deterministic => `71 passed, 2 deselected`; App `test:release-build` => PASS.
+- New-document reference audit => 80 `.md` references checked, zero missing after intentional root `AGENTS.md` handling. `git diff --check` PASS. New/modified documentation sensitive-literal scan found no signing password, token URL or secret-like API key literal.
+- The first doc-reference checker was itself broken by Git-Bash backtick parsing; that harness failure is preserved under `_failures` and the corrected shell-safe checker passed.
+---
+
+---
 Date/Time: 2026-08-16 15:54 (UTC+8)
 Version: v0.2.6-exact-formal-k30s-acceptance
 Scope: Install the exact current formal APK on Redmi K30S and close the remaining release-artifact device gate without changing public update configuration.

@@ -1,390 +1,823 @@
-# 版本发布完整指南 (Release Guide)
+# MagGoogo Android App 正式发版权威手册
 
-> **唯一权威发版文档。** 每次发布新版本时逐步执行，勾选完成项。
+> **唯一 App 发版操作 authority。** 后续构建、签名、归档、蓝奏云/R2/GitHub/阿里云、config、官网、K30S 更新 E2E 均按本文执行。
 >
-> 签名信息见 `APP-SIGNING.md`。变更日志见 `APP-CHANGELOG.md`。
+> 真机安装细节见 `K30S-INSTALL-PLAYBOOK.md`；真机测试矩阵见 `K30S-TEST-PLAYBOOK.md`；源发布独立见 `SOURCE-RELEASE-PLAYBOOK.md`。
 
 ---
 
-## ⚠️ 铁律（血的教训）
+## 0. 四条铁律
 
-1. **config.json 必须先改完再部署** — 所有字段（版本号、蓝奏云链接、公告文案）确认无误后，才能执行任何部署命令
-2. **每个端点部署后必须验证** — `curl` 检查远程文件内容，不能假设部署成功
-3. **apk 和 config.json 是两条独立链路** — APK 上传阿里云 ≠ config.json 更新，必须分别操作和验证
-4. **`npx expo prebuild --clean` 会删除 keystore** — 执行前必须备份 `android/app/magnetgoogo-release.keystore`
-5. **`encrypt_sources.py --verify` 会重新生成加密文件** — 不要在推送后执行，否则产生未提交的 diff
-6. **mg-data 仓库是独立 git repo** — 路径是 `d:\lpproduct\magnet\mg-data`，不在 `magnetgoogo-app` 内
+1. **最终 APK 先完成 exact-SHA K30S 验收，再发布。** 同版本旧候选装过不算当前 final artifact 验收。
+2. **新版本的所有下载渠道准备齐后，才切 `config.json latest_version`。** 不允许用户先看到更新、APK 后到。
+3. **config 是 mutable authority，更新顺序以信任层而不是响应速度为准。** 不能重新引入 stale-fast-mirror race。
+4. **签名绝不变。** 正式 keystore 固定在 `releases/magnetgoogo-release-new.keystore`；不要把唯一 keystore 放进会被 `expo prebuild --clean` 删除的 `android/` 目录。
 
 ---
 
-## 1. 下载链接架构
+## 1. 当前项目物理路径
 
-### 1.1 稳定链接（永不变更）
+### 0.2.x Release 候选工作区
 
-| 链接 | 部署位置 | 用途 |
-|------|----------|------|
-| `https://cn.magnetgoogo.com/download/magnetgoogo.apk` | 阿里云 `/var/www/apk/magnetgoogo.apk` | **全站主下载按钮** |
-| `https://github.com/734496335/magnetgoogo/releases/latest` | GitHub Releases | **SEO 页备用按钮** |
-
-### 1.2 易变链接（每次发版需更新）
-
-| 链接 | 所在文件 | 更新方式 |
-|------|----------|----------|
-| 蓝奏云链接 | `magnetgoogo-site/index.html` × 1 处 + `config.json` | 手动替换 |
-| JSON-LD `softwareVersion` | `index.html` + 9 个 `{lang}/index.html` | 搜索替换版本号 |
-
-### 1.3 六个数据端点
-
-App 启动时从以下 6 个端点竞速拉取 `config.json` 和 `sources.enc.json`：
-
-| 端点 | URL | 基础设施 | 更新方式 |
-|------|-----|----------|----------|
-| ① | `cn.magnetgoogo.com` | 阿里云 Nginx | `scp` 到 `47.103.155.154` |
-| ② | `magnetgoogo.com` | Cloudflare Pages | `wrangler pages deploy` |
-| ③ | `cdn.jsdelivr.net/gh/734496335/mg-data@main` | jsDelivr CDN | 推送 mg-data GitHub |
-| ④ | `raw.githubusercontent.com/734496335/mg-data/main` | GitHub Raw | 推送 mg-data GitHub |
-| ⑤ | `api.naoshiquan.com` | CF Gateway Worker | 从端点②拉取，5 分钟缓存 |
-| ⑥ | `maggoogo-gateway.workers.dev` | CF Workers（旧） | 独立维护 |
-
-> **关键**：端点 ⑤ 的 config.json 来自端点 ②（CF Pages），有 5 分钟缓存。部署 CF Pages 后需等 5 分钟端点 ⑤ 才会更新。
-
----
-
-## 2. 版本号位置索引
-
-### 2.1 App 源码（3 处）
-
-| 文件 | 字段 |
-|------|------|
-| `magnetgoogo-app/app.json` | `expo.version` |
-| `magnetgoogo-app/package.json` | `version` |
-| `magnetgoogo-app/android/app/build.gradle` | `versionCode`（只增不减）/ `versionName` |
-
-### 2.2 远程配置（1 处，但部署到 6 个端点）
-
-| 文件 | 字段 |
-|------|------|
-| `magnetgoogo-site/config.json` | `latest_version`, `min_version`, `download.mirrors`, `announcement`, `updated_at` |
-
-### 2.3 官网元数据（10 处）
-
-| 文件 | 内容 |
-|------|------|
-| `magnetgoogo-site/index.html` | JSON-LD `softwareVersion` + 蓝奏云链接 |
-| `magnetgoogo-site/{lang}/index.html` × 9 | JSON-LD `softwareVersion` |
-
----
-
-## 3. 发版完整流程
-
-> ⚠️ **严格按顺序执行，不能跳步。每步完成后勾选。**
-
-### Phase A：准备（本地操作，不影响线上）
-
-#### A1. 修改版本号（3 处源码）
-
-```
-magnetgoogo-app/app.json          → expo.version: "{NEW}"
-magnetgoogo-app/package.json      → version: "{NEW}"
-magnetgoogo-app/android/app/build.gradle → versionCode +1, versionName: "{NEW}"
+```text
+D:\lpproduct\m023
 ```
 
-#### A2. 构建 Release APK
+App：
 
-```bash
+```text
+D:\lpproduct\m023\magnetgoogo-app
+```
+
+正式归档：
+
+```text
+D:\lpproduct\m023\releases
+```
+
+### 官网/Cloudflare Pages 主目录
+
+```text
+D:\lpproduct\magnet\magnetgoogo-site
+```
+
+m023 中没有官网目录，不要在 m023 下凭空找 `magnetgoogo-site`。
+
+---
+
+## 2. 版本号与发布身份
+
+当前没有可靠存在的 `sync-version.js`，因此发版前必须**显式检查**至少：
+
+```text
+magnetgoogo-app/package.json          version
+magnetgoogo-app/app.json              expo.version
+magnetgoogo-app/app.json              android.versionCode
+生成后的 android/app/build.gradle     versionName/versionCode
+```
+
+版本规则：
+
+- versionName：语义版本，例如 `0.2.6`
+- versionCode：Android 单调递增整数，例如 `10`
+- 正式 package：`com.magnetgoogo.app`
+- Debug package：`com.magnetgoogo.app.debug`
+
+发版前运行：
+
+```bat
 cd magnetgoogo-app
-
-# 1. 导出 JS Bundle
-npx expo export --platform android
-
-# 2. 复制 Bundle 到 Android assets（必须！否则 APK 无 JS 代码）
-mkdir -p android/app/src/main/assets
-cp dist/_expo/static/js/android/*.hbc android/app/src/main/assets/index.android.bundle
-
-# 3. 构建（跳过 lint 检查避免无关报错）
-cd android
-./gradlew assembleRelease -x lintVitalRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease
+npm run test:release-build
 ```
 
-> **注意**：`gradle.properties` 必须包含以下配置，否则 APK 会膨胀到 80MB+：
-> ```
-> reactNativeArchitectures=arm64-v8a
-> android.enableMinifyInReleaseBuilds=true
-> android.enableShrinkResourcesInReleaseBuilds=true
-> ```
+该门禁会检查 package/version/code、release signing plugin、arm64/source bootstrap 等发布契约。
 
-产出：`magnetgoogo-app/android/app/build/outputs/apk/release/app-release.apk`
+---
 
-#### A3. 验证 APK
+## 3. 正式签名 authority
 
-```bash
-# 签名验证
-java -jar "$ANDROID_SDK/build-tools/36.0.0/lib/apksigner.jar" verify --print-certs app-release.apk
+### 3.1 keystore
 
-# 大小验证（应为 25-35MB，超过 50MB 说明 ABI 或 minify 有问题）
-ls -lh app-release.apk
+```text
+releases/magnetgoogo-release-new.keystore
 ```
 
-- [ ] 签名指纹与 `APP-SIGNING.md` 一致
-- [ ] 大小 < 40MB
+这是备案正式签名文件，必须 Git 保留。
 
-#### A4. 归档
+`with-release-signing.js` 生成的 Gradle 配置通过相对路径引用：
 
-```bash
-cp magnetgoogo-app/android/app/build/outputs/apk/release/app-release.apk releases/magnetgoogo-v{VERSION}.apk
+```text
+../../../releases/magnetgoogo-release-new.keystore
 ```
 
-#### A5. 更新 config.json（**先改完再部署！**）
+### 3.2 签名变量
 
-编辑 `magnetgoogo-site/config.json`，**所有字段一次性改完**：
+构建期变量：
 
-```json
+```text
+RELEASE_STORE_PASSWORD
+RELEASE_KEY_ALIAS
+RELEASE_KEY_PASSWORD
+```
+
+正常来源是 Git 忽略的本地 `magnet/.env` / 受保护恢复链，不在新文档或构建日志中输出值。
+
+缺失时优先按项目安全规范恢复 `releases/secrets.enc`，不要重新生成 keystore。
+
+### 3.3 必须和上一正式版 signer 比较
+
+```bat
+python scripts/verify_release_apk.py <new.apk> --previous releases/magnetgoogo-v0.2.5.apk ...
+```
+
+`matches_previous_certificate` 必须为 `true`。
+
+**任何 signer mismatch 都是发版硬阻断。**
+
+---
+
+## 4. 发版前代码门禁
+
+在 `magnetgoogo-app`：
+
+```bat
+npx tsc --noEmit
+node scripts/app-adversarial-tests.mjs
+npm run test:resource-feed
+npm run test:media-network
+npm run test:media-security
+npm run test:media-cache
+npm run test:update-download
+npm run test:release-build
+npm run test:analytics-v2
+npm run test:resource-auto-sync
+node scripts/fluency-extreme-tests.mjs
+```
+
+变更影响 source/crawler 时还必须：
+
+```bat
+cd ..
+python -m pytest magnet/tests/crawler_v3 -m "not integration" -q
+python scripts/audit_source_delivery.py sources.json
+python magnet/validate_enum.py
+```
+
+发布标准：
+
+- deterministic tests 全绿；
+- adversarial hard failure = 0；
+- source contract hard finding = 0；
+- `ALL VALID`；
+- live media authority 正常；
+- 已知 P0/P1 = 0。
+
+---
+
+## 5. 正式 Release 构建
+
+### 5.1 当前 native 生成方式
+
+正式 build 前确认 release signing plugin 已处于 current/idempotent 状态：
+
+```bat
+cd magnetgoogo-app
+npm run test:release-build
+```
+
+### 5.2 强制 final build
+
+最终候选应避免复用可能陈旧的 JS/native task，推荐 forced rerun：
+
+```bat
+cd magnetgoogo-app\android
+gradlew.bat assembleRelease --rerun-tasks ^
+  -PreactNativeArchitectures=arm64-v8a ^
+  -Pandroid.enableMinifyInReleaseBuilds=true ^
+  -Pandroid.enableShrinkResourcesInReleaseBuilds=true ^
+  -x lintVitalRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease
+```
+
+签名变量只注入该 Gradle child process，不打印变量值。
+
+产物：
+
+```text
+magnetgoogo-app/android/app/build/outputs/apk/release/app-release.apk
+```
+
+### 5.3 关于 HBC
+
+历史旧流程要求手工：
+
+```text
+expo export → .hbc → assets/index.android.bundle
+```
+
+当前构建必须以**最终 APK 内 Hermes bundle 实际存在**和 release tests 为准，不再机械地复制旧流程步骤。若 native 构建链发生变化，再检查 bundle task 是否真实执行。
+
+最终 APK 可验证 Hermes magic；若没有内嵌 JS/Hermes，Release 是硬失败。
+
+---
+
+## 6. 正式 APK 验证
+
+示例：
+
+```bat
+python scripts/verify_release_apk.py ^
+  magnetgoogo-app/android/app/build/outputs/apk/release/app-release.apk ^
+  --previous releases/magnetgoogo-v0.2.5.apk ^
+  --expect-version 0.2.6 ^
+  --expect-code 10 ^
+  --expect-package com.magnetgoogo.app ^
+  --max-bytes 52428800
+```
+
+必须：
+
+```text
+status=PASS
+package=com.magnetgoogo.app
+versionName=<NEW>
+versionCode=<NEW CODE>
+abis=[arm64-v8a]
+certificate == previous certificate
+```
+
+另外记录：
+
+- bytes
+- SHA256
+- Hermes magic
+- bundle forbidden strings scan
+
+**后续所有渠道都必须绑定这一 SHA。**
+
+---
+
+## 7. Final APK K30S Gate
+
+按 `K30S-INSTALL-PLAYBOOK.md`：
+
+```bat
+adb -s a1ea223a install -r "magnetgoogo-app/android/app/build/outputs/apk/release/app-release.apk"
+```
+
+必须输出：
+
+```text
+Performing Streamed Install
+Success
+```
+
+然后：
+
+- installed base.apk SHA = final APK SHA；
+- version/code 正确；
+- firstInstallTime 保持不变；
+- 冷启动/热恢复/force-stop recovery；
+- 重复搜索 freshness；
+- resources/detail/favorites/settings 主流程；
+- Fatal/ANR=0。
+
+**这一 gate 没过，不归档、不上传、不切 config。**
+
+---
+
+## 8. 归档到 `releases/`
+
+最终 K30S exact-SHA PASS 后：
+
+```text
+releases/magnetgoogo-v<NEW>.apk
+```
+
+例：
+
+```text
+releases/magnetgoogo-v0.2.6.apk
+```
+
+归档后再次：
+
+```bat
+python scripts/verify_release_apk.py releases/magnetgoogo-v0.2.6.apk --previous releases/magnetgoogo-v0.2.5.apk --expect-version 0.2.6 --expect-code 10
+```
+
+并确认：
+
+```text
+archive SHA == build output SHA == K30S installed SHA
+```
+
+`releases/*.apk` 通常不需要提交 Git；它是本地/发布制品归档。
+
+---
+
+## 9. 发布渠道顺序
+
+**先准备文件，再切用户可见 config。**
+
+推荐顺序：
+
+```text
+1. R2 primary
+2. 阿里云 stable + versioned archive
+3. GitHub Release
+4. 蓝奏云（人工上传，拿链接）
+5. 写好 config / 官网下载信息
+6. 发布 config / Pages / Aliyun site
+7. 端点收敛
+8. 旧版本公网更新 E2E
+```
+
+蓝奏云必须在 config 切换前拿到真实新链接，禁止 `REPLACE_WITH_NEW_LINK`、旧版本链接或占位符上线。
+
+---
+
+## 10. R2 主下载发布
+
+Gateway R2 bucket：
+
+```text
+bucket: maggoogo-releases
+binding: RELEASES
+```
+
+key 契约：
+
+```text
+v<version>/magnetgoogo-v<version>.apk
+```
+
+公网：
+
+```text
+https://api.naoshiquan.com/download/v<version>/magnetgoogo-v<version>.apk
+```
+
+例如：
+
+```text
+https://api.naoshiquan.com/download/v0.2.6/magnetgoogo-v0.2.6.apk
+```
+
+当前 Wrangler CLI 已核对，上传命令格式为：
+
+```bat
+cd D:\lpproduct\magnet\cf-gateway
+npx wrangler r2 object put maggoogo-releases/v0.2.6/magnetgoogo-v0.2.6.apk ^
+  --file D:\lpproduct\m023\releases\magnetgoogo-v0.2.6.apk ^
+  --content-type application/vnd.android.package-archive
+```
+
+换版本时只替换版本号和文件名。上传后必须**完整回下载**并比较：
+
+```text
+bytes
+SHA256
+Content-Type=application/vnd.android.package-archive
+```
+
+### 关键风险
+
+`cf-gateway/src/index.js` 的 R2 missing fallback 仍应被视为备用，不可依赖它代替 R2 object。**R2 primary object 存在是正式发布 Gate。**
+
+---
+
+## 11. 阿里云 APK 发布
+
+当前稳定下载仍需要维护：
+
+```text
+/var/www/apk/magnetgoogo.apk
+/var/www/apk/magnetgoogo-v<version>.apk
+```
+
+典型：
+
+```bat
+scp releases/magnetgoogo-v0.2.6.apk admin@47.103.155.154:/var/www/apk/magnetgoogo-v0.2.6.apk
+ssh admin@47.103.155.154 "cp /var/www/apk/magnetgoogo-v0.2.6.apk /var/www/apk/magnetgoogo.apk"
+```
+
+上线后从公网完整回下载，比较 SHA；不要只在服务器本机 `ls -l`。
+
+---
+
+## 12. GitHub Release
+
+仓库当前公开 Release authority：
+
+```text
+734496335/magnetgoogo
+```
+
+创建：
+
+```text
+tag: v<version>
+asset: magnetgoogo-v<version>.apk
+```
+
+Release notes 与 App update announcement 保持语义一致，但可以中英文分别写。
+
+上传后验证 asset bytes/SHA；不能只看网页显示“上传成功”。
+
+---
+
+## 13. 蓝奏云
+
+蓝奏云为人工上传渠道，用户本次将自行上传 v0.2.6。
+
+操作要求：
+
+1. 上传 `releases/magnetgoogo-v0.2.6.apk`；
+2. 设置/确认密码（当前项目历史约定通常为 `8888`，发版前以实际链接为准）；
+3. 拿到**真实新 URL**；
+4. 浏览器打开落地页确认文件名/版本；
+5. 再把 URL 写进 config / 官网；
+6. 不伪造“蓝奏云文件体 SHA 已自动验证”的结论，除非确实拿到文件 bytes。
+
+---
+
+## 14. App 更新 config 当前真实 trust order
+
+`configChecker.ts` v0.2.6：
+
+### Authorities
+
+```text
+1. GitHub Raw mg-data/main/config.json
+2. https://magnetgoogo.com/config.json
+3. https://api.naoshiquan.com/config.json
+```
+
+每个 endpoint HTTP 200 后还必须过 schema validation。
+
+### Fallbacks
+
+```text
+1. https://cn.magnetgoogo.com/config.json
+2. old workers.dev config
+3. immutable jsDelivr commit config
+```
+
+**不是“谁响应快谁赢”。**
+
+历史 `Promise.any` mutable config race 已废弃，因为 stale CDN 可能抢赢新配置。
+
+---
+
+## 15. config 发布内容
+
+当前 config 至少包括：
+
+```jsonc
 {
-  "latest_version": "{NEW}",
-  "min_version": "{MIN_VER}",
+  "latest_version": "<NEW>",
+  "min_version": "<MIN>",
   "download": {
-    "primary": "https://cn.magnetgoogo.com/download/magnetgoogo.apk",
-    "mirrors": ["https://wwbdy.lanzn.com/{LANZOU_ID}"]
+    "primary": "https://api.naoshiquan.com/download/v<NEW>/magnetgoogo-v<NEW>.apk",
+    "mirrors": [
+      "<new-lanzou-url>",
+      "https://github.com/734496335/magnetgoogo/releases/download/v<NEW>/magnetgoogo-v<NEW>.apk"
+    ]
   },
-  "announcement": "v{NEW} 更新说明\n⚠️ 提示信息\n蓝奏云密码: 8888",
+  "announcement": "...",
   "source_expiry_hours": 72,
   "source_schema_version": 1,
-  "updated_at": "{ISO_TIMESTAMP}"
+  "updated_at": "<ISO8601>"
 }
 ```
 
-- [ ] `latest_version` 正确
-- [ ] `min_version` 正确（可选更新 vs 强制更新）
-- [ ] 蓝奏云链接正确（不是 `REPLACE_WITH_NEW_LINK`！）
-- [ ] `announcement` 文案正确
+### optional vs forced
 
-#### A6. 同步 config.json 到 mg-data
+- `latest_version` 提高：可选更新；
+- `min_version` 提高：低于门槛强制更新。
 
-```bash
-cp magnetgoogo-site/config.json mg-data/config.json
+除非有明确兼容/安全原因，不要顺手提高 `min_version`。
+
+### 更新 announcement
+
+要求：
+
+- 用户能看懂；
+- 不写内部实现细节；
+- 链接/密码与真实发布渠道一致；
+- 不能乱码/BOM 破坏 JSON。
+
+---
+
+## 16. config 文件写入位置
+
+至少维护：
+
+```text
+m023/mg-data/config.json
+D:\lpproduct\magnet\magnetgoogo-site/config.json
 ```
 
-#### A7. 更新官网（10 个文件）
+若主项目另有发布副本，则以当前部署脚本/站点目录为准同步。
 
-```powershell
-$old = "{OLD_VERSION}"
-$new = "{NEW_VERSION}"
-$oldLanzou = "{OLD_LANZOU_ID}"
-$newLanzou = "{NEW_LANZOU_ID}"
+修改后：
 
-@("index.html","en\index.html","ja\index.html","ko\index.html","es\index.html","fr\index.html","de\index.html","ru\index.html","pt\index.html","ar\index.html") | ForEach-Object {
-  $f = "d:\lpproduct\magnet\magnetgoogo-site\$_"
-  if (Test-Path $f) {
-    $c = Get-Content $f -Raw -Encoding UTF8
-    $c = $c -replace "`"$old`"", "`"$new`""
-    if ($_ -eq "index.html") { $c = $c -replace $oldLanzou, $newLanzou }
-    [System.IO.File]::WriteAllText($f, $c, [System.Text.Encoding]::UTF8)
-    Write-Host "Updated: $_"
-  }
-}
+```bat
+node -e "JSON.parse(require('fs').readFileSync('mg-data/config.json','utf8')); console.log('PASS')"
+```
+
+确保 UTF-8、无 BOM、schema 通过 App `configValidation` tests。
+
+---
+
+## 17. 官网页面生成
+
+禁止手工逐个改多语言 HTML。
+
+主项目已有生成/同步脚本，按当前仓库真实脚本执行，例如：
+
+```text
+scripts/generate-i18n-pages.js
+scripts/generate-guide-pages.js
+scripts/generate-i18n-guide-pages.js
+scripts/generate-seo-pages.js
+scripts/sync-download-mirrors.js
+```
+
+发版前 grep：
+
+- 旧版本号；
+- 旧 R2 URL；
+- 旧 GitHub asset；
+- 旧蓝奏云 ID；
+- placeholder。
+
+必须确认旧链接数量为 0（历史页面确需保留的版本文章除外，需明确白名单）。
+
+---
+
+## 18. Cloudflare Pages 部署
+
+主项目：
+
+```bat
+cd D:\lpproduct\magnet
+npx wrangler pages deploy magnetgoogo-site --project-name=magnetgoogo-site --branch=main
+```
+
+部署后验证：
+
+```text
+https://magnetgoogo.com/config.json
+官网首页/英文页/至少一页其它语言
+下载按钮
+announcement
+```
+
+config 应采用 no-cache/no-store 策略，避免旧 mutable config 长时间缓存。
+
+---
+
+## 19. `mg-data` config 发布
+
+```bat
+cd D:\lpproduct\m023\mg-data
+git status --short
+git add config.json
+git commit -m "chore: publish v<version> app config"
+git push origin main
+```
+
+不要 `git add -A` 顺带提交 source pack 或测试缓存，除非它们也是本次明确发布内容。
+
+GitHub Raw 是当前 config 首 authority，因此 **mg-data config 内容必须在用户可见切换前完全正确**。
+
+---
+
+## 20. 阿里云官网/config 发布
+
+发布前先建 rollback 备份，再同步官网/config。
+
+历史使用：
+
+```text
+/var/www/magnetgoogo-site
+```
+
+建议每次：
+
+```text
+/var/www/magnetgoogo-site.pre-v<version>-<timestamp>
+```
+
+上传后从**公网**确认：
+
+- config latest/min；
+- primary/mirrors；
+- HTML 下载按钮；
+- TLS 正常。
+
+---
+
+## 21. 公开 config 收敛检查
+
+至少：
+
+```text
+GitHub Raw
+magnetgoogo.com
+api.naoshiquan.com
+cn.magnetgoogo.com
+workers.dev fallback
+jsDelivr fallback/immutable
+```
+
+检查字段：
+
+```text
+latest_version
+min_version
+primary
+mirrors
+announcement
+updated_at
+```
+
+对 mutable authorities，内容必须一致或符合设计的明确 authority/fallback关系。
+
+不要只比较文件大小。
+
+---
+
+## 22. APK 渠道 exact SHA 检查
+
+正式发布完成后，以下能直接取得 bytes 的渠道必须与本地 archive SHA 一致：
+
+```text
+local releases/
+R2 primary
+GitHub Release asset
+Aliyun stable
+Aliyun versioned archive
+```
+
+蓝奏云如果受网页密码/脚本保护而无法稳定自动回下载，只能标“落地页/文件名人工验证”，不能假报 exact SHA。
+
+---
+
+## 23. 发布后生产 App 更新 E2E
+
+这是最终必做项。
+
+1. K30S 安装一个真实旧正式版；
+2. 记录 `firstInstallTime`；
+3. 启动旧版；
+4. 从**公网 config**看到新版本；
+5. announcement/版本号正确；
+6. 点击立即更新；
+7. App 内从 primary 下载 APK；
+8. size + ZIP/APK header guard 通过；
+9. App 自己 `content:// + ACTION_VIEW` 拉起 MIUI；
+10. MIUI 显示 MagGoogo 更新；
+11. 用户确认；
+12. 安装后 version/code = 新版；
+13. `firstInstallTime` 不变；
+14. 历史/收藏等关键数据保留；
+15. 搜索/资源/详情正常；
+16. Fatal/ANR=0。
+
+**只验证 `adb install -r` 不能替代这条生产更新链。**
+
+---
+
+## 24. 更新失败回退策略
+
+客户端当前：
+
+```text
+primary/direct candidates
+→ 下载失败删除坏文件
+→ 下一 direct candidate
+→ 全失败后浏览器 fallback
+```
+
+APK guard：
+
+```text
+>= 5 MiB
+ZIP/APK magic
+```
+
+蓝奏云网页不是 direct APK candidate，避免把 HTML 当 APK。
+
+安装 intent 失败时，回退浏览器渠道。
+
+---
+
+## 25. 回滚
+
+### config 回滚
+
+如果 APK 文件本身没问题、只是 config 文案/链接错误：
+
+- 修正 config；
+- 推 GitHub Raw authority；
+- Pages/Gateway/Aliyun 收敛；
+- 不需要重发 APK。
+
+### APK 回滚
+
+Android versionCode 不能对公众“降级覆盖”作为正常回滚策略。
+
+严重 App bug 应：
+
+1. 修复；
+2. 新 versionName/versionCode；
+3. 同签名重新发版。
+
+### signer 问题
+
+任何 signer mismatch：**停止发布**，不要让用户卸载重装来掩盖错误，除非这是明确的不可恢复签名迁移事故并有用户公告。
+
+---
+
+## 26. 历史事故必须防止复发
+
+详细见 `USER-IMPACT-INCIDENTS.md`。发版尤其关注：
+
+- keystore 放 android 后被 prebuild clean 删除；
+- APK 未上传就先切 config；
+- 蓝奏云占位/旧链接上线；
+- 官网仍硬编码旧版本；
+- mutable config 快旧镜像抢赢新 authority；
+- 同版本旧 candidate 冒充 final APK 真机验收；
+- App 内安装链只测 `adb install`，没有测 `content://`/MIUI；
+- 更新中 Android back 隐藏 modal 但下载继续。
+
+---
+
+## 27. 发版最终 Checklist
+
+### Build
+
+```text
+[ ] versionName/versionCode/package 正确
+[ ] TypeScript PASS
+[ ] adversarial PASS
+[ ] resource/media/update/release gates PASS
+[ ] source gates（如受影响）PASS
+[ ] forced final Release build PASS
+[ ] verify_release_apk PASS
+[ ] signer exact previous match
+[ ] arm64-v8a only
+[ ] final SHA 固定
+```
+
+### K30S final bytes
+
+```text
+[ ] adb install -r Success
+[ ] installed SHA = final SHA
+[ ] retained-data upgrade
+[ ] repeated-search freshness
+[ ] main/resource/detail/favorites/settings smoke
+[ ] HOT/COLD lifecycle
+[ ] Fatal/ANR=0
+```
+
+### Archive/channel preparation
+
+```text
+[ ] releases/magnetgoogo-v<NEW>.apk exact final SHA
+[ ] R2 uploaded + full redownload SHA match
+[ ] Aliyun stable/versioned SHA match
+[ ] GitHub Release asset SHA match
+[ ] Lanzou new link manually verified
+```
+
+### Config/site
+
+```text
+[ ] latest/min correct
+[ ] primary=R2 new APK
+[ ] Lanzou/GitHub mirrors correct
+[ ] announcement correct
+[ ] no placeholder
+[ ] mg-data authority pushed
+[ ] Pages deployed
+[ ] Aliyun site/config deployed
+[ ] old links audit = 0 unexpected
+[ ] public config authorities converge
+```
+
+### Production E2E
+
+```text
+[ ] real old formal version installed
+[ ] public update prompt correct
+[ ] in-App primary APK download works
+[ ] MIUI installer source is MagGoogo
+[ ] user-confirmed retained-data upgrade
+[ ] post-upgrade search/resource PASS
+[ ] Fatal/ANR=0
+```
+
+只有全部完成才标：
+
+```text
+PUBLIC_RELEASE=PASS
+PRODUCTION_UPDATE_E2E=PASS
 ```
 
 ---
 
-### Phase B：部署（线上操作，按顺序执行）
-
-> ⚠️ **config.json 必须在 Phase A 中全部改完。Phase B 只做部署，不改内容。**
-
-#### B1. 上传 APK 到阿里云稳定链接
-
-```powershell
-scp releases/magnetgoogo-v{VERSION}.apk admin@47.103.155.154:/var/www/apk/magnetgoogo.apk
-```
-
-- [ ] 验证：`ssh admin@47.103.155.154 "ls -lh /var/www/apk/magnetgoogo.apk"` — 文件大小和时间戳正确
-
-#### B2. 蓝奏云上传（手动）
-
-网页操作，获取新链接 ID（密码: 8888）。
-
-- [ ] 蓝奏云链接已获取
-
-#### B3. GitHub Release
-
-```powershell
-$env:GITHUB_PAT = "{YOUR_TOKEN}"
-# 执行 Step 4c 的 PowerShell 脚本（见下方）
-```
-
-- [ ] GitHub Release 页面能看到新版本和 APK
-
-#### B4. 推送 mg-data 到 GitHub
-
-```powershell
-cd D:\lpproduct\magnet\mg-data; git add -A; git commit -m "chore: v{VERSION} config"; git push
-```
-
-> 推送后端点 ③④ 立即生效（端点 ④ 秒级，端点 ③ jsDelivr 几分钟）
-
-- [ ] 验证：`curl -s "https://raw.githubusercontent.com/734496335/mg-data/main/config.json"` — 内容正确
-
-#### B5. 部署 Cloudflare Pages
-
-```powershell
-cd D:\lpproduct\magnet\magnetgoogo-site; npx wrangler pages deploy . --project-name=magnetgoogo-site --branch=main --commit-dirty=true
-```
-
-> 部署后端点 ② 立即生效，端点 ⑤（CF Gateway）5 分钟后生效
-
-- [ ] 验证：`curl -s "https://magnetgoogo.com/config.json"` — 内容正确
-
-#### B6. 同步到阿里云
-
-```powershell
-scp magnetgoogo-site/config.json admin@47.103.155.154:/var/www/magnetgoogo-site/config.json
-scp magnetgoogo-site/index.html admin@47.103.155.154:/var/www/magnetgoogo-site/index.html
-```
-
-- [ ] 验证：`ssh admin@47.103.155.154 "cat /var/www/magnetgoogo-site/config.json"` — 内容正确
-
----
-
-### Phase C：源更新（如果 sources.json 有变化）
-
-#### C1. 加密源
-
-```bash
-cd d:/lpproduct/magnet
-python encrypt_sources.py
-# ⚠️ 不要用 --verify，它会重新生成文件导致 diff
-```
-
-- [ ] 输出显示 green 数量正确
-
-#### C2. 推送到 mg-data
-
-```powershell
-cd D:\lpproduct\magnet\mg-data; git add -A; git commit -m "chore: v{VERSION} sources ({N} green)"; git push
-```
-
-#### C3. 同步到阿里云
-
-```powershell
-scp mg-data/sources.enc.json admin@47.103.155.154:~/sources.enc.json
-ssh admin@47.103.155.154 "sudo cp ~/sources.enc.json /var/www/sources.enc.json"
-```
-
-#### C4. 验证（6 个端点逐一检查）
-
-```powershell
-# 端点①阿里云
-ssh admin@47.103.155.154 "wc -c /var/www/sources.enc.json"
-# 端点②CF Pages
-curl -s "https://magnetgoogo.com/sources.enc.json" | python -c "import sys; print(len(sys.stdin.read()))"
-# 端点③④GitHub
-curl -s "https://raw.githubusercontent.com/734496335/mg-data/main/sources.enc.json" | python -c "import sys; print(len(sys.stdin.read()))"
-```
-
----
-
-### Phase D：验证（端到端）
-
-- [ ] **下载按钮**：访问 `magnetgoogo.com` → 点下载 → 确认 APK 是新版本（大小正确）
-- [ ] **蓝奏云**：访问蓝奏云链接 → 确认文件正确
-- [ ] **更新提示**：旧版 App 打开 → 确认弹出更新提示 → 文案正确 → 蓝奏云链接正确
-- [ ] **源数量**：新安装 App → 搜索 → 确认源数量正确
-- [ ] **SEO 页面**：随机抽查 2 个 → 下载按钮指向稳定链接
-
----
-
-### Phase E：收尾
-
-- [ ] `docs/project-nebula/APP-CHANGELOG.md`：更新版本记录
-- [ ] `docs/project-nebula/DEV-LOG.md`：顶部插入发版记录
-- [ ] Git commit 所有本地改动
-
----
-
-## 4. GitHub Release 命令
-
-```powershell
-$ver = "{VERSION}"
-$body = @"
-## What's New
-- 优化搜索源、提升搜索性能
-
-⚠️ 本次更新需卸载旧版后重新安装（签名变更）
-官网下载：magnetgoogo.com
-蓝奏云密码: 8888
-"@
-$json = @{ tag_name = "v$ver"; name = "v$ver"; body = $body; draft = $false; prerelease = $false } | ConvertTo-Json -Compress
-$headers = @{ Authorization = "token $env:GITHUB_PAT"; Accept = "application/vnd.github+json" }
-
-$release = Invoke-RestMethod -Uri "https://api.github.com/repos/734496335/magnetgoogo/releases" -Method Post -Headers $headers -Body ([System.Text.Encoding]::UTF8.GetBytes($json)) -ContentType "application/json; charset=utf-8"
-
-$uploadUrl = $release.upload_url -replace '\{.*\}', ''
-Invoke-RestMethod -Uri "$uploadUrl`?name=magnetgoogo-v$ver.apk" -Method Post -Headers $headers -ContentType "application/vnd.android.package-archive" -InFile "releases/magnetgoogo-v$ver.apk"
-```
-
-> 需要 `repo` 权限的 GitHub PAT。Token 创建：https://github.com/settings/tokens
-
----
-
-## 5. App 内更新机制
-
-`configChecker.ts` 启动时从 6 个端点竞速拉取 `config.json`：
-
-- `appVersion < min_version` → **强制更新**（不可跳过）
-- `appVersion < latest_version` → **可选更新**（可跳过）
-- 下载链接来自 `config.download.primary`（阿里云稳定链接）
-
----
-
-## 6. 源分发机制
-
-App 从 6 个端点竞速拉取 `sources.enc.json`：
-
-- 加密：`python encrypt_sources.py` → 输出到 `mg-data/sources.enc.json`
-- 合规版：`sources-green.enc.json`（仅 5 个源，Google Play 用）
-- 磁盘缓存：72 小时过期
-- 更新生效：缓存过期后自动拉取，或用户清数据后立即生效
-
----
-
-## 7. 签名信息
-
-详见 `APP-SIGNING.md`。关键点：
-
-- **Keystore 备份位置**：`releases/magnetgoogo-release-new.keystore`（git 追踪）
-- **构建引用**：`android/app/build.gradle` → `file('../../../releases/magnetgoogo-release-new.keystore')`
-- **versionCode 只能递增**
-- **⚠️ `npx expo prebuild --clean` 会删除 keystore！** 执行前必须确认 keystore 在 `releases/` 目录有备份
-
----
-
-## 8. 事故记录
-
-### 2026-06-01: v0.1.11 蓝奏云链接部署错误
-
-- **严重程度**：中
-- **根因**：config.json 中蓝奏云链接更新在 CF Pages 部署**之后**，导致端点②⑤服务旧链接
-- **影响**：用户点更新提示中的蓝奏云链接看到 `REPLACE_WITH_NEW_LINK`
-- **修复**：重新部署 CF Pages
-- **教训**：**config.json 必须先改完再部署，不能分步操作**
-
-### 2026-06-01: APK 稳定链接未更新
-
-- **严重程度**：高
-- **根因**：只上传了蓝奏云，忘记上传阿里云稳定下载链接
-- **影响**：官网下载按钮下载的还是旧版 APK
-- **修复**：`scp` 上传到 `/var/www/apk/magnetgoogo.apk`
-- **教训**：**APK 上传和 config.json 更新是两条独立链路，都要做**
-
-### 2026-06-01: Release Keystore 丢失
-
-- **严重程度**：高（详见 `APP-SIGNING.md`）
-- **根因**：`npx expo prebuild --clean` 删除 `android/` 目录，keystore 从未 git 提交
-- **影响**：签名重建，所有用户需卸载重装
-- **防护**：keystore 现存于 `releases/` 目录，git 追踪
-
-### 2026-05-13: 官网下载链接未更新 (v0.1.8 → v0.1.10)
-
-- **严重程度**：高
-- **根因**：旧页面使用带版本号的 APK URL，发版后未替换
-- **修复**：全站统一为稳定链接
-- **教训**：**永远不要在 SEO 页面中硬编码版本号或蓝奏云链接**
+## 28. 相关文档
+
+- `DOC-INDEX.md`
+- `K30S-INSTALL-PLAYBOOK.md`
+- `K30S-TEST-PLAYBOOK.md`
+- `SOURCE-RELEASE-PLAYBOOK.md`
+- `APP-SIGNING.md`
+- `USER-IMPACT-INCIDENTS.md`
+- `TEST-RESULT-20260805-v0.2.5全链路公开发布与0.2.3公网升级验收.md` — 上一次完整生产发布证据
