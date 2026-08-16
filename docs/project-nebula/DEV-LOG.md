@@ -1,4 +1,31 @@
 ---
+Date/Time: 2026-08-16 19:50 (UTC+8)
+Version: v0.2.6-public-release
+Scope: Publish the exact accepted v0.2.6 formal APK through every production channel, converge mutable config/site authorities, re-audit historical release failure modes, and attempt the post-publication K30S old-version update E2E without bypassing device safety restrictions.
+Modules: release APK/R2/GitHub/Aliyun/Lanzou, mg-data config, Cloudflare Pages, Aliyun full site, update control plane, K30S production E2E, release operations documentation
+
+### Public APK release
+- Re-ran full release gates before publishing: TypeScript; App adversarial 63/63; resource-feed; live media revision17 on both endpoints; media security/cache; update-download; release-build; analytics-v2; resource-auto-sync; fluency 17/17; crawler_v3 71 passed/2 deselected; source delivery hard=0; rules=357 ALL VALID.
+- Re-verified `releases/magnetgoogo-v0.2.6.apk`: 33,614,822 bytes, SHA256 `1ca02b0d81524ea912afc4bf5fe4f2532cedf288d21c50c1adf78832ec8fff71`, formal package 0.2.6/code10, arm64 only, signer exactly matches v0.2.5.
+- R2 object `v0.2.6/magnetgoogo-v0.2.6.apk` published; public full redownload is exact SHA/bytes and APK MIME. GitHub Release `v0.2.6` created against commit `e4b935c...`, asset digest/size and independent redownload exact-match the final APK; `/releases/latest` now resolves to v0.2.6.
+- Aliyun versioned APK uploaded. Initial direct stable-path copy failed because `/var/www/apk/magnetgoogo.apk` is root-owned; after inspecting state, existing passwordless sudo was used to back up the old stable APK and promote the already verified versioned file. Stable and versioned now exact-match final SHA. Windows-host TLS remains broken for `cn`; independent Linux/public-domain verification passed both URLs.
+- Lanzou mirror from the user is `https://wwbdy.lanzn.com/irfev42qyyne`, password 8888; landing page HTTP 200. No false exact-SHA claim is made for the password/script-protected Lanzou body.
+
+### Config / website rollout
+- Published `mg-data/config.json` as commit `5b71595`: latest=0.2.6, min=0.1.10, R2 primary, new Lanzou then GitHub mirrors, and three concise update lines. This remains an optional update.
+- GitHub Raw, Pages, Gateway, old workers.dev and Aliyun config converged immediately/after deployment. jsDelivr `@main` initially reproduced the known stale-CDN problem with 0.2.5; explicit purge completed and final six-endpoint config body SHA is `9f6b68b2ab9ddf84b0d6d7681653fa025b34a4c4a3c07929474ae72c54d36518`.
+- Hardened `scripts/sync-download-mirrors.js` so site synchronization covers the R2 primary URL as well as GitHub/Lanzou. Against the 911-HTML site, 192 files required release-link updates; final `--check` reports changedFiles=0. `softwareVersion` and nine locale version/size labels were also advanced to v0.2.6.
+- Cloudflare Pages deployment `d40a482e` completed (961 static files). Public root/en/SEO samples all show v0.2.6 with the new R2/Lanzou paths and no old download links.
+- Aliyun full-site rollback `/var/www/magnetgoogo-site.pre-v026-20260816T1937` was created. Full SCP returned DevSpace 502, but follow-up proved staging had exactly the same 957 files and 16,470,449 bytes as local; no blind retransmit was performed. Verified staging was promoted. Exact old R2/GitHub/Lanzou URL and placeholder scans on the production site are all zero.
+
+### Production update control plane / K30S boundary
+- Gateway `/api/check` with app 0.2.5 now returns update_available=true, force_update=false, latest=0.2.6/min=0.1.10 and the new download/mirror/announcement contract. App 0.2.6 returns no update and no force update.
+- Post-public real old-formal→v0.2.6 K30S E2E was attempted as the final gate. Read-only preflight confirmed device a1ea223a remains formal 0.2.6/code10 with firstInstallTime 2026-07-28 21:17:01. The required retained-data downgrade command `adb install -r -d` was blocked by the current device execution safety layer before device execution; later executable `am start` actions were also blocked. No pm/Gradle/uninstall/alternate ADB bypass was used.
+- Therefore `PUBLIC_RELEASE=PASS`, `PUBLIC_APK_SHA_CONVERGENCE=PASS`, `PUBLIC_CONFIG_CONVERGENCE=PASS`, `PRODUCTION_UPDATE_CONTROL_PLANE=PASS`, while `PRODUCTION_UPDATE_E2E=TOOL_SAFETY_BLOCKED_NOT_EXECUTED`. The prior exact-final pre-publication K30S acceptance remains valid PASS; the post-public E2E is explicitly not claimed.
+- Failure evidence preserved under `_failures` for Aliyun stable ownership, Windows cn TLS client path, SCP 502-after-complete, and K30S production-E2E safety block. Detailed release evidence is in `TEST-RESULT-20260816-v0.2.6全链路公开发布.md` and `releases/RELEASE-v0.2.6.md`.
+---
+
+---
 Date/Time: 2026-08-16 16:59 (UTC+8)
 Version: v0.2.6-operational-playbooks-and-formal-archive
 Scope: Consolidate all recurring K30S install/test, App release/update, source release/renewal, source discovery/crawl/test and user-impact incident knowledge into authoritative indexed playbooks; archive the exact accepted v0.2.6 formal APK for manual Lanzou upload.

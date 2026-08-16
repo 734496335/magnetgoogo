@@ -1,26 +1,27 @@
-TASK: 将 K30S 安装/测试、App 发布、源发布/续期、源发现/爬取/测试、用户影响事故沉淀为当前权威 Playbook，并归档 v0.2.6 正式 APK
-STATUS: DOCUMENTATION_PLAYBOOKS_PASS / V026_FORMAL_ARCHIVE_PASS / PUBLIC_RELEASE_NOT_STARTED
-DATE: 2026-08-16 16:59 UTC+8
+TASK: v0.2.6 完整公开发布：APK渠道、config、官网/Pages/Aliyun、生产更新控制面与发布证据闭环
+STATUS: PUBLIC_RELEASE_PASS / APK_SHA_CONVERGENCE_PASS / CONFIG_6_ENDPOINT_CONVERGENCE_PASS / PRODUCTION_UPDATE_E2E_TOOL_SAFETY_BLOCKED
+DATE: 2026-08-16 19:50 UTC+8
 
-NEW AUTHORITATIVE DOCS:
-- DOC-INDEX.md: 总入口；根 AGENTS 已强制后续从索引进入当前 Playbook。
-- K30S-INSTALL-PLAYBOOK.md: adb install-r / Debug / App内 content:// installer / MIUI / installed SHA / shell pitfalls。
-- K30S-TEST-PLAYBOOK.md: Debug 深度报告、4/8/24 query、Formal framebuffer/WindowManager/logcat、生命周期、更新E2E。
-- SOURCE-RELEASE-PLAYBOOK.md: content publish vs envelope renewal、encrypt、mg-data、authority/fallback、Pages/Gateway/Aliyun、K30S消费。
-- SOURCE-CRAWL-AND-TEST-PLAYBOOK.md: discovery/funnel/crawler_v3、handler一致性、BTIH/title、Cookie/WAF、双bait GREEN、deterministic/live。
-- USER-IMPACT-INCIDENTS.md: 历史用户影响事故/根因/修复/永久门禁；后续用户影响 bug 必须追加。
-- RELEASE-CHECKLIST.md 已重写为当前 App build/sign/archive/R2/GitHub/Aliyun/Lanzou/config/site/production-E2E authority。
+FORMAL APK:
+- releases/magnetgoogo-v0.2.6.apk = 33,614,822 bytes / SHA256 1ca02b0d81524ea912afc4bf5fe4f2532cedf288d21c50c1adf78832ec8fff71 / com.magnetgoogo.app 0.2.6 code10 / arm64 / cert exact v0.2.5 match。
+- Pre-publication exact-final K30S gate remains PASS: retained-data install, fresh same-query search, resources/detail/favorites, lifecycle, Fatal/ANR=0。
 
-LEGACY DOC HARDENING:
-- SOURCE-SECURITY / MIGRATION-mg-data / FAST-DISCOVERY-FUNNEL / SOURCE-DISCOVERY / CRAWLER-ARCHITECTURE 已标注历史边界并指向当前 Playbook。
-- 旧 Promise.any mutable authority、旧 red enum、自动 health.status 写入均明确不得作为当前 production SOP。
+PUBLIC CHANNELS:
+- R2 primary, GitHub Release asset, Aliyun stable + versioned all exact final SHA/bytes PASS。
+- GitHub latest=v0.2.6; tag points e4b935c; Lanzou=https://wwbdy.lanzn.com/irfev42qyyne password 8888, landing HTTP200。
+- Aliyun stable requires sudo because stable file is root-owned; old stable backup preserved。
 
-V0.2.6 FORMAL ARCHIVE:
-- releases/magnetgoogo-v0.2.6.apk exists, 33,614,822 bytes, SHA256 1ca02b0d81524ea912afc4bf5fe4f2532cedf288d21c50c1adf78832ec8fff71。
-- verify_release_apk PASS: com.magnetgoogo.app 0.2.6/code10, arm64-v8a only, cert exact v0.2.5 match。
-- releases/RELEASE-v0.2.6.md added; APK ready for user Lanzou upload; public R2/GitHub/Aliyun/config/site remain untouched。
+CONFIG / SITE:
+- mg-data config commit 5b71595 pushed main: latest=0.2.6 / min=0.1.10 / new R2 + Lanzou + GitHub / 3-line announcement。
+- Six config endpoints converge to SHA256 9f6b68b2ab9ddf84b0d6d7681653fa025b34a4c4a3c07929474ae72c54d36518; jsDelivr stale 0.2.5 was purged then converged。
+- Pages deployment d40a482e; 911 HTML mirror audit changed 192 then final changedFiles=0; old R2/GitHub/Lanzou URLs and placeholder=0。
+- Aliyun full-site backup /var/www/magnetgoogo-site.pre-v026-20260816T1937; SCP returned 502 but staging proved exact 957 files / 16,470,449 bytes before promotion。
 
-VERIFICATION:
-- doc reference check PASS (80 refs / 0 missing after root AGENTS exception); git diff --check PASS; sensitive literal scan PASS。
-- crawler CLI/funnel/K30S script --help checked against docs; validate_enum 357 ALL VALID; crawler_v3 71 passed/2 deselected; App release-build contract PASS。
-- One doc-link shell quoting failure preserved in _failures; no blind retry.
+GATES:
+- App: TS, adversarial 63/63, resource/media/update/release/analytics/auto-sync PASS, fluency 17/17。
+- Source: crawler_v3 71 passed/2 deselected; delivery hard=0; rules=357 ALL VALID。
+- Gateway /api/check: 0.2.5 => optional update to 0.2.6; 0.2.6 => no update。
+
+ONLY OPEN EVIDENCE GAP:
+- Post-public K30S old-formal→0.2.6 App-download→MIUI E2E was NOT EXECUTED: safety layer blocked adb install -r -d before device action and later executable ADB actions; no bypass used。
+- This is TOOL_SAFETY_BLOCKED, not observed product failure and not E2E PASS. Public release itself is live and independently verified。

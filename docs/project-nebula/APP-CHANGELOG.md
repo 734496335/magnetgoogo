@@ -1,3 +1,31 @@
+## v0.2.6 — 2026-08-16
+
+### 主要变更
+
+| 日期 | 版本号 | 主要变更 |
+|------|--------|----------|
+| 2026-08-16 | **v0.2.6** | 修复影视资源相关问题；优化搜索体验；修复若干问题并提升稳定性 |
+
+### 已纳入功能与修复
+
+- 修复影视资源多端点新旧 revision 判定、详情 single-flight 跨 release 复用、资源自动刷新和长期缓存边界问题；线上影视 authority 当前为 revision 17，双端点内容一致。
+- 修复历史搜索词可能恢复同关键词旧 completed session 的问题；每次新的搜索意图使用独立 run identity，同关键词再次搜索会真正重新执行实时源。
+- 强化搜索结果合法性：BTIH、标题绑定、日期、大小、文件数、Cookie、WAF/VerifyWebView、源包有效期和 0-green authority 均增加 fail-closed 门禁。
+- 强化 App 更新配置校验、下载完整性、可选更新下载中返回键行为，以及 history/favorites 并发持久化稳定性。
+- 发布前完整门禁：TypeScript、App adversarial 63/63、resource/media/update/release/analytics/auto-sync、流畅度 17/17、crawler_v3 71 passed/2 deselected、357 rules ALL VALID、source delivery hard finding=0。
+
+### 正式发布
+
+- 正式 APK：`releases/magnetgoogo-v0.2.6.apk`
+- 版本：`0.2.6 / versionCode 10`
+- 大小：`33,614,822` bytes
+- SHA-256：`1ca02b0d81524ea912afc4bf5fe4f2532cedf288d21c50c1adf78832ec8fff71`
+- ABI：仅 `arm64-v8a`；证书与正式 v0.2.5 完全一致。
+- 发布前 exact final bytes 已在 K30S 完成保留数据覆盖安装、重复搜索 freshness、资源/详情/收藏、冷热启动和 Fatal/ANR 验收。
+- GitHub Release、R2、阿里云 stable/versioned、蓝奏云、Cloudflare Pages、阿里云官网和六个 config 端点均已发布到 v0.2.6；`min_version` 保持 `0.1.10`。
+- 生产更新控制面验证：0.2.5 可选更新到 0.2.6，0.2.6 不提示更新；R2/GitHub/Aliyun 可直接取得的 APK bytes 全部 exact-SHA 一致。
+- 发布后的 K30S 旧正式版→0.2.6 MIUI 用户确认 E2E 因当前设备执行安全层阻断 `adb install -r -d` 而未执行；未绕过，也不记作 PASS。详见本次发布测试记录与 `_failures`。
+
 ## v0.2.5 — 2026-08-03
 
 ### 主要变更

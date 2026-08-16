@@ -87,6 +87,7 @@ CODE-STANDARDS.md
 - `TEST-RESULT-20260803-v0.2.5正式包K30S充分验收.md`
 - `TEST-RESULT-20260804-v0.2.3到v0.2.5-App内更新全链路.md`
 - `TEST-RESULT-20260805-v0.2.5全链路公开发布与0.2.3公网升级验收.md`
+- `TEST-RESULT-20260816-v0.2.6全链路公开发布.md` — v0.2.6 R2/GitHub/Aliyun/Lanzou/Pages/config 收敛与生产更新控制面证据；发布后 K30S old→new E2E 明确记录为工具安全层未执行。
 
 这些用于查历史事实，不替代当前 Playbook。
 

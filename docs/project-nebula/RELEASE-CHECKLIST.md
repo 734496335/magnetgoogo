@@ -379,8 +379,10 @@ Content-Type=application/vnd.android.package-archive
 
 ```bat
 scp releases/magnetgoogo-v0.2.6.apk admin@47.103.155.154:/var/www/apk/magnetgoogo-v0.2.6.apk
-ssh admin@47.103.155.154 "cp /var/www/apk/magnetgoogo-v0.2.6.apk /var/www/apk/magnetgoogo.apk"
+ssh admin@47.103.155.154 "sudo cp /var/www/apk/magnetgoogo.apk /var/www/apk/magnetgoogo.apk.pre-v026-<timestamp> && sudo cp /var/www/apk/magnetgoogo-v0.2.6.apk /var/www/apk/magnetgoogo.apk"
 ```
+
+**实测权限事实（2026-08-16）**：stable `magnetgoogo.apk` 是 `root:root`，`admin` 直接 `cp` 会 `Permission denied`。版本归档可以先以 `admin` 上传，但 stable promotion 必须走现有 `sudo` 权限；失败后先检查 versioned 文件是否已完整上传，不要重复 SCP。
 
 上线后从公网完整回下载，比较 SHA；不要只在服务器本机 `ls -l`。
 
@@ -525,6 +527,8 @@ scripts/generate-seo-pages.js
 scripts/sync-download-mirrors.js
 ```
 
+`sync-download-mirrors.js` 当前必须同时同步三类 URL：**R2 primary + GitHub asset + Lanzou**。只同步备用镜像而漏掉 primary，会让大量 SEO/多语言页面继续下载旧 APK。发布前先 `--check` 统计将变化的页面，执行同步后再次 `--check`，要求 `changedFiles=0`。
+
 发版前 grep：
 
 - 旧版本号；
@@ -577,7 +581,7 @@ GitHub Raw 是当前 config 首 authority，因此 **mg-data config 内容必须
 
 ## 20. 阿里云官网/config 发布
 
-发布前先建 rollback 备份，再同步官网/config。
+发布前先建 rollback 备份，再同步**完整站点**官网/config。
 
 历史使用：
 
@@ -590,6 +594,10 @@ GitHub Raw 是当前 config 首 authority，因此 **mg-data config 内容必须
 ```text
 /var/www/magnetgoogo-site.pre-v<version>-<timestamp>
 ```
+
+推荐先上传到用户目录 staging（例如 `~/magnetgoogo-site-v026`），核对本地/远端文件数、总 bytes 和关键 config/index，再用 `sudo cp -a <staging>/. /var/www/magnetgoogo-site/` 提升。**如果长 SCP 返回 DevSpace 502，先检查 staging 是否已经完整到达；文件数/bytes/关键文件均一致时不要盲目重传。**
+
+旧下载残留审计必须匹配**精确旧 R2/GitHub/Lanzou URL 或 ID**，不要只 grep `0.2.5`：影视/media JSON 等业务数据可能合法包含版本样字符串，泛匹配会产生大量假阳性。
 
 上传后从**公网**确认：
 
@@ -612,6 +620,8 @@ cn.magnetgoogo.com
 workers.dev fallback
 jsDelivr fallback/immutable
 ```
+
+`mg-data@main` 的 jsDelivr 可能在 Git push 后短暂继续返回旧 config。若其余 authority 已确认正确而 jsDelivr 仍旧，主动 purge `https://purge.jsdelivr.net/gh/734496335/mg-data@main/config.json`，随后重新验证；**不能因为它是 fallback 就永久留旧版本。**
 
 检查字段：
 
