@@ -5,6 +5,7 @@
 import iconv from 'iconv-lite';
 import { Buffer } from 'buffer';
 import { Paths, File as FSFile } from 'expo-file-system';
+import { cookiePairsFromSetCookie } from './cookieHeader';
 
 const FETCH_HEADERS: Record<string, string> = {
   'User-Agent':
@@ -75,14 +76,7 @@ export function getStoredCookies(origin: string): string {
 }
 
 export function extractCookies(resp: Response): string {
-  // React Native allows reading set-cookie unlike browser fetch
-  const raw = resp.headers.get('set-cookie') || '';
-  if (!raw) return '';
-  return raw
-    .split(',')
-    .map((c) => c.split(';')[0].trim())
-    .filter(Boolean)
-    .join('; ');
+  return cookiePairsFromSetCookie(resp.headers.get('set-cookie') || '');
 }
 
 export function mergeCookies(a: string, b: string): string {
@@ -270,7 +264,7 @@ export async function fetchPage(
         return { html: null, status: xr.status, challenge };
       }
       if (xr.status < 200 || xr.status >= 300) return { html: null, status: xr.status };
-      const newCookies = xr.headers['set-cookie'] || '';
+      const newCookies = cookiePairsFromSetCookie(xr.headers['set-cookie'] || '');
       if (newCookies) {
         const merged = mergeCookies(storedCookies, newCookies);
         cookieJar.set(origin, { cookies: merged, ts: Date.now() });
@@ -364,7 +358,7 @@ export async function fetchPageManual(
       });
       return {
         html: xr.responseText || '',
-        cookies: xr.headers['set-cookie'] || '',
+        cookies: cookiePairsFromSetCookie(xr.headers['set-cookie'] || ''),
         status: xr.status,
         responseUrl: xr.responseURL,
       };

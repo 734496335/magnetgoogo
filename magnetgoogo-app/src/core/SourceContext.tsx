@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { loadMeta, loadSources, syncSources, type SourceMeta, type SourceRule } from './secureSourceStore';
+import { AppState } from 'react-native';
+import { activeSourcesAreFresh, loadMeta, loadSources, syncSources, type SourceMeta, type SourceRule } from './secureSourceStore';
 import { trackSourceSyncResult } from './analytics';
 
 interface SourceState {
@@ -11,6 +12,9 @@ interface SourceState {
   syncToast: string | null;
   refresh: () => Promise<void>;
 }
+
+const SOURCE_FOREGROUND_REFRESH_INTERVAL_MS = 30 * 60_000;
+const SOURCE_PERIODIC_REFRESH_INTERVAL_MS = 6 * 60 * 60_000;
 
 const Ctx = createContext<SourceState>({
   sources: [],
@@ -32,6 +36,7 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sourceCountRef = useRef(0);
   const syncInFlightRef = useRef<Promise<void> | null>(null);
+  const lastSyncAttemptRef = useRef(0);
 
   const showToast = useCallback((msg: string, durationMs = 3000) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -44,6 +49,7 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
 
     const task = (async () => {
       const startedAt = Date.now();
+      lastSyncAttemptRef.current = startedAt;
       setSyncing(true);
       setError(null);
       if (!silent) showToast('正在同步数据源...', 10000);
@@ -61,6 +67,11 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
         });
       } catch (e: any) {
         const message = e?.message || 'sync_failed';
+        if (!activeSourcesAreFresh()) {
+          sourceCountRef.current = 0;
+          setSources([]);
+          setMeta(null);
+        }
         setError(message);
         if (!silent) showToast(`同步失败: ${message}`, 4000);
         void trackSourceSyncResult({
@@ -103,6 +114,24 @@ export function SourceProvider({ children }: { children: React.ReactNode }) {
   }, [doSync]);
 
   const refresh = useCallback(() => doSync(false), [doSync]);
+
+  useEffect(() => {
+    const refreshIfDue = () => {
+      if (Date.now() - lastSyncAttemptRef.current >= SOURCE_FOREGROUND_REFRESH_INTERVAL_MS) {
+        void doSync(true);
+      }
+    };
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') refreshIfDue();
+    });
+    const timer = setInterval(() => {
+      if (AppState.currentState === 'active') void doSync(true);
+    }, SOURCE_PERIODIC_REFRESH_INTERVAL_MS);
+    return () => {
+      sub.remove();
+      clearInterval(timer);
+    };
+  }, [doSync]);
 
   useEffect(() => () => {
     if (toastTimer.current) clearTimeout(toastTimer.current);

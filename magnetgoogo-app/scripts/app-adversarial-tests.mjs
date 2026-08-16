@@ -49,6 +49,8 @@ import {
 } from '../src/core/storageSanitizers.ts';
 import { compareSemver, isRemoteConfig } from '../src/core/configValidation.ts';
 import { normalizeSearchTerm } from '../src/core/searchTerm.ts';
+import { cookiePairsFromSetCookie } from '../src/core/cookieHeader.ts';
+import { createSearchRunId, routeSearchMatchesSession } from '../src/core/searchRoute.ts';
 import { fetchAuthorityThenFallback } from '../src/core/sourceDeliveryPolicy.ts';
 import {
   BACKGROUND_SEARCH_TASK_TIMEOUT_MS,
@@ -137,6 +139,16 @@ await test('C1', 'semver comparison handles missing and prerelease parts', () =>
 await test('C2', 'remote config rejects HTTP-200 garbage', () => {
   assert.equal(isRemoteConfig({ latest_version: '1.0.0' }), false);
   assert.equal(isRemoteConfig({ latest_version: '1', min_version: '1', download: { primary: '', mirrors: [3] } }), false);
+  assert.equal(isRemoteConfig({
+    latest_version: 'abc',
+    min_version: '0.1.0',
+    download: { primary: 'https://example.test/app.apk', mirrors: [] },
+  }), false);
+  assert.equal(isRemoteConfig({
+    latest_version: '1.0.0',
+    min_version: '0.1.0',
+    download: { primary: 'javascript:alert(1)', mirrors: [] },
+  }), false);
   assert.equal(isRemoteConfig({
     latest_version: '1.0.0',
     min_version: '0.1.0',
@@ -614,6 +626,14 @@ await test('SQ4', 'search progress stages preserve the first 10-second fast wind
   assert.equal(getSearchProgressStage(20_000, 40, 53), 'tail');
 });
 
+await test('SQ4B', 'WAF/browser searches outlive the interactive verification window without stale timeout timers', () => {
+  const code = read('src/core/searchRunner.ts');
+  assert.match(code, /const BROWSER_TIMEOUT_MS = 50_000/);
+  assert.match(code, /requires_browser \|\| rule\.search\?\.requires_waf_bypass/);
+  assert.match(code, /searchPromise\.then\(resolve, reject\)\.finally/);
+  assert.match(code, /clearTimeout\(timeoutHandle\)/);
+});
+
 await test('SQ5', 'search execution completes every content pool and only falls back after a real failure', () => {
   const runner = read('src/core/searchRunner.ts');
   const stats = read('src/core/sourceStats.ts');
@@ -709,6 +729,12 @@ await test('SQ6', 'final model rank keeps high-relevance results above low-relev
   assert.equal(state._cardModels[0].title, 'Inception 2010');
 });
 
+await test('N1', 'Set-Cookie parsing preserves Expires commas and multiple verification cookies', () => {
+  const raw = 'cf_clearance=abc; Expires=Wed, 21 Oct 2026 07:28:00 GMT; Path=/, session=xyz; Path=/; HttpOnly';
+  assert.equal(cookiePairsFromSetCookie(raw), 'cf_clearance=abc; session=xyz');
+  assert.equal(cookiePairsFromSetCookie('single=1; Path=/'), 'single=1');
+});
+
 await test('P1', 'source startup effect is stable and sync is single-flight', () => {
   const code = read('src/core/SourceContext.tsx');
   assert.match(code, /syncInFlightRef/);
@@ -724,12 +750,26 @@ await test('P1B', 'expired encrypted source packs are rejected on disk, debug ov
   assert.match(code, /assertFreshEnvelope\(envelope, 'debug source pack'\)/);
   assert.match(code, /assertFreshEnvelope\(raw, `remote source pack from \$\{base\}`\)/);
   assert.match(code, /SOURCE_EXPIRY_GRACE_MS/);
+  assert.match(code, /missing expires_at/);
+  assert.match(code, /activeSourcesAreFresh\(\)/);
+  assert.match(code, /clearActiveSources\(\)/);
+  assert.match(code, /requireUsableGreenSources\(raw, `remote source pack from \$\{base\}`\)/);
+  assert.match(code, /contains zero green sources/);
   assert.doesNotMatch(code, /source-quarantine\.json/);
   const canonicalSources = JSON.parse(read('../sources.json'));
   const u3c3 = canonicalSources.rulesets.flatMap((ruleset) => ruleset.rules)
     .find((rule) => rule.id === 'magnet_u3c3_com');
   assert.equal(u3c3?.health?.status, 'yellow');
   assert.equal(u3c3?.health?.status_detail, 'parsing_failed');
+});
+
+await test('P1D', 'long-lived app sessions refresh sources and fail closed after active-pack expiry', () => {
+  const code = read('src/core/SourceContext.tsx');
+  assert.match(code, /SOURCE_FOREGROUND_REFRESH_INTERVAL_MS = 30 \* 60_000/);
+  assert.match(code, /SOURCE_PERIODIC_REFRESH_INTERVAL_MS = 6 \* 60 \* 60_000/);
+  assert.match(code, /AppState\.addEventListener\('change'/);
+  assert.match(code, /if \(!activeSourcesAreFresh\(\)\) \{[\s\S]*?setSources\(\[\]\)/);
+  assert.match(code, /AppState\.currentState === 'active'/);
 });
 
 await test('P1C', 'source renewal cannot let a fast stale mirror beat a healthy authority tier', async () => {
@@ -813,6 +853,25 @@ await test('R3', 'route, history, engine and analytics use canonical search term
   assert.match(code, /term: normalizedTerm/);
   assert.match(code, /query: normalizedTerm/);
   assert.match(code, /const routeQuery = normalizeSearchTerm\(q\)/);
+});
+
+await test('R3B', 'history and repeated same-query launches always create a fresh live search run', () => {
+  const firstRun = createSearchRunId(123456);
+  const secondRun = createSearchRunId(123456);
+  assert.notEqual(firstRun, secondRun);
+  assert.equal(routeSearchMatchesSession('Inception', firstRun, 'Inception', firstRun), true);
+  assert.equal(routeSearchMatchesSession('Inception', secondRun, 'Inception', firstRun), false);
+  assert.equal(routeSearchMatchesSession('Inception', '', 'Inception', ''), false);
+
+  const home = read('app/(tabs)/index.tsx');
+  const search = read('app/search.tsx');
+  const movie = read('app/movie/[movieId].tsx');
+  assert.match(home, /params: \{ q: query\.trim\(\), run: createSearchRunId\(\) \}/);
+  assert.match(home, /params: \{ q, run: createSearchRunId\(\) \}/);
+  assert.match(movie, /params: \{ q: movie\.title, run: createSearchRunId\(\) \}/);
+  assert.match(search, /if \(!routeRunId\) \{[\s\S]*?router\.setParams\(\{ q: routeQuery, run: createSearchRunId\(\) \}\)/);
+  assert.match(search, /routeSearchMatchesSession\(routeQuery, routeRunId, _session\?\.query, _session\?\.routeRunId\)/);
+  assert.match(search, /router\.setParams\(\{ q: normalizedTerm, run: createSearchRunId\(\) \}\)/);
 });
 
 await test('R4', 'native keepalive stop is token-aware', () => {
@@ -986,6 +1045,14 @@ await test('B10', 'foreground-service start/stop races cannot crash the app', ()
   assert.match(service, /stopSelfResult\(startId\)/);
   assert.match(service, /ignore superseded stop/);
   assert.doesNotMatch(service, /\bstopSelf\(\)/);
+});
+
+await test('V1', 'verification WebView isolates challenge and delayed-dismiss state per request', () => {
+  const code = read('src/components/VerifyWebView.tsx');
+  assert.match(code, /isCloudflareChallenge\.current = false/);
+  assert.match(code, /const dismissTimer = useRef/);
+  assert.match(code, /requestRef\.current\?\.id !== req\.id/);
+  assert.match(code, /clearTimeout\(dismissTimer\.current\)/);
 });
 
 await test('U1', 'home gradient animation stops whenever the Search tab loses focus', () => {
@@ -1314,6 +1381,19 @@ await test('D1', 'stored history/favorites are sanitized before entering caches'
   assert.match(read('src/core/favorites.ts'), /sanitizeFavoriteItems/);
 });
 
+await test('D1B', 'history/favorite mutations are serialized and cached arrays are not exposed', () => {
+  for (const file of ['src/core/searchHistory.ts', 'src/core/favorites.ts']) {
+    const code = read(file);
+    assert.match(code, /createAsyncSerialQueue/);
+    assert.match(code, /const enqueueMutation = createAsyncSerialQueue\(\)/);
+    assert.match(code, /let _loadPromise: Promise</);
+    assert.match(code, /if \(_cache\) return _cache\.slice\(\)/);
+    assert.match(code, /if \(!_loadPromise\)/);
+    assert.match(code, /return \(await _loadPromise\)\.slice\(\)/);
+    assert.match(code, /return enqueueMutation\(async \(\) =>/);
+  }
+});
+
 await test('D2', 'mutable update config is validated sequentially by trust tier', () => {
   const code = read('src/core/configChecker.ts');
   assert.match(code, /if \(!isRemoteConfig\(data\)\) throw new Error\('invalid_config'\)/);
@@ -1324,6 +1404,13 @@ await test('D2', 'mutable update config is validated sequentially by trust tier'
   assert.ok(code.indexOf('RAW_BASE') < code.indexOf('CF_PAGES}/config.json'));
   assert.ok(code.indexOf('CF_PAGES') < code.indexOf('CN_ALI}/config.json'));
   assert.ok(code.indexOf('GATEWAY_BASE') < code.indexOf('CDN_BASE}/config.json'));
+});
+
+await test('D2B', 'optional update cannot be dismissed behind an active APK download', () => {
+  const code = read('src/components/OptionalUpdateModal.tsx');
+  assert.match(code, /const handleRequestClose = useCallback\(\(\) => \{[\s\S]*if \(!downloading\) onDismiss\(\)/);
+  assert.match(code, /onRequestClose=\{handleRequestClose\}/);
+  assert.doesNotMatch(code, /onRequestClose=\{onDismiss\}/);
 });
 
 const passed = results.filter((item) => item.pass).length;

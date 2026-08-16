@@ -40,7 +40,10 @@ log = logging.getLogger(__name__)
 
 PLATFORM_ID = "thatcdn"
 
-_MAGNET_RE = re.compile(r"magnet:\?xt=urn:btih:[A-Za-z0-9]{32,}[^\"<>\s]*", re.I)
+_MAGNET_RE = re.compile(
+    r"magnet:\?xt=urn:btih:(?:[0-9A-Fa-f]{40}|[A-Z2-7]{32})(?=$|[^A-Za-z0-9])[^\"<>\s]*",
+    re.I,
+)
 _RDATA_RE = re.compile(
     r'<meta[^>]*name=["\']rdata["\'][^>]*content=["\']([^"\']+)["\']', re.I
 )

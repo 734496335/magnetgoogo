@@ -65,7 +65,7 @@ const CONCURRENCY = 8;
 const BROWSER_CONCURRENCY = 4;
 const FAST_HTTP_TIMEOUT_MS = 6_000;
 const TAIL_HTTP_TIMEOUT_MS = 8_000;
-const BROWSER_TIMEOUT_MS = 10_000;
+const BROWSER_TIMEOUT_MS = 50_000;
 
 function classifySourceCategory(rule: any): string {
   const tags = Array.isArray(rule?.quality?.tags) ? rule.quality.tags.join(' ').toLowerCase() : '';
@@ -81,7 +81,7 @@ function classifySourceCategory(rule: any): string {
 }
 
 function getSpeedTier(rule: any): number {
-  if (rule.search?.requires_browser) return 2;
+  if (rule.search?.requires_browser || rule.search?.requires_waf_bypass) return 2;
   if (VerifyManager.isVerifyOrigin(rule.site?.origin)) return 2;
   if (rule.capabilities?.supports_detail) return 1;
   if (rule.search?.requires_csrf) return 1;
@@ -91,7 +91,7 @@ function getSpeedTier(rule: any): number {
 }
 
 function getBackgroundSpeedTier(rule: any): number {
-  if (rule.search?.requires_browser) return 4;
+  if (rule.search?.requires_browser || rule.search?.requires_waf_bypass) return 4;
   if (VerifyManager.isVerifyOrigin(rule.site?.origin)) return 4;
   const handler = rule.search?.handler || '';
   if (handler && handler !== 'std') return 3;
@@ -199,11 +199,15 @@ export async function runSearchTask({
 
     try {
       const searchPromise = searchSource(rule, term);
+      let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
       const items = timeoutMs
-        ? await Promise.race([
-          searchPromise,
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs)),
-        ])
+        ? await new Promise<Awaited<ReturnType<typeof searchSource>>>((resolve, reject) => {
+          timeoutHandle = setTimeout(() => reject(new Error('timeout')), timeoutMs);
+          searchPromise.then(resolve, reject).finally(() => {
+            if (timeoutHandle) clearTimeout(timeoutHandle);
+            timeoutHandle = null;
+          });
+        })
         : await searchPromise;
       const elapsed = Date.now() - t0;
       const usableItems = items.filter((item) => !isBlockedContent(item.title));

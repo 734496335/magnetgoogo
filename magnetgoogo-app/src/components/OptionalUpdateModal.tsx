@@ -143,9 +143,12 @@ export default function OptionalUpdateModal({ result, visible, onDismiss }: Prop
 
   const latestVersion = result.config?.latest_version || '';
   const announcement = result.config?.announcement_i18n?.[lang] || result.announcement;
+  const handleRequestClose = useCallback(() => {
+    if (!downloading) onDismiss();
+  }, [downloading, onDismiss]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onDismiss}>
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={handleRequestClose}>
       <View style={s.overlay}>
         <View style={s.card}>
           <View style={s.iconWrap}>

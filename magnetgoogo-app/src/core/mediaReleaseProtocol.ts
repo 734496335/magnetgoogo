@@ -339,6 +339,24 @@ export function assertMediaPointerTransition(
   }
 }
 
+export function classifyMediaCurrentState(
+  candidates: MediaCurrentCandidate[],
+  accepted: MediaPointerIdentity,
+): 'same' | 'changed' {
+  if (!candidates.length) {
+    throw new MediaReleaseValidationError('MEDIA_CURRENT_UNAVAILABLE', 'no valid media current candidate is available');
+  }
+  const highestRevision = Math.max(...candidates.map((candidate) => candidate.pointer.pointer_revision));
+  if (highestRevision < accepted.pointer_revision) return 'same';
+  const winner = selectMediaCurrentCandidate(candidates, accepted);
+  const identity = mediaPointerIdentity(winner);
+  return identity.pointer_sha256 === accepted.pointer_sha256
+    && identity.release_id === accepted.release_id
+    && identity.manifest_sha256 === accepted.manifest_sha256
+    ? 'same'
+    : 'changed';
+}
+
 export function selectMediaCurrentCandidate(
   candidates: MediaCurrentCandidate[],
   accepted: MediaPointerIdentity | null = null,

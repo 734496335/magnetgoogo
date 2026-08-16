@@ -33,6 +33,7 @@ import {
 } from '../../src/core/mediaResourceTitle';
 import { getResourceCopy } from '../../src/core/resourceCopy';
 import { addHistory } from '../../src/core/searchHistory';
+import { createSearchRunId } from '../../src/core/searchRoute';
 import { trackCopy, trackOpen } from '../../src/core/analytics';
 import {
   hydrateMediaItem,
@@ -443,7 +444,7 @@ export default function MovieDetailScreen() {
         error: error instanceof Error ? error.message : String(error),
       });
     }
-    router.push({ pathname: '/search', params: { q: movie.title } });
+    router.push({ pathname: '/search', params: { q: movie.title, run: createSearchRunId() } });
   }, [movie, router]);
 
   if (loading) {

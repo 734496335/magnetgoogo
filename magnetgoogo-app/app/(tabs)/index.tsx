@@ -28,6 +28,7 @@ import { getFavorites, type FavoriteItem } from '../../src/core/favorites';
 import FeedbackFAB from '../../src/components/FeedbackFAB';
 import { COMPLIANCE_MODE, WEBSITE_URL } from '../../src/core/complianceConfig';
 import { getLatestReport, printReport } from '../../src/core/searchDebugLogger';
+import { createSearchRunId } from '../../src/core/searchRoute';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const BTN_W = SCREEN_W * 0.78;
@@ -207,14 +208,14 @@ export default function HomeScreen() {
     }
     await addHistory(query.trim());
     setHistory(await getHistory());
-    router.push({ pathname: '/search', params: { q: query.trim() } });
+    router.push({ pathname: '/search', params: { q: query.trim(), run: createSearchRunId() } });
   };
 
   const handleHistoryTap = async (q: string) => {
     setQuery(q);
     await addHistory(q);
     setHistory(await getHistory());
-    router.push({ pathname: '/search', params: { q } });
+    router.push({ pathname: '/search', params: { q, run: createSearchRunId() } });
   };
 
   const handleRemoveHistory = async (q: string) => {

@@ -14,6 +14,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
+import re
 from typing import Any
 
 
@@ -36,6 +37,41 @@ class SearchResult:
     date: str | None = None
     detail_url: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
+
+
+_VALID_BTIH_RE = re.compile(
+    r"(?:urn:)?btih:(?:[0-9A-Fa-f]{40}|[A-Z2-7]{32})(?=$|[^A-Za-z0-9])",
+    re.I,
+)
+_HASH_TITLE_RE = re.compile(r"^(?:[0-9A-Fa-f]{40}|[A-Z2-7]{32})$", re.I)
+_HASH_LABEL_TITLE_RE = re.compile(
+    r"^(?:hash|btih|info[-_\s]?hash)\s*[:：=]?\s*(?:[0-9A-Fa-f]{8,64}|[A-Z2-7]{16,32})(?:\.{3}|…)?$",
+    re.I,
+)
+
+
+def has_valid_btih_magnet(value: str) -> bool:
+    return bool(isinstance(value, str) and value.startswith("magnet:?") and _VALID_BTIH_RE.search(value))
+
+
+def has_bound_result_title(result: SearchResult) -> bool:
+    title = result.title.strip() if isinstance(result.title, str) else ""
+    if not title or title.lower().startswith("magnet:?"):
+        return False
+    return not (_HASH_TITLE_RE.fullmatch(title) or _HASH_LABEL_TITLE_RE.fullmatch(title))
+
+
+def valid_search_results(results: list[SearchResult]) -> list[SearchResult]:
+    return [
+        result
+        for result in results
+        if has_valid_btih_magnet(result.magnet) and has_bound_result_title(result)
+    ]
+
+
+def valid_magnet_results(results: list[SearchResult]) -> list[SearchResult]:
+    """Backward-compatible magnet-only filter for callers that explicitly need it."""
+    return [result for result in results if has_valid_btih_magnet(result.magnet)]
 
 
 class TierError(Exception):

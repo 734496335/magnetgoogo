@@ -19,7 +19,7 @@ import re
 import urllib.parse
 from typing import Any
 
-from .base import SearchResult, Tier, TierError, TierKind
+from .base import SearchResult, Tier, TierError, TierKind, has_valid_btih_magnet, valid_search_results
 from ..parser import extract_results_from_html
 from ..cookie_store import CookieStore
 
@@ -43,16 +43,6 @@ except ImportError:
 
 DEFAULT_TIMEOUT = 15
 DEFAULT_IMPERSONATE = "chrome124"
-_VALID_BTIH_RE = re.compile(
-    r"(?:urn:)?btih:(?:[0-9A-Fa-f]{40}|[A-Z2-7]{32})(?=$|[^A-Za-z0-9])",
-    re.I,
-)
-
-
-def has_valid_btih_magnet(value: str) -> bool:
-    return bool(value.startswith("magnet:?") and _VALID_BTIH_RE.search(value))
-
-
 class Tier0Http(Tier):
     kind = TierKind.HTTP
 
@@ -92,9 +82,9 @@ class Tier0Http(Tier):
         if detail_cfg and detail_cfg.get("selectors", {}).get("magnet"):
             results = self._follow_details(results, source, headers, detail_cfg, limit)
 
-        usable = [result for result in results if has_valid_btih_magnet(result.magnet)]
+        usable = valid_search_results(results)
         if not usable:
-            raise TierError("detail/search results yielded zero magnets", retryable=False, hint="check_detail_selector")
+            raise TierError("detail/search results yielded zero valid bound results", retryable=False, hint="check_detail_selector")
         return usable[:limit]
 
     # ── helpers ──
@@ -152,9 +142,10 @@ class Tier0Http(Tier):
         out: list[SearchResult] = []
         followed = 0
         for r in results:
-            if r.magnet or not r.detail_url:
+            if has_valid_btih_magnet(r.magnet) or not r.detail_url:
                 out.append(r)
                 continue
+            r.magnet = ""
             if followed >= limit:
                 out.append(r)
                 continue

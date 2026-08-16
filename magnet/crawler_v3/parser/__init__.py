@@ -5,6 +5,7 @@ This module is the single seam for parsing: all Tiers funnel through it.
 """
 from __future__ import annotations
 
+import html as html_lib
 import logging
 import re
 import urllib.parse
@@ -28,7 +29,10 @@ except ImportError:
     BeautifulSoup = None
 
 
-MAGNET_RE = re.compile(r"magnet:\?xt=urn:btih:[A-Za-z0-9]{32,}", re.I)
+MAGNET_RE = re.compile(
+    r"magnet:\?xt=urn:btih:(?:[0-9A-Fa-f]{40}|[A-Z2-7]{32})(?=$|[^A-Za-z0-9])[^\s\"'<>]*",
+    re.I,
+)
 INFO_HASH_HEX_RE = re.compile(r"\b([A-Fa-f0-9]{40})\b")
 INFO_HASH_B32_RE = re.compile(r"\b([A-Za-z2-7]{32})\b")
 
@@ -181,12 +185,23 @@ def _rows_to_results(rows: list[dict], *, html: str) -> list[SearchResult]:
 
 
 def _bruteforce_magnet_scan(html: str) -> list[SearchResult]:
+    """Last-resort scan that accepts only self-describing magnets.
+
+    A page-global hash is not search evidence. The magnet itself must carry a
+    non-hash `dn` title so title and info-hash remain bound in one URI.
+    """
     seen: set[str] = set()
     out: list[SearchResult] = []
-    for m in MAGNET_RE.finditer(html):
+    for m in MAGNET_RE.finditer(html_lib.unescape(html)):
         link = m.group(0)
         if link in seen:
             continue
         seen.add(link)
-        out.append(SearchResult(title=f"(brute) {link[:60]}", magnet=link))
+        params = urllib.parse.parse_qs(urllib.parse.urlsplit(link).query)
+        title = (params.get("dn") or [""])[0].strip()
+        if not title:
+            continue
+        if INFO_HASH_HEX_RE.fullmatch(title) or INFO_HASH_B32_RE.fullmatch(title):
+            continue
+        out.append(SearchResult(title=title, magnet=link))
     return out

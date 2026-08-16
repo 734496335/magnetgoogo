@@ -217,6 +217,7 @@ export default function VerifyWebView({ request, onDismiss }: Props) {
   const [statusText, setStatusText] = useState('');
   const [silent, setSilent] = useState(true);
   const escalateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const httpErrorCount = useRef(0);
   const isCloudflareChallenge = useRef(false);
   const requestRef = useRef(request);
@@ -236,6 +237,11 @@ export default function VerifyWebView({ request, onDismiss }: Props) {
       setSilent(true);
       setLoading(true);
       httpErrorCount.current = 0;
+      isCloudflareChallenge.current = false;
+      if (dismissTimer.current) {
+        clearTimeout(dismissTimer.current);
+        dismissTimer.current = null;
+      }
       setCurrentUrl(request.url);
       setStatusText(
         request.type === 'spa_render'
@@ -258,6 +264,10 @@ export default function VerifyWebView({ request, onDismiss }: Props) {
         clearTimeout(escalateTimer.current);
         escalateTimer.current = null;
       }
+      if (dismissTimer.current) {
+        clearTimeout(dismissTimer.current);
+        dismissTimer.current = null;
+      }
     };
   }, [request]);
 
@@ -278,6 +288,10 @@ export default function VerifyWebView({ request, onDismiss }: Props) {
               clearTimeout(escalateTimer.current);
               escalateTimer.current = null;
             }
+            if (dismissTimer.current) {
+              clearTimeout(dismissTimer.current);
+              dismissTimer.current = null;
+            }
             const wasSilent = silent;
             const result: VerifyResult = {
               success: true,
@@ -294,6 +308,10 @@ export default function VerifyWebView({ request, onDismiss }: Props) {
           if (escalateTimer.current) {
             clearTimeout(escalateTimer.current);
             escalateTimer.current = null;
+          }
+          if (dismissTimer.current) {
+            clearTimeout(dismissTimer.current);
+            dismissTimer.current = null;
           }
           const wasSilent = silent;
           const result: VerifyResult = {
@@ -316,6 +334,10 @@ export default function VerifyWebView({ request, onDismiss }: Props) {
     if (escalateTimer.current) {
       clearTimeout(escalateTimer.current);
       escalateTimer.current = null;
+    }
+    if (dismissTimer.current) {
+      clearTimeout(dismissTimer.current);
+      dismissTimer.current = null;
     }
     const req = requestRef.current;
     if (req) {
@@ -348,7 +370,10 @@ export default function VerifyWebView({ request, onDismiss }: Props) {
             ? '该站点无法访问（可能被网络封锁）'
             : `加载失败: ${desc.slice(0, 60)}`);
         }
-        setTimeout(() => {
+        if (dismissTimer.current) clearTimeout(dismissTimer.current);
+        dismissTimer.current = setTimeout(() => {
+          dismissTimer.current = null;
+          if (requestRef.current?.id !== req.id) return;
           VerifyManager.cancel(req.id, req.origin);
           onDismiss();
         }, silent ? 0 : 2000);

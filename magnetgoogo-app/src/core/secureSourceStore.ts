@@ -83,6 +83,7 @@ let _vault: Uint8Array[] = [];
 let _sourceCount = 0;
 let _cachedMeta: SourceMeta | null = null;
 let _activeSourceKind: 'bootstrap' | 'remote' | null = null;
+let _activeSourceExpiresAtMs = 0;
 const _textEncoder = new TextEncoder();
 const _textDecoder = new TextDecoder();
 
@@ -139,7 +140,7 @@ function saveToDisk(encPayload: string, meta: SourceMeta, expiryHours: number) {
   }
 }
 
-function loadFromDisk(): { green: SourceRule[]; meta: SourceMeta } | null {
+function loadFromDisk(): { green: SourceRule[]; meta: SourceMeta; activeExpiresAtMs: number } | null {
   try {
     if (!CACHE_FILE.exists) return null;
     const text = CACHE_FILE.textSync();
@@ -155,7 +156,7 @@ function loadFromDisk(): { green: SourceRule[]; meta: SourceMeta } | null {
     const decrypted = decryptSources(cache.encPayload);
     const raw = JSON.parse(decrypted);
     assertFreshEnvelope(raw, 'disk source cache');
-    const green = extractGreen(raw);
+    const green = requireUsableGreenSources(raw, 'disk source cache');
     const meta: SourceMeta = {
       updatedAt: cache.savedAt,
       count: green.length,
@@ -164,7 +165,7 @@ function loadFromDisk(): { green: SourceRule[]; meta: SourceMeta } | null {
       expiresAt: raw.expires_at,
     };
     console.log(`[SourceStore] Loaded ${green.length} sources from disk cache`);
-    return { green, meta };
+    return { green, meta, activeExpiresAtMs: new Date(raw.expires_at).getTime() + SOURCE_EXPIRY_GRACE_MS };
   } catch (e: any) {
     console.log(`[SourceStore] Disk load failed: ${e.message}`);
     return null;
@@ -172,7 +173,8 @@ function loadFromDisk(): { green: SourceRule[]; meta: SourceMeta } | null {
 }
 
 function assertFreshEnvelope(raw: any, context: string) {
-  if (!raw || typeof raw !== 'object' || !raw.payload || !raw.expires_at) return;
+  if (!raw || typeof raw !== 'object' || !raw.payload) return;
+  if (!raw.expires_at) throw new Error(`${context} missing expires_at`);
   const expiresAt = new Date(raw.expires_at).getTime();
   if (!Number.isFinite(expiresAt)) {
     throw new Error(`${context} has invalid expires_at`);
@@ -208,11 +210,30 @@ function extractGreen(raw: any): SourceRule[] {
   return list.filter((s: any) => s.health?.status === 'green');
 }
 
-function loadIntoVault(green: SourceRule[], meta: SourceMeta) {
+function requireUsableGreenSources(raw: any, context: string): SourceRule[] {
+  const green = extractGreen(raw);
+  if (green.length === 0) throw new Error(`${context} contains zero green sources`);
+  return green;
+}
+
+function loadIntoVault(green: SourceRule[], meta: SourceMeta, activeExpiresAtMs: number) {
   _sessionKey = randomKey(64);
   _vault = green.map((rule) => obfuscate(JSON.stringify(rule)));
   _sourceCount = green.length;
   _cachedMeta = meta;
+  _activeSourceExpiresAtMs = activeExpiresAtMs;
+}
+
+export function activeSourcesAreFresh(now = Date.now()): boolean {
+  return _vault.length > 0 && _activeSourceExpiresAtMs > 0 && now <= _activeSourceExpiresAtMs;
+}
+
+function clearActiveSources() {
+  _vault = [];
+  _sourceCount = 0;
+  _cachedMeta = null;
+  _activeSourceKind = null;
+  _activeSourceExpiresAtMs = 0;
 }
 
 async function getBootstrapFirstUsedAt(): Promise<number> {
@@ -228,7 +249,7 @@ async function getBootstrapFirstUsedAt(): Promise<number> {
   }
 }
 
-async function loadBootstrapSources(): Promise<{ green: SourceRule[]; meta: SourceMeta } | null> {
+async function loadBootstrapSources(): Promise<{ green: SourceRule[]; meta: SourceMeta; activeExpiresAtMs: number } | null> {
   try {
     const firstUsedAt = await getBootstrapFirstUsedAt();
     const expiresAt = firstUsedAt + BOOTSTRAP_EXPIRY_HOURS * 3600000;
@@ -248,7 +269,7 @@ async function loadBootstrapSources(): Promise<{ green: SourceRule[]; meta: Sour
 
     const decrypted = decryptSources(text);
     const raw = JSON.parse(decrypted);
-    const green = extractGreen(raw);
+    const green = requireUsableGreenSources(raw, 'bootstrap source pack');
     const remainingHours = Math.max(0, Math.round((expiresAt - Date.now()) / 3600000));
     const meta: SourceMeta = {
       updatedAt: new Date(firstUsedAt).toISOString(),
@@ -260,7 +281,7 @@ async function loadBootstrapSources(): Promise<{ green: SourceRule[]; meta: Sour
       expiresAt: raw.expires_at,
     };
     console.log(`[SourceStore] Loaded ${green.length} bootstrap sources from bundled asset`);
-    return { green, meta };
+    return { green, meta, activeExpiresAtMs: expiresAt };
   } catch (e: any) {
     console.log(`[SourceStore] Bootstrap load failed: ${e.message}`);
     return null;
@@ -269,20 +290,24 @@ async function loadBootstrapSources(): Promise<{ green: SourceRule[]; meta: Sour
 
 export async function loadSources(): Promise<SourceRule[] | null> {
   if (_vault.length > 0) {
-    return _vault.map((blob) => JSON.parse(deobfuscate(blob)));
+    if (activeSourcesAreFresh()) {
+      return _vault.map((blob) => JSON.parse(deobfuscate(blob)));
+    }
+    console.log(`[SourceStore] Active ${_activeSourceKind || 'unknown'} source set expired, reloading`);
+    clearActiveSources();
   }
 
   const disk = loadFromDisk();
   if (disk) {
     _activeSourceKind = 'remote';
-    loadIntoVault(disk.green, disk.meta);
+    loadIntoVault(disk.green, disk.meta, disk.activeExpiresAtMs);
     return disk.green;
   }
 
   const bootstrap = await loadBootstrapSources();
   if (bootstrap) {
     _activeSourceKind = 'bootstrap';
-    loadIntoVault(bootstrap.green, bootstrap.meta);
+    loadIntoVault(bootstrap.green, bootstrap.meta, bootstrap.activeExpiresAtMs);
     return bootstrap.green;
   }
 
@@ -324,14 +349,15 @@ export async function syncSources(url?: string): Promise<{ sources: SourceRule[]
         const decrypted = decryptSources(encPayload);
         const envelope = JSON.parse(decrypted);
         assertFreshEnvelope(envelope, 'debug source pack');
-        const green = extractGreen(envelope);
+        const green = requireUsableGreenSources(envelope, 'debug source pack');
+        const debugExpiresAt = new Date(envelope.expires_at).getTime() + SOURCE_EXPIRY_GRACE_MS;
         loadIntoVault(green, {
           updatedAt: envelope.issued_at || new Date().toISOString(),
           count: green.length,
           remoteUrl: 'local://debug-sources.enc.json',
           issuedAt: envelope.issued_at,
           expiresAt: envelope.expires_at,
-        });
+        }, debugExpiresAt);
         console.log(`[SourceStore] loaded ${green.length} green from debug-sources.enc.json`);
         return { sources: green, meta: _cachedMeta! };
       }
@@ -375,6 +401,7 @@ export async function syncSources(url?: string): Promise<{ sources: SourceRule[]
           const decrypted = decryptSources(text);
           const raw = JSON.parse(decrypted);
           assertFreshEnvelope(raw, `remote source pack from ${base}`);
+          requireUsableGreenSources(raw, `remote source pack from ${base}`);
           console.log(
             fallbackEndpoints.includes(base)
               ? `[SourceStore] Fallback succeeded via ${base}`
@@ -406,7 +433,7 @@ export async function syncSources(url?: string): Promise<{ sources: SourceRule[]
     console.log(`[SourceStore] Envelope: schema=${raw.schema_version}, issued=${raw.issued_at}`);
   }
 
-  const green = extractGreen(raw);
+  const green = requireUsableGreenSources(raw, `selected source pack from ${usedUrl}`);
   const meta: SourceMeta = {
     updatedAt: new Date().toISOString(),
     count: green.length,
@@ -415,7 +442,10 @@ export async function syncSources(url?: string): Promise<{ sources: SourceRule[]
     expiresAt: raw.expires_at,
   };
 
-  loadIntoVault(green, meta);
+  const remoteExpiresAt = raw.expires_at
+    ? new Date(raw.expires_at).getTime() + SOURCE_EXPIRY_GRACE_MS
+    : Date.now() + expiryHours * 3600_000;
+  loadIntoVault(green, meta, remoteExpiresAt);
   _activeSourceKind = 'remote';
   if (encPayload) {
     saveToDisk(encPayload, meta, expiryHours);

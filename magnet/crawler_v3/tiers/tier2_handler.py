@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable
 
-from .base import SearchResult, Tier, TierError, TierKind
+from .base import SearchResult, Tier, TierError, TierKind, valid_search_results
 
 log = logging.getLogger(__name__)
 
@@ -67,7 +67,10 @@ class Tier2Handler(Tier):
         results = handler(source, query)
         if not results:
             raise TierError(f"handler '{platform}' returned 0 results", retryable=False)
-        return results[:limit]
+        usable = valid_search_results(results)
+        if not usable:
+            raise TierError(f"handler '{platform}' returned 0 valid bound results", retryable=False)
+        return usable[:limit]
 
     @staticmethod
     def _resolve_platform(source: dict) -> str | None:

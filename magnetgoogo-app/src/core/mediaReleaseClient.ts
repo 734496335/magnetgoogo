@@ -3,6 +3,7 @@ import * as Application from 'expo-application';
 import { getAppVersion } from './configChecker';
 import {
   assertMediaPointerTransition,
+  classifyMediaCurrentState,
   mediaPointerIdentity,
   parseCatalog,
   parseCurrentPointer,
@@ -58,6 +59,15 @@ interface ActiveRelease {
 let activeRelease: ActiveRelease | null = null;
 let syncPromise: Promise<ActiveRelease> | null = null;
 const detailSyncs = new Map<string, Promise<MovieFeedItem>>();
+
+function detailSyncKey(item: MovieFeedItem): string {
+  return [
+    item.content_kind,
+    item.movie_id,
+    item.remote_release_id || 'bundled',
+    item.remote_detail_hash || item.remote_detail_path || 'no-detail',
+  ].join('|');
+}
 
 function logMediaNetworkSuccess(stage: string, context: Record<string, unknown>) {
   if (!Application.applicationId?.endsWith('.debug')) return;
@@ -168,15 +178,27 @@ export interface MediaFeedSyncResult {
 }
 
 async function remotePointerState(identity: MediaPointerIdentity): Promise<RemotePointerState> {
-  for (const endpoint of MEDIA_ENDPOINTS) {
-    try {
-      const candidate = await fetchCurrent(endpoint);
-      return candidate.pointer_sha256 === identity.pointer_sha256 ? 'same' : 'changed';
-    } catch (error) {
-      logMediaNetworkFailure('check_current', 'MEDIA_CURRENT_CHECK_FAILED', error, { endpoint });
+  const settled = await Promise.allSettled(MEDIA_ENDPOINTS.map((endpoint) => fetchCurrent(endpoint)));
+  settled.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      logMediaNetworkFailure('check_current', 'MEDIA_CURRENT_CHECK_FAILED', result.reason, {
+        endpoint: MEDIA_ENDPOINTS[index],
+      });
     }
+  });
+  const candidates = settled
+    .filter((result): result is PromiseFulfilledResult<MediaCurrentCandidate> => result.status === 'fulfilled')
+    .map((result) => result.value);
+  if (!candidates.length) return 'unavailable';
+  try {
+    return classifyMediaCurrentState(candidates, identity);
+  } catch (error) {
+    logMediaNetworkFailure('check_current', 'MEDIA_CURRENT_STATE_CONFLICT', error, {
+      candidate_count: candidates.length,
+      accepted_revision: identity.pointer_revision,
+    });
+    return 'changed';
   }
-  return 'unavailable';
 }
 
 function newestAcceptedIdentity(
@@ -535,12 +557,13 @@ export async function loadRemoteMediaDetail(item: MovieFeedItem): Promise<MovieF
     return cached;
   }
 
-  const existing = detailSyncs.get(item.movie_id);
+  const syncKey = detailSyncKey(item);
+  const existing = detailSyncs.get(syncKey);
   if (existing) return existing;
   const task = fetchAndCacheRemoteMediaDetail(item).finally(() => {
-    if (detailSyncs.get(item.movie_id) === task) detailSyncs.delete(item.movie_id);
+    if (detailSyncs.get(syncKey) === task) detailSyncs.delete(syncKey);
   });
-  detailSyncs.set(item.movie_id, task);
+  detailSyncs.set(syncKey, task);
   return task;
 }
 

@@ -22,7 +22,7 @@ import time
 import urllib.parse
 from typing import Any
 
-from .base import SearchResult, Tier, TierError, TierKind
+from .base import SearchResult, Tier, TierError, TierKind, has_valid_btih_magnet, valid_search_results
 from ..parser import extract_results_from_html
 from ..cookie_store import CookieStore
 
@@ -107,7 +107,10 @@ class Tier1Cloak(Tier):
             if detail_cfg and detail_cfg.get("selectors", {}).get("magnet"):
                 results = self._follow_details(results, source, detail_cfg, limit)
 
-            return results[:limit]
+            usable = valid_search_results(results)
+            if not usable:
+                raise TierError("render/detail results yielded zero valid bound results", retryable=False, hint="check_detail_selector")
+            return usable[:limit]
 
         finally:
             try:
@@ -137,9 +140,9 @@ class Tier1Cloak(Tier):
                 return results
 
             elapsed = time.time() - start
-            head = last_html[:8000]
+            head = last_html[:8000].casefold()
             challenge_present = (
-                any(m in head for m in CF_STRONG_MARKERS)
+                any(marker.casefold() in head for marker in CF_STRONG_MARKERS)
                 or self._title_has_weak_marker(page)
             )
             if not challenge_present and elapsed > 3:
@@ -157,7 +160,8 @@ class Tier1Cloak(Tier):
             title = page.title() or ""
         except Exception:
             return False
-        return any(m in title for m in CF_WEAK_TITLE_MARKERS)
+        folded = title.casefold()
+        return any(marker.casefold() in folded for marker in CF_WEAK_TITLE_MARKERS)
 
     def _build_search_url(self, source: dict, query: str) -> str:
         import base64
@@ -211,9 +215,10 @@ class Tier1Cloak(Tier):
         out: list[SearchResult] = []
         followed = 0
         for r in results:
-            if r.magnet or not r.detail_url:
+            if has_valid_btih_magnet(r.magnet) or not r.detail_url:
                 out.append(r)
                 continue
+            r.magnet = ""
             if followed >= limit:
                 out.append(r)
                 continue

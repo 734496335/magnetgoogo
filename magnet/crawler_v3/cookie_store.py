@@ -54,16 +54,24 @@ class CookieStore:
         except (json.JSONDecodeError, OSError) as e:
             log.warning("CookieStore: corrupt file %s: %s", p, e)
             return []
+        if not isinstance(data, dict):
+            log.warning("CookieStore: invalid document shape in %s", p)
+            return []
 
-        cookies = data.get("cookies", [])
+        raw_cookies = data.get("cookies", [])
+        if not isinstance(raw_cookies, list):
+            log.warning("CookieStore: invalid cookies shape in %s", p)
+            return []
+        cookies = [c for c in raw_cookies if isinstance(c, dict)]
         now = time.time()
-        alive = [c for c in cookies if not c.get("expires") or c["expires"] > now]
+        alive = [c for c in cookies if self._cookie_is_alive(c, now)]
 
-        if len(alive) != len(cookies):
-            # prune expired and rewrite
+        if len(alive) != len(raw_cookies):
+            # Prune expired/malformed entries with an atomic replacement so a
+            # process interruption cannot leave a half-written cookie file.
             data["cookies"] = alive
             try:
-                p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+                self._write_data(p, data)
             except OSError:
                 pass
 
@@ -72,11 +80,18 @@ class CookieStore:
     def put(self, origin: str, cookies: list[dict]) -> None:
         """Replace all cookies for origin."""
         p = self.path_for(origin)
+        sanitized = [
+            dict(cookie)
+            for cookie in cookies
+            if isinstance(cookie, dict)
+            and isinstance(cookie.get("name"), str)
+            and isinstance(cookie.get("value"), str)
+        ]
         data = {
-            "cookies": cookies,
+            "cookies": sanitized,
             "stored_at": datetime.now(timezone.utc).isoformat(),
         }
-        p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        self._write_data(p, data)
 
     def merge(self, origin: str, cookies: list[dict]) -> None:
         """Add to existing without dropping unrelated cookies."""
@@ -112,6 +127,33 @@ class CookieStore:
         return {c["name"]: c["value"] for c in cookies if "name" in c and "value" in c}
 
     # ── internal ──
+
+    @staticmethod
+    def _cookie_is_alive(cookie: dict, now: float) -> bool:
+        if not isinstance(cookie.get("name"), str) or not isinstance(cookie.get("value"), str):
+            return False
+        expires = cookie.get("expires")
+        if expires in (None, ""):
+            return True
+        try:
+            expiry = float(expires)
+        except (TypeError, ValueError):
+            return False
+        # Playwright/CloakBrowser use -1 for session cookies; 0 is also
+        # conventionally non-persistent. Only a positive timestamp can expire.
+        return expiry <= 0 or expiry > now
+
+    @staticmethod
+    def _write_data(path: Path, data: dict) -> None:
+        temporary = path.with_name(f".{path.name}.{os.getpid()}.{time.time_ns()}.tmp")
+        try:
+            temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+            os.replace(temporary, path)
+        finally:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     @staticmethod
     def _cookie_key(c: dict) -> str:

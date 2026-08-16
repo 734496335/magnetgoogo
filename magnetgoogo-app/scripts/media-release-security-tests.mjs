@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   assertMediaPointerTransition,
+  classifyMediaCurrentState,
   mediaPointerIdentity,
   MediaReleaseValidationError,
   parseCatalog,
@@ -71,10 +72,19 @@ const revision5Pointer = {
   release_id: `${releaseId}-next`,
   manifest_sha256: '5'.repeat(64),
 };
-const revision5 = selectMediaCurrentCandidate([
-  candidate('https://media.magnetgoogo.com', revision5Pointer, '6'.repeat(64)),
-], acceptedRevision4);
+const revision5Candidate = candidate('https://api.naoshiquan.com/media', revision5Pointer, '6'.repeat(64));
+const revision5 = selectMediaCurrentCandidate([revision5Candidate], acceptedRevision4);
 assert.equal(revision5.pointer.pointer_revision, 5);
+assert.equal(classifyMediaCurrentState([
+  candidate('https://media.magnetgoogo.com'),
+  revision5Candidate,
+], acceptedRevision4), 'changed');
+assert.equal(classifyMediaCurrentState([
+  candidate('https://media.magnetgoogo.com'),
+], acceptedRevision4), 'same');
+assert.equal(classifyMediaCurrentState([
+  candidate('https://media.magnetgoogo.com', revision3Pointer, '3'.repeat(64)),
+], acceptedRevision4), 'same');
 
 assert.doesNotThrow(() => assertMediaPointerTransition(acceptedRevision4, acceptedRevision4));
 expectCode('MEDIA_POINTER_SAME_REVISION_CONFLICT', () => assertMediaPointerTransition({
@@ -254,6 +264,10 @@ assert.match(clientSource, /selectMediaCurrentCandidate\(candidates, acceptedIde
 assert.match(clientSource, /cachedMediaPointerIdentity\(\)/);
 assert.match(clientSource, /Promise\.race\(\[request, timeout\]\)/);
 assert.match(clientSource, /manifest_refresh_skipped: true/);
+assert.match(clientSource, /function detailSyncKey\(item: MovieFeedItem\)/);
+assert.match(clientSource, /item\.content_kind[\s\S]*item\.movie_id[\s\S]*item\.remote_release_id[\s\S]*item\.remote_detail_hash/);
+assert.match(clientSource, /const syncKey = detailSyncKey\(item\)/);
+assert.doesNotMatch(clientSource, /detailSyncs\.get\(item\.movie_id\)/);
 assert.match(clientSource, /from '\.\/mediaReleaseMapping'/);
 assert.match(mappingSource, /rotten_tomatoes_rating: card\.rotten_tomatoes_rating \?\? null/);
 assert.match(mappingSource, /bangumi_rating: card\.bangumi_rating \?\? null/);
@@ -273,4 +287,5 @@ console.log(JSON.stringify({
   four_rating_protocol: true,
   legacy_rating_compatibility: true,
   client_rating_mapping: true,
+  detail_singleflight_release_scoped: true,
 }));

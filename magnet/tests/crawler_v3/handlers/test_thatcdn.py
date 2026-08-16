@@ -95,9 +95,13 @@ class TestResolveRedirectDomain:
 
 class TestMagnetRegex:
     def test_valid_magnet(self):
-        html = 'href="magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef&dn=test"'
+        html = 'href="magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=test"'
         m = _MAGNET_RE.search(html)
         assert m is not None
+
+    def test_32_char_hex_rejected(self):
+        html = 'href="magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef&dn=test"'
+        assert _MAGNET_RE.search(html) is None
 
     def test_short_hash_rejected(self):
         html = 'href="magnet:?xt=urn:btih:tooshort"'
@@ -151,12 +155,12 @@ class TestFetchDetailMagnets:
         session = MagicMock()
         r = MagicMock()
         r.status_code = 200
-        r.text = '<a href="magnet:?xt=urn:btih:abcdef0123456789abcdef0123456789&dn=test">Download</a>'
+        r.text = '<a href="magnet:?xt=urn:btih:abcdef0123456789abcdef0123456789abcdef01&dn=test">Download</a>'
         session.get.return_value = r
 
         magnets = _fetch_detail_magnets(session, "https://example.com/detail/123", "https://example.com")
         assert len(magnets) == 1
-        assert "magnet:?xt=urn:btih:abcdef0123456789abcdef0123456789" in magnets[0]
+        assert "magnet:?xt=urn:btih:abcdef0123456789abcdef0123456789abcdef01" in magnets[0]
 
     def test_returns_empty_on_non_200(self):
         session = MagicMock()
@@ -193,7 +197,7 @@ class TestSolveCaptcha:
         session = MagicMock()
         r = MagicMock()
         r.status_code = 200
-        r.text = 'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef&dn=test'
+        r.text = 'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=test'
         session.get.return_value = r
 
         result = _solve_captcha(session, "https://example.com", "test")

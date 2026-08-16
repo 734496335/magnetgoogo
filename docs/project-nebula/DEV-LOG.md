@@ -1,4 +1,49 @@
 ---
+Date/Time: 2026-08-16 13:19 (UTC+8)
+Version: v0.2.6-full-app-source-stability-audit
+Scope: Full App/source code review and broad regression after user reported historical-search stale results. No public release/config change.
+Modules: Search session identity, source lifecycle/crawler tiers/cookies, media current/detail state, update flow, verification, history/favorites persistence, K30S release-candidate acceptance
+
+### User-reported stale historical-search bug CLOSED
+- Root cause: `SearchScreen` kept a module-level session and restored it whenever only the query matched. A history tap of the same term therefore reused completed results, while manual submit called a fresh search.
+- Added explicit search-run identity. Home manual search, history tap, movie-detail search and external no-run routes now create/upgrade to a fresh run; only same query + same run can restore an in-flight/completed session.
+- Permanent adversarial coverage added. Exact latest Debug K30S repeated `Inception` produced distinct reports `sr_msvcf9uz` and `sr_msvclcit`, distinct startedAt values and 190 -> 188 live results; both quality PASS/hard=0/hash-placeholder=0. This proves the second same-term intent executed live sources rather than restoring old data.
+- MIUI Accessibility/UIAutomator was separately proven unreliable and was not used to falsely claim physical history-chip automation; the history handler wiring is statically locked to fresh run identity, and the same route/run state machine is dynamically K30S-verified.
+
+### Additional App defects found and fixed by full review
+- Media current-state check no longer accepts the first reachable endpoint as authoritative; all valid endpoints are classified so a stale first endpoint cannot hide a higher revision on another endpoint.
+- Media-detail single-flight key is release-scoped (`kind + media_id + release_id + detail hash/path`), preventing an in-flight old release from serving a new release request for the same media id.
+- App `Set-Cookie` parsing now preserves commas inside `Expires=...`; fetch/XHR/manual paths share the parser.
+- VerifyWebView resets challenge state per request and cancels delayed-dismiss timers, preventing cross-request false success/cancel.
+- WAF/browser sources use a timeout that outlives the interactive verification window; timeout timers are cleaned after completion.
+- Source runtime now tracks active expiry, refreshes on foreground/periodically, clears expired memory on failed renewal, and refuses a decrypted authority containing zero green runtime sources.
+- Mutable update config now validates semantic version shapes, HTTP(S) download URLs, numeric schema/expiry fields and timestamp format before accepting an authority.
+- Optional update modal cannot be dismissed via Android back while APK download is active.
+- History/favorites writes are serialized, first load is single-flight, and cache arrays are returned as copies, closing rapid startup/read-write lost-update races.
+
+### Source/crawler defects found and fixed
+- Standard BTIH validation is centralized: only 40-hex or 32-base32. Tier0/Tier1/Tier2 final output additionally requires a bound non-hash title.
+- Invalid nonempty magnet plus valid detail URL now follows detail instead of suppressing recovery. Page-global brute scan only accepts a self-describing magnet with `dn`; bare page hashes are evidence only.
+- `thatcdn` no longer accepts invalid 32-hex BTIH.
+- Python CookieStore now treats Playwright/Cloak `expires=-1` (and nonpositive expiry) as session cookies instead of immediately deleting them; malformed JSON shapes/entries fail closed, and writes/prunes use atomic replace.
+- One over-strict title-validator attempt rejected legitimate one-character fixture titles; failure preserved under `_failures`, validator corrected to nonempty/non-hash semantics and same suite reran green.
+
+### Verification
+- App final matrix PASS after all App fixes: TypeScript; adversarial `63/63`; resource feed; live media network; media security; media cache; update download; release-build contract; analytics-v2; resource auto-sync; fluency `17/17`.
+- Live media now converges at revision17, release `20260815T000000Z-b6b1a79a`, pointer `d8bb4073...`, 287 movies / 318 series / 4481 resources across both App media endpoints.
+- Source deterministic gates: crawler_v3 `71 passed, 2 deselected`; resource-index/rating/enum `211 passed`; `rules=357 ALL VALID`; mg-data renewal state machine `5/5 PASS`.
+- Forced current standalone Debug build: SHA256 `0e294c7ff216f9fb943c3719505e1ab4ad8bab8cf208128843635cacd6785709`, 71,083,350 bytes. Gradle `installDebug` installed it on K30S.
+- New K30S main-flow smoke PASS: Debug 0.2.6/code10; encrypted source cache 148; media rev17 / 287 movies; detail cache shard created; favorites/settings routes accepted; cold launch 364ms, HOT resume 129ms, forced cold resume 385ms; Fatal/ANR=0.
+- Earlier broad same-code-line K30S coverage remains green for ZH movie/anime, EN series and Ubuntu; exact final Debug repeated-query acceptance above closes the reported bug after all App changes.
+
+### Release artifact boundary
+- No known App/source/media P0/P1 remains from this review. Prior signer continuity and real CloudMonitor provider acceptance remain valid.
+- Current code changed after the previously signed formal APK, so that old APK is intentionally not promoted as the final artifact.
+- Current ignored signing env no longer contains the three signing variables. `releases/secrets.enc` still exists, but the recovery utility requires interactive `getpass`; the non-interactive tool call timed out waiting for the master password, and no password was guessed or exposed. Keystore remains present.
+- **Release status: code candidate PASS / HOLD only for rebuilding and byte-exact K30S smoke of a new current-code signed Release APK after secure signing-env recovery.** Public v0.2.5/update config remain untouched.
+---
+
+---
 Date/Time: 2026-08-16 09:30 (UTC+8)
 Version: v0.2.6-release-signing-and-cloudmonitor-recovery
 Scope: Recover the historical protected signing path, build/verify a fresh formal v0.2.6 APK, close real CloudMonitor delivery, and reduce the release hold to exact-final-byte device smoke only.

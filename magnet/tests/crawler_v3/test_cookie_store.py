@@ -41,6 +41,28 @@ class TestCookieStore:
         store.put("https://example.com", [_make_cookie("old", "expired", expires=past)])
         assert store.get("https://example.com") == []
 
+    def test_session_cookie_minus_one_is_retained(self, tmp_path: Path):
+        store = CookieStore(root=tmp_path)
+        store.put("https://example.com", [_make_cookie("session", "alive", expires=-1)])
+        assert store.get("https://example.com")[0]["value"] == "alive"
+
+    def test_wrong_json_shapes_fail_closed(self, tmp_path: Path):
+        store = CookieStore(root=tmp_path)
+        path = store.path_for("https://example.com")
+        path.write_text("[]", encoding="utf-8")
+        assert store.get("https://example.com") == []
+        path.write_text(json.dumps({"cookies": "not-a-list"}), encoding="utf-8")
+        assert store.get("https://example.com") == []
+        path.write_text(json.dumps({"cookies": [{"name": "x", "value": "y", "expires": "bad"}]}), encoding="utf-8")
+        assert store.get("https://example.com") == []
+
+    def test_atomic_write_leaves_no_temporary_files(self, tmp_path: Path):
+        store = CookieStore(root=tmp_path)
+        store.put("https://example.com", [_make_cookie("k", "v")])
+        assert store.get("https://example.com")[0]["value"] == "v"
+        assert list(tmp_path.glob("*.tmp")) == []
+        assert list(tmp_path.glob(".*.tmp")) == []
+
     def test_delete_removes_file(self, tmp_path: Path):
         store = CookieStore(root=tmp_path)
         store.put("https://example.com", [_make_cookie("k", "v")])

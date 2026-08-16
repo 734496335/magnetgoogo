@@ -66,6 +66,7 @@ import { runSearchTask } from '../src/core/searchRunner';
 import { normalizeSearchTerm } from '../src/core/searchTerm';
 import { getSearchProgressStage, HIGH_RELEVANCE_THRESHOLD } from '../src/core/searchQuality';
 import { splitSearchingStatus } from '../src/core/i18n';
+import { createSearchRunId, normalizeSearchRunId, routeSearchMatchesSession } from '../src/core/searchRoute';
 
 // Search throttle (3s cooldown)
 const SEARCH_COOLDOWN_MS = 3000;
@@ -78,6 +79,7 @@ let _lastSearchTime = 0;
 interface _Session extends SearchResultAccumulatorState {
   generation: number;
   query: string;
+  routeRunId?: string;
   searchId?: string;
   rawResults: SearchResult[];
   searching: boolean;
@@ -247,10 +249,11 @@ function parseDate(label: string): number {
 
 // Main screen
 export default function SearchScreen() {
-  const { q, benchmark, cold } = useLocalSearchParams<{
+  const { q, benchmark, cold, run } = useLocalSearchParams<{
     q: string;
     benchmark?: string;
     cold?: string;
+    run?: string;
   }>();
   const exhaustiveBenchmark = benchmark === '1';
   const coldStartTest = cold === '1';
@@ -499,6 +502,7 @@ export default function SearchScreen() {
       _session = {
         generation: existing?.generation || ++_searchGeneration,
         query: snapshot.query,
+        routeRunId: existing?.routeRunId || normalizeSearchRunId(run),
         searchId: snapshot.searchId || existing?.searchId,
         rawResults: mergedResults,
         searching: !terminal,
@@ -519,7 +523,7 @@ export default function SearchScreen() {
     syncFromSession({ forceList: terminal });
     if (terminal) backgroundHandoffRef.current = null;
     return true;
-  }, [debouncedSync, q, sources.length, syncFromSession]);
+  }, [debouncedSync, run, sources.length, syncFromSession]);
 
   const pollBackgroundSnapshot = useCallback(async () => {
     if (backgroundPollBusyRef.current) return;
@@ -586,7 +590,7 @@ export default function SearchScreen() {
   }, [handoffActiveSessionToBackground, resumeBackgroundObservation, stopBackgroundObservation]);
 
   const doSearch = useCallback(
-    async (term: string) => {
+    async (term: string, routeRunId = '') => {
       const normalizedTerm = normalizeSearchTerm(term);
       if (!normalizedTerm || sources.length === 0) return;
 
@@ -630,6 +634,7 @@ export default function SearchScreen() {
       const session: _Session = {
         generation,
         query: normalizedTerm,
+        routeRunId: normalizeSearchRunId(routeRunId),
         searchId: undefined,
         rawResults: [],
         searching: true,
@@ -753,20 +758,31 @@ export default function SearchScreen() {
     [sources, sourceMeta, lang, debouncedSync, handoffActiveSessionToBackground, exhaustiveBenchmark, coldStartTest],
   );
 
-  // On mount/sources ready: restore existing session or start new search.
+  // Route launches carry a run id. Re-entering the same history/movie query with
+  // a new run id must execute a new live search; remounting the same route run
+  // restores the matching session instead of duplicating work.
   useEffect(() => {
     const routeQuery = normalizeSearchTerm(q);
+    const routeRunId = normalizeSearchRunId(run);
     if (!routeQuery || sources.length === 0) return;
-    if (_session && _session.query === routeQuery) {
-      // Same query; restore from session (search may still be running).
+    if (!routeRunId) {
+      router.setParams({ q: routeQuery, run: createSearchRunId() });
+      return;
+    }
+    if (routeSearchMatchesSession(routeQuery, routeRunId, _session?.query, _session?.routeRunId)) {
       setQuery(routeQuery);
       syncFromSession();
     } else {
-      // New query; start fresh search.
-      doSearch(routeQuery);
+      void doSearch(routeQuery, routeRunId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, benchmark, cold, sources.length]);
+  }, [q, run, benchmark, cold, sources.length]);
+
+  const submitSearch = useCallback((term: string) => {
+    const normalizedTerm = normalizeSearchTerm(term);
+    if (!normalizedTerm) return;
+    router.setParams({ q: normalizedTerm, run: createSearchRunId() });
+  }, [router]);
 
   // Relevance is the default and primary ordering. The session keeps result
   // identity stable, while this render-time sort lets clearly better matches
@@ -985,7 +1001,7 @@ export default function SearchScreen() {
             style={[styles.topInput, { color: colors.text }]}
             value={query}
             onChangeText={setQuery}
-            onSubmitEditing={() => doSearch(query)}
+            onSubmitEditing={() => submitSearch(query)}
             returnKeyType="search"
             placeholder={t.searchPlaceholder}
             placeholderTextColor={colors.textTertiary}
