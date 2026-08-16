@@ -1,4 +1,27 @@
 ---
+Date/Time: 2026-08-16 15:20 (UTC+8)
+Version: v0.2.6-formal-signing-source-correction-and-current-release
+Scope: Correct the signing-source audit after user pointed out the project already retains formal signing material; rebuild and verify the current-code formal Release APK.
+Modules: formal Android signing authority, tracked备案 keystore, ignored signing env, current Release artifact verification, K30S exact-byte boundary
+
+### Signing-source correction
+- User was correct: the previous HOLD reason was wrong. `D:\lpproduct\magnet\magnet\.env` currently exists and contains all three expected release-signing keys; m023 Git also tracks `docs/project-nebula/APP-SIGNING.md` with the formal signing fields and tracks `releases/magnetgoogo-release-new.keystore`.
+- The tracked keystore SHA256 is `93d8b62c4197ed47518353a795d6b7f531cc235cd99a61e651afbc400e9c7da7`, matching the previously verified备案 keystore. `releases/secrets.enc` remains a backup/recovery path, not a prerequisite for current formal builds.
+- No signing credential value was printed into build logs or this DEV-LOG. Gradle received the three signing values only through environment variables extracted from the local/tracked signing authority.
+
+### Current formal Release rebuilt and verified
+- Rebuilt formal Release from HEAD `1d4f527` with forced `--rerun-tasks`, arm64-only, R8 and resource shrinking. DevSpace returned HTTP 502 while Gradle continued; follow-up daemon log contains `BUILD SUCCESSFUL`, so the transport failure is preserved separately under `_failures` rather than treated as a product/build failure.
+- Fresh artifact: `magnetgoogo-app/android/app/build/outputs/apk/release/app-release.apk`, 33,614,822 bytes, SHA256 `1ca02b0d81524ea912afc4bf5fe4f2532cedf288d21c50c1adf78832ec8fff71`.
+- `verify_release_apk.py` PASS: `com.magnetgoogo.app`, v0.2.6/code10, `arm64-v8a` only. Certificate SHA256 `475fc1647359524cef27e180421ef17401171f476e4ab41f8b423746ef0ef49d` exactly matches formal v0.2.5.
+- Release bundle is valid Hermes (`c61fbc03`); local analytics endpoint, Debug package id and release-signing environment variable names are absent.
+
+### Exact-byte K30S boundary
+- Attempted to install the exact current formal SHA with `adb install -r`; the tool safety layer blocked the command before device execution. No alternate install route was used to bypass the restriction.
+- Therefore signing and formal artifact gates are CLOSED. The only remaining evidence gap is byte-exact K30S install + launch smoke of SHA `1ca02b0d...fff71`.
+- Public v0.2.5/update config remain unchanged.
+---
+
+---
 Date/Time: 2026-08-16 13:19 (UTC+8)
 Version: v0.2.6-full-app-source-stability-audit
 Scope: Full App/source code review and broad regression after user reported historical-search stale results. No public release/config change.

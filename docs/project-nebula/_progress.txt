@@ -1,30 +1,28 @@
-TASK: v0.2.6 full stability audit after stale-history-search report: App + source code review, broad regression, K30S acceptance
-STATUS: APP_SOURCE_FULL_AUDIT_PASS / NO_KNOWN_P0_P1 / EXACT_DEBUG_K30S_PASS / MEDIA17_PASS / SOURCE_RENEWAL_PASS / HOLD_CURRENT_FORMAL_REBUILD_SIGNING_INPUT
-DATE: 2026-08-16 13:19 UTC+8
+TASK: v0.2.6 full stability audit + current-code formal Release rebuild
+STATUS: APP_SOURCE_FULL_AUDIT_PASS / NO_KNOWN_P0_P1 / EXACT_DEBUG_K30S_PASS / CURRENT_FORMAL_APK_SIGNING_PASS / HOLD_EXACT_FORMAL_APK_DEVICE_INSTALL
+DATE: 2026-08-16 15:20 UTC+8
 
 USER-REPORTED BUG:
-- CLOSED. Root cause: SearchScreen module session was reusable by query alone, so tapping a historical query could restore the previous completed session while manual submit ran doSearch().
-- All active search intents now carry a fresh run id; only same query + same run may restore. Home manual search, history tap, movie-detail search and no-run external deep links converge on this rule.
-- Exact latest Debug K30S repeated Inception: sr_msvcf9uz @ 05:07:14Z -> sr_msvclcit @ 05:11:58Z, 190 -> 188 results, FRESH_RUN=true, both quality PASS/hard=0/hash-placeholder=0.
+- CLOSED. Search intents now carry fresh run ids; only same query + same run may restore.
+- Exact latest Debug K30S repeated Inception: distinct report ids/startedAt, 190 -> 188, FRESH_RUN=true, quality PASS/hard=0/hash-placeholder=0.
 
-APP FULL AUDIT / TEST:
-- Exact latest standalone Debug APK: SHA256 0e294c7ff216f9fb943c3719505e1ab4ad8bab8cf208128843635cacd6785709, 71,083,350 bytes; forced --rerun-tasks build PASS and Gradle installDebug installed on K30S.
-- K30S main-flow smoke PASS: com.magnetgoogo.app.debug 0.2.6/code10; cold 364ms, HOT resume 129ms, forced cold resume 385ms; Fatal/ANR=0.
-- Source cache on device: 148 sources, encrypted, primary https://magnetgoogo.com. Media cache: revision17, release 20260815T000000Z-b6b1a79a, pointer d8bb4073..., 287 movie cards. Detail route produced a detail shard; favorites/settings routes accepted.
-- Full App matrix PASS after all fixes: TypeScript; adversarial 63/63; resource feed; live media network; media security; media cache; update download; release-build contract; analytics-v2; resource auto-sync; fluency 17/17.
-- Additional bugs closed during review: stale-first media endpoint decision, media detail single-flight crossing releases, Set-Cookie Expires comma parsing, verification WebView cross-request state/timer leak, WAF/browser timeout shorter than interactive verification, long-lived source expiry/renewal, zero-green authority acceptance, update-config fail-open schema, optional-update back-key dismissal during download, history/favorites load+mutation races.
+APP / SOURCE / MEDIA:
+- Exact latest Debug SHA256 0e294c7ff216f9fb943c3719505e1ab4ad8bab8cf208128843635cacd6785709 is K30S accepted; main-flow smoke PASS, Fatal/ANR=0.
+- App gates PASS: TypeScript, adversarial 63/63, resource/media/update/release-contract/analytics/auto-sync, fluency 17/17.
+- Source gates PASS: crawler_v3 71 passed/2 integration deselected; resource-index/rating/enum 211 passed; rules=357 ALL VALID; renewal state machine 5/5.
+- Live media both endpoints revision17 / release 20260815T000000Z-b6b1a79a / 287 movies / 318 series / 4481 resources.
 
-SOURCE FULL AUDIT / TEST:
-- Crawler final output gate now requires standard BTIH (40-hex or 32-base32) plus a bound non-hash title across Tier0/Tier1/Tier2; invalid magnet + valid detail URL follows detail instead of being discarded; page-global brute fallback requires self-describing dn.
-- Python CookieStore now retains Playwright/Cloak session cookies with expires=-1, rejects malformed JSON shapes safely, sanitizes cookie entries and writes atomically.
-- Deterministic final gates: crawler_v3 71 passed / 2 integration deselected; resource-index/rating/enum tests 211 passed; source enum rules=357 ALL VALID; mg-data renewal state machine 5/5 PASS.
-- Prior live integration count fluctuation remains preserved as non-deterministic source evidence, not hidden by rerun.
+FORMAL SIGNING CORRECTION:
+- User correction verified: formal signing is already recoverable without secrets.enc.
+- D:\lpproduct\magnet\magnet\.env exists and contains RELEASE_KEY_ALIAS / RELEASE_STORE_PASSWORD / RELEASE_KEY_PASSWORD.
+- m023 Git tracks docs/project-nebula/APP-SIGNING.md with the same signing fields and tracks releases/magnetgoogo-release-new.keystore.
+- Keystore SHA256 93d8b62c4197ed47518353a795d6b7f531cc235cd99a61e651afbc400e9c7da7 matches the previously verified备案 keystore. secrets.enc is backup/recovery only, not a current build blocker.
 
-MEDIA / DELIVERY / OPERATIONS:
-- Live media endpoints both revision17 / release 20260815T000000Z-b6b1a79a / 287 movies / 318 series / 4481 resources; network/security/cache tests PASS.
-- Source renewal real E2E remains PASS from bot refresh -> Aliyun sync -> K30S consumption. Gateway fail-closed deployment and CloudMonitor real provider acceptance remain PASS from prior release gate.
+CURRENT FORMAL RELEASE:
+- HEAD 1d4f527 forced Release build completed successfully despite connector 502; Gradle daemon log contains BUILD SUCCESSFUL.
+- app-release.apk: 33,614,822 bytes; SHA256 1ca02b0d81524ea912afc4bf5fe4f2532cedf288d21c50c1adf78832ec8fff71.
+- verify_release_apk PASS: com.magnetgoogo.app, 0.2.6/code10, arm64-v8a only, cert SHA256 475fc1647359524cef27e180421ef17401171f476e4ab41f8b423746ef0ef49d, exact v0.2.5 signer match.
+- Hermes magic c61fbc03; no local analytics endpoint/debug package/signing env names in Release bundle.
+- Exact APK adb install on K30S was blocked by the tool safety layer before device execution; no bypass attempted.
 
-CURRENT RELEASE ARTIFACT GATE:
-- Historical signer continuity remains proven:备案 keystore exists and prior v0.2.6 signer matched v0.2.5 exactly. Public v0.2.5/update config remain untouched.
-- Because current code changed, the old signed 0.2.6 APK is NOT treated as the final artifact. A new current-code Release must be rebuilt and byte-exact K30S-smoked.
-- The ignored signing env was cleaned after the prior successful recovery. Protected releases/secrets.enc still requires an interactive master password; this tool channel cannot supply getpass. A non-interactive recovery attempt was not made by guessing. Therefore current-code formal APK rebuild is the only remaining release-evidence HOLD; it is not a product P0/P1.
+RELEASE VERDICT: code + formal artifact PASS. Only remaining evidence gate is byte-exact K30S install/launch of SHA 1ca02b0d...fff71. Public v0.2.5/update config remain untouched.
