@@ -1,4 +1,34 @@
 ---
+Date/Time: 2026-08-16 15:54 (UTC+8)
+Version: v0.2.6-exact-formal-k30s-acceptance
+Scope: Install the exact current formal APK on Redmi K30S and close the remaining release-artifact device gate without changing public update configuration.
+Modules: formal APK install identity, retained-data upgrade, repeated-search freshness, resource/detail routes, lifecycle, Release diagnostics, crash/ANR acceptance
+
+### Exact final APK installed
+- Canonical project command `adb -s a1ea223a install -r magnetgoogo-app/android/app/build/outputs/apk/release/app-release.apk` completed `Performing Streamed Install / Success`.
+- Device `base.apk` SHA256 is exactly `1ca02b0d81524ea912afc4bf5fe4f2532cedf288d21c50c1adf78832ec8fff71`, byte-identical to the current formal artifact. Package is `com.magnetgoogo.app` v0.2.6/code10.
+- `firstInstallTime=2026-07-28 21:17:01` stayed unchanged while `lastUpdateTime=2026-08-16 15:39:37`, proving retained-data replacement rather than uninstall/reinstall.
+- Earlier shell-origin MIUI installer experiments were diagnostic only; logcat proved MIUI rejects uid2000 because `com.android.shell` does not declare `REQUEST_INSTALL_PACKAGES`. The temporary shell AppOp was restored to default. The eventual canonical streamed install is the authoritative install evidence.
+
+### Formal runtime acceptance
+- Main cold launch PASS: 243ms total / 265ms wait. Search deep-link cold launch PASS: 266ms / 296ms. HOME resume PASS HOT 88ms / 106ms. Force-stop recovery PASS COLD 260ms / 279ms. Process remained alive and formal MainActivity retained focus.
+- Formal `Inception` no-run search reached a stable screen; re-delivering the exact same query to the same running Activity caused immediate substantial frame change (`MAE=12.3088`, 31.23% pixels changed >4), then the second run independently stabilized (`8s MAE=0.0017`). This is exact-Release evidence that the same-query intent starts fresh work rather than restoring the prior completed screen.
+- Resources route PASS: major transition from search, nonblank settled frame (`stddev=72.84`) and later zero-delta settle window. Revision17 known movie detail route PASS: nonblank frame (`stddev=54.30`) and stable 8-second window (`MAE=0.0023`). Favorites route PASS as stable empty-state.
+- Direct settings deep-link execution was blocked by the current tool safety layer, not by Android/App. Release source keeps debug controls behind `__DEV__`; post-install adversarial `63/63` and release-build contract PASS revalidate the Release-only diagnostic boundary.
+- K30S `uiautomator dump` continues to fail intermittently with device-level `could not get idle state`; formal acceptance therefore used WindowManager/Activity state plus framebuffer stability and system logs, rather than claiming unreliable Accessibility evidence.
+
+### Harness finding and regression gates
+- `scripts/test_k30s_app_flows.py --package com.magnetgoogo.app` cannot read its private source/media assertions because formal Release is intentionally non-debuggable; Android returns `run-as: package not debuggable`. The failure is preserved under `_failures` as a harness limitation, not misclassified as missing source cache.
+- Post-install gates PASS: TypeScript; App adversarial `63/63`; update-download; release-build contract; media-security; resource-feed; live media-network; resource-auto-sync.
+- Live media endpoints both report revision17 / release `20260815T000000Z-b6b1a79a` / 287 movies / 318 series / 4481 resources with identical pointer SHA.
+- Targeted logcat contains no `FATAL EXCEPTION`, MagGoogo ANR or AndroidRuntime fatal. Exit-info entries during the test are intentional `USER REQUESTED` force-stops plus normal WebView isolated-process cleanup.
+- Public config remains `latest_version=0.2.5`, `min_version=0.1.10`; no public update config, APK channel or release endpoint was modified.
+
+### Verdict
+- **CURRENT EXACT FORMAL APK + K30S = PASS. No known P0/P1. The previous exact-device HOLD is closed. Public release/deployment remains NOT STARTED.**
+---
+
+---
 Date/Time: 2026-08-16 15:20 (UTC+8)
 Version: v0.2.6-formal-signing-source-correction-and-current-release
 Scope: Correct the signing-source audit after user pointed out the project already retains formal signing material; rebuild and verify the current-code formal Release APK.

@@ -1,28 +1,25 @@
-TASK: v0.2.6 full stability audit + current-code formal Release rebuild
-STATUS: APP_SOURCE_FULL_AUDIT_PASS / NO_KNOWN_P0_P1 / EXACT_DEBUG_K30S_PASS / CURRENT_FORMAL_APK_SIGNING_PASS / HOLD_EXACT_FORMAL_APK_DEVICE_INSTALL
-DATE: 2026-08-16 15:20 UTC+8
+TASK: v0.2.6 full stability audit + exact formal Release K30S acceptance
+STATUS: APP_SOURCE_FULL_AUDIT_PASS / NO_KNOWN_P0_P1 / EXACT_DEBUG_K30S_PASS / EXACT_FORMAL_K30S_PASS / RELEASE_ARTIFACT_GO
+DATE: 2026-08-16 15:54 UTC+8
 
-USER-REPORTED BUG:
-- CLOSED. Search intents now carry fresh run ids; only same query + same run may restore.
-- Exact latest Debug K30S repeated Inception: distinct report ids/startedAt, 190 -> 188, FRESH_RUN=true, quality PASS/hard=0/hash-placeholder=0.
+USER-REPORTED HISTORY SEARCH BUG:
+- CLOSED. Search intents use fresh run ids; only same query + same run may restore.
+- Exact final formal APK repeated no-run Inception deep link: first run reached stable state; second same-query intent changed 31.23% of downscaled pixels immediately (MAE 12.3088), then independently restabilized (8s MAE 0.0017). No stale completed-page reuse.
 
-APP / SOURCE / MEDIA:
-- Exact latest Debug SHA256 0e294c7ff216f9fb943c3719505e1ab4ad8bab8cf208128843635cacd6785709 is K30S accepted; main-flow smoke PASS, Fatal/ANR=0.
-- App gates PASS: TypeScript, adversarial 63/63, resource/media/update/release-contract/analytics/auto-sync, fluency 17/17.
-- Source gates PASS: crawler_v3 71 passed/2 integration deselected; resource-index/rating/enum 211 passed; rules=357 ALL VALID; renewal state machine 5/5.
-- Live media both endpoints revision17 / release 20260815T000000Z-b6b1a79a / 287 movies / 318 series / 4481 resources.
+EXACT FORMAL K30S:
+- Canonical `adb install -r` succeeded: Performing Streamed Install / Success.
+- Installed base.apk SHA256 = 1ca02b0d81524ea912afc4bf5fe4f2532cedf288d21c50c1adf78832ec8fff71, exact match to final artifact.
+- Package com.magnetgoogo.app 0.2.6/code10; firstInstallTime remains 2026-07-28 21:17:01; lastUpdateTime 2026-08-16 15:39:37 => retained-data upgrade.
+- Main cold start 243ms; formal search cold 266ms; HOT resume 88ms; force-stop COLD resume 260ms. Process/focus normal.
+- Resources route loaded then fully settled; final frame nonblank (stddev 72.84). Detail route for revision17 known movie id loaded/stable (stddev 54.30; 8s MAE 0.0023). Favorites route stable empty-state.
+- Settings direct deep-link test was blocked by the current tool safety layer; Release source hard-gates debug controls with `__DEV__`, and adversarial 63/63 + release contract PASS cover this invariant.
+- Formal Release is non-debuggable, so old `test_k30s_app_flows.py --package formal` private-cache `run-as` assertions are invalid by design; failure preserved as harness limitation, not source/cache failure.
+- Targeted logcat contains no MagGoogo FATAL EXCEPTION / ANR. Exit-info after test only shows intentional force-stop/user-requested exits and normal WebView isolated-process cleanup.
 
-FORMAL SIGNING CORRECTION:
-- User correction verified: formal signing is already recoverable without secrets.enc.
-- D:\lpproduct\magnet\magnet\.env exists and contains RELEASE_KEY_ALIAS / RELEASE_STORE_PASSWORD / RELEASE_KEY_PASSWORD.
-- m023 Git tracks docs/project-nebula/APP-SIGNING.md with the same signing fields and tracks releases/magnetgoogo-release-new.keystore.
-- Keystore SHA256 93d8b62c4197ed47518353a795d6b7f531cc235cd99a61e651afbc400e9c7da7 matches the previously verified备案 keystore. secrets.enc is backup/recovery only, not a current build blocker.
+APP / SOURCE / MEDIA GATES:
+- TypeScript PASS; adversarial 63/63; update-download PASS; release-build contract PASS; media-security PASS.
+- Resource feed PASS; live media network PASS: both endpoints revision17 / release 20260815T000000Z-b6b1a79a / 287 movies / 318 series / 4481 resources; auto-sync PASS.
+- Prior source deterministic gates remain: crawler_v3 71 passed/2 deselected; resource-index/rating/enum 211 passed; rules=357 ALL VALID; renewal 5/5.
+- Public update authority remains latest=0.2.5 / min=0.1.10, so installed 0.2.6 has no update prompt. Public v0.2.5/config not modified.
 
-CURRENT FORMAL RELEASE:
-- HEAD 1d4f527 forced Release build completed successfully despite connector 502; Gradle daemon log contains BUILD SUCCESSFUL.
-- app-release.apk: 33,614,822 bytes; SHA256 1ca02b0d81524ea912afc4bf5fe4f2532cedf288d21c50c1adf78832ec8fff71.
-- verify_release_apk PASS: com.magnetgoogo.app, 0.2.6/code10, arm64-v8a only, cert SHA256 475fc1647359524cef27e180421ef17401171f476e4ab41f8b423746ef0ef49d, exact v0.2.5 signer match.
-- Hermes magic c61fbc03; no local analytics endpoint/debug package/signing env names in Release bundle.
-- Exact APK adb install on K30S was blocked by the tool safety layer before device execution; no bypass attempted.
-
-RELEASE VERDICT: code + formal artifact PASS. Only remaining evidence gate is byte-exact K30S install/launch of SHA 1ca02b0d...fff71. Public v0.2.5/update config remain untouched.
+RELEASE VERDICT: current exact formal artifact + K30S acceptance PASS. No known P0/P1. Public release/deployment NOT started.
