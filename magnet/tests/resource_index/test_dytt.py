@@ -860,6 +860,63 @@ def test_runner_does_not_retry_permanent_not_found_candidate(tmp_path: Path) -> 
     repo.close()
 
 
+def test_runner_refresh_replaces_exhausted_not_found_with_spare_candidate(tmp_path: Path) -> None:
+    paths = LatestCrawlPaths.for_output_dir(
+        tmp_path / "out",
+        source_id="dytt8899",
+        target_count=2,
+    )
+    repo = SqliteResourceRepository(paths.db_path)
+    candidates = [_candidate(1), _candidate(2), _candidate(3)]
+    calls = {"snapshot": 0, "detail": 0}
+    snapshot_args: list[tuple[int, int]] = []
+
+    class _NotFoundWithSpareCrawler(_FakeCrawler):
+        def crawl_latest_candidates(self, *, limit: int, max_listing_pages: int):
+            snapshot_args.append((limit, max_listing_pages))
+            return super().crawl_latest_candidates(limit=limit, max_listing_pages=max_listing_pages)
+
+        def crawl_movie_detail(self, candidate: MovieListingCandidate):
+            self.calls["detail"] += 1
+            self.http_requests += 1
+            if candidate.detail_url == candidates[0].detail_url:
+                raise ResourceIndexError(NOT_FOUND, "missing", {"status": 404})
+            return _detail(candidate)
+
+    def build_runner() -> MovieLatestRunner:
+        return MovieLatestRunner(
+            repo=repo,
+            paths=paths,
+            source_id="dytt8899",
+            target_count=2,
+            batch_size=2,
+            max_attempts=1,
+            snapshot_max_requests=2,
+            batch_max_requests=2,
+            max_listing_pages=1,
+            crawler_builder=lambda _policy: _NotFoundWithSpareCrawler(candidates, calls),
+        )
+
+    first = build_runner().run(refresh=True)
+    assert first.status == "partial"
+    assert first.covered_count == 1
+    assert snapshot_args == [(2, 1)]
+
+    second = build_runner().run(refresh=True)
+    assert second.status == "success"
+    assert second.covered_count == 2
+    assert snapshot_args[-1] == (3, 2)
+    snapshot = json.loads(paths.snapshot_path.read_text(encoding="utf-8"))
+    assert [item["detail_url"] for item in snapshot["items"]] == [
+        candidates[1].detail_url,
+        candidates[2].detail_url,
+    ]
+    assert [item["rank"] for item in snapshot["items"]] == [1, 2]
+    assert calls["detail"] == 3, "the previously successful item must be reused and only the spare fetched"
+    repo.close()
+
+
+
 def test_runner_publishes_qualified_subset_from_larger_discovery_window(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

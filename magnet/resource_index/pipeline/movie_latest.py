@@ -24,6 +24,7 @@ from magnet.resource_index.errors import (
     ACCESS_CHALLENGE,
     CONFIG_ERROR,
     INGEST_CANCELLED,
+    LIVE_EMPTY_RESULT,
     LIVE_RATE_LIMITED,
     LIVE_REQUEST_BUDGET_EXHAUSTED,
     LIVE_URL_REJECTED,
@@ -340,6 +341,26 @@ class MovieLatestRunner:
             seen_urls.add(candidate.detail_url)
             seen_source_keys.add(source_key)
 
+    def _exhausted_not_found_urls(self, previous_hash: str | None) -> set[str]:
+        if not previous_hash:
+            return set()
+        job = self.job_store.get_job_by_snapshot(
+            source_id=self.source_id,
+            target_count=self.target_count,
+            snapshot_hash=_latest_job_identity_hash(self.source_id, previous_hash),
+        )
+        if job is None:
+            return set()
+        max_attempts = int(job.get("max_attempts") or self.max_attempts)
+        return {
+            str(item.get("detail_url") or "")
+            for item in self.job_store.items(str(job["job_id"]))
+            if item.get("status") == "failed"
+            and item.get("last_error_code") == NOT_FOUND
+            and int(item.get("attempts") or 0) >= max_attempts
+            and item.get("detail_url")
+        }
+
     def _snapshot_payload(
         self,
         candidates: list[MovieListingCandidate],
@@ -385,6 +406,7 @@ class MovieLatestRunner:
                 previous_hash = hashlib.sha256(_canonical_snapshot_bytes(previous)).hexdigest()
             except (OSError, json.JSONDecodeError, KeyError, TypeError):
                 previous_hash = None
+        tombstone_urls = self._exhausted_not_found_urls(previous_hash)
         total_requests = 0
         attempts: list[dict[str, Any]] = []
         last_error: Exception | None = None
@@ -394,24 +416,43 @@ class MovieLatestRunner:
             remaining = self.snapshot_max_requests - total_requests
             if remaining <= 0:
                 break
+            spare_count = min(
+                len(tombstone_urls),
+                max(0, remaining - min(self.max_listing_pages, remaining)),
+            )
+            requested_limit = self.target_count + spare_count
+            requested_listing_pages = min(remaining, self.max_listing_pages + spare_count)
             crawler = self._build_crawler(
                 policy=self._policy(remaining),
                 endpoint=endpoint,
             )
             try:
                 captured = crawler.crawl_latest_candidates(
-                    limit=self.target_count,
-                    max_listing_pages=self.max_listing_pages,
+                    limit=requested_limit,
+                    max_listing_pages=requested_listing_pages,
                 )
                 total_requests += crawler.http_requests
+                usable = [item for item in captured if item.detail_url not in tombstone_urls]
+                if len(usable) < self.target_count:
+                    raise ResourceIndexError(
+                        LIVE_EMPTY_RESULT,
+                        "movie listing could not replace exhausted NOT_FOUND candidates",
+                        {
+                            "source_id": self.source_id,
+                            "requested": self.target_count,
+                            "found": len(usable),
+                            "tombstone_count": len(tombstone_urls),
+                        },
+                    )
                 annotated = [
                     replace(
                         item,
+                        rank=rank,
                         content_kind=item.content_kind or self.content_kind,
                         brand_id=item.brand_id or self.brand_id,
                         endpoint_origin=endpoint.origin,
                     )
-                    for item in captured
+                    for rank, item in enumerate(usable[: self.target_count], start=1)
                 ]
                 self._validate_candidates(annotated)
                 candidates = annotated
