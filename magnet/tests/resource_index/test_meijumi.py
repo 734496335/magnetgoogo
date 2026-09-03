@@ -117,3 +117,23 @@ def test_meijumi_detail_extracts_metadata_cover_and_public_resources() -> None:
     }
     xunlei = next(item for item in detail.resources if item.provider == "xunlei")
     assert xunlei.extraction_code == "8zd3"
+
+
+def test_meijumi_detail_ignores_non_http_ed2k_href_with_bracketed_filename() -> None:
+    candidate = parse_latest_listing(
+        LISTING_HTML,
+        page_url="https://www.meijumi.net/news/",
+    )[0]
+    html = """
+    <html><body><h1>《无神第一季》Godless</h1>
+    <div class="single-content"><div class="diibu"><p>
+    <a href="ed2k://|file|[V2]Godless.S01E07.720p.mp4|1313708240|B056FF125FF06CE28A178663B367A296|/">ED2K</a>
+    <a href="magnet:?xt=urn:btih:287b058e05099cec381b20bce3f8d21b6e90ece9">磁力</a>
+    </p></div></div></body></html>
+    """
+
+    detail = parse_series_detail(html, candidate=candidate)
+
+    assert len(detail.resources) == 1
+    assert detail.resources[0].resource_type == "magnet"
+    assert detail.resources[0].info_hash == "287b058e05099cec381b20bce3f8d21b6e90ece9"

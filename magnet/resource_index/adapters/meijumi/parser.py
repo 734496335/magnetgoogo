@@ -236,7 +236,13 @@ def _parse_date(value: str | None) -> date | None:
 
 
 def _cloud_provider(url: str) -> str | None:
-    host = (urlparse(url).hostname or "").casefold()
+    try:
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").casefold()
+    except ValueError:
+        return None
+    if parsed.scheme not in {"http", "https"} or not host:
+        return None
     for known, provider in _CLOUD_PROVIDERS.items():
         if host == known or host.endswith("." + known):
             return provider
