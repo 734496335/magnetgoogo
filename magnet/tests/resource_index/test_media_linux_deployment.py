@@ -141,6 +141,10 @@ def test_example_config_has_retention_and_disk_guards() -> None:
     assert config["max_workers"] == 4
     assert config["rating_lookup_limit_per_feed"] == 40
     assert config["source_fallback_max_age_hours"] == 168
+    by_source = {item["source_id"]: item for item in config["sources"]}
+    assert by_source["bitba-series"]["count"] == 50
+    assert by_source["mjf-series"]["count"] == 50
+    assert config["freshness_groups"]["series"]["min_fresh"] == 2
 
 
 def test_production_public_key_matches_the_formal_v023_client() -> None:

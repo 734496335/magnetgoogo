@@ -120,7 +120,7 @@
           "state": "active",
           "parser_variant": "dytt_empire",
           "priority": 10,
-          "source_ids": ["dytt8899"],
+          "source_ids": ["dytt8899", "dytt8899-series"],
           "evidence": "runtime_verified",
           "content_fingerprint": "d9960faf7ab5",
           "verified_at": "2026-07-26T09:20:00+08:00"
@@ -132,7 +132,7 @@
           "state": "standby",
           "parser_variant": "dytt_empire",
           "priority": 20,
-          "source_ids": ["dytt8899"],
+          "source_ids": ["dytt8899", "dytt8899-series"],
           "allowed_redirect_origins": ["https://www.dytt8899.com"],
           "evidence": "redirect_observed",
           "content_fingerprint": "d9960faf7ab5",
@@ -170,6 +170,46 @@
           "content_fingerprint": "682414151207",
           "verified_at": "2026-07-26T09:20:00+08:00",
           "notes": "The /news/ page exposes the latest 100 series updates."
+        }
+      ]
+    },
+    {
+      "brand_id": "bitba",
+      "label": "BiT吧",
+      "content_kinds": ["movie", "series"],
+      "strategy": "independent_complement",
+      "endpoints": [
+        {
+          "endpoint_id": "bitba-primary",
+          "origin": "https://www.bitba.net",
+          "role": "primary",
+          "state": "active",
+          "parser_variant": "bitba_cards_jsonld",
+          "priority": 10,
+          "source_ids": ["bitba-series"],
+          "evidence": "aliyun_runtime_verified",
+          "verified_at": "2026-09-02T15:00:00+08:00",
+          "notes": "Series catalog exposes public detail pages with JSON-LD Offer URLs containing BT info-hashes."
+        }
+      ]
+    },
+    {
+      "brand_id": "mjf",
+      "label": "美剧粉",
+      "content_kinds": ["series"],
+      "strategy": "independent_complement",
+      "endpoints": [
+        {
+          "endpoint_id": "mjf-primary",
+          "origin": "https://www.mjf2020.com",
+          "role": "primary",
+          "state": "active",
+          "parser_variant": "mjf_series",
+          "priority": 10,
+          "source_ids": ["mjf-series"],
+          "evidence": "aliyun_runtime_verified",
+          "verified_at": "2026-09-02T18:00:00+08:00",
+          "notes": "Latest-series catalog is publicly readable; per-series BT pages expose direct magnet URIs."
         }
       ]
     },

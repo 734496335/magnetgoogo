@@ -658,7 +658,7 @@ def cmd_crawl_movies_safe(args: argparse.Namespace) -> int:
         print("error_code=LIVE_POLICY_NOT_ACKNOWLEDGED", file=sys.stderr)
         print("message=pass --yes to acknowledge safe movie-source checks", file=sys.stderr)
         return 1
-    source_ids = args.source or ["sixv", "dytt8899", "sixv-series", "meijumi"]
+    source_ids = args.source or ["sixv", "dytt8899", "meijumi", "sixv-series", "bitba-series", "mjf-series"]
     try:
         source_counts = _source_count_map(getattr(args, "source_count", None))
     except ResourceIndexError as exc:
@@ -723,7 +723,7 @@ def cmd_select_latest_database(args: argparse.Namespace) -> int:
 
 
 def cmd_movie_sources_status(args: argparse.Namespace) -> int:
-    source_ids = args.source or ["sixv", "dytt8899", "sixv-series", "meijumi"]
+    source_ids = args.source or ["sixv", "dytt8899", "meijumi", "sixv-series", "bitba-series", "mjf-series"]
     try:
         source_counts = _source_count_map(getattr(args, "source_count", None))
     except ResourceIndexError as exc:

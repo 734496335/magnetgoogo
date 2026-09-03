@@ -67,6 +67,13 @@ class DailySourceConfig:
     source_id: str
     count: int
     freshness_required: bool = False
+    freshness_group: str | None = None
+
+
+@dataclass(frozen=True)
+class FreshnessGroupConfig:
+    group_id: str
+    min_fresh: int
 
 
 @dataclass(frozen=True)
@@ -81,6 +88,7 @@ class MediaDailyConfig:
     aliyun_public_base: str
     min_app_version: str
     sources: tuple[DailySourceConfig, ...]
+    freshness_groups: tuple[FreshnessGroupConfig, ...] = ()
     previous_public_key_path: Path | None = None
     min_movies: int = 1
     min_series: int = 1
@@ -148,6 +156,17 @@ def load_media_daily_config(path: str | Path) -> MediaDailyConfig:
     raw_sources = source.get("sources")
     if not isinstance(raw_sources, list) or not raw_sources:
         raise ResourceIndexError(CONFIG_ERROR, "media daily sources are missing", {})
+    raw_freshness_groups = source.get("freshness_groups", {})
+    if not isinstance(raw_freshness_groups, dict):
+        raise ResourceIndexError(CONFIG_ERROR, "media daily freshness_groups must be an object", {})
+    freshness_groups: list[FreshnessGroupConfig] = []
+    for group_id, raw_group in raw_freshness_groups.items():
+        if not isinstance(group_id, str) or not group_id.strip() or not isinstance(raw_group, dict):
+            raise ResourceIndexError(CONFIG_ERROR, "media daily freshness group is invalid", {"group": group_id})
+        min_fresh = raw_group.get("min_fresh")
+        if type(min_fresh) is not int or min_fresh < 1:
+            raise ResourceIndexError(CONFIG_ERROR, "media daily freshness group min_fresh is invalid", {"group": group_id})
+        freshness_groups.append(FreshnessGroupConfig(group_id.strip(), min_fresh))
     sources: list[DailySourceConfig] = []
     for item in raw_sources:
         if not isinstance(item, dict) or not str(item.get("source_id") or "").strip():
@@ -158,7 +177,25 @@ def load_media_daily_config(path: str | Path) -> MediaDailyConfig:
         freshness_required = item.get("freshness_required", False)
         if type(freshness_required) is not bool:
             raise ResourceIndexError(CONFIG_ERROR, "media daily source freshness flag is invalid", {"entry": item})
-        sources.append(DailySourceConfig(str(item["source_id"]), count, freshness_required))
+        freshness_group = item.get("freshness_group")
+        if freshness_group is not None and (not isinstance(freshness_group, str) or not freshness_group.strip()):
+            raise ResourceIndexError(CONFIG_ERROR, "media daily source freshness_group is invalid", {"entry": item})
+        freshness_group = freshness_group.strip() if isinstance(freshness_group, str) else None
+        if freshness_required and freshness_group is not None:
+            raise ResourceIndexError(CONFIG_ERROR, "source cannot be both freshness_required and a freshness_group member", {"entry": item})
+        sources.append(DailySourceConfig(str(item["source_id"]), count, freshness_required, freshness_group))
+    group_map = {group.group_id: group for group in freshness_groups}
+    unknown_groups = sorted({item.freshness_group for item in sources if item.freshness_group and item.freshness_group not in group_map})
+    if unknown_groups:
+        raise ResourceIndexError(CONFIG_ERROR, "source references unknown freshness group", {"groups": unknown_groups})
+    for group in freshness_groups:
+        member_count = sum(1 for item in sources if item.freshness_group == group.group_id)
+        if member_count < group.min_fresh:
+            raise ResourceIndexError(
+                CONFIG_ERROR,
+                "freshness group min_fresh exceeds configured members",
+                {"group": group.group_id, "min_fresh": group.min_fresh, "members": member_count},
+            )
     return MediaDailyConfig(
         state_root=Path(str(source["state_root"])).expanduser(),
         public_root=Path(str(source["public_root"])).expanduser(),
@@ -170,6 +207,7 @@ def load_media_daily_config(path: str | Path) -> MediaDailyConfig:
         aliyun_public_base=str(source.get("aliyun_public_base") or "https://cn.magnetgoogo.com/media").rstrip("/"),
         min_app_version=str(source.get("min_app_version") or "0.2.3"),
         sources=tuple(sources),
+        freshness_groups=tuple(freshness_groups),
         previous_public_key_path=(
             Path(str(source["previous_public_key_path"])).expanduser()
             if source.get("previous_public_key_path")
@@ -209,6 +247,114 @@ def load_media_daily_config(path: str | Path) -> MediaDailyConfig:
             minimum=0,
         ),
     )
+
+
+def _source_result_is_recently_verified(item: dict[str, Any]) -> bool:
+    try:
+        covered_count = int(item.get("covered_count") or 0)
+        target_count = int(item.get("target_count") or 0)
+    except (TypeError, ValueError):
+        return False
+    return (
+        str(item.get("status") or "") == "skipped"
+        and str(item.get("reason") or "") == "minimum_interval"
+        and str(item.get("job_status") or "") == "success"
+        and target_count > 0
+        and covered_count >= target_count
+    )
+
+
+def _source_result_is_degraded(item: dict[str, Any]) -> bool:
+    if _source_result_is_recently_verified(item):
+        return False
+    source_status = str(item.get("status") or "")
+    source_reason = str(item.get("reason") or "")
+    job_status = str(item.get("job_status") or "")
+    return (
+        source_status in {"fallback", "paused"}
+        or job_status in {"snapshot_only", "pending", "paused", "partial"}
+        or item.get("publish_ready") is False
+        or (source_status == "skipped" and source_reason == "failure_backoff")
+    )
+
+
+def _magnet_contribution(feed: dict[str, Any]) -> tuple[int, int]:
+    items = feed.get("items")
+    if not isinstance(items, list):
+        return 0, 0
+    item_count = 0
+    resource_count = 0
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        magnets = [
+            resource
+            for resource in (item.get("resources") or [])
+            if isinstance(resource, dict)
+            and resource.get("resource_type") == "magnet"
+            and bool(resource.get("info_hash"))
+        ]
+        if magnets:
+            item_count += 1
+            resource_count += len(magnets)
+    return item_count, resource_count
+
+
+def _current_magnet_contribution(
+    result: dict[str, Any],
+    library_feed: dict[str, Any],
+    *,
+    require_current: bool,
+) -> tuple[int, int]:
+    if not require_current:
+        return _magnet_contribution(library_feed)
+    raw_path = result.get("feed_path")
+    if not isinstance(raw_path, str) or not raw_path.strip():
+        return 0, 0
+    feed_path = Path(raw_path).expanduser()
+    if not feed_path.is_file():
+        return 0, 0
+    return _magnet_contribution(_load_json(feed_path))
+
+
+def _freshness_group_health(
+    config: MediaDailyConfig,
+    source_results: list[dict[str, Any]],
+) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    by_source = {str(item.get("source_id") or ""): item for item in source_results}
+    health: dict[str, dict[str, Any]] = {}
+    failed: list[str] = []
+    for group in config.freshness_groups:
+        members = [source.source_id for source in config.sources if source.freshness_group == group.group_id]
+        fresh_sources = [
+            source_id
+            for source_id in members
+            if source_id in by_source
+            and not _source_result_is_degraded(by_source[source_id])
+            and int(by_source[source_id].get("magnet_item_count") or 0) > 0
+        ]
+        degraded_sources = [source_id for source_id in members if source_id not in fresh_sources]
+        no_magnet_sources = [
+            source_id
+            for source_id in members
+            if source_id in by_source
+            and not _source_result_is_degraded(by_source[source_id])
+            and int(by_source[source_id].get("magnet_item_count") or 0) <= 0
+        ]
+        passed = len(fresh_sources) >= group.min_fresh
+        health[group.group_id] = {
+            "min_fresh": group.min_fresh,
+            "member_count": len(members),
+            "fresh_count": len(fresh_sources),
+            "members": members,
+            "fresh_sources": fresh_sources,
+            "degraded_sources": degraded_sources,
+            "no_magnet_sources": no_magnet_sources,
+            "status": "pass" if passed else "fail",
+        }
+        if not passed:
+            failed.append(group.group_id)
+    return health, failed
 
 
 def _http_bytes(url: str, *, timeout: float = 60.0, max_attempts: int = 3) -> bytes:
@@ -819,7 +965,9 @@ def run_media_daily(
                         "covered_count": int(current_job.get("covered_count") or 0),
                         "publish_ready": bool(current_job.get("publish_ready")),
                         "db_path": db_path,
+                        "feed_path": str(current_job.get("feed_path") or ""),
                         "freshness_required": source.freshness_required,
+                        "freshness_group": source.freshness_group,
                     })
                 else:
                     try:
@@ -829,20 +977,27 @@ def run_media_daily(
                             target_count=source.count,
                         )
                         db_path = result.db_path
-                        result_payload = {**result.__dict__, "freshness_required": source.freshness_required}
+                        result_payload = {
+                            **result.__dict__,
+                            "freshness_required": source.freshness_required,
+                            "freshness_group": source.freshness_group,
+                        }
                         result_status = str(getattr(result, "status", "") or "")
                         result_reason = str(getattr(result, "reason", "") or "")
                         result_job_status = str(getattr(result, "job_status", "") or "")
                         result_publish_ready = bool(
                             getattr(result, "publish_ready", result_job_status == "success")
                         )
-                        freshness_incomplete = (
+                        recently_verified = _source_result_is_recently_verified(result_payload)
+                        freshness_incomplete = not recently_verified and (
                             result_status == "paused"
                             or result_job_status in {"pending", "paused", "partial"}
                             or not result_publish_ready
                             or (result_status == "skipped" and result_reason == "failure_backoff")
                         )
-                        if source.freshness_required and freshness_incomplete:
+                        if recently_verified:
+                            result_payload["freshness_evidence"] = "recent_success_within_minimum_interval"
+                        if (source.freshness_required or source.freshness_group is not None) and freshness_incomplete:
                             synthetic = ResourceIndexError(
                                 LIVE_RATE_LIMITED,
                                 "freshness-required source did not complete a fresh crawl",
@@ -859,7 +1014,8 @@ def run_media_daily(
                                 error=synthetic,
                                 max_age_hours=config.source_fallback_max_age_hours,
                             )
-                            fallback["freshness_required"] = True
+                            fallback["freshness_required"] = source.freshness_required
+                            fallback["freshness_group"] = source.freshness_group
                             fallback["initial_result"] = result_payload
                             source_results.append(fallback)
                         else:
@@ -872,19 +1028,35 @@ def run_media_daily(
                             max_age_hours=config.source_fallback_max_age_hours,
                         )
                         fallback["freshness_required"] = source.freshness_required
+                        fallback["freshness_group"] = source.freshness_group
                         source_results.append(fallback)
                 library_path = run_dir / "library" / f"{source.source_id}.json"
-                export_source_library_feed(
+                library_feed = export_source_library_feed(
                     db_path=db_path,
                     source_id=source.source_id,
                     output_path=library_path,
                 )
+                magnet_item_count, magnet_resource_count = _current_magnet_contribution(
+                    source_results[-1],
+                    library_feed,
+                    require_current=source.freshness_required or source.freshness_group is not None,
+                )
+                source_results[-1]["magnet_item_count"] = magnet_item_count
+                source_results[-1]["magnet_resource_count"] = magnet_resource_count
                 library_feeds.append(library_path)
-                if source.freshness_required and source_results[-1].get("status") == "fallback":
+                if (source.freshness_required or source.freshness_group is not None) and source_results[-1].get("status") == "fallback":
                     recovery_candidates.append((len(source_results) - 1, source, library_path))
 
             if recovery_candidates and not skip_crawl:
-                if config.source_fallback_retry_delay_seconds > 0:
+                _, initially_failed_groups = _freshness_group_health(config, source_results)
+                failed_group_ids = set(initially_failed_groups)
+                recovery_candidates = [
+                    candidate
+                    for candidate in recovery_candidates
+                    if candidate[1].freshness_required
+                    or candidate[1].freshness_group in failed_group_ids
+                ]
+                if recovery_candidates and config.source_fallback_retry_delay_seconds > 0:
                     time.sleep(config.source_fallback_retry_delay_seconds)
                 for result_index, source, library_path in recovery_candidates:
                     initial_result = dict(source_results[result_index])
@@ -903,16 +1075,24 @@ def run_media_daily(
                             and bool(getattr(retry, "publish_ready", retry.job_status == "success"))
                         )
                         if recovered:
-                            export_source_library_feed(
+                            recovered_feed = export_source_library_feed(
                                 db_path=retry.db_path,
                                 source_id=source.source_id,
                                 output_path=library_path,
+                            )
+                            magnet_item_count, magnet_resource_count = _current_magnet_contribution(
+                                retry_payload,
+                                recovered_feed,
+                                require_current=source.freshness_required or source.freshness_group is not None,
                             )
                             source_results[result_index] = {
                                 **retry_payload,
                                 "status": "recovered",
                                 "reason": "fallback_retry",
-                                "freshness_required": True,
+                                "freshness_required": source.freshness_required,
+                                "freshness_group": source.freshness_group,
+                                "magnet_item_count": magnet_item_count,
+                                "magnet_resource_count": magnet_resource_count,
                                 "initial_result": initial_result,
                             }
                         else:
@@ -934,24 +1114,16 @@ def run_media_daily(
                             },
                         }
 
-            def source_is_degraded(item: dict[str, Any]) -> bool:
-                source_status = str(item.get("status") or "")
-                source_reason = str(item.get("reason") or "")
-                job_status = str(item.get("job_status") or "")
-                return (
-                    source_status in {"fallback", "paused"}
-                    or job_status in {"snapshot_only", "pending", "paused", "partial"}
-                    or item.get("publish_ready") is False
-                    or (source_status == "skipped" and source_reason == "failure_backoff")
-                )
-
-            degraded = [item for item in source_results if source_is_degraded(item)]
+            degraded = [item for item in source_results if _source_result_is_degraded(item)]
             required_degraded = [item for item in degraded if item.get("freshness_required") is True]
+            freshness_group_health, failed_freshness_groups = _freshness_group_health(config, source_results)
             status["quality_status"] = "degraded" if degraded else "healthy"
             status["degraded_sources"] = [str(item.get("source_id") or "") for item in degraded]
             status["required_degraded_sources"] = [
                 str(item.get("source_id") or "") for item in required_degraded
             ]
+            status["freshness_groups"] = freshness_group_health
+            status["failed_freshness_groups"] = failed_freshness_groups
             status["stages"]["crawl"] = source_results
             _write_json(latest_status, status)
 
@@ -1176,7 +1348,7 @@ def run_media_daily(
                 _write_json(latest_status, status)
                 return status
 
-            if required_degraded:
+            if required_degraded or failed_freshness_groups:
                 verification = [
                     _verify_public_control(config.r2_public_base, previous_current_path),
                     _verify_public_control(config.aliyun_public_base, previous_current_path),
@@ -1186,7 +1358,9 @@ def run_media_daily(
                     {
                         "status": "success",
                         "publish_withheld": True,
-                        "publish_withheld_reason": "required_source_degraded",
+                        "publish_withheld_reason": (
+                            "required_source_degraded" if required_degraded else "freshness_group_degraded"
+                        ),
                         "public_verified": True,
                         "current_revision": previous_revision,
                         "release_id": str(previous_current.get("release_id") or ""),

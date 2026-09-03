@@ -167,6 +167,40 @@ def _ensure_builtin_movie_sources() -> None:
                 parser_epoch=f"{SIXV_SERIES_PARSER_VERSION}+{SIXV_BASE_PARSER_VERSION}",
             )
         )
+    if "dytt8899-series" not in _SPECS:
+        from magnet.resource_index.adapters.dytt.series_crawler import DyttSeriesLiveCrawler
+        from magnet.resource_index.adapters.dytt.series_parser import PARSER_VERSION as DYTT_SERIES_PARSER_VERSION
+
+        register_movie_source(
+            MovieSourceSpec(
+                source_id="dytt8899-series",
+                snapshot_schema="media-latest/dytt8899-series/1",
+                default_count=100,
+                minimum_delay_seconds=12.0,
+                minimum_check_interval_hours=12,
+                daily_request_budget=140,
+                default_batch_size=10,
+                automatic_max_batches=10,
+                snapshot_max_requests=6,
+                batch_max_requests=10,
+                max_listing_pages=6,
+                robots_url="https://www.dytt8899.com/robots.txt",
+                allowed_origins=("https://www.dytt8899.com",),
+                allowed_path_prefixes=("/html/tv/", "/i/"),
+                crawler_factory=lambda policy, origin=None, allowed_origins=None: DyttSeriesLiveCrawler(
+                    policy=policy,
+                    origin=origin or "https://www.dytt8899.com",
+                    allowed_origins=allowed_origins,
+                ),
+                brand_id="dytt8899",
+                content_kind="series",
+                parser_variant="dytt_empire",
+                catalog_role="supplemental",
+                metadata_priority=220,
+                detail_requests_per_item_upper_bound=1,
+                parser_epoch=DYTT_SERIES_PARSER_VERSION,
+            )
+        )
     if "meijumi" not in _SPECS:
         from magnet.resource_index.adapters.meijumi.live_crawler import MeijumiLiveCrawler
         from magnet.resource_index.adapters.meijumi.parser import PARSER_VERSION as MEIJUMI_PARSER_VERSION
@@ -199,6 +233,74 @@ def _ensure_builtin_movie_sources() -> None:
                 metadata_priority=300,
                 detail_requests_per_item_upper_bound=1,
                 parser_epoch=MEIJUMI_PARSER_VERSION,
+            )
+        )
+    if "bitba-series" not in _SPECS:
+        from magnet.resource_index.adapters.bitba.live_crawler import BitbaSeriesLiveCrawler
+        from magnet.resource_index.adapters.bitba.parser import PARSER_VERSION as BITBA_SERIES_PARSER_VERSION
+
+        register_movie_source(
+            MovieSourceSpec(
+                source_id="bitba-series",
+                snapshot_schema="media-latest/bitba-series/1",
+                default_count=100,
+                minimum_delay_seconds=10.0,
+                minimum_check_interval_hours=12,
+                daily_request_budget=140,
+                default_batch_size=10,
+                automatic_max_batches=10,
+                snapshot_max_requests=3,
+                batch_max_requests=10,
+                max_listing_pages=3,
+                robots_url="https://www.bitba.net/robots.txt",
+                allowed_origins=("https://www.bitba.net",),
+                allowed_path_prefixes=("/filter-2", "/bt/"),
+                crawler_factory=lambda policy, origin=None, allowed_origins=None: BitbaSeriesLiveCrawler(
+                    policy=policy,
+                    origin=origin or "https://www.bitba.net",
+                    allowed_origins=allowed_origins,
+                ),
+                brand_id="bitba",
+                content_kind="series",
+                parser_variant="bitba_cards_jsonld",
+                catalog_role="supplemental",
+                metadata_priority=240,
+                detail_requests_per_item_upper_bound=1,
+                parser_epoch=BITBA_SERIES_PARSER_VERSION,
+            )
+        )
+    if "mjf-series" not in _SPECS:
+        from magnet.resource_index.adapters.mjf.live_crawler import MjfSeriesLiveCrawler
+        from magnet.resource_index.adapters.mjf.parser import PARSER_VERSION as MJF_SERIES_PARSER_VERSION
+
+        register_movie_source(
+            MovieSourceSpec(
+                source_id="mjf-series",
+                snapshot_schema="media-latest/mjf-series/1",
+                default_count=50,
+                minimum_delay_seconds=10.0,
+                minimum_check_interval_hours=12,
+                daily_request_budget=130,
+                default_batch_size=5,
+                automatic_max_batches=10,
+                snapshot_max_requests=1,
+                batch_max_requests=10,
+                max_listing_pages=1,
+                robots_url="https://www.mjf2020.com/robots.txt",
+                allowed_origins=("https://www.mjf2020.com",),
+                allowed_path_prefixes=("/gx.html", "/jianjie/", "/bt/"),
+                crawler_factory=lambda policy, origin=None, allowed_origins=None: MjfSeriesLiveCrawler(
+                    policy=policy,
+                    origin=origin or "https://www.mjf2020.com",
+                    allowed_origins=allowed_origins,
+                ),
+                brand_id="mjf",
+                content_kind="series",
+                parser_variant="mjf_series",
+                catalog_role="supplemental",
+                metadata_priority=260,
+                detail_requests_per_item_upper_bound=2,
+                parser_epoch=MJF_SERIES_PARSER_VERSION,
             )
         )
     if "dytt8899" not in _SPECS:

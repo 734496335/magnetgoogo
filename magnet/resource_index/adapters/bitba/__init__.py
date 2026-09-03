@@ -1,0 +1,1 @@
+"""Bitba media-source adapter."""

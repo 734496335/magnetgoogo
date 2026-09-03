@@ -11,6 +11,7 @@ from magnet.resource_index.errors import ResourceIndexError
 from magnet.resource_index.pipeline import media_daily
 from magnet.resource_index.pipeline.media_daily import (
     DailySourceConfig,
+    FreshnessGroupConfig,
     MediaDailyConfig,
     _archive_unpromoted_pointer_candidates,
     _rating_next_offset,
@@ -71,8 +72,22 @@ def _install_fakes(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     def fake_export(**kwargs):
-        _write(Path(kwargs["output_path"]), {"schema_version": "movie-feed/1", "items": []})
-        return {"items": []}
+        payload = {
+            "schema_version": "movie-feed/1",
+            "items": [
+                {
+                    "resources": [
+                        {
+                            "resource_type": "magnet",
+                            "info_hash": "a" * 40,
+                            "url": f"magnet:?xt=urn:btih:{'a' * 40}",
+                        }
+                    ]
+                }
+            ],
+        }
+        _write(Path(kwargs["output_path"]), payload)
+        return payload
 
     monkeypatch.setattr(media_daily, "export_source_library_feed", fake_export)
     monkeypatch.setattr(
@@ -257,6 +272,64 @@ def test_media_daily_config_rejects_non_boolean_freshness_flag(tmp_path: Path) -
         },
     )
     with pytest.raises(ResourceIndexError, match="freshness flag"):
+        load_media_daily_config(config_path)
+
+
+def test_media_daily_config_rejects_unknown_freshness_group(tmp_path: Path) -> None:
+    config_path = tmp_path / "media-daily.json"
+    _write(
+        config_path,
+        {
+            "state_root": str(tmp_path / "state"),
+            "public_root": str(tmp_path / "public"),
+            "private_key_path": str(tmp_path / "private.pem"),
+            "public_key_path": str(tmp_path / "public.pem"),
+            "freshness_groups": {"series": {"min_fresh": 1}},
+            "sources": [{"source_id": "sixv-series", "count": 100, "freshness_group": "typo"}],
+        },
+    )
+    with pytest.raises(ResourceIndexError, match="unknown freshness group"):
+        load_media_daily_config(config_path)
+
+
+def test_media_daily_config_rejects_quorum_larger_than_member_count(tmp_path: Path) -> None:
+    config_path = tmp_path / "media-daily.json"
+    _write(
+        config_path,
+        {
+            "state_root": str(tmp_path / "state"),
+            "public_root": str(tmp_path / "public"),
+            "private_key_path": str(tmp_path / "private.pem"),
+            "public_key_path": str(tmp_path / "public.pem"),
+            "freshness_groups": {"series": {"min_fresh": 2}},
+            "sources": [{"source_id": "sixv-series", "count": 100, "freshness_group": "series"}],
+        },
+    )
+    with pytest.raises(ResourceIndexError, match="min_fresh exceeds"):
+        load_media_daily_config(config_path)
+
+
+def test_media_daily_config_rejects_source_in_required_and_group_modes(tmp_path: Path) -> None:
+    config_path = tmp_path / "media-daily.json"
+    _write(
+        config_path,
+        {
+            "state_root": str(tmp_path / "state"),
+            "public_root": str(tmp_path / "public"),
+            "private_key_path": str(tmp_path / "private.pem"),
+            "public_key_path": str(tmp_path / "public.pem"),
+            "freshness_groups": {"series": {"min_fresh": 1}},
+            "sources": [
+                {
+                    "source_id": "meijumi",
+                    "count": 100,
+                    "freshness_required": True,
+                    "freshness_group": "series",
+                }
+            ],
+        },
+    )
+    with pytest.raises(ResourceIndexError, match="both freshness_required"):
         load_media_daily_config(config_path)
 
 
@@ -1311,3 +1384,289 @@ def test_daily_pipeline_restores_persisted_four_source_ratings(
     assert len(state["items"]) == 2
     assert state["items"]["movie:1"]["ratings"]["rotten_tomatoes_rating"] == 90.0
     assert state["items"]["series:1"]["ratings"]["bangumi_rating"] == 7.3
+
+
+def test_freshness_magnet_contribution_uses_current_target_feed_not_old_library(
+    tmp_path: Path,
+) -> None:
+    current = tmp_path / "current.json"
+    _write(current, {"items": []})
+    old_library = {
+        "items": [
+            {
+                "resources": [
+                    {"resource_type": "magnet", "info_hash": "c" * 40},
+                ],
+            },
+        ],
+    }
+    assert media_daily._current_magnet_contribution(
+        {"feed_path": str(current)},
+        old_library,
+        require_current=True,
+    ) == (0, 0)
+
+    _write(
+        current,
+        {
+            "items": [
+                {
+                    "resources": [
+                        {"resource_type": "magnet", "info_hash": "d" * 40},
+                    ],
+                },
+            ],
+        },
+    )
+    assert media_daily._current_magnet_contribution(
+        {"feed_path": str(current)},
+        old_library,
+        require_current=True,
+    ) == (1, 1)
+
+
+def _series_quorum_config(tmp_path: Path) -> MediaDailyConfig:
+    base = _config(tmp_path)
+    return MediaDailyConfig(
+        **{
+            **base.__dict__,
+            "sources": (
+                DailySourceConfig("meijumi", 10, False, "series"),
+                DailySourceConfig("sixv-series", 10, False, "series"),
+                DailySourceConfig("mjf-series", 10, False, "series"),
+                DailySourceConfig("bitba-series", 10, False, "series"),
+            ),
+            "freshness_groups": (FreshnessGroupConfig("series", 2),),
+        }
+    )
+
+
+def test_minimum_interval_skip_is_recent_freshness_only_for_complete_success() -> None:
+    good = {
+        "status": "skipped",
+        "reason": "minimum_interval",
+        "job_status": "success",
+        "covered_count": 50,
+        "target_count": 50,
+        "publish_ready": False,
+    }
+    assert media_daily._source_result_is_recently_verified(good) is True
+    assert media_daily._source_result_is_degraded(good) is False
+    assert media_daily._source_result_is_recently_verified({**good, "reason": "daily_budget"}) is False
+    assert media_daily._source_result_is_degraded({**good, "reason": "daily_budget"}) is True
+    assert media_daily._source_result_is_recently_verified({**good, "covered_count": 49}) is False
+    assert media_daily._source_result_is_degraded({**good, "covered_count": 49}) is True
+    assert media_daily._source_result_is_recently_verified({**good, "job_status": "partial"}) is False
+    assert media_daily._source_result_is_degraded({**good, "job_status": "partial"}) is True
+
+
+def test_minimum_interval_recent_success_does_not_fallback_or_break_quorum(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+
+    def run_source(**kwargs):
+        source_id = kwargs["source_id"]
+        feed_path = tmp_path / f"{source_id}-recent.json"
+        _write(
+            feed_path,
+            {
+                "items": [
+                    {
+                        "resources": [
+                            {"resource_type": "magnet", "info_hash": (source_id[0] * 40)},
+                        ],
+                    },
+                ],
+            },
+        )
+        return SimpleNamespace(
+            source_id=source_id,
+            status="skipped",
+            reason="minimum_interval",
+            target_count=kwargs["target_count"],
+            invocation_http_requests=0,
+            reserved_requests=0,
+            snapshot_changed=None,
+            job_status="success",
+            covered_count=kwargs["target_count"],
+            remaining_daily_requests=10,
+            db_path=f"/{source_id}.db",
+            feed_path=str(feed_path),
+            publish_ready=False,
+        )
+
+    monkeypatch.setattr(media_daily, "run_safe_movie_source", run_source)
+    result = run_media_daily(
+        _series_quorum_config(tmp_path),
+        publish=False,
+        skip_ratings=True,
+    )
+
+    assert result["status"] == "success"
+    assert result["candidate_verified"] is True
+    assert result["failed_freshness_groups"] == []
+    assert result["freshness_groups"]["series"]["fresh_count"] == 4
+    assert result["degraded_sources"] == []
+    assert all(
+        item.get("freshness_evidence") == "recent_success_within_minimum_interval"
+        for item in result["stages"]["crawl"]
+    )
+
+
+def test_series_freshness_quorum_excludes_nomagnet_sources_from_fresh_count(tmp_path: Path) -> None:
+    config = _series_quorum_config(tmp_path)
+    source_results = [
+        {
+            "source_id": "meijumi",
+            "status": "ran",
+            "job_status": "success",
+            "publish_ready": True,
+            "magnet_item_count": 0,
+        },
+        {
+            "source_id": "sixv-series",
+            "status": "ran",
+            "job_status": "success",
+            "publish_ready": True,
+            "magnet_item_count": 10,
+        },
+        {
+            "source_id": "mjf-series",
+            "status": "ran",
+            "job_status": "success",
+            "publish_ready": True,
+            "magnet_item_count": 10,
+        },
+        {
+            "source_id": "bitba-series",
+            "status": "ran",
+            "job_status": "success",
+            "publish_ready": True,
+            "magnet_item_count": 0,
+        },
+    ]
+
+    health, failed = media_daily._freshness_group_health(config, source_results)
+
+    assert failed == []
+    assert health["series"]["fresh_count"] == 2
+    assert health["series"]["fresh_sources"] == ["sixv-series", "mjf-series"]
+    assert health["series"]["no_magnet_sources"] == ["meijumi", "bitba-series"]
+
+
+def test_series_freshness_quorum_allows_publish_when_meijumi_alone_is_degraded(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+
+    def source_status(**kwargs):
+        source_id = kwargs["source_id"]
+        degraded = source_id == "meijumi"
+        feed_path = tmp_path / f"{source_id}-latest.json"
+        _write(
+            feed_path,
+            {
+                "items": [] if degraded else [{"resources": [{"resource_type": "magnet", "info_hash": "a" * 40}]}],
+            },
+        )
+        return {
+            "job": {
+                "db_path": f"/{source_id}.db",
+                "feed_path": str(feed_path),
+                "status": "pending" if degraded else "success",
+                "covered_count": 9 if degraded else kwargs["target_count"],
+                "publish_ready": not degraded,
+            },
+            "source": {"last_completed_at": media_daily._iso()},
+        }
+
+    class LocalBackend:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def promote_current(self, _path):
+            pass
+
+    class R2Backend(LocalBackend):
+        pass
+
+    monkeypatch.setattr(media_daily, "safe_movie_source_status", source_status)
+    monkeypatch.setattr(media_daily, "FilesystemPublisherBackend", LocalBackend)
+    monkeypatch.setattr(media_daily, "WorkerR2PublisherBackend", R2Backend)
+    monkeypatch.setattr(
+        media_daily,
+        "publish_media_release",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            status="success",
+            object_count=1,
+            uploaded_count=0,
+            reused_count=1,
+            current_promoted=False,
+        ),
+    )
+    monkeypatch.setenv("TOKEN", "t" * 64)
+
+    result = run_media_daily(
+        _series_quorum_config(tmp_path),
+        publish=True,
+        force_publish=True,
+        skip_crawl=True,
+        skip_ratings=True,
+    )
+
+    assert result["status"] == "success"
+    assert result["published"] is True
+    assert result["degraded_sources"] == ["meijumi"]
+    assert result["required_degraded_sources"] == []
+    assert result["failed_freshness_groups"] == []
+    assert result["freshness_groups"]["series"]["status"] == "pass"
+    assert result["freshness_groups"]["series"]["fresh_count"] == 3
+
+
+def test_series_freshness_quorum_withholds_publish_when_only_one_source_is_fresh(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+
+    def source_status(**kwargs):
+        source_id = kwargs["source_id"]
+        fresh = source_id == "sixv-series"
+        feed_path = tmp_path / f"{source_id}-latest.json"
+        _write(
+            feed_path,
+            {
+                "items": [{"resources": [{"resource_type": "magnet", "info_hash": "b" * 40}]}] if fresh else [],
+            },
+        )
+        return {
+            "job": {
+                "db_path": f"/{source_id}.db",
+                "feed_path": str(feed_path),
+                "status": "success" if fresh else "pending",
+                "covered_count": kwargs["target_count"] if fresh else 9,
+                "publish_ready": fresh,
+            },
+            "source": {"last_completed_at": media_daily._iso()},
+        }
+
+    monkeypatch.setattr(media_daily, "safe_movie_source_status", source_status)
+
+    result = run_media_daily(
+        _series_quorum_config(tmp_path),
+        publish=True,
+        force_publish=True,
+        skip_crawl=True,
+        skip_ratings=True,
+    )
+
+    assert result["status"] == "success"
+    assert result["publish_withheld"] is True
+    assert result["publish_withheld_reason"] == "freshness_group_degraded"
+    assert result["current_revision"] == 6
+    assert result["failed_freshness_groups"] == ["series"]
+    assert result["freshness_groups"]["series"]["status"] == "fail"
+    assert result["freshness_groups"]["series"]["fresh_count"] == 1

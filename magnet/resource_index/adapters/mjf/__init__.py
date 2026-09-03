@@ -1,0 +1,1 @@
+"""MJF series source adapter."""
