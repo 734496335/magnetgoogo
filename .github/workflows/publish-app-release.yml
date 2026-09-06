@@ -1,0 +1,45 @@
+name: Publish App Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release manifest
+        uses: actions/checkout@v4
+
+      - name: Download and verify release APK
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          checksum_file="releases/${TAG}.sha256"
+          notes_file="releases/RELEASE-${TAG}.md"
+          test -f "$checksum_file"
+          test -f "$notes_file"
+          curl --fail --location --retry 3 --retry-delay 2 \
+            "https://api.naoshiquan.com/download/${TAG}/app-release.apk" \
+            --output app-release.apk
+          expected="$(tr -d '[:space:]' < "$checksum_file")"
+          actual="$(sha256sum app-release.apk | awk '{print $1}')"
+          test "$actual" = "$expected"
+
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" app-release.apk \
+            --verify-tag \
+            --title "MagnetGoogo ${TAG}" \
+            --notes-file "releases/RELEASE-${TAG}.md"
