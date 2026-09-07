@@ -245,6 +245,12 @@ def test_media_alert_wires_only_second_failure_and_success_recovery() -> None:
     assert "required_degraded_sources" in helper
     assert "failed_freshness_groups" in helper
     assert "DEGRADED_SOURCES" in helper
+    assert "REDUNDANCY_DEGRADED" in helper
+    assert 'elif [[ -n "$REDUNDANCY_DEGRADED" ]]' in helper
+    assert 'elif [[ -n "$DEGRADED_SOURCES" ]]' not in helper
+    assert 'group.get("fresh_count")' in helper
+    assert 'group.get("member_count")' in helper
+    assert 'group.get("min_fresh")' in helper
     assert "--repeat-hours 24" in helper
 
 

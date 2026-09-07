@@ -66,6 +66,30 @@ print(",".join(items))
 PY
 )"
 
+REDUNDANCY_DEGRADED="$($PYTHON_BIN - "$STATUS" <<'PY'
+import json, sys
+from pathlib import Path
+try:
+    value = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+except Exception:
+    value = {}
+groups = value.get("freshness_groups") if isinstance(value.get("freshness_groups"), dict) else {}
+items = []
+for name, group in groups.items():
+    if not isinstance(group, dict):
+        continue
+    try:
+        fresh_count = int(group.get("fresh_count"))
+        member_count = int(group.get("member_count"))
+        min_fresh = int(group.get("min_fresh"))
+    except (TypeError, ValueError):
+        continue
+    if fresh_count >= min_fresh and fresh_count < member_count:
+        items.append(f"{name}:{fresh_count}/{member_count}")
+print(",".join(items))
+PY
+)"
+
 case "$MODE" in
   failure)
     "$ALERT_BIN" failure \
@@ -93,7 +117,7 @@ case "$MODE" in
         --severity P1 \
         --title "影视 freshness 门禁持续降级" \
         --message "影视 freshness 门禁未满足：必需单源或冗余组新鲜源数量不足。生产 current 保持上一稳定 revision，未强行晋级。\n$DETAIL" || true
-    elif [[ -n "$DEGRADED_SOURCES" ]]; then
+    elif [[ -n "$REDUNDANCY_DEGRADED" ]]; then
       "$ALERT_BIN" success \
         --key media-source-freshness \
         --state-file "$FRESHNESS_STATE_FILE" \
@@ -107,7 +131,7 @@ case "$MODE" in
         --repeat-hours 24 \
         --severity P2 \
         --title "影视资源冗余降级" \
-        --message "至少一个影视源仍处于 degraded，但 freshness quorum 仍满足，发布继续。请修复降级源以恢复冗余余量。\n$DETAIL" || true
+        --message "至少一个 freshness 冗余组未达到全员新鲜，但 quorum 仍满足，发布继续。冗余缺口=$REDUNDANCY_DEGRADED。\n$DETAIL" || true
     else
       "$ALERT_BIN" success \
         --key media-source-freshness \
@@ -120,7 +144,7 @@ case "$MODE" in
         --state-file "$REDUNDANCY_STATE_FILE" \
         --severity P2 \
         --title "影视资源冗余已恢复" \
-        --message "影视源当前均未处于 degraded，冗余余量已恢复。\n$DETAIL" || true
+        --message "影视 freshness 冗余组当前均为全员新鲜；非 quorum supplemental 源降级不再误触发冗余告警。\n$DETAIL" || true
     fi
     "$ALERT_BIN" success \
       --key media-publish \

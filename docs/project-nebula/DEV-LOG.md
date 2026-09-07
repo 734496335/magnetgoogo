@@ -1,4 +1,26 @@
 ---
+Date/Time: 2026-09-07 09:08 (UTC+8)
+Version: v0.2.8-media-alert-redundancy-scope
+Scope: Verify the unattended media crawler in production and close a false P2 redundancy alert without changing source health or crawler publication semantics.
+Modules: media daily production runtime / freshness observability / media alert helper
+
+### Production observation
+- `magnet-media-daily.timer` is active; the 2026-09-07 03:33 CST publish run exited 0 at 04:31 and the next run is scheduled for 2026-09-08 03:34. Weekly audit also exited 0 on 2026-09-06; no stale media crawler process remains.
+- Latest production publish advanced revision 36 -> 37 with 396 movies / 498 series / 6280 magnet resources; R2 and Aliyun both expose the same signed revision37 pointer and release id.
+- Series freshness is 4/4 (`meijumi`, `sixv-series`, `bitba-series`, `mjf-series`) with min_fresh=2. `dytt8899` is supplemental at 249/250 and remains the only degraded source; required_degraded_sources and failed_freshness_groups are empty.
+- Source snapshots were refreshed during the run and release quality gates passed; no forced source health mutation was made.
+
+### False P2 alert root cause / fix
+- Production `media-source-redundancy.json` remained open with 8 consecutive failures even while the series freshness group was 4/4. The helper opened P2 whenever global `degraded_sources` was non-empty, so supplemental `dytt8899` incorrectly counted as freshness redundancy loss.
+- `media-alert.sh` now derives `REDUNDANCY_DEGRADED` only from freshness groups whose `fresh_count < member_count` while `fresh_count >= min_fresh`. Supplemental degradation outside a freshness group no longer opens P2; true 3/4-style quorum degradation still does.
+- The regression test requires the helper to branch on `REDUNDANCY_DEGRADED`, not raw `DEGRADED_SOURCES`, and asserts the fresh/member/min_fresh inputs remain part of the rule.
+
+### Verification
+- `bash -n deploy/resource-index/linux/media-alert.sh` PASS.
+- Targeted alert/deployment tests: 25 passed.
+- Full Resource Index: 452 passed / 1 skipped; `python magnet/validate_enum.py`: rules=241 / ALL VALID.
+- No `sources.json health.status` change; publication and crawler semantics unchanged.
+---
 Date/Time: 2026-08-15 11:12 (UTC+8)
 Version: v0.2.6-media-freshness-production-closure
 Scope: Close sixv freshness recovery and budget defects, restore current media publication, and adversarially fix incomplete supplemental-source quality reporting without changing source health states.

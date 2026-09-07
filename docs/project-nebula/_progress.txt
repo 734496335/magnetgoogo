@@ -1,28 +1,23 @@
-TASK: media freshness/recovery/quality observability + production alert closure
-STATUS: MEDIA_PRODUCTION_FIXED / QUALITY_OBSERVABILITY_FIXED / REAL_EMAIL_TRANSPORT_BLOCKED
-DATE: 2026-08-15 UTC+8
+TASK: media crawler production monitoring + redundancy alert correction
+STATUS: MEDIA_CRAWLER_HEALTHY / P2_REDUNDANCY_FALSE_POSITIVE_FIXED_LOCAL
+DATE: 2026-09-07 UTC+8
 
-MEDIA PRODUCTION:
-- Public media current verified revision16 / release 20260815T000000Z-8cf00f8a; R2/Aliyun pointer bytes match; 286 movies / 315 series / 4462 magnet resources.
-- sixv defects closed: structured failure actual-request accounting, same-origin mirror parsing, 100-item snapshot window=5 pages, explicit per-detail request upper bound.
-- sixv durable recovery reached 100/100 with 9 real HTTP requests and retained safe daily budget.
-- freshness_required fallback now gets delayed single-source retry; unrecovered main-source fallback becomes degraded and enters freshness alert state.
-- final review found supplemental pending/partial/paused could still report global healthy; these now enter degraded_sources but not required_degraded_sources.
-- skip-crawl publish/audit now carries durable job_status/covered_count into the same quality gate; removed an inner import that had made this path bypass dependency injection tests.
-- Resource Index 427 passed / 1 skipped; compileall PASS; enum 241 ALL VALID.
-- production latest image overlay: sha256:0f97daba31f83b58303fc6f52955617605f55380ffbed688f6400495821f84f1; rollback tags retained.
-- real production audit mode proved sixv-series durable pending 99/100 => quality=degraded, degraded_sources=[sixv-series], required=[]; public pointer SHA stayed 03e07a... before/after.
+PRODUCTION MEDIA:
+- Daily timer active; 2026-09-07 03:33 CST run exited 0 at 04:31; next 2026-09-08 03:34.
+- Weekly audit 2026-09-06 exited 0; no stale media crawler process remains.
+- Latest publish revision36->37; 396 movies / 498 series / 6280 magnet resources.
+- R2 + Aliyun current pointers agree on revision37 / release 20261030T000000Z-3afd2890.
+- Series freshness 4/4: meijumi, sixv-series, bitba-series, mjf-series; min_fresh=2.
+- Only degraded source is supplemental dytt8899 249/250; required_degraded_sources=[]; failed_freshness_groups=[].
+- Release quality gate passed; covers complete; magnet-only total=6280; dual-endpoint verification passed.
 
-SOURCE SYNC:
-- hourly service success; current full pack SHA 9dd9c8863ff28c79778494ae533f1a0a4d27dc90153bbd7b8e1ede303080c782.
-- 357 rules / 148 GREEN; authority/jsDelivr/Aliyun converged; ~31h validity remained at 10:19 CST.
-- no sources.json health.status mutation.
+MONITORING FIX:
+- Production media-source-redundancy P2 was falsely open because any global degraded source triggered it.
+- media-alert.sh now opens P2 only when a freshness group has fresh_count < member_count while still >= min_fresh.
+- Supplemental non-quorum degradation no longer counts as redundancy loss; true 3/4-style group degradation still alerts.
+- Targeted tests 25 passed; full Resource Index 452 passed / 1 skipped; enum 241 ALL VALID.
+- No sources.json health.status mutation.
 
-ALERTS:
-- media retry-failure, required-source freshness degradation, source-sync failure and source-expiry state machines/hooks are installed and fail-open.
-- root-only /etc/magnet-alerts/alert.env remains mode 0600; recipient field restored; transport remains disabled.
-- strict alert test returns rc=2 as expected while no CloudMonitor URL / SMTP auth credential exists; no email delivery is claimed.
-
-REMAINING:
-- Real email delivery requires one external credential: preferred CloudMonitor External Alert URL/security keyword, or QQ SMTP authorization code.
-- Next unattended media run will apply the new supplemental-source degraded status semantics; no public revision was forced just to test observability.
+NEXT:
+- Commit/push media alert fix, deploy immutable host release, execute success helper against current status, verify P2 closes while P1/P0 stay healthy.
+- Run production App media full-compat smoke and final SEO/Growth diff/report closure.
