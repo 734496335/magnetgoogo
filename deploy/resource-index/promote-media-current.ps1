@@ -8,7 +8,7 @@ param(
     [string]$R2Base = "https://media.magnetgoogo.com",
     [string]$AliyunBase = "https://cn.magnetgoogo.com/media",
     [string]$AliyunServer = "admin@47.103.155.154",
-    [string]$AliyunRoot = "/var/www/magnetgoogo-site/media",
+    [string]$AliyunRoot = "/var/lib/magnet-media/public",
     [string]$ReceiptDir = "data\resource_index\media_publish_receipts"
 )
 
@@ -36,6 +36,7 @@ $ReceiptDir = Resolve-RepoPath $ReceiptDir
 $Verifier = Resolve-RepoPath "deploy\resource-index\verify-media-control.py"
 $Fetcher = Resolve-RepoPath "deploy\resource-index\fetch-media-file.mjs"
 $HttpVerifier = Resolve-RepoPath "deploy\resource-index\verify-media-http.mjs"
+$RemoteMirrorHelper = Resolve-RepoPath "deploy\resource-index\remote-static-mirror.py"
 $Pointer = Get-Content -Raw -Encoding UTF8 $CurrentPath | ConvertFrom-Json
 $ManifestRelative = $Pointer.manifest_path.TrimStart("/").Replace("/", "\")
 $ManifestPath = Join-Path $ReleaseDir $ManifestRelative
@@ -66,6 +67,7 @@ try {
     }
 
     $EndpointEvidence = @()
+    $AliyunExistingSha256 = $null
     foreach ($Base in @($R2Base, $AliyunBase)) {
         $ManifestDownload = Join-Path $WorkDir (([Guid]::NewGuid().ToString("N")) + ".manifest.json")
         $ManifestReportPath = Join-Path $WorkDir (([Guid]::NewGuid().ToString("N")) + ".manifest-report.json")
@@ -88,9 +90,13 @@ try {
         Invoke-Checked "Existing current request" {
             node $Fetcher --url $CurrentUrl --output $ExistingDownload --report $ExistingReportPath
         }
-        $ExistingStatus = [int](Get-Content -Raw -Encoding UTF8 $ExistingReportPath | ConvertFrom-Json).status
+        $ExistingFetchReport = Get-Content -Raw -Encoding UTF8 $ExistingReportPath | ConvertFrom-Json
+        $ExistingStatus = [int]$ExistingFetchReport.status
         $ExistingState = "absent"
         if ($ExistingStatus -eq 200) {
+            if ($Base -eq $AliyunBase) {
+                $AliyunExistingSha256 = [string]$ExistingFetchReport.sha256
+            }
             $ExistingReportPath = Join-Path $WorkDir (([Guid]::NewGuid().ToString("N")) + ".existing-report.json")
             Invoke-Checked "Existing signed current verification" {
                 python $Verifier --pointer $CurrentPath --public-key $PublicKey --existing $ExistingDownload | Tee-Object -FilePath $ExistingReportPath | Out-Host
@@ -107,6 +113,30 @@ try {
         }
     }
 
+    if ([string]::IsNullOrWhiteSpace($AliyunExistingSha256) -or $AliyunExistingSha256.Length -ne 64) {
+        throw "Aliyun current pointer SHA-256 was not captured during preflight."
+    }
+
+    $RemoteStage = "/tmp/media-current-$RunId"
+    $RemoteCandidate = "$RemoteStage/candidate.json"
+    $RemoteHelper = "$RemoteStage/remote-static-mirror.py"
+    Invoke-Checked "Aliyun current helper staging" {
+        ssh -o BatchMode=yes -o LogLevel=ERROR $AliyunServer "rm -rf '$RemoteStage' && mkdir -m 700 '$RemoteStage'"
+    }
+    Invoke-Checked "Aliyun current candidate/helper upload" {
+        scp -q -o LogLevel=ERROR $CurrentPath $RemoteMirrorHelper "$AliyunServer`:$RemoteStage/"
+    }
+    $UploadedCurrentName = [System.IO.Path]::GetFileName($CurrentPath)
+    if ($UploadedCurrentName -ne "candidate.json") {
+        Invoke-Checked "Aliyun current candidate normalize" {
+            ssh -o BatchMode=yes -o LogLevel=ERROR $AliyunServer "mv '$RemoteStage/$UploadedCurrentName' '$RemoteCandidate'"
+        }
+    }
+    $AliyunPreflightCommand = "sudo -n python3 '$RemoteHelper' preflight-current --root '$AliyunRoot' --candidate '$RemoteCandidate' --expected-existing-sha256 '$AliyunExistingSha256'"
+    Invoke-Checked "Aliyun atomic current preflight" {
+        ssh -o BatchMode=yes -o LogLevel=ERROR $AliyunServer $AliyunPreflightCommand | Out-Host
+    }
+
     Invoke-Checked "R2 current pointer upload" {
         npx.cmd -y wrangler@4.114.0 r2 object put `
             "magnetgoogo-media/v1/current.json" `
@@ -117,13 +147,12 @@ try {
             --force | Out-Host
     }
 
-    $RemoteTemp = "/tmp/media-current-$RunId.json"
-    Invoke-Checked "Aliyun current pointer upload" {
-        scp -q -o LogLevel=ERROR $CurrentPath "$AliyunServer`:$RemoteTemp"
-    }
-    $RemoteCommand = "set -e; sudo -n mkdir -p '$AliyunRoot/v1'; sudo -n install -m 0644 '$RemoteTemp' '$AliyunRoot/v1/.current-$RunId.tmp'; sudo -n mv -f '$AliyunRoot/v1/.current-$RunId.tmp' '$AliyunRoot/v1/current.json'; rm -f '$RemoteTemp'"
+    $AliyunPromoteCommand = "sudo -n python3 '$RemoteHelper' promote-current --root '$AliyunRoot' --candidate '$RemoteCandidate' --expected-existing-sha256 '$AliyunExistingSha256'"
     Invoke-Checked "Aliyun atomic current pointer promotion" {
-        ssh -o BatchMode=yes -o LogLevel=ERROR $AliyunServer $RemoteCommand
+        ssh -o BatchMode=yes -o LogLevel=ERROR $AliyunServer $AliyunPromoteCommand | Out-Host
+    }
+    Invoke-Checked "Aliyun current helper cleanup" {
+        ssh -o BatchMode=yes -o LogLevel=ERROR $AliyunServer "rm -rf '$RemoteStage'"
     }
 
     $PointerHash = $CandidateReport.pointer_sha256

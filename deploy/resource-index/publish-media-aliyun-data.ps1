@@ -6,7 +6,7 @@ param(
     [string]$CurrentPath,
     [string]$PublicKey = "data\resource_index\.secrets\media-ed25519-public.pem",
     [string]$Server = "admin@47.103.155.154",
-    [string]$RemoteRoot = "/var/www/magnetgoogo-site/media",
+    [string]$RemoteRoot = "/var/lib/magnet-media/public",
     [string]$ReceiptDir = "data\resource_index\media_publish_receipts"
 )
 
@@ -33,8 +33,9 @@ $PublicKey = Resolve-RepoPath $PublicKey
 $ReceiptDir = Resolve-RepoPath $ReceiptDir
 $Verifier = Resolve-RepoPath "deploy\resource-index\verify-static-mirror.py"
 $Installer = Resolve-RepoPath "deploy\resource-index\install-nginx-media-include.py"
-$NginxSnippet = Resolve-RepoPath "deploy\resource-index\nginx-media-locations.conf"
+$NginxSnippet = Resolve-RepoPath "deploy\resource-index\linux\nginx-media-alias.conf"
 $HttpVerifier = Resolve-RepoPath "deploy\resource-index\verify-media-http.mjs"
+$Fetcher = Resolve-RepoPath "deploy\resource-index\fetch-media-file.mjs"
 
 if (-not (Test-Path (Join-Path $ReleaseDir "v1"))) {
     throw "ReleaseDir does not contain the v1 release tree."
@@ -74,6 +75,20 @@ try {
     Invoke-Checked "Local mirror package verification" {
         python $Verifier --root $PayloadDir --plan $PlanPath --exact | Out-Host
     }
+
+    $CurrentBeforePath = Join-Path $WorkDir "current-before.json"
+    $CurrentBeforeReportPath = Join-Path $WorkDir "current-before-report.json"
+    Invoke-Checked "Aliyun current pointer preflight" {
+        node $Fetcher `
+            --url "https://cn.magnetgoogo.com/media/v1/current.json" `
+            --output $CurrentBeforePath `
+            --report $CurrentBeforeReportPath | Out-Host
+    }
+    $CurrentBeforeReport = Get-Content -Raw -Encoding UTF8 $CurrentBeforeReportPath | ConvertFrom-Json
+    if ([int]$CurrentBeforeReport.status -ne 200) {
+        throw "Aliyun current pointer must already exist before immutable-data publication."
+    }
+    $CurrentBeforeSha256 = [string]$CurrentBeforeReport.sha256
 
     Copy-Item -Force $Verifier (Join-Path $WorkDir "verify-static-mirror.py")
     Copy-Item -Force $Installer (Join-Path $WorkDir "install-nginx-media-include.py")
@@ -118,7 +133,8 @@ rm -rf '$RemoteStage' '$RemoteArchive'
         node $HttpVerifier `
             --base "https://cn.magnetgoogo.com/media" `
             --plan $PlanPath `
-            --expected-current-status 404 | Tee-Object -FilePath $HttpReportPath | Out-Host
+            --expected-current-status 200 `
+            --expected-current-sha256 $CurrentBeforeSha256 | Tee-Object -FilePath $HttpReportPath | Out-Host
     }
     $HttpReport = Get-Content -Raw -Encoding UTF8 $HttpReportPath | ConvertFrom-Json
 

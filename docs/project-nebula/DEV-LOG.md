@@ -1,4 +1,39 @@
 ---
+Date/Time: 2026-09-10 09:06 (UTC+8)
+Version: v0.2.8-media-oracle-shadow-hardening
+Scope: Harden the Aliyun-to-Oracle media compute migration so cross-host publication, pointer promotion, ARM64 shadow deployment and rollback are fail-closed before any production cutover.
+Modules: media daily pipeline / SSH static mirror publisher / remote mirror verifier / Oracle ARM64 shadow deployment / legacy Aliyun promotion tools
+
+### Key changes
+- Added an SSH static mirror publisher for Oracle-hosted compute so the Aliyun public plane remains `/var/lib/magnet-media/public` instead of accidentally publishing to Oracle local disk.
+- Immutable release publication now uses a verified delta plan, exact SHA-256 reuse, strict remote archive member allowlisting, duplicate-member rejection and full remote verification before pointer work.
+- Aliyun `current.json` promotion now requires the exact previously observed pointer SHA, one-revision advancement, release/manifest binding and manifest hash verification; ambiguous SSH responses get one idempotent retry followed by signed one-revision recovery.
+- Legacy Aliyun publication/promotion tools now target the live `/var/lib/magnet-media/public` authority instead of stale `/var/www/magnetgoogo-site/media`.
+- Added Oracle-specific ARM64 build-only and shadow-install flows. Build is release-tagged and side-effect bounded; install requires the prevalidated image, binds `/data/magnet-media/state` to `/var/lib/magnet-media`, never generates signing keys, refuses an R2 production token in shadow mode, installs only a candidate service, and does not touch Nginx or production timers.
+- Added fail-closed config validation for unsafe remote roots and non-absolute SSH identity/known_hosts paths.
+
+### Production observation / state migration
+- Aliyun 2026-09-10 unattended run succeeded and production advanced to revision40 / `20261030T000000Z-5888bcc0`, 421 movies / 538 series / 6663 magnet resources.
+- Series freshness remains 4/4 with min_fresh=2; only supplemental `dytt8899` is degraded; required degraded sources and failed freshness groups are empty.
+- Aliyun daily timer remains enabled and active; no Oracle production media timer has been installed or enabled.
+- Revision40 source durable state was transferred to Oracle with archive SHA-256 verified across Aliyun -> local -> Oracle; 19 source state files are present.
+- Dedicated Oracle-to-Aliyun media deploy key was created with source-IP restriction and forwarding/PTY restrictions; host keys scanned from both ends matched. No R2 production upload token was copied to Oracle.
+
+### Verification
+- Migration/Resource Index targeted suite: 86 passed.
+- Full Resource Index: 477 passed / 1 skipped.
+- `python magnet/validate_enum.py`: rules=241 / ALL VALID.
+- Python compile, Linux shell syntax, Git diff whitespace and PowerShell promotion syntax: PASS.
+- Runtime gates are intentionally still pending because the connected execution layer is currently blocking nested SSH Docker/HTTP/private-key operations before they reach Oracle.
+
+### Risk / remaining gates
+- Do not disable the Aliyun media timer yet.
+- Still required: native Oracle ARM64 image build+inspect, six-source listing->detail->magnet probes, secure existing signing material install, full signed no-publish candidate, App compatibility/network/security suites, dual-plane fault injection, then one formal Oracle publish and convergence verification.
+- Do not bypass the execution blocker by printing/encoding private keys or weakening host-key verification.
+
+### Review record
+- `docs/project-nebula/MEDIA-ORACLE-MIGRATION-REVIEW-20260910.md`
+---
 Date/Time: 2026-09-07 09:08 (UTC+8)
 Version: v0.2.8-media-alert-redundancy-scope
 Scope: Verify the unattended media crawler in production and close a false P2 redundancy alert without changing source health or crawler publication semantics.

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -259,6 +261,88 @@ def test_media_daily_config_defaults_to_v023(tmp_path: Path) -> None:
     assert loaded.sources[0].freshness_required is False
 
 
+def test_media_daily_config_accepts_remote_aliyun_mirror(tmp_path: Path) -> None:
+    config_path = tmp_path / "media-daily.json"
+    _write(
+        config_path,
+        {
+            "state_root": str(tmp_path / "state"),
+            "public_root": str(tmp_path / "public"),
+            "private_key_path": str(tmp_path / "private.pem"),
+            "public_key_path": str(tmp_path / "public.pem"),
+            "sources": [{"source_id": "sixv", "count": 100}],
+            "aliyun_ssh_target": "admin@47.103.155.154",
+            "aliyun_ssh_identity_file": "/etc/magnet-media/aliyun-media-deploy.key",
+            "aliyun_ssh_known_hosts_file": "/etc/magnet-media/aliyun-known-hosts",
+            "aliyun_ssh_port": 22,
+            "aliyun_remote_root": "/var/lib/magnet-media/public",
+        },
+    )
+    loaded = load_media_daily_config(config_path)
+    assert loaded.aliyun_ssh_target == "admin@47.103.155.154"
+    assert loaded.aliyun_ssh_identity_file == Path("/etc/magnet-media/aliyun-media-deploy.key")
+    assert loaded.aliyun_ssh_known_hosts_file == Path("/etc/magnet-media/aliyun-known-hosts")
+    assert loaded.aliyun_remote_root == "/var/lib/magnet-media/public"
+
+
+def test_media_daily_config_rejects_incomplete_remote_aliyun_mirror(tmp_path: Path) -> None:
+    config_path = tmp_path / "media-daily.json"
+    _write(
+        config_path,
+        {
+            "state_root": str(tmp_path / "state"),
+            "public_root": str(tmp_path / "public"),
+            "private_key_path": str(tmp_path / "private.pem"),
+            "public_key_path": str(tmp_path / "public.pem"),
+            "sources": [{"source_id": "sixv", "count": 100}],
+            "aliyun_ssh_target": "admin@47.103.155.154",
+            "aliyun_ssh_identity_file": "/etc/magnet-media/aliyun-media-deploy.key",
+        },
+    )
+    with pytest.raises(ResourceIndexError, match="identity and known_hosts"):
+        load_media_daily_config(config_path)
+
+
+@pytest.mark.parametrize("remote_root", ["/", "relative/path", "/var//lib/media", "/var/../tmp/media", "/var/lib/media root"])
+def test_media_daily_config_rejects_unsafe_remote_aliyun_root(tmp_path: Path, remote_root: str) -> None:
+    config_path = tmp_path / "media-daily.json"
+    _write(
+        config_path,
+        {
+            "state_root": str(tmp_path / "state"),
+            "public_root": str(tmp_path / "public"),
+            "private_key_path": str(tmp_path / "private.pem"),
+            "public_key_path": str(tmp_path / "public.pem"),
+            "sources": [{"source_id": "sixv", "count": 100}],
+            "aliyun_ssh_target": "admin@47.103.155.154",
+            "aliyun_ssh_identity_file": "/etc/magnet-media/aliyun-media-deploy.key",
+            "aliyun_ssh_known_hosts_file": "/etc/magnet-media/aliyun-known-hosts",
+            "aliyun_remote_root": remote_root,
+        },
+    )
+    with pytest.raises(ResourceIndexError, match="remote mirror root"):
+        load_media_daily_config(config_path)
+
+
+def test_media_daily_config_rejects_relative_remote_ssh_file(tmp_path: Path) -> None:
+    config_path = tmp_path / "media-daily.json"
+    _write(
+        config_path,
+        {
+            "state_root": str(tmp_path / "state"),
+            "public_root": str(tmp_path / "public"),
+            "private_key_path": str(tmp_path / "private.pem"),
+            "public_key_path": str(tmp_path / "public.pem"),
+            "sources": [{"source_id": "sixv", "count": 100}],
+            "aliyun_ssh_target": "admin@47.103.155.154",
+            "aliyun_ssh_identity_file": "aliyun-media-deploy.key",
+            "aliyun_ssh_known_hosts_file": "/etc/magnet-media/aliyun-known-hosts",
+        },
+    )
+    with pytest.raises(ResourceIndexError, match="file path must be absolute"):
+        load_media_daily_config(config_path)
+
+
 def test_media_daily_config_rejects_non_boolean_freshness_flag(tmp_path: Path) -> None:
     config_path = tmp_path / "media-daily.json"
     _write(
@@ -464,6 +548,46 @@ def test_public_control_recovery_repairs_aliyun_when_r2_is_one_revision_ahead(
     assert stage["r2_revision_after"] == stage["aliyun_revision_after"] == 7
 
 
+def test_public_control_recovery_passes_exact_aliyun_pointer_hash_to_remote_promotion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _config(tmp_path)
+    aliyun_document = _control(6, "20260729T000000Z-old00000")
+    expected_aliyun_sha = hashlib.sha256(json.dumps(aliyun_document, ensure_ascii=False).encode("utf-8")).hexdigest()
+    captured: list[tuple[int, str]] = []
+
+    def online(base: str, run_dir: Path):
+        document = _control(7, "20260730T000000Z-r2ahead0") if base == config.r2_public_base else aliyun_document
+        current = run_dir / "previous-current.json"
+        manifest = run_dir / "previous-manifest.json"
+        _write(current, document)
+        _write(manifest, {"release_id": document["release_id"]})
+        return document, manifest
+
+    monkeypatch.setattr(media_daily, "_online_control", online)
+    monkeypatch.setattr(media_daily, "verify_document", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(media_daily, "_verify_manifest_available", lambda *_args, **_kwargs: "d" * 64)
+    monkeypatch.setattr(media_daily, "_verify_public_control", lambda base, _path: {"base": base, "pointer_revision": 7})
+    monkeypatch.setattr(media_daily, "_aliyun_publisher", lambda _config: object())
+    monkeypatch.setattr(
+        media_daily,
+        "_promote_aliyun_current",
+        lambda _backend, path, *, expected_existing_sha256: captured.append(
+            (json.loads(Path(path).read_text(encoding="utf-8"))["pointer_revision"], expected_existing_sha256)
+        ),
+    )
+
+    _current, _manifest, _path, stage = media_daily._reconcile_online_controls(
+        config,
+        tmp_path / "run",
+        publish=True,
+    )
+
+    assert captured == [(7, expected_aliyun_sha)]
+    assert stage["action"] == "repair_aliyun_from_r2_authority"
+
+
 def test_public_control_recovery_repairs_r2_from_signed_legacy_aliyun_ahead(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -635,6 +759,112 @@ def test_publish_release_is_run_scoped_and_promotes_r2_before_aliyun(
     assert promotions == ["r2", "aliyun"]
     assert result["status"] == "success"
     assert result["current_revision"] == 7
+
+
+def test_publish_preflights_remote_aliyun_before_any_pointer_promotion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    config = _config(tmp_path)
+    events: list[str] = []
+    aliyun_backend = object()
+
+    class R2Backend:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def promote_current(self, _path):
+            events.append("r2-current")
+
+    def result():
+        return SimpleNamespace(
+            status="success",
+            object_count=1,
+            uploaded_count=0,
+            reused_count=1,
+            current_promoted=False,
+        )
+
+    monkeypatch.setattr(media_daily, "_aliyun_publisher", lambda _config: aliyun_backend)
+    monkeypatch.setattr(media_daily, "_publish_aliyun_release", lambda *_args, **_kwargs: (events.append("aliyun-data") or result()))
+    monkeypatch.setattr(media_daily, "WorkerR2PublisherBackend", R2Backend)
+    monkeypatch.setattr(media_daily, "publish_media_release", lambda *_args, **_kwargs: (events.append("r2-data") or result()))
+    monkeypatch.setattr(
+        media_daily,
+        "_preflight_aliyun_current",
+        lambda *_args, **_kwargs: events.append("aliyun-current-preflight"),
+    )
+    monkeypatch.setattr(
+        media_daily,
+        "_promote_aliyun_current",
+        lambda *_args, **_kwargs: events.append("aliyun-current"),
+    )
+    monkeypatch.setenv("TOKEN", "t" * 64)
+
+    result_value = run_media_daily(config, publish=True, force_publish=True)
+
+    assert result_value["status"] == "success"
+    assert events == [
+        "aliyun-data",
+        "r2-data",
+        "aliyun-current-preflight",
+        "r2-current",
+        "aliyun-current",
+    ]
+
+
+def test_publish_retries_remote_aliyun_pointer_once_before_control_recovery(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    config = _config(tmp_path)
+    aliyun_backend = object.__new__(media_daily.SshStaticMirrorPublisher)
+    promotion_attempts: list[int] = []
+    reconcile_calls: list[Path] = []
+    original_reconcile = media_daily._reconcile_online_controls
+
+    class R2Backend:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def promote_current(self, _path):
+            pass
+
+    def result():
+        return SimpleNamespace(
+            status="success",
+            object_count=1,
+            uploaded_count=0,
+            reused_count=1,
+            current_promoted=False,
+        )
+
+    def promote(*_args, **_kwargs):
+        promotion_attempts.append(len(promotion_attempts) + 1)
+        if len(promotion_attempts) == 1:
+            raise RuntimeError("ambiguous ssh response")
+
+    def reconcile(config_value, run_dir, *, publish):
+        reconcile_calls.append(Path(run_dir))
+        return original_reconcile(config_value, run_dir, publish=publish)
+
+    monkeypatch.setattr(media_daily, "_aliyun_publisher", lambda _config: aliyun_backend)
+    monkeypatch.setattr(media_daily, "_publish_aliyun_release", lambda *_args, **_kwargs: result())
+    monkeypatch.setattr(media_daily, "WorkerR2PublisherBackend", R2Backend)
+    monkeypatch.setattr(media_daily, "publish_media_release", lambda *_args, **_kwargs: result())
+    monkeypatch.setattr(media_daily, "_preflight_aliyun_current", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(media_daily, "_promote_aliyun_current", promote)
+    monkeypatch.setattr(media_daily, "_reconcile_online_controls", reconcile)
+    monkeypatch.setenv("TOKEN", "t" * 64)
+
+    value = run_media_daily(config, publish=True, force_publish=True)
+
+    assert value["status"] == "success"
+    assert promotion_attempts == [1, 2]
+    assert len(reconcile_calls) == 1
+    assert value["stages"]["post_promotion_recovery"]["action"] == "retry_aliyun_pointer_after_ambiguous_failure"
 
 
 def test_publish_recovers_durable_state_after_post_promotion_crash_without_revision_bump(

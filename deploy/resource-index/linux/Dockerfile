@@ -8,6 +8,9 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 ENV PYTHONPATH=/app
 
 WORKDIR /app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssh-client ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 COPY deploy/resource-index/requirements.txt /tmp/resource-index-requirements.txt
 RUN python -m pip install \
     --no-cache-dir \

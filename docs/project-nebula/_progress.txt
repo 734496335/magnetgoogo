@@ -1,23 +1,30 @@
-TASK: media crawler production monitoring + redundancy alert correction
-STATUS: MEDIA_CRAWLER_HEALTHY / P2_REDUNDANCY_FALSE_POSITIVE_FIXED_LOCAL
-DATE: 2026-09-07 UTC+8
+TASK: media crawler compute migration from Aliyun to Oracle ARM64
+STATUS: SHADOW_PREP / CODE_GATES_GREEN / ORACLE_RUNTIME_GATES_BLOCKED
+DATE: 2026-09-10 UTC+8
 
-PRODUCTION MEDIA:
-- Daily timer active; 2026-09-07 03:33 CST run exited 0 at 04:31; next 2026-09-08 03:34.
-- Weekly audit 2026-09-06 exited 0; no stale media crawler process remains.
-- Latest publish revision36->37; 396 movies / 498 series / 6280 magnet resources.
-- R2 + Aliyun current pointers agree on revision37 / release 20261030T000000Z-3afd2890.
-- Series freshness 4/4: meijumi, sixv-series, bitba-series, mjf-series; min_fresh=2.
-- Only degraded source is supplemental dytt8899 249/250; required_degraded_sources=[]; failed_freshness_groups=[].
-- Release quality gate passed; covers complete; magnet-only total=6280; dual-endpoint verification passed.
+PRODUCTION BASELINE:
+- Aliyun daily run 2026-09-10 succeeded; revision40 / release 20261030T000000Z-5888bcc0.
+- 421 movies / 538 series / 6663 magnet resources.
+- Series freshness 4/4, min_fresh=2; only supplemental dytt8899 degraded.
+- Aliyun magnet-media-daily.timer remains enabled+active. Do not stop it yet.
 
-MONITORING FIX:
-- Production media-source-redundancy P2 was falsely open because any global degraded source triggered it.
-- media-alert.sh now opens P2 only when a freshness group has fresh_count < member_count while still >= min_fresh.
-- Supplemental non-quorum degradation no longer counts as redundancy loss; true 3/4-style group degradation still alerts.
-- Targeted tests 25 passed; full Resource Index 452 passed / 1 skipped; enum 241 ALL VALID.
-- No sources.json health.status mutation.
+IMPLEMENTED:
+- Oracle-aware SSH Aliyun static mirror publisher with immutable delta+SHA verification.
+- Strict remote tar allowlist, duplicate/symlink/unsafe-path rejection.
+- Exact old-pointer SHA preflight, +1 revision rule, release/manifest binding, idempotent retry+recovery.
+- Legacy Aliyun tools corrected to /var/lib/magnet-media/public.
+- Oracle ARM64 build-only + candidate-only shadow installer; /data bind-mount contract; no Nginx/timer/key generation.
+- Revision40 source durable state synced to Oracle; 19 files, transfer SHA verified.
+- Dedicated Oracle->Aliyun media key + pinned host keys prepared; no R2 production token copied.
 
-NEXT:
-- Commit/push media alert fix, deploy immutable host release, execute success helper against current status, verify P2 closes while P1/P0 stay healthy.
-- Run production App media full-compat smoke and final SEO/Growth diff/report closure.
+VERIFICATION:
+- Targeted migration/Resource Index: 86 passed.
+- Full Resource Index: 477 passed / 1 skipped.
+- validate_enum: rules=241 / ALL VALID.
+- compile/shell/diff/PowerShell syntax gates PASS.
+- Review: docs/project-nebula/MEDIA-ORACLE-MIGRATION-REVIEW-20260910.md
+
+BLOCKER / NEXT:
+- Connected execution layer blocks nested SSH Docker/HTTP/private-key operations before Oracle receives them.
+- Next hard gates: native ARM64 build+inspect -> six-source listing/detail/magnet probes -> signing material -> full signed no-publish candidate -> App compat/security/network -> dual-plane fault injection -> formal cutover.
+- Until all pass: no Oracle production timer, no R2 production token, no Aliyun timer disable, no production current.json mutation.

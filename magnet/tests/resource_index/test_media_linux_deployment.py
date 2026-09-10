@@ -89,6 +89,25 @@ def test_weekly_audit_is_separated_from_daily_window() -> None:
     assert "02:30:00 Asia/Shanghai" not in audit
 
 
+def test_oracle_build_only_entrypoint_is_native_arm64_and_side_effect_bounded() -> None:
+    script = (LINUX / "build-media-oracle-image.sh").read_text(encoding="utf-8")
+    assert 'DEFAULT_APP_RELEASE=$(cd -- "$SCRIPT_DIR/../../.." && pwd)' in script
+    assert 'APP_RELEASE=${APP_RELEASE:-$DEFAULT_APP_RELEASE}' in script
+    assert 'MAGNET_MEDIA_IMAGE:-magnet-media-daily:oracle-shadow-$release_name' in script
+    assert 'uname -m' in script
+    assert '!= "aarch64"' in script
+    assert "docker build" in script
+    assert "docker image inspect" in script
+    assert '"$image_arch" != "arm64"' in script
+    assert '"$image_os" != "linux"' in script
+    assert "MEDIA_ARM64_IMPORTS_PASS" in script
+    assert "MEDIA_SSH_CLIENT_PASS" in script
+    assert "systemctl" not in script
+    assert "nginx" not in script.lower()
+    assert "/etc/magnet-media" not in script
+    assert "R2_UPLOAD_WORKER_TOKEN" not in script
+
+
 def test_installer_seeds_media_before_nginx_cutover_and_keeps_timers_opt_in() -> None:
     script = (LINUX / "install-media-daily.sh").read_text(encoding="utf-8")
     prepare = script.index("prepare-nginx-media-root.py")
@@ -114,6 +133,79 @@ def test_installer_seeds_media_before_nginx_cutover_and_keeps_timers_opt_in() ->
     assert '-v "$MEDIA_SEED_ROOT:/seed:ro"' in script
     assert '-v "$LIVE_MEDIA_ROOT:/live-media:ro"' in script
     assert "-v /etc/nginx:/etc/nginx" in script
+
+
+def test_oracle_shadow_installer_uses_data_volume_and_never_touches_nginx_or_generates_keys() -> None:
+    script = (LINUX / "install-media-oracle-shadow.sh").read_text(encoding="utf-8")
+    assert "mountpoint -q /data" in script
+    assert "systemd-escape -p --suffix=mount /var/lib/magnet-media" in script
+    assert "What=$STATE_SOURCE" in script
+    assert "Where=/var/lib/magnet-media" in script
+    assert "ALLOW_R2_TOKEN" in script
+    assert "shadow install refuses a production R2 upload token" in script
+    assert "media-ed25519-private.pem" in script
+    assert "init-media-signing-key" not in script
+    assert "nginx" not in script.lower() or "nginx=untouched" in script
+    assert "shadow install refuses an existing production media unit" in script
+    assert "magnet-media-oracle-shadow.service" in script
+    assert "production_units=not_installed" in script
+    assert "install -m 0644 \"$APP_LINK/deploy/resource-index/linux/magnet-media-daily.service\"" not in script
+    assert "install -m 0644 \"$APP_LINK/deploy/resource-index/linux/magnet-media-daily.timer\"" not in script
+    assert "MAGNET_MEDIA_IMAGE=%s" in script
+    assert 'MAGNET_MEDIA_IMAGE:-magnet-media-daily:oracle-shadow-$release_name' in script
+    assert "image_arch" in script and '"arm64"' in script
+    assert "MEDIA_ARM64_IMPORTS_PASS" in script
+    assert "MEDIA_SSH_CLIENT_PASS" in script
+    assert "docker build" not in script
+    assert "run build-media-oracle-image.sh first" in script
+    assert "systemd-analyze verify" in script
+    assert "refusing to hide existing data" in script
+    assert "ALIYUN_IDENTITY_SOURCE" in script
+    assert "aliyun-known-hosts" in script
+
+
+def test_oracle_shadow_service_can_only_run_candidate_mode() -> None:
+    service = (LINUX / "magnet-media-oracle-shadow.service").read_text(encoding="utf-8")
+    assert "run-media-daily.sh candidate" in service
+    assert "run-media-daily.sh publish" not in service
+    assert "EnvironmentFile=-/etc/magnet-media/runtime.env" in service
+    assert "Requires=docker.service var-lib-magnet\\x2dmedia.mount" in service
+    assert "OnFailure=" not in service
+    assert "ReadWritePaths=/var/lib/magnet-media /run" in service
+
+
+def test_oracle_example_config_uses_remote_aliyun_authority_and_data_mount_contract() -> None:
+    config = json.loads((LINUX / "media-daily.oracle.example.json").read_text(encoding="utf-8"))
+    assert config["state_root"] == "/var/lib/magnet-media"
+    assert config["public_root"] == "/var/lib/magnet-media/public"
+    assert config["aliyun_remote_root"] == "/var/lib/magnet-media/public"
+    assert config["aliyun_ssh_target"] == "admin@47.103.155.154"
+    assert config["aliyun_ssh_identity_file"].startswith("/etc/magnet-media/")
+    assert config["aliyun_ssh_known_hosts_file"].startswith("/etc/magnet-media/")
+    assert config["freshness_groups"]["series"]["min_fresh"] == 2
+
+
+def test_media_docker_image_contains_native_ssh_client_for_remote_mirror() -> None:
+    dockerfile = (LINUX / "Dockerfile").read_text(encoding="utf-8")
+    assert "openssh-client" in dockerfile
+    assert "ca-certificates" in dockerfile
+
+
+def test_legacy_aliyun_tools_target_current_production_authority_and_preserve_pointer() -> None:
+    publish = (ROOT / "deploy/resource-index/publish-media-aliyun-data.ps1").read_text(encoding="utf-8")
+    promote = (ROOT / "deploy/resource-index/promote-media-current.ps1").read_text(encoding="utf-8")
+    assert '/var/lib/magnet-media/public' in publish
+    assert '/var/lib/magnet-media/public' in promote
+    assert '/var/www/magnetgoogo-site/media' not in publish
+    assert '/var/www/magnetgoogo-site/media' not in promote
+    assert "linux\\nginx-media-alias.conf" in publish
+    assert "Aliyun current pointer preflight" in publish
+    assert "--expected-current-status 200" in publish
+    assert "--expected-current-sha256 $CurrentBeforeSha256" in publish
+    assert "remote-static-mirror.py" in promote
+    assert "preflight-current" in promote
+    assert "promote-current" in promote
+    assert promote.index("preflight-current") < promote.index("R2 current pointer upload") < promote.index("promote-current")
 
 
 def test_auto_publish_worker_uses_the_domestic_reachable_custom_domain() -> None:

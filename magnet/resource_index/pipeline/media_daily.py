@@ -57,6 +57,7 @@ from magnet.resource_index.pipeline.movie_automation import (
 )
 from magnet.resource_index.publish.filesystem import FilesystemPublisherBackend
 from magnet.resource_index.publish.orchestrator import MediaPublishConfig, publish_media_release
+from magnet.resource_index.publish.ssh_static_mirror import SshStaticMirrorConfig, SshStaticMirrorPublisher
 from magnet.resource_index.publish.worker_bridge import WorkerR2PublisherBackend
 from magnet.resource_index.release.builder import MediaReleaseConfig, build_media_release
 from magnet.resource_index.release.protocol import canonical_json_bytes, sha256_file, verify_document
@@ -103,6 +104,11 @@ class MediaDailyConfig:
     disk_min_free_bytes: int = 2 * 1024 * 1024 * 1024
     source_fallback_max_age_hours: int = 168
     source_fallback_retry_delay_seconds: int = 0
+    aliyun_ssh_target: str | None = None
+    aliyun_ssh_identity_file: Path | None = None
+    aliyun_ssh_known_hosts_file: Path | None = None
+    aliyun_ssh_port: int = 22
+    aliyun_remote_root: str = "/var/lib/magnet-media/public"
 
 
 def _utc_now() -> datetime:
@@ -196,6 +202,36 @@ def load_media_daily_config(path: str | Path) -> MediaDailyConfig:
                 "freshness group min_fresh exceeds configured members",
                 {"group": group.group_id, "min_fresh": group.min_fresh, "members": member_count},
             )
+    aliyun_ssh_target_raw = source.get("aliyun_ssh_target")
+    aliyun_ssh_target = str(aliyun_ssh_target_raw).strip() if aliyun_ssh_target_raw else None
+    aliyun_identity_raw = source.get("aliyun_ssh_identity_file")
+    aliyun_known_hosts_raw = source.get("aliyun_ssh_known_hosts_file")
+    aliyun_ssh_port = _config_int(source, "aliyun_ssh_port", 22, minimum=1)
+    if aliyun_ssh_port > 65535:
+        raise ResourceIndexError(CONFIG_ERROR, "Aliyun SSH port is invalid", {"port": aliyun_ssh_port})
+    aliyun_remote_root = str(source.get("aliyun_remote_root") or "/var/lib/magnet-media/public")
+    remote_root_parts = aliyun_remote_root.split("/")
+    if (
+        len(remote_root_parts) < 3
+        or remote_root_parts[0] != ""
+        or any(not part or part in {".", ".."} for part in remote_root_parts[1:])
+        or any(char.isspace() or ord(char) < 32 for char in aliyun_remote_root)
+    ):
+        raise ResourceIndexError(CONFIG_ERROR, "Aliyun remote mirror root is invalid", {"root": aliyun_remote_root})
+    for path_name, raw_path in (
+        ("aliyun_ssh_identity_file", aliyun_identity_raw),
+        ("aliyun_ssh_known_hosts_file", aliyun_known_hosts_raw),
+    ):
+        if raw_path and not str(raw_path).startswith("/"):
+            raise ResourceIndexError(CONFIG_ERROR, "Aliyun SSH file path must be absolute", {"name": path_name})
+    if aliyun_ssh_target and (not aliyun_identity_raw or not aliyun_known_hosts_raw):
+        raise ResourceIndexError(
+            CONFIG_ERROR,
+            "Aliyun remote mirror requires identity and known_hosts files",
+            {},
+        )
+    if not aliyun_ssh_target and (aliyun_identity_raw or aliyun_known_hosts_raw):
+        raise ResourceIndexError(CONFIG_ERROR, "Aliyun SSH files require aliyun_ssh_target", {})
     return MediaDailyConfig(
         state_root=Path(str(source["state_root"])).expanduser(),
         public_root=Path(str(source["public_root"])).expanduser(),
@@ -246,6 +282,11 @@ def load_media_daily_config(path: str | Path) -> MediaDailyConfig:
             900,
             minimum=0,
         ),
+        aliyun_ssh_target=aliyun_ssh_target,
+        aliyun_ssh_identity_file=(Path(str(aliyun_identity_raw)).expanduser() if aliyun_identity_raw else None),
+        aliyun_ssh_known_hosts_file=(Path(str(aliyun_known_hosts_raw)).expanduser() if aliyun_known_hosts_raw else None),
+        aliyun_ssh_port=aliyun_ssh_port,
+        aliyun_remote_root=aliyun_remote_root,
     )
 
 
@@ -486,6 +527,56 @@ def _pointer_semantics(document: dict[str, Any]) -> bytes:
     return canonical_json_bytes(value)
 
 
+def _aliyun_publisher(config: MediaDailyConfig) -> FilesystemPublisherBackend | SshStaticMirrorPublisher:
+    if not config.aliyun_ssh_target:
+        return FilesystemPublisherBackend(config.public_root)
+    if config.aliyun_ssh_identity_file is None or config.aliyun_ssh_known_hosts_file is None:
+        raise ResourceIndexError(CONFIG_ERROR, "Aliyun SSH publisher configuration is incomplete", {})
+    helper_path = Path(__file__).resolve().parents[3] / "deploy" / "resource-index" / "remote-static-mirror.py"
+    return SshStaticMirrorPublisher(
+        SshStaticMirrorConfig(
+            target=config.aliyun_ssh_target,
+            remote_root=config.aliyun_remote_root,
+            identity_file=config.aliyun_ssh_identity_file,
+            known_hosts_file=config.aliyun_ssh_known_hosts_file,
+            helper_path=helper_path,
+            staging_root=config.state_root / "receipts" / ".ssh-mirror-staging",
+            port=config.aliyun_ssh_port,
+        )
+    )
+
+
+def _publish_aliyun_release(
+    backend: FilesystemPublisherBackend | SshStaticMirrorPublisher,
+    publish_config: MediaPublishConfig,
+):
+    if isinstance(backend, SshStaticMirrorPublisher):
+        return backend.publish_release(publish_config)
+    return publish_media_release(backend, publish_config)
+
+
+def _preflight_aliyun_current(
+    backend: FilesystemPublisherBackend | SshStaticMirrorPublisher,
+    current_path: Path,
+    *,
+    expected_existing_sha256: str,
+) -> None:
+    if isinstance(backend, SshStaticMirrorPublisher):
+        backend.preflight_current(current_path, expected_existing_sha256=expected_existing_sha256)
+
+
+def _promote_aliyun_current(
+    backend: FilesystemPublisherBackend | SshStaticMirrorPublisher,
+    current_path: Path,
+    *,
+    expected_existing_sha256: str,
+) -> None:
+    if isinstance(backend, SshStaticMirrorPublisher):
+        backend.promote_current(current_path, expected_existing_sha256=expected_existing_sha256)
+    else:
+        backend.promote_current(current_path)
+
+
 def _reconcile_online_controls(
     config: MediaDailyConfig,
     run_dir: Path,
@@ -544,7 +635,12 @@ def _reconcile_online_controls(
 
     if r2_revision > aliyun_revision:
         _verify_manifest_available(config.aliyun_public_base, r2_current)
-        FilesystemPublisherBackend(config.public_root).promote_current(r2_current_path)
+        aliyun_backend = _aliyun_publisher(config)
+        _promote_aliyun_current(
+            aliyun_backend,
+            r2_current_path,
+            expected_existing_sha256=hashlib.sha256(aliyun_bytes).hexdigest(),
+        )
         expected_current = r2_current
         expected_manifest = r2_manifest
         expected_path = r2_current_path
@@ -1384,7 +1480,7 @@ def run_media_daily(
                 deep_verify=False,
                 upload_pointer_candidate=False,
             )
-            local_backend = FilesystemPublisherBackend(config.public_root)
+            aliyun_backend = _aliyun_publisher(config)
             r2_backend = WorkerR2PublisherBackend(
                 worker_url=config.worker_url,
                 upload_token=token,
@@ -1393,17 +1489,63 @@ def run_media_daily(
                 allow_current_promotion=True,
                 max_attempts=4,
             )
-            local_publish = publish_media_release(local_backend, publish_config)
+            aliyun_publish = _publish_aliyun_release(aliyun_backend, publish_config)
             r2_publish = publish_media_release(r2_backend, publish_config)
             status["stages"]["publish"] = {
-                "aliyun": local_publish.__dict__,
+                "aliyun": aliyun_publish.__dict__,
                 "r2": r2_publish.__dict__,
             }
             _write_json(latest_status, status)
 
+            previous_pointer_sha256 = hashlib.sha256(previous_current_path.read_bytes()).hexdigest()
+            _preflight_aliyun_current(
+                aliyun_backend,
+                current_path,
+                expected_existing_sha256=previous_pointer_sha256,
+            )
             candidate_bytes = current_path.read_bytes()
             r2_backend.promote_current(current_path)
-            local_backend.promote_current(current_path)
+            try:
+                _promote_aliyun_current(
+                    aliyun_backend,
+                    current_path,
+                    expected_existing_sha256=previous_pointer_sha256,
+                )
+            except BaseException as promotion_error:
+                retry_succeeded = False
+                if isinstance(aliyun_backend, SshStaticMirrorPublisher):
+                    try:
+                        _promote_aliyun_current(
+                            aliyun_backend,
+                            current_path,
+                            expected_existing_sha256=previous_pointer_sha256,
+                        )
+                        status["stages"]["post_promotion_recovery"] = {
+                            "status": "pass",
+                            "action": "retry_aliyun_pointer_after_ambiguous_failure",
+                            "initial_error_type": type(promotion_error).__name__,
+                        }
+                        _write_json(latest_status, status)
+                        retry_succeeded = True
+                    except BaseException:
+                        pass
+                if not retry_succeeded:
+                    try:
+                        _current, _manifest, _path, recovery = _reconcile_online_controls(
+                            config,
+                            run_dir / "post-promotion-recovery",
+                            publish=True,
+                        )
+                    except BaseException as recovery_error:
+                        status["stages"]["post_promotion_recovery"] = {
+                            "status": "failed",
+                            "promotion_error": f"{type(promotion_error).__name__}: {promotion_error}",
+                            "recovery_error": f"{type(recovery_error).__name__}: {recovery_error}",
+                        }
+                        _write_json(latest_status, status)
+                        raise promotion_error from recovery_error
+                    status["stages"]["post_promotion_recovery"] = recovery
+                    _write_json(latest_status, status)
 
             verification = [
                 _verify_public_control(config.r2_public_base, current_path),
