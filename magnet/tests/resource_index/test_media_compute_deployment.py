@@ -55,9 +55,14 @@ def test_finalizer_wrapper_streams_handoff_then_runs_containerized_finalizer() -
     fetcher = (ROOT / "deploy/resource-index/fetch-media-compute-handoff.py").read_text(encoding="utf-8")
     runner = (LINUX / "run-media-compute-finalizer.sh").read_text(encoding="utf-8")
     assert "_stream_package" in fetcher
-    assert "response.read(1024 * 1024)" in fetcher
+    assert "_ssh_stream_package" in fetcher
+    assert "process.stdout.read(1024 * 1024)" in fetcher
+    assert "StrictHostKeyChecking=yes" in fetcher
     assert "package_bytes = _get" not in fetcher
     assert "/usr/bin/python3.11" in runner
+    assert "--ssh-target" in runner
+    assert "--ssh-identity" in runner
+    assert "--ssh-known-hosts" in runner
     assert "--entrypoint python" in runner
     assert "--publish" in runner
     assert "MAGNET_MEDIA_FINALIZER_MODE" in runner
@@ -70,7 +75,8 @@ def test_finalizer_timer_retries_but_same_service_cannot_overlap() -> None:
         assert hour in timer
     assert "Unit=magnet-media-compute-finalizer.service" in timer
     assert "Type=oneshot" in service
-    assert "Requires=docker.service magnet-media-oracle-outbox-tunnel.service" in service
+    assert "Requires=docker.service" in service
+    assert "magnet-media-oracle-outbox-tunnel.service" not in service
 
 
 def test_aliyun_finalizer_installer_preserves_old_crawler_timer_until_cutover() -> None:
@@ -81,6 +87,10 @@ def test_aliyun_finalizer_installer_preserves_old_crawler_timer_until_cutover() 
     assert "FINALIZER_MODE=${FINALIZER_MODE:-candidate}" in script
     assert '[[ "$FINALIZER_MODE" == "publish" ]]' in script
     assert "finalizer timer may only be enabled in publish mode" in script
+    assert "MAGNET_MEDIA_COMPUTE_SSH_TARGET=ubuntu@161.153.78.129" in script
+    assert "MAGNET_MEDIA_COMPUTE_SSH_IDENTITY=/home/admin/.ssh/travel-oracle-tunnel" in script
+    assert "systemctl disable --now magnet-media-oracle-outbox-tunnel.service" in script
+    assert "systemctl enable --now magnet-media-oracle-outbox-tunnel.service" not in script
     assert 'if [[ "$APP_RELEASE" == "$release_link" ]]' in script
     assert "in-place finalizer release must be a real directory" in script
 

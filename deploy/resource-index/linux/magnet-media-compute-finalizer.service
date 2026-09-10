@@ -1,8 +1,8 @@
 [Unit]
 Description=MagnetGoogo media compute handoff finalizer
-After=docker.service network-online.target magnet-media-oracle-outbox-tunnel.service
+After=docker.service network-online.target
 Wants=network-online.target
-Requires=docker.service magnet-media-oracle-outbox-tunnel.service
+Requires=docker.service
 
 [Service]
 Type=oneshot

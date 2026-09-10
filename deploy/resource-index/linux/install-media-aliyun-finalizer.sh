@@ -18,7 +18,6 @@ FINALIZER_MODE=${FINALIZER_MODE:-candidate}
 [[ -d "$APP_RELEASE" && "$release_name" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "invalid APP_RELEASE" >&2; exit 2; }
 [[ "$FINALIZER_MODE" == "candidate" || "$FINALIZER_MODE" == "publish" ]] || { echo "FINALIZER_MODE must be candidate or publish" >&2; exit 2; }
 for path in \
-  "$APP_RELEASE/deploy/resource-index/linux/magnet-media-oracle-outbox-tunnel.service" \
   "$APP_RELEASE/deploy/resource-index/linux/magnet-media-compute-finalizer.service" \
   "$APP_RELEASE/deploy/resource-index/linux/magnet-media-compute-finalizer.timer" \
   "$APP_RELEASE/deploy/resource-index/linux/run-media-compute-finalizer.sh" \
@@ -60,18 +59,16 @@ fi
 ln -sfn "$release_link" "$APP_LINK"
 chmod 0755 "$APP_LINK/deploy/resource-index/linux/run-media-compute-finalizer.sh"
 
-printf 'MAGNET_MEDIA_FINALIZER_IMAGE=%s\nMAGNET_MEDIA_FINALIZER_MODE=%s\nMAGNET_MEDIA_COMPUTE_BASE=http://127.0.0.1:18766\nMAGNET_MEDIA_COMPUTE_INBOX=/var/lib/magnet-media/compute-inbox\n' "$IMAGE" "$FINALIZER_MODE" > "$CONFIG_ROOT/finalizer.env"
+printf 'MAGNET_MEDIA_FINALIZER_IMAGE=%s\nMAGNET_MEDIA_FINALIZER_MODE=%s\nMAGNET_MEDIA_COMPUTE_SSH_TARGET=ubuntu@161.153.78.129\nMAGNET_MEDIA_COMPUTE_SSH_IDENTITY=/home/admin/.ssh/travel-oracle-tunnel\nMAGNET_MEDIA_COMPUTE_SSH_KNOWN_HOSTS=/home/admin/.ssh/known_hosts\nMAGNET_MEDIA_COMPUTE_INBOX=/var/lib/magnet-media/compute-inbox\n' "$IMAGE" "$FINALIZER_MODE" > "$CONFIG_ROOT/finalizer.env"
 chmod 0600 "$CONFIG_ROOT/finalizer.env"
 
-install -m 0644 "$APP_LINK/deploy/resource-index/linux/magnet-media-oracle-outbox-tunnel.service" /etc/systemd/system/magnet-media-oracle-outbox-tunnel.service
 install -m 0644 "$APP_LINK/deploy/resource-index/linux/magnet-media-compute-finalizer.service" /etc/systemd/system/magnet-media-compute-finalizer.service
 install -m 0644 "$APP_LINK/deploy/resource-index/linux/magnet-media-compute-finalizer.timer" /etc/systemd/system/magnet-media-compute-finalizer.timer
 systemctl daemon-reload
 systemd-analyze verify \
-  /etc/systemd/system/magnet-media-oracle-outbox-tunnel.service \
   /etc/systemd/system/magnet-media-compute-finalizer.service \
   /etc/systemd/system/magnet-media-compute-finalizer.timer
-systemctl enable --now magnet-media-oracle-outbox-tunnel.service
+systemctl disable --now magnet-media-oracle-outbox-tunnel.service >/dev/null 2>&1 || true
 if [[ "$ENABLE_FINALIZER_TIMER" == "1" ]]; then
   [[ "$FINALIZER_MODE" == "publish" ]] || { echo "finalizer timer may only be enabled in publish mode" >&2; exit 2; }
   systemctl enable --now magnet-media-compute-finalizer.timer
@@ -84,7 +81,7 @@ printf '%s\n' \
   "MEDIA_ALIYUN_FINALIZER_READY" \
   "image=$IMAGE" \
   "mode=$FINALIZER_MODE" \
-  "tunnel=enabled" \
+  "transport=direct-ssh-stream" \
   "finalizer_timer_enabled=$ENABLE_FINALIZER_TIMER" \
   "old_crawler_timer=still_enabled" \
   "production_secrets=remain_on_aliyun"

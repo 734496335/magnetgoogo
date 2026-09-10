@@ -5,7 +5,9 @@ APP_ROOT=${APP_ROOT:-/opt/magnet-media-finalizer/app}
 CONFIG=${MAGNET_MEDIA_CONFIG:-/etc/magnet-media/media-daily.json}
 ENV_FILE=${MAGNET_MEDIA_ENV:-/etc/magnet-media/media.env}
 INBOX=${MAGNET_MEDIA_COMPUTE_INBOX:-/var/lib/magnet-media/compute-inbox}
-BASE=${MAGNET_MEDIA_COMPUTE_BASE:-http://127.0.0.1:18766}
+SSH_TARGET=${MAGNET_MEDIA_COMPUTE_SSH_TARGET:-ubuntu@161.153.78.129}
+SSH_IDENTITY=${MAGNET_MEDIA_COMPUTE_SSH_IDENTITY:-/home/admin/.ssh/travel-oracle-tunnel}
+SSH_KNOWN_HOSTS=${MAGNET_MEDIA_COMPUTE_SSH_KNOWN_HOSTS:-/home/admin/.ssh/known_hosts}
 IMAGE=${MAGNET_MEDIA_FINALIZER_IMAGE:-magnet-media-finalizer:latest}
 MODE=${MAGNET_MEDIA_FINALIZER_MODE:-candidate}
 
@@ -20,7 +22,9 @@ esac
 mkdir -p "$INBOX"
 
 /usr/bin/python3.11 "$APP_ROOT/deploy/resource-index/fetch-media-compute-handoff.py" \
-  --base "$BASE" \
+  --ssh-target "$SSH_TARGET" \
+  --ssh-identity "$SSH_IDENTITY" \
+  --ssh-known-hosts "$SSH_KNOWN_HOSTS" \
   --output-dir "$INBOX"
 package_name=$(/usr/bin/python3.11 -c 'import json,sys; from pathlib import Path; p=json.loads((Path(sys.argv[1])/"current.json").read_text()); print(Path(p["package"]).name)' "$INBOX")
 package="$INBOX/$package_name"
