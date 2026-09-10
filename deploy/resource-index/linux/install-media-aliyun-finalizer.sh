@@ -48,11 +48,15 @@ fi
 
 install -d -m 0755 "$APP_ROOT" "$APP_ROOT/releases" /var/lib/magnet-media/compute-inbox
 release_link="$APP_ROOT/releases/$release_name"
-if [[ -e "$release_link" && ! -L "$release_link" ]]; then
-  echo "finalizer release target exists and is not a symlink" >&2
-  exit 2
+if [[ "$APP_RELEASE" == "$release_link" ]]; then
+  [[ -d "$release_link" && ! -L "$release_link" ]] || { echo "in-place finalizer release must be a real directory" >&2; exit 2; }
+else
+  if [[ -e "$release_link" && ! -L "$release_link" ]]; then
+    echo "finalizer release target exists and is not a symlink" >&2
+    exit 2
+  fi
+  ln -sfn "$APP_RELEASE" "$release_link"
 fi
-ln -sfn "$APP_RELEASE" "$release_link"
 ln -sfn "$release_link" "$APP_LINK"
 chmod 0755 "$APP_LINK/deploy/resource-index/linux/run-media-compute-finalizer.sh"
 

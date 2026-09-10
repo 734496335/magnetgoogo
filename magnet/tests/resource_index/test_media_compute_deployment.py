@@ -81,6 +81,8 @@ def test_aliyun_finalizer_installer_preserves_old_crawler_timer_until_cutover() 
     assert "FINALIZER_MODE=${FINALIZER_MODE:-candidate}" in script
     assert '[[ "$FINALIZER_MODE" == "publish" ]]' in script
     assert "finalizer timer may only be enabled in publish mode" in script
+    assert 'if [[ "$APP_RELEASE" == "$release_link" ]]' in script
+    assert "in-place finalizer release must be a real directory" in script
 
 
 def test_aliyun_finalizer_build_is_native_amd64_and_build_only() -> None:
