@@ -1,4 +1,31 @@
 ---
+Date/Time: 2026-09-10 10:00 (UTC+8)
+Version: v0.2.8-media-oracle-acceptance-hardening
+Scope: Convert the remaining Oracle media migration checks into fail-closed machine-verifiable gates and tighten cross-host least privilege before any production cutover.
+Modules: media daily freshness / Oracle candidate acceptance / six-source live probe / Aliyun mirror helper privilege / App live media network tests
+
+### Key changes
+- Required freshness sources now fail publication readiness when their current crawl/feed contributes zero valid magnet items; this closes a sixv false-green path that freshness groups already rejected.
+- Aggregate quality is persisted into media-daily status so Oracle acceptance can prove accepted_cross_season, bad-label, weak-episode-title and empty-resource counts remain zero in final accepted output.
+- Added six-source live-chain probing that directly exercises listing -> detail -> magnet without consulting durable minimum-interval state.
+- Added Oracle candidate acceptance tooling and one-shot shell workflow: freeze R2/Aliyun current bytes, verify mirror SSH health, run six-source live probes, run candidate-only media daily, always fetch after-pointers, and fail if either public pointer changes.
+- Added a validated public-pointer fetch helper for the containerized Oracle acceptance path.
+- Tightened Aliyun mirror deployment from media-tree ACL writes to a dedicated `magnetmedia` user with no direct media ownership/ACL and one helper-only sudoers rule. The root-owned helper itself rejects every privileged root except `/var/lib/magnet-media/public`.
+- Added `MEDIA_LIVE_ONLY=1` to the App media network test so current production can be validated without weakening the original historical-fixture mode.
+
+### Verification
+- Migration/Resource Index targeted suite after all changes: 104 passed.
+- Full Resource Index: 495 passed / 1 skipped; enum 241 ALL VALID; compileall, Linux shell syntax and git diff whitespace PASS.
+- App resource-feed: M1-M7 PASS, M8 fixture-dependent SKIP.
+- App revision40 live network: PASS on both R2 and Aliyun; exact pointer SHA `6997e817...096ecf50e`, revision40, 421 movies / 538 series / 6663 resources; signed manifest/catalog/detail/resource/cover hash chain PASS.
+- App media-security PASS; release-build contract PASS.
+- Two invocation/fixture failures were recorded under `_failures/` and corrected without weakening assertions.
+
+### Risk / remaining gates
+- Oracle native ARM64 image build, Aliyun helper installation, six-source live probe on Oracle, secure production signing-material install, full signed candidate, candidate-specific App checks and cross-host fault injection are still runtime gates, not yet claimed PASS.
+- Aliyun production timer remains enabled+active; no Oracle production timer or R2 production token is allowed before those gates pass.
+---
+---
 Date/Time: 2026-09-10 09:06 (UTC+8)
 Version: v0.2.8-media-oracle-shadow-hardening
 Scope: Harden the Aliyun-to-Oracle media compute migration so cross-host publication, pointer promotion, ARM64 shadow deployment and rollback are fail-closed before any production cutover.

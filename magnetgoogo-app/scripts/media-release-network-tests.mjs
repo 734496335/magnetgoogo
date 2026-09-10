@@ -17,6 +17,14 @@ const pointerPath = path.join(
   `00000000000000000004-${releaseId}.json`,
 );
 const publicKey = Buffer.from('94eLTKi0Gz1RIQEssMSHrk1ND5WRjdIWzQqjAhrsCb4=', 'base64');
+const liveOnly = process.env.MEDIA_LIVE_ONLY === '1';
+let localFixtureSummary = {
+  pointer_revision: null,
+  release_id: null,
+  catalog_objects: null,
+  media_cards: null,
+  resource_items: null,
+};
 
 function canonical(value) {
   if (value === null || ['boolean', 'number', 'string'].includes(typeof value)) return JSON.stringify(value);
@@ -38,6 +46,7 @@ function bytes(relativePath) {
   return fs.readFileSync(path.join(releaseRoot, relativePath.replace(/^\//, '')));
 }
 
+if (!liveOnly) {
 const pointer = JSON.parse(fs.readFileSync(pointerPath, 'utf8'));
 assert.equal(pointer.schema_version, 'media-current/1');
 assert.equal(pointer.pointer_revision, 4);
@@ -93,6 +102,14 @@ for (const card of cards.values()) {
   resourceItems += resources.items.length;
 }
 assert.equal(resourceItems, 1682);
+localFixtureSummary = {
+  pointer_revision: pointer.pointer_revision,
+  release_id: releaseId,
+  catalog_objects: uniqueCatalogRefs.length,
+  media_cards: cards.size,
+  resource_items: resourceItems,
+};
+}
 
 const protocolSource = fs.readFileSync(path.join(process.cwd(), 'src/core/mediaReleaseProtocol.ts'), 'utf8');
 const clientSource = fs.readFileSync(path.join(process.cwd(), 'src/core/mediaReleaseClient.ts'), 'utf8');
@@ -221,12 +238,13 @@ for (const base of ['https://media.magnetgoogo.com', 'https://cn.magnetgoogo.com
 
 console.log(JSON.stringify({
   status: 'PASS',
-  local_fixture_pointer_revision: pointer.pointer_revision,
-  local_fixture_release_id: releaseId,
-  local_fixture_catalog_objects: uniqueCatalogRefs.length,
-  local_fixture_media_cards: cards.size,
-  local_fixture_resource_items: resourceItems,
+  live_only: liveOnly,
+  local_fixture_pointer_revision: localFixtureSummary.pointer_revision,
+  local_fixture_release_id: localFixtureSummary.release_id,
+  local_fixture_catalog_objects: localFixtureSummary.catalog_objects,
+  local_fixture_media_cards: localFixtureSummary.media_cards,
+  local_fixture_resource_items: localFixtureSummary.resource_items,
   live_pointer_sha256: acceptedPointerHash,
-  signature_tamper_rejected: true,
+  signature_tamper_rejected: liveOnly ? null : true,
   endpoints: endpointChecks,
 }));

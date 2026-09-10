@@ -112,8 +112,10 @@ Historical `runs`, `withhold-test` and similar bulk runtime artifacts are intent
 ## Security posture
 
 - A dedicated Oracle-to-Aliyun Ed25519 deployment key was generated for the media mirror.
-- The runtime design no longer requires the key to log in as Aliyun `admin` or invoke `sudo`. A dedicated `magnetmedia` user owns no sudo/wheel privilege and receives write access only to `/var/lib/magnet-media/public` through ACLs.
-- The runtime no longer uploads a Python helper and executes that uploaded copy with elevated privileges. It calls a fixed root-owned `/usr/local/libexec/magnet-media-remote-static-mirror.py` installed on Aliyun.
+- The runtime no longer logs in as Aliyun `admin`. It uses a dedicated `magnetmedia` user that is not a sudo/wheel group member and owns no media mirror files.
+- Direct ACL write access was rejected during review because newly created immutable files would become writable/owned by the deploy user. The final design removes deploy-user ACL access from the media tree and permits only passwordless execution of the fixed root-owned helper through one sudoers rule.
+- The privileged helper independently refuses any root other than `/var/lib/magnet-media/public`, so restricted sudo cannot be redirected to another filesystem tree.
+- The runtime no longer uploads a Python helper. It calls fixed root-owned `/usr/local/libexec/magnet-media-remote-static-mirror.py`; plans/payloads remain unprivileged temporary inputs and every immutable path/hash is validated before root-owned promotion.
 - The key authorization is restricted to the Oracle public source IP with OpenSSH `restrict`, and agent/port/X11 forwarding plus PTY are unavailable.
 - Aliyun host keys were independently scanned from both sides and matched before a fixed known_hosts file was prepared.
 - No R2 production upload token has been copied to Oracle during shadow preparation.
@@ -123,8 +125,8 @@ Historical `runs`, `withhold-test` and similar bulk runtime artifacts are intent
 
 Latest local gates after all hardening changes:
 
-- migration/resource-index targeted suite: `89 passed`
-- full Resource Index suite: `480 passed, 1 skipped`
+- migration/resource-index targeted suite: `104 passed`
+- full Resource Index suite: `495 passed, 1 skipped`
 - `python magnet/validate_enum.py`: `rules=241`, `ALL VALID`
 - Python compile: PASS
 - Linux shell syntax: PASS
@@ -145,21 +147,25 @@ Tests cover at least:
 - ambiguous SSH promotion retry + recovery;
 - Oracle build-only side-effect boundary;
 - Oracle candidate-only service and data-volume contract;
-- dedicated Aliyun mirror-user least-privilege installer;
-- fixed remote-helper runtime with no uploaded-helper sudo execution;
+- dedicated Aliyun mirror-user least-privilege installer with no direct media-tree ACL/ownership;
+- fixed privileged helper restricted to the exact production mirror root;
+- Oracle six-source live-chain probe that cannot be satisfied by durable `minimum_interval` state;
+- required-freshness sources treated as degraded when the current crawl/feed contributes zero magnets;
+- Oracle candidate acceptance that freezes R2/Aliyun pointer bytes before/after and validates aggregate quality, magnet-only counts and cover audits;
+- App live-only network mode for validating the current public release when historical local revision4 fixtures are absent;
 - legacy Aliyun tools using the live `/var/lib/magnet-media/public` authority.
 
 ## Runtime gates still required before cutover
 
 The following are explicitly NOT marked passed yet:
 
-1. install and verify the fixed root-owned Aliyun mirror helper plus dedicated no-sudo `magnetmedia` user/ACL using the Oracle deploy public key;
+1. install and verify the fixed root-owned Aliyun mirror helper plus dedicated `magnetmedia` user and helper-only sudo rule using the Oracle deploy public key;
 2. native Oracle ARM64 Docker image build and image inspection;
-3. Oracle real source probes covering listing -> detail -> magnet for all six configured sources;
+3. execute the new six-source live-chain probe covering listing -> detail -> magnet for all six configured sources;
 4. secure installation of the existing production signing material on Oracle;
-5. full Oracle signed `candidate` run with no publish token;
-6. final quality gates: required freshness, quorum, magnet-only, duplicate/cross-season/unknown-series, covers and counts;
-7. App media compatibility/network/security test suites against the Oracle candidate;
+5. execute `run-media-oracle-shadow-acceptance.sh`, which freezes both public pointers, runs mirror/source probes plus the full signed `candidate`, captures after-pointers even on candidate failure, and requires byte-for-byte no-publication evidence;
+6. final quality gates: required freshness, all four migration freshness members, aggregate accepted-output quality, magnet-only, covers and counts;
+7. App media compatibility/network/security test suites against the Oracle candidate; current revision40 live public network/security checks already pass locally;
 8. cross-host publication fault injection, including interrupted Aliyun pointer promotion;
 9. only after all above pass: copy the minimum production R2 credential, install the production Oracle timer, stop (do not delete) the Aliyun timer and execute one formal Oracle publish;
 10. verify R2 and Aliyun pointer + manifest/object convergence after that formal publish.

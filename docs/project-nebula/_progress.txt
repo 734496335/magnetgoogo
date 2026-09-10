@@ -1,30 +1,28 @@
 TASK: media crawler compute migration from Aliyun to Oracle ARM64
-STATUS: SHADOW_PREP / CODE_GATES_GREEN / ORACLE_RUNTIME_GATES_BLOCKED
+STATUS: SHADOW_PREP / CODE+PUBLIC-APP GATES GREEN / ORACLE RUNTIME GATES PENDING
 DATE: 2026-09-10 UTC+8
 
 PRODUCTION BASELINE:
-- Aliyun daily run 2026-09-10 succeeded; revision40 / release 20261030T000000Z-5888bcc0.
-- 421 movies / 538 series / 6663 magnet resources.
-- Series freshness 4/4, min_fresh=2; only supplemental dytt8899 degraded.
+- Aliyun 2026-09-10 daily run succeeded; revision40 / release 20261030T000000Z-5888bcc0.
+- 421 movies / 538 series / 6663 magnet resources; series freshness 4/4; only supplemental dytt8899 degraded.
+- R2 + Aliyun live pointer SHA: 6997e81730976338e77554d916af26e3def0e7c26a8b59c3872007f096ecf50e.
 - Aliyun magnet-media-daily.timer remains enabled+active. Do not stop it yet.
 
 IMPLEMENTED:
-- Oracle-aware SSH Aliyun mirror publisher with immutable delta+SHA verification and guarded +1 pointer promotion.
-- Strict remote tar allowlist, duplicate/symlink/unsafe-path rejection, release-manifest binding and idempotent recovery.
-- Runtime privilege reduced to dedicated no-sudo `magnetmedia` user + media-root ACL + fixed root-owned helper; no uploaded helper sudo execution.
-- Legacy Aliyun tools corrected to /var/lib/magnet-media/public.
-- Oracle ARM64 build-only + candidate-only shadow installer; /data bind-mount contract; no Nginx/timer/key generation.
-- Revision40 source durable state synced to Oracle; 19 files, transfer SHA verified.
-- Dedicated Oracle->Aliyun key + pinned host keys prepared; no R2 production token copied.
+- Oracle SSH Aliyun mirror: immutable delta+SHA, strict tar allowlist, +1 pointer preflight/recovery, fixed root-owned helper.
+- Dedicated `magnetmedia` SSH user: source-IP restricted key, no media ACL/ownership, only helper-scoped sudo; privileged helper refuses non-production root.
+- Oracle ARM64 build-only + candidate-only installer; /data bind mount; no Nginx/timer/key generation; no R2 token in shadow.
+- Required freshness source with zero current magnets is now publication-degraded.
+- Six-source live listing->detail->magnet probe independent of durable minimum_interval state.
+- Oracle candidate acceptance freezes R2/Aliyun before/after bytes and validates freshness, aggregate quality, magnet-only, covers and counts.
+- App media network test supports strict live-only mode while preserving original local-fixture mode.
 
 VERIFICATION:
-- Targeted migration/Resource Index: 89 passed.
-- Full Resource Index: 480 passed / 1 skipped.
-- validate_enum: rules=241 / ALL VALID.
-- compile/shell/diff/PowerShell syntax gates PASS.
-- Review: docs/project-nebula/MEDIA-ORACLE-MIGRATION-REVIEW-20260910.md
+- Targeted migration/Resource Index: 104 passed.
+- Full Resource Index: 495 passed / 1 skipped; enum 241 ALL VALID; compile/shell/diff PASS.
+- App resource-feed M1-M7 PASS (M8 local-bundle SKIP); media-security PASS; release-build PASS.
+- Revision40 R2+Aliyun live network/signature/hash chain PASS with exact 421/538/6663 counts.
 
-BLOCKER / NEXT:
-- Connected execution layer blocks nested SSH Docker/HTTP/private-key/file-transfer operations before Oracle receives them.
-- Next hard gates: install Aliyun fixed helper+magnetmedia ACL -> native ARM64 build+inspect -> six-source listing/detail/magnet probes -> signing material -> full signed no-publish candidate -> App compat/security/network -> dual-plane fault injection -> formal cutover.
+NEXT HARD GATES:
+- Install Aliyun fixed helper + helper-only sudo -> native Oracle ARM64 build/inspect -> Oracle six-source live probe -> secure production signing material -> run full shadow acceptance -> candidate App checks -> dual-plane fault injection -> formal cutover.
 - Until all pass: no Oracle production timer, no R2 production token, no Aliyun timer disable, no production current.json mutation.

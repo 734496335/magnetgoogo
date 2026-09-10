@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import runpy
 import subprocess
 import sys
 import tarfile
@@ -49,6 +50,16 @@ def _plan(path: Path, files: list[tuple[str, str, int]], revision: int = 7) -> N
         ),
         encoding="utf-8",
     )
+
+
+def test_privileged_remote_helper_refuses_any_nonproduction_root(tmp_path: Path) -> None:
+    namespace = runpy.run_path(str(HELPER))
+    enforce = namespace["enforce_privileged_root"]
+
+    with pytest.raises(SystemExit):
+        enforce(tmp_path, effective_uid=0)
+    enforce(Path("/var/lib/magnet-media/public"), effective_uid=0)
+    enforce(tmp_path, effective_uid=1000)
 
 
 def test_remote_static_mirror_healthcheck_is_writable_and_cleans_probe(tmp_path: Path) -> None:

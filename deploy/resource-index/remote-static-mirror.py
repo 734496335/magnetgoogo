@@ -11,6 +11,9 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 
+_PRODUCTION_ROOT = Path("/var/lib/magnet-media/public").resolve()
+
+
 def fail(message: str, **context: Any) -> None:
     print(json.dumps({"status": "failed", "message": message, "context": context}, ensure_ascii=False, sort_keys=True))
     raise SystemExit(1)
@@ -348,6 +351,15 @@ def healthcheck_root(root: Path) -> dict[str, Any]:
     return {"status": "pass", "root": str(root), "writable": True}
 
 
+def enforce_privileged_root(root: Path, *, effective_uid: int | None = None) -> None:
+    uid = effective_uid
+    if uid is None:
+        get_euid = getattr(os, "geteuid", None)
+        uid = int(get_euid()) if get_euid is not None else -1
+    if uid == 0 and root.resolve() != _PRODUCTION_ROOT:
+        fail("privileged remote helper refuses a non-production mirror root", root=str(root))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
@@ -372,6 +384,7 @@ def main() -> int:
         item.add_argument("--expected-existing-sha256", required=True)
     args = parser.parse_args()
     root = Path(args.root).resolve()
+    enforce_privileged_root(root)
     if args.command == "healthcheck":
         result = healthcheck_root(root)
     elif args.command in {"diff", "verify", "promote", "promote-archive"}:

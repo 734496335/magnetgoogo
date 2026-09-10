@@ -42,7 +42,7 @@ if [[ ! -f "$HELPER_SOURCE" ]]; then
   echo "remote static mirror helper source is missing" >&2
   exit 2
 fi
-for required in python3 ssh-keygen setfacl getfacl runuser; do
+for required in python3 ssh-keygen setfacl getfacl runuser sudo visudo; do
   if ! command -v "$required" >/dev/null 2>&1; then
     echo "required command is missing: $required" >&2
     exit 2
@@ -84,21 +84,32 @@ install -d -m 0755 /usr/local/libexec
 install -o root -g root -m 0755 "$HELPER_SOURCE" "$HELPER_TARGET"
 helper_sha=$(sha256sum "$HELPER_TARGET" | awk '{print $1}')
 
-setfacl -R -m "u:$USER_NAME:rwX" "$MEDIA_ROOT"
-while IFS= read -r -d '' directory; do
-  setfacl -m "d:u:$USER_NAME:rwx" "$directory"
-done < <(find "$MEDIA_ROOT" -type d -print0)
-
-if ! getfacl -cp "$MEDIA_ROOT" | grep -Eq "^user:$USER_NAME:rwx$"; then
-  echo "media root ACL does not grant the deploy user rwx" >&2
+while IFS= read -r -d '' path; do
+  setfacl -x "u:$USER_NAME" "$path" 2>/dev/null || true
+  if [[ -d "$path" ]]; then
+    setfacl -x "d:u:$USER_NAME" "$path" 2>/dev/null || true
+  fi
+done < <(find "$MEDIA_ROOT" -print0)
+while IFS= read -r -d '' path; do
+  if [[ "$(stat -c %U "$path")" == "$USER_NAME" ]]; then
+    chown root:root "$path"
+  fi
+done < <(find "$MEDIA_ROOT" -print0)
+if find "$MEDIA_ROOT" -exec getfacl -cp {} + 2>/dev/null | grep -Eq "^(default:)?user:$USER_NAME:"; then
+  echo "magnetmedia must not retain direct ACL access to the media tree" >&2
   exit 2
 fi
-if ! getfacl -cp "$MEDIA_ROOT" | grep -Eq "^default:user:$USER_NAME:rwx$"; then
-  echo "media root default ACL is missing" >&2
+if find "$MEDIA_ROOT" -user "$USER_NAME" -print -quit | grep -q .; then
+  echo "magnetmedia must not own media mirror files or directories" >&2
   exit 2
 fi
 
-health_output=$(runuser -u "$USER_NAME" -- python3 "$HELPER_TARGET" healthcheck --root "$MEDIA_ROOT")
+sudoers_file=/etc/sudoers.d/magnet-media-mirror
+printf '%s ALL=(root) NOPASSWD: /usr/bin/python3 %s *\n' "$USER_NAME" "$HELPER_TARGET" > "$sudoers_file"
+chmod 0440 "$sudoers_file"
+visudo -cf "$sudoers_file" >/dev/null
+
+health_output=$(runuser -u "$USER_NAME" -- sudo -n python3 "$HELPER_TARGET" healthcheck --root "$MEDIA_ROOT")
 if ! grep -Fq '"status": "pass"' <<<"$health_output"; then
   echo "magnetmedia helper healthcheck failed" >&2
   exit 2
@@ -111,6 +122,6 @@ printf '%s\n' \
   "helper=$HELPER_TARGET" \
   "helper_sha256=$helper_sha" \
   "source_ip=$ORACLE_SOURCE_IP" \
-  "sudo_access=none" \
+  "sudo_access=fixed-root-owned-helper-only" \
   "nginx=untouched" \
   "systemd=untouched"

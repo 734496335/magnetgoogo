@@ -108,8 +108,15 @@ def _install_fakes(monkeypatch: pytest.MonkeyPatch) -> None:
         _write(Path(kwargs["movie_output_path"]), movie)
         _write(Path(kwargs["series_output_path"]), series)
         _write(Path(kwargs["quarantine_output_path"]), {"items": []})
-        _write(Path(kwargs["quality_output_path"]), {"status": "pass"})
-        return {"summary": {"record_count": 2, "resource_count": 2}}
+        quality = {
+            "status": "pass",
+            "bad_label_count": 0,
+            "accepted_cross_season_count": 0,
+            "weak_episode_title_count": 0,
+            "empty_resource_item_count": 0,
+        }
+        _write(Path(kwargs["quality_output_path"]), quality)
+        return {"summary": {"record_count": 2, "resource_count": 2}, "quality": quality}
 
     monkeypatch.setattr(media_daily, "aggregate_media_feeds", fake_aggregate)
     monkeypatch.setattr(media_daily, "RatingResolver", lambda **_kwargs: object())
@@ -1031,6 +1038,10 @@ def test_daily_pipeline_recovers_required_source_after_one_fallback_retry(
     db_path = tmp_path / "state" / "sources" / "sixv_latest_10.db"
     db_path.parent.mkdir(parents=True, exist_ok=True)
     db_path.write_bytes(b"sqlite-placeholder")
+    _write(
+        tmp_path / "feed.json",
+        {"items": [{"resources": [{"resource_type": "magnet", "info_hash": "a" * 40}]}]},
+    )
     calls = {"count": 0}
 
     def run_source(**kwargs):
@@ -1081,6 +1092,7 @@ def test_daily_pipeline_recovers_required_source_after_one_fallback_retry(
     assert result["required_degraded_sources"] == []
     assert result["stages"]["crawl"][0]["status"] == "recovered"
     assert result["stages"]["crawl"][0]["reason"] == "fallback_retry"
+    assert result["stages"]["crawl"][0]["freshness_magnet_status"] == "pass"
 
 
 def test_daily_pipeline_surfaces_required_source_when_recovery_retry_still_fails(
@@ -1179,6 +1191,69 @@ def test_publish_withholds_public_promotion_when_required_source_remains_degrade
     assert "publish" not in result["stages"]
 
 
+def test_publish_withholds_required_source_that_completed_without_current_magnet(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    current_feed = tmp_path / "sixv-current.json"
+    _write(
+        current_feed,
+        {
+            "items": [
+                {
+                    "resources": [
+                        {
+                            "resource_type": "cloud",
+                            "provider": "quark",
+                            "url": "https://pan.quark.cn/s/example",
+                        }
+                    ]
+                }
+            ]
+        },
+    )
+    monkeypatch.setattr(
+        media_daily,
+        "run_safe_movie_source",
+        lambda **kwargs: SimpleNamespace(
+            source_id=kwargs["source_id"],
+            status="ran",
+            reason="scheduled_check",
+            target_count=10,
+            invocation_http_requests=3,
+            reserved_requests=10,
+            snapshot_changed=True,
+            job_status="success",
+            covered_count=10,
+            publish_ready=True,
+            remaining_daily_requests=90,
+            db_path=str(tmp_path / "sixv.db"),
+            feed_path=str(current_feed),
+        ),
+    )
+    base = _config(tmp_path)
+    config = MediaDailyConfig(
+        **{
+            **base.__dict__,
+            "sources": (DailySourceConfig("sixv", 10, True),),
+            "source_fallback_retry_delay_seconds": 0,
+        }
+    )
+
+    result = run_media_daily(config, publish=True)
+
+    assert result["status"] == "success"
+    assert result["quality_status"] == "degraded"
+    assert result["degraded_sources"] == ["sixv"]
+    assert result["required_degraded_sources"] == ["sixv"]
+    assert result["stages"]["crawl"][0]["freshness_magnet_status"] == "fail"
+    assert result["stages"]["crawl"][0]["magnet_item_count"] == 0
+    assert result["publish_withheld"] is True
+    assert result["publish_withheld_reason"] == "required_source_degraded"
+    assert "publish" not in result["stages"]
+
+
 def test_daily_pipeline_retries_required_source_blocked_by_failure_backoff(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1187,6 +1262,10 @@ def test_daily_pipeline_retries_required_source_blocked_by_failure_backoff(
     db_path = tmp_path / "state" / "sources" / "sixv_latest_10.db"
     db_path.parent.mkdir(parents=True, exist_ok=True)
     db_path.write_bytes(b"sqlite-placeholder")
+    _write(
+        tmp_path / "feed.json",
+        {"items": [{"resources": [{"resource_type": "magnet", "info_hash": "a" * 40}]}]},
+    )
     calls = {"count": 0}
 
     def run_source(**kwargs):
@@ -1257,6 +1336,10 @@ def test_daily_pipeline_retries_required_source_that_returns_pending(
     db_path = tmp_path / "state" / "sources" / "sixv_latest_10.db"
     db_path.parent.mkdir(parents=True, exist_ok=True)
     db_path.write_bytes(b"sqlite-placeholder")
+    _write(
+        tmp_path / "feed.json",
+        {"items": [{"resources": [{"resource_type": "magnet", "info_hash": "a" * 40}]}]},
+    )
     calls = {"count": 0}
 
     def run_source(**kwargs):

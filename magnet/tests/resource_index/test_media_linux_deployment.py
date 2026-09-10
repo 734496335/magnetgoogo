@@ -164,6 +164,28 @@ def test_oracle_shadow_installer_uses_data_volume_and_never_touches_nginx_or_gen
     assert "aliyun-known-hosts" in script
 
 
+def test_oracle_shadow_acceptance_is_candidate_only_and_proves_public_pointer_immutability() -> None:
+    script = (LINUX / "run-media-oracle-shadow-acceptance.sh").read_text(encoding="utf-8")
+    assert "Oracle shadow acceptance refuses a production R2 upload token" in script
+    assert "magnet-media-daily.timer" in script
+    assert "Oracle shadow acceptance refuses installed production unit" in script
+    assert "probe-aliyun-media-mirror.py" in script
+    assert "probe-media-source-chain.py" in script
+    assert '--candidate-limit "$SOURCE_PROBE_LIMIT"' in script
+    assert 'run-media-daily.sh" candidate' in script
+    assert 'run-media-daily.sh" publish' not in script
+    assert "verify-media-oracle-candidate.py" in script
+    assert 'cmp -s "$evidence/r2-before.json" "$evidence/r2-after.json"' in script
+    assert 'cmp -s "$evidence/aliyun-before.json" "$evidence/aliyun-after.json"' in script
+    assert 'cmp -s "$evidence/r2-after.json" "$evidence/aliyun-after.json"' in script
+    assert "public pointers remained unchanged" in script
+    assert "systemctl enable" not in script
+    assert "systemctl start" not in script
+    assert "R2_UPLOAD_WORKER_TOKEN" in script
+    assert "export R2_UPLOAD_WORKER_TOKEN" not in script
+    assert "printf 'R2_UPLOAD_WORKER_TOKEN" not in script
+
+
 def test_oracle_shadow_service_can_only_run_candidate_mode() -> None:
     service = (LINUX / "magnet-media-oracle-shadow.service").read_text(encoding="utf-8")
     assert "run-media-daily.sh candidate" in service
@@ -193,25 +215,31 @@ def test_aliyun_media_mirror_user_installer_is_least_privilege_and_side_effect_b
     assert 'from="%s",restrict %s' in script
     assert "passwd -l" in script
     assert "sudo|wheel" in script
-    assert "setfacl -R -m" in script
-    assert "default:user:$USER_NAME:rwx" in script
+    assert "setfacl -R -m" not in script
+    assert 'setfacl -x "u:$USER_NAME" "$path"' in script
+    assert 'setfacl -x "d:u:$USER_NAME" "$path"' in script
+    assert "magnetmedia must not retain direct ACL access" in script
+    assert 'find "$MEDIA_ROOT" -user "$USER_NAME"' in script
+    assert 'chown root:root "$path"' in script
     assert 'install -o root -g root -m 0755 "$HELPER_SOURCE" "$HELPER_TARGET"' in script
-    assert "runuser -u" in script and "healthcheck" in script
-    assert "sudo_access=none" in script
+    assert "/etc/sudoers.d/magnet-media-mirror" in script
+    assert 'NOPASSWD: /usr/bin/python3 %s *' in script
+    assert 'visudo -cf "$sudoers_file"' in script
+    assert 'runuser -u "$USER_NAME" -- sudo -n python3' in script
+    assert "sudo_access=fixed-root-owned-helper-only" in script
     assert "nginx=untouched" in script
     assert "systemd=untouched" in script
     assert "systemctl" not in script
     assert "nginx -t" not in script
 
 
-def test_ssh_static_mirror_runtime_uses_fixed_remote_helper_without_sudo_or_helper_upload() -> None:
+def test_ssh_static_mirror_runtime_uses_fixed_remote_helper_with_scoped_sudo_and_no_helper_upload() -> None:
     source = (ROOT / "magnet/resource_index/publish/ssh_static_mirror.py").read_text(encoding="utf-8")
     assert '/usr/local/libexec/magnet-media-remote-static-mirror.py' in source
-    assert '["sudo", "-n", "python3"' not in source
     assert "self.config.helper_path" not in source
     assert "[full_plan_path, self.config.helper_path]" not in source
     assert "[source, self.config.helper_path]" not in source
-    assert 'parts = ["python3", remote_helper, command, *args]' in source
+    assert 'parts = ["sudo", "-n", "python3", remote_helper, command, *args]' in source
 
 
 def test_media_docker_image_contains_native_ssh_client_for_remote_mirror() -> None:

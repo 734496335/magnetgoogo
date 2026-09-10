@@ -319,6 +319,18 @@ def _source_result_is_degraded(item: dict[str, Any]) -> bool:
     )
 
 
+def _source_result_is_publication_degraded(item: dict[str, Any]) -> bool:
+    if _source_result_is_degraded(item):
+        return True
+    freshness_scoped = item.get("freshness_required") is True or bool(item.get("freshness_group"))
+    if not freshness_scoped or "magnet_item_count" not in item:
+        return False
+    try:
+        return int(item.get("magnet_item_count") or 0) <= 0
+    except (TypeError, ValueError):
+        return True
+
+
 def _magnet_contribution(feed: dict[str, Any]) -> tuple[int, int]:
     items = feed.get("items")
     if not isinstance(items, list):
@@ -1137,6 +1149,8 @@ def run_media_daily(
                 )
                 source_results[-1]["magnet_item_count"] = magnet_item_count
                 source_results[-1]["magnet_resource_count"] = magnet_resource_count
+                if source.freshness_required or source.freshness_group is not None:
+                    source_results[-1]["freshness_magnet_status"] = "pass" if magnet_item_count > 0 else "fail"
                 library_feeds.append(library_path)
                 if (source.freshness_required or source.freshness_group is not None) and source_results[-1].get("status") == "fallback":
                     recovery_candidates.append((len(source_results) - 1, source, library_path))
@@ -1187,6 +1201,7 @@ def run_media_daily(
                                 "freshness_group": source.freshness_group,
                                 "magnet_item_count": magnet_item_count,
                                 "magnet_resource_count": magnet_resource_count,
+                                "freshness_magnet_status": "pass" if magnet_item_count > 0 else "fail",
                                 "initial_result": initial_result,
                             }
                         else:
@@ -1208,7 +1223,7 @@ def run_media_daily(
                             },
                         }
 
-            degraded = [item for item in source_results if _source_result_is_degraded(item)]
+            degraded = [item for item in source_results if _source_result_is_publication_degraded(item)]
             required_degraded = [item for item in degraded if item.get("freshness_required") is True]
             freshness_group_health, failed_freshness_groups = _freshness_group_health(config, source_results)
             status["quality_status"] = "degraded" if degraded else "healthy"
@@ -1233,7 +1248,10 @@ def run_media_daily(
                 quality_output_path=aggregate_dir / "quality.json",
                 limit=1_000_000,
             )
-            status["stages"]["aggregate"] = aggregate["summary"]
+            status["stages"]["aggregate"] = {
+                **aggregate["summary"],
+                "quality": aggregate["quality"],
+            }
             _write_json(latest_status, status)
 
             magnet_only = build_magnet_only_media_feeds(
