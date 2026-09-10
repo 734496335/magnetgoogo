@@ -1,8 +1,9 @@
 [Unit]
 Description=MagnetGoogo Oracle media compute-only job
-After=docker.service network-online.target var-lib-magnet\x2dmedia.mount
+After=docker.service network-online.target
 Wants=network-online.target
-Requires=docker.service var-lib-magnet\x2dmedia.mount
+Requires=docker.service
+RequiresMountsFor=/var/lib/magnet-media
 
 [Service]
 Type=oneshot

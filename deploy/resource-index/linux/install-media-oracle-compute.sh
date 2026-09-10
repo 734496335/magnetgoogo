@@ -52,6 +52,7 @@ for unit in magnet-media-daily.service magnet-media-daily.timer magnet-media-aud
 done
 
 install -d -m 0755 "$DATA_ROOT" "$STATE_SOURCE" /var/lib/magnet-media /opt/magnet-media /opt/magnet-media/releases
+chown -R root:root "$STATE_SOURCE"
 ln -sfn "$APP_RELEASE" "/opt/magnet-media/releases/$release_name"
 ln -sfn "/opt/magnet-media/releases/$release_name" "$APP_LINK"
 install -d -m 0700 "$CONFIG_ROOT"

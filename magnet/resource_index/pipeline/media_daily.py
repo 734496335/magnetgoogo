@@ -1331,11 +1331,28 @@ def run_media_daily(
                     {"path": str(config.previous_public_key_path)},
                 )
 
-            previous_current, previous_manifest_path, previous_current_path, control_stage = _reconcile_online_controls(
-                config,
-                run_dir,
-                publish=publish,
-            )
+            if compute_only:
+                compute_control_dir = run_dir / "control-r2"
+                previous_current, previous_manifest_path = _online_control(config.r2_public_base, compute_control_dir)
+                _validate_online_control(
+                    previous_current,
+                    previous_manifest_path,
+                    config=config,
+                    base=config.r2_public_base,
+                )
+                previous_current_path = compute_control_dir / "previous-current.json"
+                control_stage = {
+                    "status": "pass",
+                    "action": "compute_r2_authority_readonly",
+                    "r2_revision": int(previous_current.get("pointer_revision") or 0),
+                    "current_sha256": hashlib.sha256(previous_current_path.read_bytes()).hexdigest(),
+                }
+            else:
+                previous_current, previous_manifest_path, previous_current_path, control_stage = _reconcile_online_controls(
+                    config,
+                    run_dir,
+                    publish=publish,
+                )
             status["stages"]["control_recovery"] = control_stage
             previous_revision = int(previous_current.get("pointer_revision") or 0)
             status["previous_revision"] = previous_revision

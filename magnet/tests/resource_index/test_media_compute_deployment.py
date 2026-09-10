@@ -23,6 +23,8 @@ def test_oracle_compute_service_and_timer_are_compute_only() -> None:
     runner = (LINUX / "run-media-daily.sh").read_text(encoding="utf-8")
     assert "run-media-daily.sh compute" in service
     assert "run-media-daily.sh publish" not in service
+    assert "RequiresMountsFor=/var/lib/magnet-media" in service
+    assert "var-lib-magnet\\x2dmedia.mount" not in service
     assert "OnCalendar=*-*-* 03:00:00 Asia/Shanghai" in timer
     assert "compute) args+=(--no-publish --compute-only)" in runner
 
@@ -30,6 +32,8 @@ def test_oracle_compute_service_and_timer_are_compute_only() -> None:
 def test_oracle_outbox_is_loopback_only() -> None:
     service = (LINUX / "magnet-media-oracle-outbox.service").read_text(encoding="utf-8")
     assert "--bind 127.0.0.1" in service
+    assert "RequiresMountsFor=/var/lib/magnet-media" in service
+    assert "var-lib-magnet\\x2dmedia.mount" not in service
     assert "18766" in service
     assert "/var/lib/magnet-media/outbox" in service
 
@@ -41,6 +45,7 @@ def test_oracle_compute_installer_has_no_secret_or_production_timer_path() -> No
     assert "Oracle compute has no R2 production token" in script
     assert "Oracle compute must not contain an R2 production token" in script
     assert "production_secrets=none" in script
+    assert 'chown -R root:root "$STATE_SOURCE"' in script
     assert "magnet-media-daily.timer" in script
     assert "refuses production Aliyun-style unit" in script
     assert "ENABLE_COMPUTE_TIMER" in script

@@ -1,7 +1,7 @@
 [Unit]
 Description=MagnetGoogo Oracle media compute outbox
-After=network.target var-lib-magnet\x2dmedia.mount
-Requires=var-lib-magnet\x2dmedia.mount
+After=network.target
+RequiresMountsFor=/var/lib/magnet-media
 
 [Service]
 Type=simple

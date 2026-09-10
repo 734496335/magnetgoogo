@@ -701,6 +701,14 @@ def test_compute_only_builds_verified_handoff_without_private_key_or_release_sig
     _install_fakes(monkeypatch)
     config = _config(tmp_path)
     config.private_key_path.unlink()
+    original_online_control = media_daily._online_control
+    online_bases: list[str] = []
+
+    def track_online_control(base: str, run_dir: Path):
+        online_bases.append(base)
+        return original_online_control(base, run_dir)
+
+    monkeypatch.setattr(media_daily, "_online_control", track_online_control)
     monkeypatch.setattr(
         media_daily,
         "build_media_release",
@@ -716,6 +724,8 @@ def test_compute_only_builds_verified_handoff_without_private_key_or_release_sig
     assert result["published"] is False
     assert result["previous_revision"] == 6
     assert result["candidate_revision"] == 7
+    assert online_bases == [config.r2_public_base]
+    assert result["stages"]["control_recovery"]["action"] == "compute_r2_authority_readonly"
     handoff = result["stages"]["handoff"]
     assert handoff["status"] == "pass"
     assert Path(handoff["package_path"]).is_file()
