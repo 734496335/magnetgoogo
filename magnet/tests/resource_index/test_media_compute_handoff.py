@@ -53,6 +53,30 @@ def test_compute_handoff_rejects_tampered_payload(tmp_path: Path) -> None:
         extract_compute_handoff(tmp_path / "tampered.tar", tmp_path / "bad")
 
 
+def test_compute_handoff_rejects_missing_archive_member(tmp_path: Path) -> None:
+    report = _package(tmp_path)
+    extract_compute_handoff(report["package_path"], tmp_path / "raw")
+    (tmp_path / "raw" / "feeds" / "movies-final.json").unlink()
+    with tarfile.open(tmp_path / "missing.tar", "w") as archive:
+        for path in sorted((tmp_path / "raw").rglob("*")):
+            if path.is_file():
+                archive.add(path, arcname=path.relative_to(tmp_path / "raw").as_posix())
+    with pytest.raises(ResourceIndexError, match="file is missing"):
+        extract_compute_handoff(tmp_path / "missing.tar", tmp_path / "missing-extract")
+
+
+def test_compute_handoff_rejects_extra_archive_member(tmp_path: Path) -> None:
+    report = _package(tmp_path)
+    extract_compute_handoff(report["package_path"], tmp_path / "raw")
+    _write(tmp_path / "raw" / "extra.txt", b"unexpected")
+    with tarfile.open(tmp_path / "extra.tar", "w") as archive:
+        for path in sorted((tmp_path / "raw").rglob("*")):
+            if path.is_file():
+                archive.add(path, arcname=path.relative_to(tmp_path / "raw").as_posix())
+    with pytest.raises(ResourceIndexError, match="unplanned files"):
+        extract_compute_handoff(tmp_path / "extra.tar", tmp_path / "extra-extract")
+
+
 def test_compute_handoff_rejects_duplicate_archive_members(tmp_path: Path) -> None:
     package = tmp_path / "duplicate.tar"
     with tarfile.open(package, "w") as archive:
