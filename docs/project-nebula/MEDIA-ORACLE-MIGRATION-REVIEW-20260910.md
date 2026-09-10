@@ -112,7 +112,9 @@ Historical `runs`, `withhold-test` and similar bulk runtime artifacts are intent
 ## Security posture
 
 - A dedicated Oracle-to-Aliyun Ed25519 deployment key was generated for the media mirror.
-- Its Aliyun authorization is restricted to the Oracle public source IP and disables agent forwarding, port forwarding, X11 forwarding and PTY.
+- The runtime design no longer requires the key to log in as Aliyun `admin` or invoke `sudo`. A dedicated `magnetmedia` user owns no sudo/wheel privilege and receives write access only to `/var/lib/magnet-media/public` through ACLs.
+- The runtime no longer uploads a Python helper and executes that uploaded copy with elevated privileges. It calls a fixed root-owned `/usr/local/libexec/magnet-media-remote-static-mirror.py` installed on Aliyun.
+- The key authorization is restricted to the Oracle public source IP with OpenSSH `restrict`, and agent/port/X11 forwarding plus PTY are unavailable.
 - Aliyun host keys were independently scanned from both sides and matched before a fixed known_hosts file was prepared.
 - No R2 production upload token has been copied to Oracle during shadow preparation.
 - No signing private key value was printed into logs or chat.
@@ -121,8 +123,8 @@ Historical `runs`, `withhold-test` and similar bulk runtime artifacts are intent
 
 Latest local gates after all hardening changes:
 
-- migration/resource-index targeted suite: `86 passed`
-- full Resource Index suite: `477 passed, 1 skipped`
+- migration/resource-index targeted suite: `89 passed`
+- full Resource Index suite: `480 passed, 1 skipped`
 - `python magnet/validate_enum.py`: `rules=241`, `ALL VALID`
 - Python compile: PASS
 - Linux shell syntax: PASS
@@ -143,21 +145,24 @@ Tests cover at least:
 - ambiguous SSH promotion retry + recovery;
 - Oracle build-only side-effect boundary;
 - Oracle candidate-only service and data-volume contract;
+- dedicated Aliyun mirror-user least-privilege installer;
+- fixed remote-helper runtime with no uploaded-helper sudo execution;
 - legacy Aliyun tools using the live `/var/lib/magnet-media/public` authority.
 
 ## Runtime gates still required before cutover
 
 The following are explicitly NOT marked passed yet:
 
-1. native Oracle ARM64 Docker image build and image inspection;
-2. Oracle real source probes covering listing -> detail -> magnet for all six configured sources;
-3. secure installation of the existing production signing material on Oracle;
-4. full Oracle signed `candidate` run with no publish token;
-5. final quality gates: required freshness, quorum, magnet-only, duplicate/cross-season/unknown-series, covers and counts;
-6. App media compatibility/network/security test suites against the Oracle candidate;
-7. cross-host publication fault injection, including interrupted Aliyun pointer promotion;
-8. only after all above pass: copy the minimum production R2 credential, install the production Oracle timer, stop (do not delete) the Aliyun timer and execute one formal Oracle publish;
-9. verify R2 and Aliyun pointer + manifest/object convergence after that formal publish.
+1. install and verify the fixed root-owned Aliyun mirror helper plus dedicated no-sudo `magnetmedia` user/ACL using the Oracle deploy public key;
+2. native Oracle ARM64 Docker image build and image inspection;
+3. Oracle real source probes covering listing -> detail -> magnet for all six configured sources;
+4. secure installation of the existing production signing material on Oracle;
+5. full Oracle signed `candidate` run with no publish token;
+6. final quality gates: required freshness, quorum, magnet-only, duplicate/cross-season/unknown-series, covers and counts;
+7. App media compatibility/network/security test suites against the Oracle candidate;
+8. cross-host publication fault injection, including interrupted Aliyun pointer promotion;
+9. only after all above pass: copy the minimum production R2 credential, install the production Oracle timer, stop (do not delete) the Aliyun timer and execute one formal Oracle publish;
+10. verify R2 and Aliyun pointer + manifest/object convergence after that formal publish.
 
 ## Current blocker
 

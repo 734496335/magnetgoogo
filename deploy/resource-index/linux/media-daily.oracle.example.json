@@ -8,7 +8,7 @@
   "worker_token_env": "R2_UPLOAD_WORKER_TOKEN",
   "r2_public_base": "https://media.magnetgoogo.com",
   "aliyun_public_base": "https://cn.magnetgoogo.com/media",
-  "aliyun_ssh_target": "admin@47.103.155.154",
+  "aliyun_ssh_target": "magnetmedia@47.103.155.154",
   "aliyun_ssh_identity_file": "/etc/magnet-media/aliyun-media-deploy.key",
   "aliyun_ssh_known_hosts_file": "/etc/magnet-media/aliyun-known-hosts",
   "aliyun_ssh_port": 22,

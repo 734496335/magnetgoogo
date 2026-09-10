@@ -532,14 +532,12 @@ def _aliyun_publisher(config: MediaDailyConfig) -> FilesystemPublisherBackend | 
         return FilesystemPublisherBackend(config.public_root)
     if config.aliyun_ssh_identity_file is None or config.aliyun_ssh_known_hosts_file is None:
         raise ResourceIndexError(CONFIG_ERROR, "Aliyun SSH publisher configuration is incomplete", {})
-    helper_path = Path(__file__).resolve().parents[3] / "deploy" / "resource-index" / "remote-static-mirror.py"
     return SshStaticMirrorPublisher(
         SshStaticMirrorConfig(
             target=config.aliyun_ssh_target,
             remote_root=config.aliyun_remote_root,
             identity_file=config.aliyun_ssh_identity_file,
             known_hosts_file=config.aliyun_ssh_known_hosts_file,
-            helper_path=helper_path,
             staging_root=config.state_root / "receipts" / ".ssh-mirror-staging",
             port=config.aliyun_ssh_port,
         )

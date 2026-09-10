@@ -326,9 +326,33 @@ def promote_current(root: Path, candidate_path: Path, expected_existing_sha256: 
     return {**report, "state": "promoted"}
 
 
+def healthcheck_root(root: Path) -> dict[str, Any]:
+    if not root.is_dir():
+        fail("mirror root is missing", root=str(root))
+    probe = root / f".media-health-{os.getpid()}"
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(probe, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        os.write(descriptor, b"ok")
+        os.fsync(descriptor)
+        os.close(descriptor)
+        descriptor = None
+        if probe.read_bytes() != b"ok":
+            fail("mirror root healthcheck verification failed", root=str(root))
+    except OSError as exc:
+        fail("mirror root healthcheck failed", root=str(root), error=type(exc).__name__)
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        probe.unlink(missing_ok=True)
+    return {"status": "pass", "root": str(root), "writable": True}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
+    item = sub.add_parser("healthcheck")
+    item.add_argument("--root", required=True)
     for command in ("diff", "verify"):
         item = sub.add_parser(command)
         item.add_argument("--root", required=True)
@@ -348,7 +372,9 @@ def main() -> int:
         item.add_argument("--expected-existing-sha256", required=True)
     args = parser.parse_args()
     root = Path(args.root).resolve()
-    if args.command in {"diff", "verify", "promote", "promote-archive"}:
+    if args.command == "healthcheck":
+        result = healthcheck_root(root)
+    elif args.command in {"diff", "verify", "promote", "promote-archive"}:
         plan, files = load_plan(Path(args.plan).resolve())
         if args.command == "diff":
             result = {"status": "pass", "release_id": plan.get("release_id"), "pointer_revision": plan.get("pointer_revision"), **diff_root(root, files)}

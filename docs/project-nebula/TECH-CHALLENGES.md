@@ -52,8 +52,8 @@
 - **状态**：piloting
 - **首次记录**：2026-09-10
 - **业务影响**：旧媒体发布器把 Aliyun 镜像实现为本机 `FilesystemPublisherBackend(public_root)`；计算从 Aliyun 迁到 Oracle 后若原样运行，会把所谓 Aliyun 数据写到 Oracle 本地，并可能先推进 R2 pointer、再因 Aliyun 公网验证失败形成双端 revision 分裂。
-- **当前方案 & 缺陷**：已新增 Oracle→Aliyun SSH 静态镜像 publisher，immutable 数据先做远端 delta+SHA 验证，pointer 使用精确旧 SHA/+1 revision/release-manifest binding 的 fail-closed preflight；Oracle shadow build/install 分离且使用 `/data` bind mount。代码门禁已全绿，但 Oracle 原生 ARM64 build、六源真实探针、signed full candidate 和故障注入尚未完成真机验收。
-- **已尝试**：2026-09-10 完成 86 个迁移专项测试、全量 Resource Index 477 passed / 1 skipped、enum 241 ALL VALID；revision40 source durable state 已三段 SHA 验证同步 Oracle。嵌套 SSH Docker/HTTP/私钥操作被当前连接执行层在到达 Oracle 前拦截，未将工具阻塞误判为服务失败。
+- **当前方案 & 缺陷**：已新增 Oracle→Aliyun SSH 静态镜像 publisher，immutable 数据先做远端 delta+SHA 验证，pointer 使用精确旧 SHA/+1 revision/release-manifest binding 的 fail-closed preflight；运行权限进一步降为专用无 sudo 的 `magnetmedia` 用户 + `/var/lib/magnet-media/public` ACL + 固定 root-owned helper，不再上传 helper 后 sudo 执行；Oracle shadow build/install 分离且使用 `/data` bind mount。代码门禁已全绿，但 Oracle 原生 ARM64 build、六源真实探针、signed full candidate 和故障注入尚未完成真机验收。
+- **已尝试**：2026-09-10 完成 89 个迁移专项测试、全量 Resource Index 480 passed / 1 skipped、enum 241 ALL VALID；revision40 source durable state 已三段 SHA 验证同步 Oracle。嵌套 SSH Docker/HTTP/私钥/文件传输操作被当前连接执行层在到达 Oracle 前拦截，未将工具阻塞误判为服务失败。
 - **候选方案**：继续使用当前 SSH publisher，不引入对象存储第三套国内镜像；运行层恢复后完成 native ARM64 + shadow + App compat + fault injection，再切 timer。若长期无法获得安全的跨主机执行通道，再评估 Aliyun 侧受限 pull/promotion service，但不得降低 pointer 单调性和签名门禁。
 - **下一步**：完成 Oracle 真机 runtime gates；在全部 PASS 前保持 Aliyun daily timer active，不复制 R2 production token，不修改生产 `current.json`。
 - **更新日志**：2026-09-10 —— 代码/部署架构完成并进入 piloting，详见 `MEDIA-ORACLE-MIGRATION-REVIEW-20260910.md`。

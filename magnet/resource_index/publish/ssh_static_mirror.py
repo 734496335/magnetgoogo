@@ -24,8 +24,8 @@ class SshStaticMirrorConfig:
     remote_root: str
     identity_file: Path
     known_hosts_file: Path
-    helper_path: Path
     staging_root: Path
+    remote_helper_path: str = "/usr/local/libexec/magnet-media-remote-static-mirror.py"
     port: int = 22
     connect_timeout_seconds: int = 15
     command_timeout_seconds: int = 900
@@ -46,10 +46,20 @@ class SshStaticMirrorPublisher:
             raise ResourceIndexError(PUBLISH_CONFIG_ERROR, "Aliyun remote mirror root is invalid", {"root": config.remote_root})
         if not 1 <= config.port <= 65535:
             raise ResourceIndexError(PUBLISH_CONFIG_ERROR, "Aliyun SSH port is invalid", {"port": config.port})
+        if (
+            not config.remote_helper_path.startswith("/")
+            or "\n" in config.remote_helper_path
+            or "\r" in config.remote_helper_path
+            or " " in config.remote_helper_path
+        ):
+            raise ResourceIndexError(
+                PUBLISH_CONFIG_ERROR,
+                "Aliyun remote helper path is invalid",
+                {"path": config.remote_helper_path},
+            )
         for name, path in (
             ("identity_file", config.identity_file),
             ("known_hosts_file", config.known_hosts_file),
-            ("helper_path", config.helper_path),
         ):
             if not path.is_file():
                 raise ResourceIndexError(PUBLISH_CONFIG_ERROR, "Aliyun SSH publisher file is missing", {"name": name, "path": str(path)})
@@ -157,12 +167,20 @@ class SshStaticMirrorPublisher:
         }
 
     def _remote_command(self, remote_helper: str, command: str, *args: str) -> str:
-        parts = ["sudo", "-n", "python3", remote_helper, command, *args]
+        parts = ["python3", remote_helper, command, *args]
         return " ".join(shlex.quote(part) for part in parts)
 
     def healthcheck(self) -> dict[str, Any]:
-        output = self._ssh("sudo -n true && test -d /tmp", label="Aliyun SSH mirror healthcheck")
-        return {"status": "pass", "stdout": output.strip()}
+        output = self._ssh(
+            self._remote_command(
+                self.config.remote_helper_path,
+                "healthcheck",
+                "--root",
+                self.config.remote_root,
+            ),
+            label="Aliyun SSH mirror healthcheck",
+        )
+        return self._parse_json(output, label="Aliyun SSH mirror healthcheck")
 
     def publish_release(self, publish_config: MediaPublishConfig) -> MediaPublishResult:
         if publish_config.upload_pointer_candidate:
@@ -177,14 +195,14 @@ class SshStaticMirrorPublisher:
         delta_plan_path = local_stage / "delta-plan.json"
         archive_path = local_stage / "payload.tar"
         receipt_path = publish_config.receipt_dir.resolve() / f"ssh-filesystem-mirror-{run_id}.json"
-        remote_helper = f"{remote_stage}/remote-static-mirror.py"
+        remote_helper = self.config.remote_helper_path
         try:
             full_plan_path.write_bytes(canonical_json_bytes(self._plan_payload(plan, requests)))
             self._ssh(
                 f"rm -rf {shlex.quote(remote_stage)} && mkdir -m 700 {shlex.quote(remote_stage)}",
                 label="Aliyun SSH mirror staging create",
             )
-            self._scp([full_plan_path, self.config.helper_path], remote_stage + "/", label="Aliyun SSH mirror plan upload")
+            self._scp([full_plan_path], remote_stage + "/", label="Aliyun SSH mirror plan upload")
             diff_output = self._ssh(
                 self._remote_command(
                     remote_helper,
@@ -281,14 +299,14 @@ class SshStaticMirrorPublisher:
             raise ResourceIndexError(PUBLISH_CONFIG_ERROR, "expected existing current SHA-256 is invalid", {})
         run_id = uuid.uuid4().hex
         remote_stage = f"/tmp/magnet-media-current-{run_id}"
-        remote_helper = f"{remote_stage}/remote-static-mirror.py"
+        remote_helper = self.config.remote_helper_path
         remote_candidate = f"{remote_stage}/candidate.json"
         try:
             self._ssh(
                 f"rm -rf {shlex.quote(remote_stage)} && mkdir -m 700 {shlex.quote(remote_stage)}",
                 label="Aliyun current staging create",
             )
-            self._scp([source, self.config.helper_path], remote_stage + "/", label="Aliyun current candidate upload")
+            self._scp([source], remote_stage + "/", label="Aliyun current candidate upload")
             uploaded_name = source.name
             if uploaded_name != "candidate.json":
                 self._ssh(

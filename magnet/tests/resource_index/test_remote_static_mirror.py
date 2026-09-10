@@ -51,6 +51,17 @@ def _plan(path: Path, files: list[tuple[str, str, int]], revision: int = 7) -> N
     )
 
 
+def test_remote_static_mirror_healthcheck_is_writable_and_cleans_probe(tmp_path: Path) -> None:
+    root = tmp_path / "target"
+    root.mkdir()
+
+    result = _run("healthcheck", "--root", str(root))
+
+    assert result["status"] == "pass"
+    assert result["writable"] is True
+    assert not list(root.glob(".media-health-*"))
+
+
 def test_remote_static_mirror_diff_promote_verify(tmp_path: Path) -> None:
     target = tmp_path / "target"
     payload = tmp_path / "payload"

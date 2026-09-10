@@ -17,11 +17,11 @@ Modules: media daily pipeline / SSH static mirror publisher / remote mirror veri
 - Series freshness remains 4/4 with min_fresh=2; only supplemental `dytt8899` is degraded; required degraded sources and failed freshness groups are empty.
 - Aliyun daily timer remains enabled and active; no Oracle production media timer has been installed or enabled.
 - Revision40 source durable state was transferred to Oracle with archive SHA-256 verified across Aliyun -> local -> Oracle; 19 source state files are present.
-- Dedicated Oracle-to-Aliyun media deploy key was created with source-IP restriction and forwarding/PTY restrictions; host keys scanned from both ends matched. No R2 production upload token was copied to Oracle.
+- Dedicated Oracle-to-Aliyun media deploy key was created with source-IP restriction and forwarding/PTY restrictions; host keys scanned from both ends matched. Runtime was further reduced from `admin + sudo uploaded helper` to a dedicated no-sudo `magnetmedia` user, media-root ACL only, and one fixed root-owned remote helper. No R2 production upload token was copied to Oracle.
 
 ### Verification
-- Migration/Resource Index targeted suite: 86 passed.
-- Full Resource Index: 477 passed / 1 skipped.
+- Migration/Resource Index targeted suite: 89 passed.
+- Full Resource Index: 480 passed / 1 skipped.
 - `python magnet/validate_enum.py`: rules=241 / ALL VALID.
 - Python compile, Linux shell syntax, Git diff whitespace and PowerShell promotion syntax: PASS.
 - Runtime gates are intentionally still pending because the connected execution layer is currently blocking nested SSH Docker/HTTP/private-key operations before they reach Oracle.

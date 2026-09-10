@@ -9,22 +9,22 @@ PRODUCTION BASELINE:
 - Aliyun magnet-media-daily.timer remains enabled+active. Do not stop it yet.
 
 IMPLEMENTED:
-- Oracle-aware SSH Aliyun static mirror publisher with immutable delta+SHA verification.
-- Strict remote tar allowlist, duplicate/symlink/unsafe-path rejection.
-- Exact old-pointer SHA preflight, +1 revision rule, release/manifest binding, idempotent retry+recovery.
+- Oracle-aware SSH Aliyun mirror publisher with immutable delta+SHA verification and guarded +1 pointer promotion.
+- Strict remote tar allowlist, duplicate/symlink/unsafe-path rejection, release-manifest binding and idempotent recovery.
+- Runtime privilege reduced to dedicated no-sudo `magnetmedia` user + media-root ACL + fixed root-owned helper; no uploaded helper sudo execution.
 - Legacy Aliyun tools corrected to /var/lib/magnet-media/public.
 - Oracle ARM64 build-only + candidate-only shadow installer; /data bind-mount contract; no Nginx/timer/key generation.
 - Revision40 source durable state synced to Oracle; 19 files, transfer SHA verified.
-- Dedicated Oracle->Aliyun media key + pinned host keys prepared; no R2 production token copied.
+- Dedicated Oracle->Aliyun key + pinned host keys prepared; no R2 production token copied.
 
 VERIFICATION:
-- Targeted migration/Resource Index: 86 passed.
-- Full Resource Index: 477 passed / 1 skipped.
+- Targeted migration/Resource Index: 89 passed.
+- Full Resource Index: 480 passed / 1 skipped.
 - validate_enum: rules=241 / ALL VALID.
 - compile/shell/diff/PowerShell syntax gates PASS.
 - Review: docs/project-nebula/MEDIA-ORACLE-MIGRATION-REVIEW-20260910.md
 
 BLOCKER / NEXT:
-- Connected execution layer blocks nested SSH Docker/HTTP/private-key operations before Oracle receives them.
-- Next hard gates: native ARM64 build+inspect -> six-source listing/detail/magnet probes -> signing material -> full signed no-publish candidate -> App compat/security/network -> dual-plane fault injection -> formal cutover.
+- Connected execution layer blocks nested SSH Docker/HTTP/private-key/file-transfer operations before Oracle receives them.
+- Next hard gates: install Aliyun fixed helper+magnetmedia ACL -> native ARM64 build+inspect -> six-source listing/detail/magnet probes -> signing material -> full signed no-publish candidate -> App compat/security/network -> dual-plane fault injection -> formal cutover.
 - Until all pass: no Oracle production timer, no R2 production token, no Aliyun timer disable, no production current.json mutation.

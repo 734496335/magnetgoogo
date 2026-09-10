@@ -179,10 +179,39 @@ def test_oracle_example_config_uses_remote_aliyun_authority_and_data_mount_contr
     assert config["state_root"] == "/var/lib/magnet-media"
     assert config["public_root"] == "/var/lib/magnet-media/public"
     assert config["aliyun_remote_root"] == "/var/lib/magnet-media/public"
-    assert config["aliyun_ssh_target"] == "admin@47.103.155.154"
+    assert config["aliyun_ssh_target"] == "magnetmedia@47.103.155.154"
     assert config["aliyun_ssh_identity_file"].startswith("/etc/magnet-media/")
     assert config["aliyun_ssh_known_hosts_file"].startswith("/etc/magnet-media/")
     assert config["freshness_groups"]["series"]["min_fresh"] == 2
+
+
+def test_aliyun_media_mirror_user_installer_is_least_privilege_and_side_effect_bounded() -> None:
+    script = (LINUX / "install-aliyun-media-mirror-user.sh").read_text(encoding="utf-8")
+    assert 'USER_NAME=${USER_NAME:-magnetmedia}' in script
+    assert 'MEDIA_ROOT=${MEDIA_ROOT:-/var/lib/magnet-media/public}' in script
+    assert 'HELPER_TARGET=${HELPER_TARGET:-/usr/local/libexec/magnet-media-remote-static-mirror.py}' in script
+    assert 'from="%s",restrict %s' in script
+    assert "passwd -l" in script
+    assert "sudo|wheel" in script
+    assert "setfacl -R -m" in script
+    assert "default:user:$USER_NAME:rwx" in script
+    assert 'install -o root -g root -m 0755 "$HELPER_SOURCE" "$HELPER_TARGET"' in script
+    assert "runuser -u" in script and "healthcheck" in script
+    assert "sudo_access=none" in script
+    assert "nginx=untouched" in script
+    assert "systemd=untouched" in script
+    assert "systemctl" not in script
+    assert "nginx -t" not in script
+
+
+def test_ssh_static_mirror_runtime_uses_fixed_remote_helper_without_sudo_or_helper_upload() -> None:
+    source = (ROOT / "magnet/resource_index/publish/ssh_static_mirror.py").read_text(encoding="utf-8")
+    assert '/usr/local/libexec/magnet-media-remote-static-mirror.py' in source
+    assert '["sudo", "-n", "python3"' not in source
+    assert "self.config.helper_path" not in source
+    assert "[full_plan_path, self.config.helper_path]" not in source
+    assert "[source, self.config.helper_path]" not in source
+    assert 'parts = ["python3", remote_helper, command, *args]' in source
 
 
 def test_media_docker_image_contains_native_ssh_client_for_remote_mirror() -> None:
