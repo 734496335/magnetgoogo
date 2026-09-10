@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -49,6 +50,8 @@ def _handoff(
     run_id: str = "compute-run",
     content_sha256: str = "a" * 64,
     accepted_cross_season_count: int = 0,
+    finished_at: str | None = None,
+    include_finished_at: bool = True,
 ) -> str:
     movie_feed = tmp_path / "movie.json"
     series_feed = tmp_path / "series.json"
@@ -81,6 +84,8 @@ def _handoff(
             "covers": {"movie": {"audit": {"status": "pass"}}, "series": {"audit": {"status": "pass"}}},
         },
     }
+    if include_finished_at:
+        status["finished_at"] = finished_at or datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     return build_compute_handoff(outbox_root=tmp_path / "outbox", run_id=run_id, status=status, movie_feed_path=movie_feed, series_feed_path=series_feed, movie_bundle=movie_bundle, series_bundle=series_bundle)["package_path"]
 
 
@@ -135,6 +140,7 @@ def test_finalize_same_compute_run_is_idempotent_after_success(tmp_path: Path, m
     assert result["already_finalized"] is True
     assert result["no_change"] is True
     assert result["current_revision"] == 41
+    assert result["published"] is False
 
 
 def test_finalize_new_run_with_unchanged_content_does_not_advance_revision(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -152,6 +158,34 @@ def test_finalize_new_run_with_unchanged_content_does_not_advance_revision(tmp_p
     assert result["current_revision"] == 40
     updated = json.loads(state.read_text(encoding="utf-8"))
     assert updated["compute_run_id"] == "compute-run-2"
+
+
+def test_finalize_rejects_missing_finished_at(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    package = _handoff(tmp_path, include_finished_at=False)
+    with pytest.raises(ResourceIndexError, match="finished_at is required"):
+        finalize.finalize_compute_handoff(_config(tmp_path), package_path=package, publish=False)
+
+
+def test_finalize_rejects_expired_handoff(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    now = datetime(2026, 9, 10, 7, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(finalize, "_utc_now", lambda: now)
+    package = _handoff(tmp_path, finished_at=(now - timedelta(hours=13)).isoformat())
+    with pytest.raises(ResourceIndexError, match="older than maximum age"):
+        finalize.finalize_compute_handoff(_config(tmp_path), package_path=package, publish=False)
+
+
+def test_finalize_rejects_far_future_handoff(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    now = datetime(2026, 9, 10, 7, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(finalize, "_utc_now", lambda: now)
+    package = _handoff(tmp_path, finished_at=(now + timedelta(minutes=16)).isoformat())
+    with pytest.raises(ResourceIndexError, match="too far in the future"):
+        finalize.finalize_compute_handoff(_config(tmp_path), package_path=package, publish=False)
+
+
+def test_finalize_rejects_naive_finished_at(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    package = _handoff(tmp_path, finished_at="2026-09-10T07:00:00")
+    with pytest.raises(ResourceIndexError, match="timezone-aware"):
+        finalize.finalize_compute_handoff(_config(tmp_path), package_path=package, publish=False)
 
 
 def test_finalize_publish_requires_worker_token(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

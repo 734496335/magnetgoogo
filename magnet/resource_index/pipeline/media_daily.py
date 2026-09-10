@@ -104,6 +104,7 @@ class MediaDailyConfig:
     disk_max_used_percent: float = 80.0
     disk_min_free_bytes: int = 2 * 1024 * 1024 * 1024
     source_fallback_max_age_hours: int = 168
+    compute_handoff_max_age_hours: int = 12
     source_fallback_retry_delay_seconds: int = 0
     aliyun_ssh_target: str | None = None
     aliyun_ssh_identity_file: Path | None = None
@@ -275,6 +276,12 @@ def load_media_daily_config(path: str | Path) -> MediaDailyConfig:
             source,
             "source_fallback_max_age_hours",
             168,
+            minimum=1,
+        ),
+        compute_handoff_max_age_hours=_config_int(
+            source,
+            "compute_handoff_max_age_hours",
+            12,
             minimum=1,
         ),
         source_fallback_retry_delay_seconds=_config_int(

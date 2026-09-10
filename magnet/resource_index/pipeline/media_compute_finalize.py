@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,35 @@ from magnet.resource_index.release.builder import MediaReleaseConfig, build_medi
 
 def _fail(message: str, **context: Any) -> None:
     raise ResourceIndexError(CONFIG_ERROR, message, context)
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _validate_handoff_time(status: dict[str, Any], config: MediaDailyConfig) -> None:
+    raw_finished_at = status.get("finished_at")
+    if not isinstance(raw_finished_at, str) or not raw_finished_at.strip():
+        _fail("compute handoff finished_at is required")
+    normalized = raw_finished_at.strip()
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+    try:
+        finished_at = datetime.fromisoformat(normalized)
+    except ValueError:
+        _fail("compute handoff finished_at is invalid", finished_at=raw_finished_at)
+    if finished_at.tzinfo is None or finished_at.utcoffset() is None:
+        _fail("compute handoff finished_at must be timezone-aware", finished_at=raw_finished_at)
+    finished_at = finished_at.astimezone(timezone.utc)
+    now = _utc_now()
+    if finished_at > now + timedelta(minutes=15):
+        _fail("compute handoff finished_at is too far in the future", finished_at=raw_finished_at)
+    if now - finished_at > timedelta(hours=config.compute_handoff_max_age_hours):
+        _fail(
+            "compute handoff is older than maximum age",
+            finished_at=raw_finished_at,
+            max_age_hours=config.compute_handoff_max_age_hours,
+        )
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -97,6 +127,7 @@ def finalize_compute_handoff(
     status = _load_json(input_dir / "status.json")
     if status.get("run_id") != manifest.get("run_id"):
         _fail("compute handoff run id mismatch")
+    _validate_handoff_time(status, config)
     state_dir = root / "status"
     state_path = state_dir / "compute-finalizer-state.json"
     prior_state = _load_json(state_path) if state_path.is_file() else {}
@@ -110,7 +141,7 @@ def finalize_compute_handoff(
             "already_finalized": True,
             "current_revision": prior_state.get("current_revision"),
             "release_id": prior_state.get("release_id"),
-            "published": bool(publish),
+            "published": False,
         }
     for key in ("previous_revision", "content_sha256", "movie_count", "series_count", "resource_count"):
         if status.get(key) != manifest.get(key):
