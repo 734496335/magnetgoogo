@@ -36,8 +36,11 @@ if ! grep -Eq '^R2_UPLOAD_WORKER_TOKEN=.{32,}$' "$CONFIG_ROOT/media.env"; then
   echo "production R2 token is missing on Aliyun finalizer host" >&2
   exit 2
 fi
-if ! systemctl is-enabled --quiet magnet-media-daily.timer; then
-  echo "old Aliyun crawler timer must remain enabled during finalizer installation" >&2
+old_crawler_enabled=0
+if systemctl is-enabled --quiet magnet-media-daily.timer; then
+  old_crawler_enabled=1
+elif [[ "$FINALIZER_MODE" != "publish" ]] || ! systemctl is-enabled --quiet magnet-media-compute-finalizer.timer; then
+  echo "old Aliyun crawler timer must remain enabled before finalizer cutover" >&2
   exit 2
 fi
 [[ -f /home/admin/.ssh/travel-oracle-tunnel ]] || { echo "existing Oracle tunnel identity is missing" >&2; exit 2; }
@@ -75,7 +78,11 @@ if [[ "$ENABLE_FINALIZER_TIMER" == "1" ]]; then
 else
   systemctl disable --now magnet-media-compute-finalizer.timer >/dev/null 2>&1 || true
 fi
-systemctl is-enabled --quiet magnet-media-daily.timer || { echo "old crawler timer changed unexpectedly" >&2; exit 2; }
+if [[ "$old_crawler_enabled" == "1" ]]; then
+  systemctl is-enabled --quiet magnet-media-daily.timer || { echo "old crawler timer changed unexpectedly" >&2; exit 2; }
+else
+  systemctl is-enabled --quiet magnet-media-compute-finalizer.timer || { echo "post-cutover finalizer timer must remain enabled" >&2; exit 2; }
+fi
 
 printf '%s\n' \
   "MEDIA_ALIYUN_FINALIZER_READY" \

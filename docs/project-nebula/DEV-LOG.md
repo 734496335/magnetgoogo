@@ -1,4 +1,36 @@
 ---
+Date/Time: 2026-09-10 18:20 (UTC+8)
+Version: v0.2.8-media-oracle-production-cutover
+Scope: Complete Oracle compute-only production cutover, Aliyun finalizer deployment, formal publish, first post-cutover production cycle and rollback-safe timer transition.
+Modules: Oracle compute handoff / Aliyun finalizer / R2+Aliyun publication / systemd cutover / App live verification / migration docs
+
+### Key changes
+- Final production topology is `Oracle ARM64 compute-only -> verified SSH handoff -> Aliyun signer/finalizer -> R2 primary + Aliyun China mirror`; Oracle never receives the production signing private key or R2 upload token.
+- Replaced the blocked 18766 port-forward design with strict known-host, non-PTY SSH streaming of exact Oracle outbox files. Handoff fetch verifies safe paths, exact SHA/size, atomically installs inbox packages and reuses an existing exact package without downloading it again.
+- Added timezone-aware `finished_at`, default 12-hour maximum handoff age and future-clock-skew rejection; repeat finalizer retries now correctly report `published=false`.
+- Fixed finalizer release installer handling for in-place release directories and post-cutover upgrades while preserving the old crawler timer before cutover.
+- Expanded P3 fault injection for tamper, stale/aged packages, duplicate/missing/extra members, bad quality, changed local pointer, R2-before-Aliyun ordering, Aliyun promotion recovery/failure and repeated idempotent runs.
+
+### Production results
+- Oracle accepted compute run `20260910T045933Z-fb9b9e38`: revision40 base, 421 movies / 538 series / 6663 resources, freshness clean, handoff SHA `93a2fa10...5606f`.
+- Aliyun signed candidate revision41 PASS with 2831 objects and no public mutation; deep `verify-media-release` PASS.
+- Formal revision41 publish completed 17:01 CST: release `20261030T000000Z-f9d2f301`, pointer SHA `6715cf66...a4bdc`, exact R2/Aliyun convergence.
+- Cutover: Oracle compute timer enabled+active; Aliyun finalizer timer enabled+active; old Aliyun crawler timer disabled+inactive but preserved; Travel remained healthy; obsolete media 18766 tunnel disabled+inactive.
+- First post-cutover full production cycle was manually triggered through the exact new topology. Oracle run `20260910T092021Z-ed7c0acb` produced 421 movies / 539 series / 6672 resources; Aliyun streamed and finalized it to revision42 at 18:11 CST.
+- Revision42 release `20261030T000000Z-64a9354f`; manifest SHA `b1704b65...ef89`; pointer SHA `96fdc8d3...15c96`; R2/Aliyun exact convergence PASS.
+
+### Verification
+- Full Resource Index: 538 passed / 2 skipped.
+- `python magnet/validate_enum.py`: rules=241 / ALL VALID.
+- Python compileall, all Linux shell syntax and git diff whitespace: PASS.
+- Revision42 App live network/signature/hash chain PASS on both R2 and Aliyun with exact 421/539/6672 counts.
+- App media-security PASS; resource-feed M1-M7 PASS, M8 fixture-only SKIP; release-build contract PASS.
+
+### Risk / remaining observation
+- CH-014 remains `piloting` only because its explicit closure rule requires the first natural scheduled Oracle 03:00 -> Aliyun 04:30 cycle; the manual post-cutover full production cycle already passed.
+- Rollback is preserved: disable new compute/finalizer timers, enable old Aliyun `magnet-media-daily.timer`, then verify signed R2/Aliyun pointer equality.
+---
+---
 Date/Time: 2026-09-10 10:00 (UTC+8)
 Version: v0.2.8-media-oracle-acceptance-hardening
 Scope: Convert the remaining Oracle media migration checks into fail-closed machine-verifiable gates and tighten cross-host least privilege before any production cutover.

@@ -1,28 +1,24 @@
 TASK: media crawler compute migration from Aliyun to Oracle ARM64
-STATUS: SHADOW_PREP / CODE+PUBLIC-APP GATES GREEN / ORACLE RUNTIME GATES PENDING
+STATUS: PRODUCTION_CUTOVER_COMPLETE / FIRST_POST_CUTOVER_MANUAL_CYCLE_PASS / FIRST_NATURAL_SCHEDULED_CYCLE_PENDING
 DATE: 2026-09-10 UTC+8
 
-PRODUCTION BASELINE:
-- Aliyun 2026-09-10 daily run succeeded; revision40 / release 20261030T000000Z-5888bcc0.
-- 421 movies / 538 series / 6663 magnet resources; series freshness 4/4; only supplemental dytt8899 degraded.
-- R2 + Aliyun live pointer SHA: 6997e81730976338e77554d916af26e3def0e7c26a8b59c3872007f096ecf50e.
-- Aliyun magnet-media-daily.timer remains enabled+active. Do not stop it yet.
+PRODUCTION NOW:
+- Oracle is compute-only; Aliyun is lightweight signer/finalizer + China static mirror; R2 remains primary public plane.
+- Live pointer revision42 / release 20261030T000000Z-64a9354f.
+- 421 movies / 539 series / 6672 magnet resources.
+- R2 + Aliyun live pointer SHA: 96fdc8d3ef5daf36641167cb25d55692a7f9402aa59cb2e0285cfe4312715c96.
+- Oracle compute timer enabled+active; Aliyun finalizer timer enabled+active; old Aliyun crawler timer disabled+inactive but preserved for rollback.
+- Oracle has no production signing private key and no R2 upload token; Travel remains healthy.
 
-IMPLEMENTED:
-- Oracle SSH Aliyun mirror: immutable delta+SHA, strict tar allowlist, +1 pointer preflight/recovery, fixed root-owned helper.
-- Dedicated `magnetmedia` SSH user: source-IP restricted key, no media ACL/ownership, only helper-scoped sudo; privileged helper refuses non-production root.
-- Oracle ARM64 build-only + candidate-only installer; /data bind mount; no Nginx/timer/key generation; no R2 token in shadow.
-- Required freshness source with zero current magnets is now publication-degraded.
-- Six-source live listing->detail->magnet probe independent of durable minimum_interval state.
-- Oracle candidate acceptance freezes R2/Aliyun before/after bytes and validates freshness, aggregate quality, magnet-only, covers and counts.
-- App media network test supports strict live-only mode while preserving original local-fixture mode.
+IMPLEMENTED / VERIFIED:
+- Direct Aliyun->Oracle SSH handoff streaming with strict known_hosts, SHA/size/path validation, atomic inbox install and exact existing-package reuse.
+- Handoff max-age/timezone/future-skew gate; repeat finalizer runs report published=false.
+- Candidate revision41 passed with zero public mutation; formal revision41 publish passed.
+- Post-cutover Oracle compute produced run 20260910T092021Z-ed7c0acb against revision41; Aliyun finalizer consumed it and automatically published revision42.
+- Finalizer P3 fault injection covers tamper, duplicate/missing/extra members, stale/aged handoff, bad quality, pointer race, R2->Aliyun ordering, Aliyun promotion recovery and idempotency.
+- Full Resource Index 538 passed / 2 skipped; enum 241 ALL VALID; compile/shell/diff PASS.
+- App revision42 live network/signature/hash chain, media-security, resource-feed M1-M7 and release-build contract PASS; M8 remains fixture-only SKIP.
 
-VERIFICATION:
-- Targeted migration/Resource Index: 104 passed.
-- Full Resource Index: 495 passed / 1 skipped; enum 241 ALL VALID; compile/shell/diff PASS.
-- App resource-feed M1-M7 PASS (M8 local-bundle SKIP); media-security PASS; release-build PASS.
-- Revision40 R2+Aliyun live network/signature/hash chain PASS with exact 421/538/6663 counts.
-
-NEXT HARD GATES:
-- Install Aliyun fixed helper + helper-only sudo -> native Oracle ARM64 build/inspect -> Oracle six-source live probe -> secure production signing material -> run full shadow acceptance -> candidate App checks -> dual-plane fault injection -> formal cutover.
-- Until all pass: no Oracle production timer, no R2 production token, no Aliyun timer disable, no production current.json mutation.
+REMAINING OBSERVATION:
+- CH-014 stays piloting until the first natural scheduled Oracle 03:00 -> Aliyun 04:30 cycle passes; manual post-cutover full production cycle already PASS.
+- Rollback remains: disable new timers -> enable old Aliyun magnet-media-daily.timer -> verify both public pointers.

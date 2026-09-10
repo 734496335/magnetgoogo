@@ -81,7 +81,10 @@ def test_finalizer_timer_retries_but_same_service_cannot_overlap() -> None:
 
 def test_aliyun_finalizer_installer_preserves_old_crawler_timer_until_cutover() -> None:
     script = (LINUX / "install-media-aliyun-finalizer.sh").read_text(encoding="utf-8")
-    assert "old Aliyun crawler timer must remain enabled" in script
+    assert "old Aliyun crawler timer must remain enabled before finalizer cutover" in script
+    assert 'old_crawler_enabled=0' in script
+    assert '[[ "$FINALIZER_MODE" != "publish" ]] || ! systemctl is-enabled --quiet magnet-media-compute-finalizer.timer' in script
+    assert "post-cutover finalizer timer must remain enabled" in script
     assert "systemctl is-enabled --quiet magnet-media-daily.timer" in script
     assert "systemctl disable --now magnet-media-daily.timer" not in script
     assert "FINALIZER_MODE=${FINALIZER_MODE:-candidate}" in script

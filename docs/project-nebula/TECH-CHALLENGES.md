@@ -42,7 +42,7 @@
 | [CH-011](#challenge-011--aliyun源包续期传播依赖人工同步) | Aliyun 源包续期传播依赖人工同步 | **high** | solved ✅ | 2026-08-11 authority+GitHub API+crypto/freshness/cohort 自动同步上线 |
 | [CH-012](#challenge-012--影视双端promotion硬断电一致性窗口) | 影视双端 promotion 硬断电一致性窗口 | **blocker** | solved ✅ | 2026-08-11 R2-first + 双端签名恢复 + revision不可重绑上线 |
 | [CH-013](#challenge-013--green源包gateway备用入口缺失) | green 源包 Gateway 备用入口缺失 | low | abandoned | 2026-08-11 合规版暂时弃用，普通版 full-only 成为唯一生产 SLA |
-| [CH-014](#challenge-014--影视计算迁移后aliyun静态镜像跨主机发布) | 影视计算迁移后 Aliyun 静态镜像跨主机发布 | **blocker** | piloting | 2026-09-10 SSH增量镜像+pointer preflight实现完成，待Oracle真机验收 |
+| [CH-014](#challenge-014--影视计算迁移后aliyun静态镜像跨主机发布) | 影视计算迁移后 Aliyun 静态镜像跨主机发布 | **blocker** | piloting | 2026-09-10 已完成生产切换+首轮手工生产闭环，待首次自然定时周期 |
 
 ---
 
@@ -52,11 +52,11 @@
 - **状态**：piloting
 - **首次记录**：2026-09-10
 - **业务影响**：旧媒体发布器把 Aliyun 镜像实现为本机 `FilesystemPublisherBackend(public_root)`；计算从 Aliyun 迁到 Oracle 后若原样运行，会把所谓 Aliyun 数据写到 Oracle 本地，并可能先推进 R2 pointer、再因 Aliyun 公网验证失败形成双端 revision 分裂。
-- **当前方案 & 缺陷**：已新增 Oracle→Aliyun SSH 静态镜像 publisher，immutable 数据先做远端 delta+SHA 验证，pointer 使用精确旧 SHA/+1 revision/release-manifest binding 的 fail-closed preflight；运行权限最终收敛为专用 `magnetmedia` 用户无媒体目录 ACL/ownership，仅允许 sudo 执行固定 root-owned helper，且 helper 在 root 权限下拒绝任何非 `/var/lib/magnet-media/public` 根目录；Oracle shadow build/install 分离并使用 `/data` bind mount。另新增六源 listing→detail→magnet 实抓探针与 before/after pointer 冻结的 candidate 验收器。代码和当前 revision40 App 公网链门禁已全绿，但 Oracle 原生 ARM64 build、真机六源探针、signed full candidate 和故障注入尚未完成真机验收。
-- **已尝试**：2026-09-10 完成 104 个迁移专项测试、全量 Resource Index 495 passed / 1 skipped、enum 241 ALL VALID；App revision40 R2/Aliyun live network/signature/hash chain、media-security、release-build 均 PASS；revision40 source durable state 已三段 SHA 验证同步 Oracle。嵌套 SSH Docker/HTTP/私钥/文件传输操作曾被当前连接执行层在到达 Oracle 前拦截，未将工具阻塞误判为服务失败。
-- **候选方案**：继续使用当前 SSH publisher，不引入对象存储第三套国内镜像；运行层恢复后完成 native ARM64 + shadow + App compat + fault injection，再切 timer。若长期无法获得安全的跨主机执行通道，再评估 Aliyun 侧受限 pull/promotion service，但不得降低 pointer 单调性和签名门禁。
-- **下一步**：完成 Oracle 真机 runtime gates；在全部 PASS 前保持 Aliyun daily timer active，不复制 R2 production token，不修改生产 `current.json`。
-- **更新日志**：2026-09-10 —— 代码/部署架构完成并进入 piloting，详见 `MEDIA-ORACLE-MIGRATION-REVIEW-20260910.md`。
+- **当前方案 & 缺陷**：最终架构已收敛为 `Oracle compute-only -> Aliyun SSH stream handoff -> Aliyun signer/finalizer -> R2 + Aliyun static mirror`。Oracle 不持有生产签名私钥和 R2 token；Aliyun 使用既有 pinned Travel SSH identity 通过非 PTY `cat -- <exact outbox path>` 流式读取 handoff，不再申请 18766 port-forward 权限。handoff 做 exact path/SHA/size/member-set/age 校验，Aliyun finalizer 再验证 freshness/quality/covers/counts 后签名；pointer 仍严格 R2-first、Aliyun-second、+1 revision、same-revision 不可重绑。
+- **已尝试**：2026-09-10 native Oracle ARM64 compute 成功；candidate revision41 签名/2831对象深验 PASS；P3 故障注入覆盖 tamper、stale/aged、duplicate/missing/extra members、bad quality、pointer race、R2→Aliyun 顺序、Aliyun promotion recovery 和重复幂等。17:01 正式发布 revision41 并完成 timer cutover；随后按新生产链手工触发首轮 compute，Oracle run `20260910T092021Z-ed7c0acb` 经 SSH handoff 被 Aliyun finalizer 自动发布为 revision42，R2/Aliyun pointer SHA `96fdc8d3...15c96` 完全一致，421/539/6672。最终 Resource Index 538 passed / 2 skipped，enum 241 ALL VALID；revision42 App live network/security/resource-feed/release-build PASS。
+- **候选方案**：当前方案已进入生产，不再使用 Oracle→Aliyun SSH publisher 作为主链，也不扩大 Travel key 的 `permitopen`。旧 Aliyun crawler unit/image/state 保留作为即时 rollback；废弃 18766 media tunnel 已 disabled/inactive。
+- **下一步**：仅剩观察第一次自然定时周期：Oracle 约 03:00 compute，Aliyun 04:30 起 finalizer retry。该周期 PASS 后才把 CH-014 从 `piloting` 标记为 `solved`。若失败，立即停新 timers、恢复旧 Aliyun `magnet-media-daily.timer` 并核对双端 pointer。
+- **更新日志**：2026-09-10 —— 生产切换完成，revision41 formal publish 与 post-cutover revision42 全链闭环均 PASS；详见 `MEDIA-ORACLE-MIGRATION-REVIEW-20260910.md`。
 
 ---
 

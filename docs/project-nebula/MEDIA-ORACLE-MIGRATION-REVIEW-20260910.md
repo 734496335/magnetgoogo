@@ -1,183 +1,193 @@
 # Media Crawler Oracle Migration Review — 2026-09-10
 
-## Scope
+## Final architecture
 
-Migrate only the media crawler/compute runtime from Aliyun to Oracle ARM64 while preserving the existing public protocol and two distribution planes:
+Production cutover is complete.
 
-- R2 remains the primary public media plane.
-- Aliyun remains the China static mirror at `https://cn.magnetgoogo.com/media`.
-- The App protocol, signing authority, source health governance, and public `current.json` contract stay unchanged.
-- Aliyun production timer remains the rollback authority until all Oracle runtime gates pass.
+Final topology:
 
-## Production baseline verified before migration work
+`Oracle ARM64 compute-only -> verified SSH handoff -> Aliyun signer/finalizer -> R2 primary + Aliyun China static mirror`
 
-On 2026-09-10 the Aliyun unattended publish completed successfully and advanced production to:
+The App protocol, public URLs, signing authority, pointer monotonicity and dual-plane verification contract are unchanged.
 
-- pointer revision: `40`
-- release: `20261030T000000Z-5888bcc0`
-- movies: `421`
-- series: `538`
-- magnet resources: `6663`
-- series freshness group: `4/4`, min_fresh=`2`
-- only degraded source: supplemental `dytt8899`
+Oracle performs crawl/aggregate/magnet-only/rating/cover/quality work only. It has no production Ed25519 private key and no R2 upload token. Aliyun retains the production signing private key, R2 upload token, finalizer, and China static mirror. R2 remains the primary public media plane.
+
+## Why the architecture changed
+
+The original host-coupled pipeline used `FilesystemPublisherBackend(public_root)` as the Aliyun publisher. Moving that pipeline unchanged to Oracle could have written the supposed Aliyun mirror to Oracle local disk and created R2/Aliyun split-brain.
+
+A first migration design added Oracle->Aliyun SSH static publication. Runtime review then found a better trust boundary: keep all signing and public publication on Aliyun, and make Oracle compute-only. This also avoids copying the production signing key or R2 token to Oracle.
+
+The first compute/finalizer draft used an Aliyun localhost port-forward to Oracle outbox port 18766. The existing Travel SSH key intentionally had `permitopen=127.0.0.1:8765`, so 18766 forwarding was administratively rejected. The final design therefore does not widen that key. Aliyun directly executes restricted non-PTY SSH `cat -- <exact outbox path>` over the already pinned Travel identity and streams the handoff locally. No new public port or forwarding permission is required.
+
+## Handoff security and reliability
+
+The compute handoff contains status, final movie/series feeds and cover bundles. Its manifest binds exact SHA-256 and size for every member.
+
+Fail-closed checks cover:
+
+- safe relative archive paths only;
+- regular files only, no symlinks;
+- duplicate member rejection;
+- duplicate manifest descriptor rejection;
+- exact archive member-set equality;
+- SHA-256 and size verification;
+- atomic Oracle outbox pointer replacement;
+- Aliyun streamed download with strict `known_hosts` and BatchMode;
+- remote commands restricted to exact `cat -- /var/lib/magnet-media/outbox/...` paths;
+- local atomic inbox installation;
+- exact SHA/size reuse of an already downloaded package;
+- required timezone-aware `finished_at`;
+- default maximum handoff age 12h;
+- >15 minute future clock skew rejection.
+
+A repeated already-finalized handoff is an idempotent no-op and reports `published=false`.
+
+## Publication safety
+
+Aliyun finalizer validates compute status, quality, freshness, cover audits and count floors before signing. It reconciles both current public planes before building a revision+1 candidate.
+
+Formal publication order remains:
+
+1. publish immutable objects to Aliyun static mirror;
+2. publish immutable objects to R2;
+3. verify Aliyun local current is still the exact preflight pointer;
+4. promote R2 `current.json`;
+5. promote Aliyun `current.json`;
+6. recover deterministically if Aliyun pointer promotion is ambiguous/fails;
+7. verify both public endpoints against the exact candidate pointer;
+8. only then persist finalizer idempotency state.
+
+Same-revision rebinding, rollback, stale handoff revision and unexpected pointer mutation remain hard failures.
+
+## Runtime proof
+
+### Oracle compute
+
+Native image:
+
+- platform: `linux/arm64`
+- verified image SHA from migration run: `sha256:2df7195fdfeb4a42b2a51dc7df45a69fa987aceb2a158676aab40890bf771e11`
+
+First accepted compute handoff:
+
+- run: `20260910T045933Z-fb9b9e38`
+- previous revision: 40
+- movies: 421
+- series: 538
+- resources: 6663
+- package bytes: 67,624,960
+- package SHA-256: `93a2fa10a0cfd55b67e10c9aecd78730457f1a3514eeeefa2997c2f165f5606f`
 - required degraded sources: none
 - failed freshness groups: none
+- series freshness: 4/4
 
-Aliyun `magnet-media-daily.timer` remains enabled and active. No Oracle production timer has been installed or enabled.
+Six configured sources had successful durable crawl state and non-zero current magnet evidence in the accepted compute status: sixv 120 resources, dytt8899 179, meijumi 1471, sixv-series 604, bitba-series 396, mjf-series 57. A direct live sixv listing->detail->magnet probe also passed. Some additional single-source live probe invocations were blocked by the execution layer and are not falsely claimed as independent live-probe PASS.
 
-## P0 defects found by migration review
+### Candidate
 
-### 1. Local filesystem publisher was host-coupled
+Aliyun candidate from the first handoff:
 
-The previous `media_daily.py` used `FilesystemPublisherBackend(public_root)` as the Aliyun publisher. That was correct only while compute and the Aliyun static mirror were on the same host. Moving compute to Oracle without changing this would write the supposed Aliyun mirror to Oracle local disk.
+- candidate revision: 41
+- release: `20261030T000000Z-f9d2f301`
+- `candidate_verified=true`
+- `published=false`
+- 421 movies / 538 series / 6663 resources
+- 2831 signed objects verified
+- no quality regressions
+- R2/Aliyun revision40 pointer bytes unchanged before/after candidate
 
-The formal flow also promoted R2 before the local filesystem pointer, so an Oracle-hosted run could have advanced R2 while Aliyun public `current.json` stayed behind.
+### Formal cutover publish
 
-### 2. Legacy Aliyun scripts referenced a stale root
+At 2026-09-10 17:01 CST the finalizer formally published revision41:
 
-Older tools targeted `/var/www/magnetgoogo-site/media`, but the real production Nginx alias currently serves `/var/lib/magnet-media/public`. The stale tree had a different `current.json` hash and must not be treated as authority.
+- release: `20261030T000000Z-f9d2f301`
+- pointer SHA-256: `6715cf6681380ac6618e642efbe1b6860f9d73990736d12d3cb97269b23a4bdc`
+- both R2 and Aliyun verified exact revision41 convergence
+- each plane reused 2808 immutable objects and uploaded only 24 new objects
 
-### 3. Oracle data disk would not be used by the old runner contract
+After revision41 App live protocol/security verification passed, timers were cut over:
 
-`run-media-daily.sh` mounts host `/var/lib/magnet-media` into the container and the hardened systemd unit only allows writes under that path. Merely changing JSON to `/data/...` would either miss the 150 GB data disk or fail under `ProtectSystem=strict`.
+- Oracle `magnet-media-oracle-compute.timer`: enabled + active
+- Aliyun `magnet-media-compute-finalizer.timer`: enabled + active
+- old Aliyun `magnet-media-daily.timer`: disabled + inactive, not deleted
+- Travel tunnel/service remained healthy
+- obsolete media 18766 tunnel unit: disabled + inactive
 
-### 4. Legacy installer was unsafe for shadow migration
+### First post-cutover production cycle
 
-The old installer also configures Nginx and can initialize signing keys. Oracle shadow must not modify Nginx and must never mint a new production signing authority.
+A full production cycle was then manually triggered through the exact new architecture.
 
-## Implemented architecture
+Oracle produced:
 
-### Cross-host Aliyun static mirror publisher
+- run: `20260910T092021Z-ed7c0acb`
+- previous revision: 41
+- movies: 421
+- series: 539
+- resources: 6672
+- handoff bytes: 67,737,600
+- handoff SHA-256: `68d5aaf1d86b868656c365eb844abe8c99674f3cbfd5f5d2ebfcc4029ef41b66`
 
-Added `SshStaticMirrorPublisher` plus `deploy/resource-index/remote-static-mirror.py`.
+Aliyun fetched it over the production SSH streaming path (`reused=false`), verified it, signed it and automatically published revision42 at 18:11:25 CST:
 
-Publication semantics:
+- revision: 42
+- release: `20261030T000000Z-64a9354f`
+- manifest SHA-256: `b1704b65cb6556ae6bddb2215f128977617ec2dd413ddcd52e637d9ba652ef89`
+- pointer SHA-256: `96fdc8d3ef5daf36641167cb25d55692a7f9402aa59cb2e0285cfe4312715c96`
+- counts: 421 movies / 539 series / 6672 resources
+- R2 and Aliyun exact convergence verified by the finalizer and independent App live tests
+- finalizer durable state records run `20260910T092021Z-ed7c0acb`, revision42 and the same release id
 
-1. Build one verified immutable publish plan from the signed release.
-2. Query Aliyun for existing immutable files and compare size + SHA-256.
-3. Transfer only missing immutable objects.
-4. Remote helper accepts only exact planned regular files; extra members, duplicate tar members, symlinks and unsafe paths are rejected.
-5. Verify the complete immutable plan again on Aliyun before any pointer promotion.
-6. Preflight Aliyun `current.json` against the exact previously observed SHA-256 and require a one-revision advance.
-7. Promote R2 current pointer.
-8. Promote Aliyun current pointer atomically through the remote helper.
-9. If the SSH response is ambiguous, retry the idempotent Aliyun promotion once. If still uncertain, use the signed one-revision control-recovery path.
-10. Verify both public planes against the candidate pointer.
+## Test gates
 
-The remote mirror root is now fail-closed: it must be an absolute normalized non-root path and cannot contain traversal or unsafe whitespace forms.
+Final local gates after all migration/finalizer changes:
 
-### Pointer hardening
+- full Resource Index: `538 passed, 2 skipped`
+- enum: `rules=241 / ALL VALID`
+- Python compileall: PASS
+- all Linux deployment shell syntax: PASS
+- Git diff whitespace: PASS
+- finalizer/transport/P3 targeted suites: PASS
 
-The remote helper independently validates:
+P3/fault coverage includes tampered handoff, stale/aged handoff, duplicate/missing/extra archive members, malformed quality/freshness, missing R2 credential, local pointer changed before promotion, fixed R2-before-Aliyun ordering, Aliyun promotion recovery, recovery failure, idempotent repeat and safe existing-package reuse.
 
-- SHA values are lowercase 64-character hex strings.
-- `release_id` is safe.
-- `manifest_path` is exactly `/v1/releases/<release_id>/manifest.json`.
-- candidate revision advances exactly one step unless bytes already equal the candidate.
-- an equal revision cannot be rebound to different bytes.
-- the candidate manifest exists on the mirror and matches `manifest_sha256`.
-- stale preflight authority SHA is rejected.
+Revision42 App validation:
 
-### Oracle shadow deployment
+- live R2 media chain: PASS
+- live Aliyun media chain: PASS
+- exact cross-plane pointer equality: PASS
+- signature/manifest/catalog/detail/resource/cover hash chain: PASS
+- media-security: PASS
+- resource-feed M1-M7: PASS
+- M8: existing local-fixture-only SKIP
+- release-build contract: PASS
 
-Added a two-stage deployment:
+No App rebuild was performed.
 
-1. `build-media-oracle-image.sh`
-   - build-only;
-   - requires native `aarch64` host;
-   - tags the image with the release name;
-   - requires resulting image `linux/arm64`;
-   - checks Python runtime imports and `ssh`/`scp` availability;
-   - does not call systemd, Nginx or production credentials.
+## Secrets and isolation
 
-2. `install-media-oracle-shadow.sh`
-   - refuses to build an image itself;
-   - requires the release-matched ARM64 image to exist and pass runtime checks first;
-   - requires `/data` to be a distinct mounted volume;
-   - binds `/data/magnet-media/state` to `/var/lib/magnet-media` through a dedicated mount unit;
-   - refuses a hidden non-empty legacy `/var/lib/magnet-media` directory before first mount;
-   - requires existing production signing material and never generates a key;
-   - refuses a production R2 token during shadow mode;
-   - installs only `magnet-media-oracle-shadow.service`, which can run only `candidate` mode;
-   - installs no production media timers/retry unit and does not touch Nginx.
+Verified after cutover:
 
-## State migration
+- Oracle production signing private key: absent
+- Oracle R2 upload token: absent
+- Oracle outbox: loopback-only
+- Travel container: healthy
+- Aliyun keeps production signer and R2 token
+- old Aliyun crawler units/image/state are preserved for rollback
 
-The current production source durable state was re-snapshotted after revision40. The `sources` archive was SHA-256 verified at Aliyun, local transfer and Oracle destination, with 19 source state files present on Oracle.
+## Remaining observation gate
 
-`bundles`, ratings and rating-cache are reusable performance state, not publication authority. A larger refreshed archive was locally verified but further transfer was blocked by the execution layer. Oracle already contains the previous verified bundle snapshot; a full shadow candidate must rebuild/verify final bundles before any cutover.
+CH-014 remains `piloting`, not `solved`, until the first natural scheduled cycle has executed: Oracle compute around 03:00 Asia/Shanghai followed by the Aliyun finalizer retry window beginning 04:30. The manually triggered post-cutover full production cycle already proves the complete production topology.
 
-Historical `runs`, `withhold-test` and similar bulk runtime artifacts are intentionally not required for migration correctness.
+## Rollback
 
-## Security posture
+If a later scheduled cycle fails:
 
-- A dedicated Oracle-to-Aliyun Ed25519 deployment key was generated for the media mirror.
-- The runtime no longer logs in as Aliyun `admin`. It uses a dedicated `magnetmedia` user that is not a sudo/wheel group member and owns no media mirror files.
-- Direct ACL write access was rejected during review because newly created immutable files would become writable/owned by the deploy user. The final design removes deploy-user ACL access from the media tree and permits only passwordless execution of the fixed root-owned helper through one sudoers rule.
-- The privileged helper independently refuses any root other than `/var/lib/magnet-media/public`, so restricted sudo cannot be redirected to another filesystem tree.
-- The runtime no longer uploads a Python helper. It calls fixed root-owned `/usr/local/libexec/magnet-media-remote-static-mirror.py`; plans/payloads remain unprivileged temporary inputs and every immutable path/hash is validated before root-owned promotion.
-- The key authorization is restricted to the Oracle public source IP with OpenSSH `restrict`, and agent/port/X11 forwarding plus PTY are unavailable.
-- Aliyun host keys were independently scanned from both sides and matched before a fixed known_hosts file was prepared.
-- No R2 production upload token has been copied to Oracle during shadow preparation.
-- No signing private key value was printed into logs or chat.
+1. disable/stop `magnet-media-oracle-compute.timer` on Oracle;
+2. disable/stop `magnet-media-compute-finalizer.timer` on Aliyun;
+3. enable/start old Aliyun `magnet-media-daily.timer`;
+4. verify R2 and Aliyun current pointers are identical and signed;
+5. leave revision42 immutable objects/state intact;
+6. diagnose the new path without deleting the old Aliyun image, units or state.
 
-## Verification completed
-
-Latest local gates after all hardening changes:
-
-- migration/resource-index targeted suite: `104 passed`
-- full Resource Index suite: `495 passed, 1 skipped`
-- `python magnet/validate_enum.py`: `rules=241`, `ALL VALID`
-- Python compile: PASS
-- Linux shell syntax: PASS
-- Git whitespace/diff check: PASS
-- PowerShell current-promotion syntax: PASS
-
-Tests cover at least:
-
-- remote Aliyun configuration completeness and safe path validation;
-- immutable delta reuse and conflict rejection;
-- unplanned tar member rejection;
-- duplicate tar member rejection;
-- one-revision pointer promotion;
-- stale authority SHA rejection;
-- release/manifest path binding;
-- idempotent already-promoted recovery;
-- remote Aliyun preflight before any current-pointer promotion;
-- ambiguous SSH promotion retry + recovery;
-- Oracle build-only side-effect boundary;
-- Oracle candidate-only service and data-volume contract;
-- dedicated Aliyun mirror-user least-privilege installer with no direct media-tree ACL/ownership;
-- fixed privileged helper restricted to the exact production mirror root;
-- Oracle six-source live-chain probe that cannot be satisfied by durable `minimum_interval` state;
-- required-freshness sources treated as degraded when the current crawl/feed contributes zero magnets;
-- Oracle candidate acceptance that freezes R2/Aliyun pointer bytes before/after and validates aggregate quality, magnet-only counts and cover audits;
-- App live-only network mode for validating the current public release when historical local revision4 fixtures are absent;
-- legacy Aliyun tools using the live `/var/lib/magnet-media/public` authority.
-
-## Runtime gates still required before cutover
-
-The following are explicitly NOT marked passed yet:
-
-1. install and verify the fixed root-owned Aliyun mirror helper plus dedicated `magnetmedia` user and helper-only sudo rule using the Oracle deploy public key;
-2. native Oracle ARM64 Docker image build and image inspection;
-3. execute the new six-source live-chain probe covering listing -> detail -> magnet for all six configured sources;
-4. secure installation of the existing production signing material on Oracle;
-5. execute `run-media-oracle-shadow-acceptance.sh`, which freezes both public pointers, runs mirror/source probes plus the full signed `candidate`, captures after-pointers even on candidate failure, and requires byte-for-byte no-publication evidence;
-6. final quality gates: required freshness, all four migration freshness members, aggregate accepted-output quality, magnet-only, covers and counts;
-7. App media compatibility/network/security test suites against the Oracle candidate; current revision40 live public network/security checks already pass locally;
-8. cross-host publication fault injection, including interrupted Aliyun pointer promotion;
-9. only after all above pass: copy the minimum production R2 credential, install the production Oracle timer, stop (do not delete) the Aliyun timer and execute one formal Oracle publish;
-10. verify R2 and Aliyun pointer + manifest/object convergence after that formal publish.
-
-## Current blocker
-
-The connected execution layer currently rejects or blocks multiple classes of nested SSH operations involving Docker, HTTP probes and signing-private-key transfer before those commands reach Oracle. This is a tooling execution blocker, not evidence that Oracle or the source sites failed.
-
-Do not weaken security or encode/print secrets to bypass this blocker. Runtime gates remain pending until they can be executed normally.
-
-## Rollback rule
-
-Until the first verified Oracle formal publish is complete, Aliyun remains the production compute authority. Do not disable its daily timer.
-
-After cutover, keep the Aliyun release, image, systemd units, durable state and signing/public control state intact so rollback is simply: stop Oracle media timer, re-enable Aliyun media timer, verify the two public pointers, then resume Aliyun compute.
+Do not copy production secrets to Oracle as part of rollback or troubleshooting.
