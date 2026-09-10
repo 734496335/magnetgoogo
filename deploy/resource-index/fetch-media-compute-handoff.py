@@ -24,6 +24,21 @@ def _get(url: str) -> bytes:
         return response.read()
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        while True:
+            chunk = source.read(1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _existing_package_matches(path: Path, expected_size: int, expected_sha: str) -> bool:
+    return path.is_file() and path.stat().st_size == expected_size and _sha256_file(path) == expected_sha
+
+
 def _stream_package(url: str, destination: Path) -> tuple[str, int]:
     request = urllib.request.Request(url, headers={"User-Agent": "MagnetGoogo-Compute-Finalizer/1.0", "Cache-Control": "no-cache"})
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -170,29 +185,35 @@ def main() -> int:
     output = Path(args.output_dir).resolve()
     output.mkdir(parents=True, exist_ok=True)
     package_path = output / Path(relative).name
+    expected_size = int(pointer["package_size"])
+    expected_sha = str(pointer["package_sha256"])
+    reused = _existing_package_matches(package_path, expected_size, expected_sha)
     temporary = output / f".{package_path.name}.{uuid.uuid4().hex}.tmp"
     try:
-        if use_ssh:
-            digest, package_size = _ssh_stream_package(
-                args.ssh_target,
-                identity,
-                known_hosts,
-                f"{_REMOTE_OUTBOX_ROOT}/{relative}",
-                temporary,
-            )
+        if reused:
+            digest, package_size = expected_sha, expected_size
         else:
-            digest, package_size = _stream_package(f"{base}/{relative}", temporary)
-        if package_size != pointer["package_size"]:
-            raise RuntimeError("compute handoff package size mismatch")
-        if digest != pointer["package_sha256"]:
-            raise RuntimeError("compute handoff package SHA-256 mismatch")
-        os.replace(temporary, package_path)
+            if use_ssh:
+                digest, package_size = _ssh_stream_package(
+                    args.ssh_target,
+                    identity,
+                    known_hosts,
+                    f"{_REMOTE_OUTBOX_ROOT}/{relative}",
+                    temporary,
+                )
+            else:
+                digest, package_size = _stream_package(f"{base}/{relative}", temporary)
+            if package_size != expected_size:
+                raise RuntimeError("compute handoff package size mismatch")
+            if digest != expected_sha:
+                raise RuntimeError("compute handoff package SHA-256 mismatch")
+            os.replace(temporary, package_path)
     finally:
         temporary.unlink(missing_ok=True)
     pointer_tmp = output / f".current.{uuid.uuid4().hex}.tmp"
     pointer_tmp.write_bytes(pointer_bytes)
     os.replace(pointer_tmp, output / "current.json")
-    print(json.dumps({"status": "pass", "transport": "ssh" if use_ssh else "http", "run_id": pointer.get("run_id"), "package_path": str(package_path), "package_sha256": digest, "package_size": package_size}, ensure_ascii=False, sort_keys=True))
+    print(json.dumps({"status": "pass", "transport": "ssh" if use_ssh else "http", "run_id": pointer.get("run_id"), "package_path": str(package_path), "package_sha256": digest, "package_size": package_size, "reused": reused}, ensure_ascii=False, sort_keys=True))
     return 0
 
 

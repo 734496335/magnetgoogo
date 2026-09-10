@@ -50,6 +50,9 @@ def _handoff(
     run_id: str = "compute-run",
     content_sha256: str = "a" * 64,
     accepted_cross_season_count: int = 0,
+    required_degraded_sources: list[str] | None = None,
+    failed_freshness_groups: list[str] | None = None,
+    fresh_count: int = 1,
     finished_at: str | None = None,
     include_finished_at: bool = True,
 ) -> str:
@@ -75,9 +78,9 @@ def _handoff(
         "movie_count": 1,
         "series_count": 1,
         "resource_count": 2,
-        "required_degraded_sources": [],
-        "failed_freshness_groups": [],
-        "freshness_groups": {"series": {"status": "pass", "fresh_count": 1, "member_count": 1, "min_fresh": 1}},
+        "required_degraded_sources": required_degraded_sources or [],
+        "failed_freshness_groups": failed_freshness_groups or [],
+        "freshness_groups": {"series": {"status": "pass" if fresh_count >= 1 else "fail", "fresh_count": fresh_count, "member_count": 1, "min_fresh": 1}},
         "stages": {
             "aggregate": {"quality": {"status": "pass" if accepted_cross_season_count == 0 else "fail", "bad_label_count": 0, "accepted_cross_season_count": accepted_cross_season_count, "weak_episode_title_count": 0, "empty_resource_item_count": 0}},
             "magnet_only": {"status": "pass", "total_magnet_resource_count": 2, "total_item_count": 2},
@@ -95,13 +98,43 @@ def _install_fakes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, revision: in
     _write(current, {"pointer_revision": revision, "release_id": "old", "manifest_path": "/v1/releases/old/manifest.json", "manifest_sha256": "d" * 64})
     _write(manifest, {"release_id": "old"})
     monkeypatch.setattr(finalize, "_reconcile_online_controls", lambda *_args, **_kwargs: ({"pointer_revision": revision, "release_id": "old"}, manifest, current, {"status": "pass"}))
+
     def build(config):
         release_dir = Path(config.output_dir) / "staging" / "releases" / "new"
         pointer = Path(config.output_dir) / "staging" / "pointers" / "new.json"
         _write(release_dir / "v1" / "releases" / "new" / "manifest.json", {"release_id": "new"})
         _write(pointer, {"pointer_revision": config.pointer_revision, "release_id": "new", "manifest_path": "/v1/releases/new/manifest.json", "manifest_sha256": "c" * 64})
         return SimpleNamespace(release_id="new", release_dir=str(release_dir), current_path=str(pointer), manifest_path=str(release_dir / "v1/releases/new/manifest.json"), manifest_sha256="c" * 64, object_count=1, reused=False, release_reused=False, pointer_reused=False, counts={"movie": 1, "series": 1, "resources": 2})
+
     monkeypatch.setattr(finalize, "build_media_release", build)
+
+
+def _install_publish_fakes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, config: MediaDailyConfig, events: list[str]) -> None:
+    _install_fakes(monkeypatch, tmp_path)
+    previous = tmp_path / "previous-current.json"
+    live_local = config.public_root / "v1" / "current.json"
+    live_local.parent.mkdir(parents=True, exist_ok=True)
+    live_local.write_bytes(previous.read_bytes())
+
+    class AliyunBackend:
+        def __init__(self, _root: Path) -> None:
+            pass
+
+        def promote_current(self, _current: Path) -> None:
+            events.append("aliyun-promote")
+
+    class R2Backend:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def promote_current(self, _current: Path) -> None:
+            events.append("r2-promote")
+
+    monkeypatch.setattr(finalize, "FilesystemPublisherBackend", AliyunBackend)
+    monkeypatch.setattr(finalize, "WorkerR2PublisherBackend", R2Backend)
+    monkeypatch.setattr(finalize, "publish_media_release", lambda backend, _config: SimpleNamespace(status="pass", backend=type(backend).__name__))
+    monkeypatch.setattr(finalize, "_verify_public_control", lambda base, _current: {"status": "pass", "base": base})
+    monkeypatch.setenv("TOKEN", "x" * 32)
 
 
 def test_finalize_compute_handoff_builds_signed_candidate_without_publish(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -125,6 +158,20 @@ def test_finalize_compute_handoff_rejects_degraded_quality_before_signing(tmp_pa
     package = _handoff(tmp_path, accepted_cross_season_count=1)
     _install_fakes(monkeypatch, tmp_path)
     with pytest.raises(ResourceIndexError, match="aggregate quality did not pass"):
+        finalize.finalize_compute_handoff(_config(tmp_path), package_path=package, publish=False)
+
+
+def test_finalize_compute_handoff_rejects_required_degradation_before_signing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    package = _handoff(tmp_path, required_degraded_sources=["sixv"])
+    monkeypatch.setattr(finalize, "build_media_release", lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("must not sign degraded handoff")))
+    with pytest.raises(ResourceIndexError, match="degraded required sources"):
+        finalize.finalize_compute_handoff(_config(tmp_path), package_path=package, publish=False)
+
+
+def test_finalize_compute_handoff_rejects_failed_freshness_group_before_signing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    package = _handoff(tmp_path, failed_freshness_groups=["series"], fresh_count=0)
+    monkeypatch.setattr(finalize, "build_media_release", lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("must not sign stale handoff")))
+    with pytest.raises(ResourceIndexError, match="failed freshness groups"):
         finalize.finalize_compute_handoff(_config(tmp_path), package_path=package, publish=False)
 
 
@@ -194,3 +241,103 @@ def test_finalize_publish_requires_worker_token(tmp_path: Path, monkeypatch: pyt
     monkeypatch.delenv("TOKEN", raising=False)
     with pytest.raises(ResourceIndexError, match="Worker credentials"):
         finalize.finalize_compute_handoff(_config(tmp_path), package_path=package, publish=True)
+
+
+def test_finalize_publish_rejects_changed_local_pointer_before_r2_promotion(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    package = _handoff(tmp_path)
+    config = _config(tmp_path)
+    events: list[str] = []
+    _install_publish_fakes(monkeypatch, tmp_path, config, events)
+    _write(config.public_root / "v1" / "current.json", {"pointer_revision": 999})
+
+    with pytest.raises(ResourceIndexError, match="local current changed"):
+        finalize.finalize_compute_handoff(config, package_path=package, publish=True)
+
+    assert events == []
+
+
+def test_finalize_publish_promotes_r2_before_aliyun_and_persists_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    package = _handoff(tmp_path)
+    config = _config(tmp_path)
+    events: list[str] = []
+    _install_publish_fakes(monkeypatch, tmp_path, config, events)
+
+    result = finalize.finalize_compute_handoff(config, package_path=package, publish=True)
+
+    assert events == ["r2-promote", "aliyun-promote"]
+    assert result["published"] is True
+    assert result["current_revision"] == 41
+    state = json.loads((config.state_root / "status" / "compute-finalizer-state.json").read_text(encoding="utf-8"))
+    assert state["compute_run_id"] == "compute-run"
+    assert state["current_revision"] == 41
+
+
+def test_finalize_publish_recovers_after_aliyun_promotion_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    package = _handoff(tmp_path)
+    config = _config(tmp_path)
+    events: list[str] = []
+    _install_publish_fakes(monkeypatch, tmp_path, config, events)
+    reconcile_calls = 0
+    previous = tmp_path / "previous-current.json"
+    manifest = tmp_path / "previous-manifest.json"
+
+    def reconcile(_config: MediaDailyConfig, _output: Path, *, publish: bool):
+        nonlocal reconcile_calls
+        reconcile_calls += 1
+        if reconcile_calls == 1:
+            return ({"pointer_revision": 40, "release_id": "old"}, manifest, previous, {"status": "pass"})
+        events.append("recovery")
+        assert publish is True
+        return ({"pointer_revision": 41, "release_id": "new"}, manifest, previous, {"status": "pass", "action": "recovered"})
+
+    class FailingAliyunBackend:
+        def __init__(self, _root: Path) -> None:
+            pass
+
+        def promote_current(self, _current: Path) -> None:
+            events.append("aliyun-promote")
+            raise RuntimeError("simulated Aliyun promotion failure")
+
+    monkeypatch.setattr(finalize, "_reconcile_online_controls", reconcile)
+    monkeypatch.setattr(finalize, "FilesystemPublisherBackend", FailingAliyunBackend)
+
+    result = finalize.finalize_compute_handoff(config, package_path=package, publish=True)
+
+    assert events == ["r2-promote", "aliyun-promote", "recovery"]
+    assert reconcile_calls == 2
+    assert result["published"] is True
+
+
+def test_finalize_publish_surfaces_aliyun_failure_when_recovery_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    package = _handoff(tmp_path)
+    config = _config(tmp_path)
+    events: list[str] = []
+    _install_publish_fakes(monkeypatch, tmp_path, config, events)
+    previous = tmp_path / "previous-current.json"
+    manifest = tmp_path / "previous-manifest.json"
+    reconcile_calls = 0
+
+    def reconcile(_config: MediaDailyConfig, _output: Path, *, publish: bool):
+        nonlocal reconcile_calls
+        reconcile_calls += 1
+        if reconcile_calls == 1:
+            return ({"pointer_revision": 40, "release_id": "old"}, manifest, previous, {"status": "pass"})
+        events.append("recovery-failed")
+        raise RuntimeError("simulated recovery failure")
+
+    class FailingAliyunBackend:
+        def __init__(self, _root: Path) -> None:
+            pass
+
+        def promote_current(self, _current: Path) -> None:
+            events.append("aliyun-promote")
+            raise RuntimeError("simulated Aliyun promotion failure")
+
+    monkeypatch.setattr(finalize, "_reconcile_online_controls", reconcile)
+    monkeypatch.setattr(finalize, "FilesystemPublisherBackend", FailingAliyunBackend)
+
+    with pytest.raises(RuntimeError, match="simulated Aliyun promotion failure"):
+        finalize.finalize_compute_handoff(config, package_path=package, publish=True)
+
+    assert events == ["r2-promote", "aliyun-promote", "recovery-failed"]
+    assert not (config.state_root / "status" / "compute-finalizer-state.json").exists()

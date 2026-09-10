@@ -55,6 +55,17 @@ def test_load_pointer_rejects_bad_sha_and_size() -> None:
         fetcher._load_pointer(_pointer(package_size=0))
 
 
+def test_existing_package_match_requires_exact_size_and_sha(tmp_path: Path) -> None:
+    package = tmp_path / "handoff.tar"
+    package.write_bytes(b"payload")
+    import hashlib
+
+    digest = hashlib.sha256(b"payload").hexdigest()
+    assert fetcher._existing_package_matches(package, 7, digest) is True
+    assert fetcher._existing_package_matches(package, 8, digest) is False
+    assert fetcher._existing_package_matches(package, 7, "0" * 64) is False
+
+
 def test_ssh_command_is_argv_only_and_pins_host_verification(tmp_path: Path) -> None:
     identity = tmp_path / "id"
     known_hosts = tmp_path / "known_hosts"
