@@ -1,0 +1,13 @@
+[Unit]
+Description=Retry MagnetGoogo media compute finalization during the morning window
+
+[Timer]
+OnCalendar=*-*-* 04:30:00 Asia/Shanghai
+OnCalendar=*-*-* 05:30:00 Asia/Shanghai
+OnCalendar=*-*-* 06:30:00 Asia/Shanghai
+OnCalendar=*-*-* 07:30:00 Asia/Shanghai
+Persistent=true
+Unit=magnet-media-compute-finalizer.service
+
+[Install]
+WantedBy=timers.target

@@ -223,9 +223,9 @@ def test_aliyun_media_mirror_user_installer_is_least_privilege_and_side_effect_b
     assert 'chown root:root "$path"' in script
     assert 'install -o root -g root -m 0755 "$HELPER_SOURCE" "$HELPER_TARGET"' in script
     assert "/etc/sudoers.d/magnet-media-mirror" in script
-    assert 'NOPASSWD: /usr/bin/python3 %s *' in script
+    assert 'NOPASSWD: /usr/bin/python3.11 %s *' in script
     assert 'visudo -cf "$sudoers_file"' in script
-    assert 'runuser -u "$USER_NAME" -- sudo -n python3' in script
+    assert 'runuser -u "$USER_NAME" -- sudo -n /usr/bin/python3.11' in script
     assert "sudo_access=fixed-root-owned-helper-only" in script
     assert "nginx=untouched" in script
     assert "systemd=untouched" in script
@@ -239,7 +239,7 @@ def test_ssh_static_mirror_runtime_uses_fixed_remote_helper_with_scoped_sudo_and
     assert "self.config.helper_path" not in source
     assert "[full_plan_path, self.config.helper_path]" not in source
     assert "[source, self.config.helper_path]" not in source
-    assert 'parts = ["sudo", "-n", "python3", remote_helper, command, *args]' in source
+    assert 'parts = ["sudo", "-n", "/usr/bin/python3.11", remote_helper, command, *args]' in source
 
 
 def test_media_docker_image_contains_native_ssh_client_for_remote_mirror() -> None:

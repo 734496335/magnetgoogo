@@ -1,0 +1,20 @@
+[Unit]
+Description=MagnetGoogo Oracle media compute outbox
+After=network.target var-lib-magnet\x2dmedia.mount
+Requires=var-lib-magnet\x2dmedia.mount
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/bin/python3 -m http.server 18766 --bind 127.0.0.1 --directory /var/lib/magnet-media/outbox
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadOnlyPaths=/var/lib/magnet-media/outbox
+
+[Install]
+WantedBy=multi-user.target

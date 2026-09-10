@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Oracle media compute every day
+
+[Timer]
+OnCalendar=*-*-* 03:00:00 Asia/Shanghai
+RandomizedDelaySec=3m
+Persistent=true
+Unit=magnet-media-oracle-compute.service
+
+[Install]
+WantedBy=timers.target

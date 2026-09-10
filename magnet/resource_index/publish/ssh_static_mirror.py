@@ -167,7 +167,7 @@ class SshStaticMirrorPublisher:
         }
 
     def _remote_command(self, remote_helper: str, command: str, *args: str) -> str:
-        parts = ["sudo", "-n", "python3", remote_helper, command, *args]
+        parts = ["sudo", "-n", "/usr/bin/python3.11", remote_helper, command, *args]
         return " ".join(shlex.quote(part) for part in parts)
 
     def healthcheck(self) -> dict[str, Any]:

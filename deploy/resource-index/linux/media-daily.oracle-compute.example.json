@@ -1,0 +1,36 @@
+{
+  "state_root": "/var/lib/magnet-media",
+  "public_root": "/var/lib/magnet-media/public",
+  "private_key_path": "/etc/magnet-media/not-used-on-oracle-compute.pem",
+  "public_key_path": "/etc/magnet-media/media-production-ed25519-public.pem",
+  "previous_public_key_path": "/etc/magnet-media/media-production-ed25519-public.pem",
+  "worker_url": "https://media-auto-publisher.magnetgoogo.com",
+  "worker_token_env": "R2_UPLOAD_WORKER_TOKEN",
+  "r2_public_base": "https://media.magnetgoogo.com",
+  "aliyun_public_base": "https://cn.magnetgoogo.com/media",
+  "min_app_version": "0.2.3",
+  "min_movies": 190,
+  "min_series": 200,
+  "page_size": 50,
+  "max_workers": 4,
+  "rating_lookup_limit_per_feed": 40,
+  "retention_runs": 7,
+  "retention_status_history": 30,
+  "retention_releases": 3,
+  "retention_receipts": 30,
+  "disk_max_used_percent": 80,
+  "disk_min_free_bytes": 2147483648,
+  "source_fallback_max_age_hours": 168,
+  "source_fallback_retry_delay_seconds": 900,
+  "freshness_groups": {
+    "series": {"min_fresh": 2}
+  },
+  "sources": [
+    {"source_id": "sixv", "count": 100, "freshness_required": true},
+    {"source_id": "dytt8899", "count": 250},
+    {"source_id": "meijumi", "count": 100, "freshness_group": "series"},
+    {"source_id": "sixv-series", "count": 100, "freshness_group": "series"},
+    {"source_id": "bitba-series", "count": 50, "freshness_group": "series"},
+    {"source_id": "mjf-series", "count": 50, "freshness_group": "series"}
+  ]
+}

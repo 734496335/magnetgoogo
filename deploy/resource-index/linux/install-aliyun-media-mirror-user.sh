@@ -42,7 +42,7 @@ if [[ ! -f "$HELPER_SOURCE" ]]; then
   echo "remote static mirror helper source is missing" >&2
   exit 2
 fi
-for required in python3 ssh-keygen setfacl getfacl runuser sudo visudo; do
+for required in python3.11 ssh-keygen setfacl getfacl runuser sudo visudo; do
   if ! command -v "$required" >/dev/null 2>&1; then
     echo "required command is missing: $required" >&2
     exit 2
@@ -105,11 +105,11 @@ if find "$MEDIA_ROOT" -user "$USER_NAME" -print -quit | grep -q .; then
 fi
 
 sudoers_file=/etc/sudoers.d/magnet-media-mirror
-printf '%s ALL=(root) NOPASSWD: /usr/bin/python3 %s *\n' "$USER_NAME" "$HELPER_TARGET" > "$sudoers_file"
+printf '%s ALL=(root) NOPASSWD: /usr/bin/python3.11 %s *\n' "$USER_NAME" "$HELPER_TARGET" > "$sudoers_file"
 chmod 0440 "$sudoers_file"
 visudo -cf "$sudoers_file" >/dev/null
 
-health_output=$(runuser -u "$USER_NAME" -- sudo -n python3 "$HELPER_TARGET" healthcheck --root "$MEDIA_ROOT")
+health_output=$(runuser -u "$USER_NAME" -- sudo -n /usr/bin/python3.11 "$HELPER_TARGET" healthcheck --root "$MEDIA_ROOT")
 if ! grep -Fq '"status": "pass"' <<<"$health_output"; then
   echo "magnetmedia helper healthcheck failed" >&2
   exit 2

@@ -1,0 +1,25 @@
+[Unit]
+Description=MagnetGoogo media compute handoff finalizer
+After=docker.service network-online.target magnet-media-oracle-outbox-tunnel.service
+Wants=network-online.target
+Requires=docker.service magnet-media-oracle-outbox-tunnel.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/magnet-media-finalizer/app
+EnvironmentFile=-/etc/magnet-media/finalizer.env
+ExecStart=/usr/bin/bash /opt/magnet-media-finalizer/app/deploy/resource-index/linux/run-media-compute-finalizer.sh
+TimeoutStartSec=2h
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=/var/lib/magnet-media /run /var/log
+
+[Install]
+WantedBy=multi-user.target

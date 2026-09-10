@@ -694,6 +694,39 @@ def test_daily_pipeline_keeps_running_when_rating_provider_stage_fails(
     assert result["resource_count"] == 2
 
 
+def test_compute_only_builds_verified_handoff_without_private_key_or_release_signing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    config = _config(tmp_path)
+    config.private_key_path.unlink()
+    monkeypatch.setattr(
+        media_daily,
+        "build_media_release",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("compute-only must not sign a release")),
+    )
+
+    result = run_media_daily(config, publish=False, compute_only=True, skip_ratings=True)
+
+    assert result["status"] == "success"
+    assert result["mode"] == "compute"
+    assert result["compute_candidate"] is True
+    assert result["compute_verified"] is True
+    assert result["published"] is False
+    assert result["previous_revision"] == 6
+    assert result["candidate_revision"] == 7
+    handoff = result["stages"]["handoff"]
+    assert handoff["status"] == "pass"
+    assert Path(handoff["package_path"]).is_file()
+    assert (config.state_root / "outbox" / "current.json").is_file()
+
+
+def test_compute_only_refuses_publish_flag(tmp_path: Path) -> None:
+    with pytest.raises(ResourceIndexError, match="cannot publish"):
+        run_media_daily(_config(tmp_path), publish=True, compute_only=True)
+
+
 def test_candidate_and_audit_release_artifacts_are_run_scoped(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

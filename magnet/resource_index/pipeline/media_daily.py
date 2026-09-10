@@ -34,6 +34,7 @@ from magnet.resource_index.errors import (
     ResourceIndexError,
 )
 from magnet.resource_index.pipeline.media_aggregate import aggregate_media_feeds
+from magnet.resource_index.pipeline.media_compute_handoff import build_compute_handoff
 from magnet.resource_index.pipeline.magnet_only import build_magnet_only_media_feeds
 from magnet.resource_index.pipeline.media_library import export_source_library_feed
 from magnet.resource_index.pipeline.media_maintenance import (
@@ -1011,9 +1012,12 @@ def run_media_daily(
     skip_crawl: bool = False,
     skip_ratings: bool = False,
     force_publish: bool = False,
+    compute_only: bool = False,
 ) -> dict[str, Any]:
+    if compute_only and publish:
+        raise ResourceIndexError(CONFIG_ERROR, "compute-only media run cannot publish", {})
     started_at = _iso()
-    mode = "publish" if publish else ("audit" if skip_crawl and skip_ratings else "candidate")
+    mode = "compute" if compute_only else ("publish" if publish else ("audit" if skip_crawl and skip_ratings else "candidate"))
     root = config.state_root.resolve()
     status_dir = root / "status"
     latest_status = status_dir / "latest.json"
@@ -1335,6 +1339,33 @@ def run_media_daily(
             status["stages"]["control_recovery"] = control_stage
             previous_revision = int(previous_current.get("pointer_revision") or 0)
             status["previous_revision"] = previous_revision
+            if compute_only:
+                if status.get("required_degraded_sources"):
+                    raise ResourceIndexError(CONFIG_ERROR, "compute handoff refuses degraded required sources", {"sources": status.get("required_degraded_sources")})
+                if status.get("failed_freshness_groups"):
+                    raise ResourceIndexError(CONFIG_ERROR, "compute handoff refuses failed freshness groups", {"groups": status.get("failed_freshness_groups")})
+                status.update({
+                    "status": "success",
+                    "compute_candidate": True,
+                    "compute_verified": True,
+                    "candidate_revision": previous_revision + 1,
+                    "current_revision": previous_revision,
+                    "published": False,
+                    "finished_at": _iso(),
+                })
+                handoff = build_compute_handoff(
+                    outbox_root=root / "outbox",
+                    run_id=run_id,
+                    status=status,
+                    movie_feed_path=movie_final_path,
+                    series_feed_path=series_final_path,
+                    movie_bundle=movie_bundle,
+                    series_bundle=series_bundle,
+                )
+                status["stages"]["handoff"] = handoff
+                _write_json(latest_status, status)
+                shutil.copyfile(latest_status, mode_status)
+                return status
             if publish and not force_publish and durable_state.get("content_sha256") == fingerprint:
                 expected_revision = durable_state.get("current_revision")
                 expected_release_id = durable_state.get("release_id")

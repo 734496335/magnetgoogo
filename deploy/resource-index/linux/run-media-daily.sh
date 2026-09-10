@@ -26,6 +26,7 @@ args=(media-daily --config "$CONFIG")
 case "$MODE" in
   publish) ;;
   candidate) args+=(--no-publish) ;;
+  compute) args+=(--no-publish --compute-only) ;;
   audit) args+=(--skip-crawl --skip-ratings --no-publish) ;;
   force) args+=(--force-publish) ;;
   *) echo "unsupported mode: $MODE" >&2; exit 2 ;;

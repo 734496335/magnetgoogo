@@ -346,6 +346,7 @@ def cmd_media_daily(args: argparse.Namespace) -> int:
             skip_crawl=args.skip_crawl,
             skip_ratings=args.skip_ratings,
             force_publish=args.force_publish,
+            compute_only=args.compute_only,
         )
     except ResourceIndexError as exc:
         print(f"error_code={exc.error_code}", file=sys.stderr)
@@ -1164,6 +1165,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--skip-crawl", action="store_true")
     s.add_argument("--skip-ratings", action="store_true")
     s.add_argument("--force-publish", action="store_true")
+    s.add_argument("--compute-only", action="store_true")
     s.set_defaults(func=cmd_media_daily)
 
     s = sub.add_parser(
