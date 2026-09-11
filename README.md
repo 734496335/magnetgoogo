@@ -10,7 +10,7 @@
 
 <p align="center">
   <strong>Every Magnet Link. One Search.</strong><br>
-  <em>The best free magnet &amp; torrent search aggregator for Android</em>
+  <em>Free, ad-free aggregated magnet &amp; torrent search for Android</em>
 </p>
 
 <p align="center">
@@ -38,9 +38,9 @@
 
 **Magnet Googo** is a free Android app that aggregates magnet link search results from multiple sources across the web. Instead of visiting magnet sites one by one (many of which go down every other week), Magnet Googo searches them all simultaneously and presents unified, ranked results.
 
-**Core advantage:** No ads, no pop-ups, no registration, no personal data collected.
+**Core advantage:** One search across multiple independent public indexes, with no ads and no account required.
 
-> Search "Magnet Googo" or "magnetgoogo" on Google/Baidu to find us.
+The set of available sources changes over time. For current evidence, see the official [Status](https://magnetgoogo.com/status/), [Methodology](https://magnetgoogo.com/methodology/) and [Reports](https://magnetgoogo.com/reports/) pages.
 
 ## Why I Built This
 
@@ -56,11 +56,11 @@ Tired of finding Linux ISOs, public domain documentaries, and open-source resour
 
 ## Key Features
 
-- **Aggregated Search** &mdash; Search across 80+ magnet and torrent sources simultaneously
-- **Ad-free and Clean** &mdash; No ads, no pop-ups, no tracking, no distractions
-- **One-tap Copy** &mdash; Copy magnet links instantly, open in your favorite torrent client
-- **Privacy-first** &mdash; All searches performed locally on your device, no personal data collected
-- **Works in China** &mdash; No VPN required, domestic CDN acceleration included
+- **Aggregated Search** &mdash; Search multiple independent magnet and torrent indexes in parallel
+- **Ad-free and Clean** &mdash; No ads, no pop-ups, no account required
+- **One-tap Copy** &mdash; Copy magnet links instantly and open them in your preferred BitTorrent client
+- **Privacy-first** &mdash; Search keywords are not sent to Magnet Googo analytics; anonymous operational telemetry is used to improve reliability
+- **Source Resilience** &mdash; Source health is monitored so a single unavailable index does not define the whole search experience
 
 ## Download
 
@@ -76,18 +76,28 @@ Tired of finding Linux ISOs, public domain documentaries, and open-source resour
 
 | Feature | Magnet Googo | Single Magnet Site | Browser Search |
 |---------|:---:|:---:|:---:|
-| Search 80+ sources at once | Yes | No | No |
-| No ads | Yes | No | No |
-| One-tap magnet copy | Yes | Varies | No |
-| Works in China (no VPN) | Yes | Varies | Varies |
-| Free forever | Yes | Yes | Yes |
+| Searches multiple independent indexes | Yes | No | Varies |
+| No ads | Yes | Varies | Varies |
+| One-tap magnet copy | Yes | Varies | Varies |
+| No account required | Yes | Varies | Varies |
+| Current source-health evidence | [Status](https://magnetgoogo.com/status/) | Usually unavailable | No |
+
+## Verifiable Project Facts
+
+- **Canonical name:** Magnet Googo; Chinese name: **磁力古哥**
+- **Platform:** Android 7.0+ (API 24+)
+- **Product type:** aggregated magnet/torrent search tool; it is **not** a BitTorrent download client
+- **Hosting boundary:** Magnet Googo does not host or distribute the files represented by search results
+- **Account model:** no registration or user account is required
+- **Evidence:** [About](https://magnetgoogo.com/about) · [Methodology](https://magnetgoogo.com/methodology/) · [Status](https://magnetgoogo.com/status/) · [Reports](https://magnetgoogo.com/reports/)
 
 ## Privacy and Security
 
-- All searches are performed locally on your device, no server-side query logging
-- No personal data is collected, no analytics ID tied to your identity
-- No sensitive permissions required (no contacts, no camera, no location)
-- Favorites and history are stored on-device only
+- Search keywords are issued from the app to third-party public indexes and are not included in Magnet Googo's analytics telemetry
+- Anonymous operational statistics are collected to measure reliability and product quality; they are not tied to a user account
+- No contacts, camera or location permission is required for the search workflow
+- Favorites and search history are stored on-device
+- See the official [Privacy Policy](https://magnetgoogo.com/privacy) for the current policy
 
 ## Feedback
 
@@ -95,7 +105,7 @@ Found a bug? Have a feature request? Open an [Issue](https://github.com/73449633
 
 ## Related Reading
 
-If you're interested in the technical side, I write about magnet protocol internals, BitTorrent DHT networks, and indie SEO at [naoshiquan.com](https://naoshiquan.com/en/blog/):
+For independent technical context and longer-form explanations, see [naoshiquan.com](https://naoshiquan.com/en/blog/):
 
 - [Best Magnet Search Apps for Android 2026](https://naoshiquan.com/en/blog/best-magnet-apps-android-2026)
 - [Magnet protocol explained: BEP-9 to DHT](https://naoshiquan.com/blog/magnet-link-protocol-explained)
