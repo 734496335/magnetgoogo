@@ -5,7 +5,9 @@ import hashlib
 import json
 import os
 import re
+import selectors
 import subprocess
+import time
 import urllib.request
 import uuid
 from pathlib import Path
@@ -13,6 +15,9 @@ from pathlib import Path
 
 _PACKAGE_RE = re.compile(r"^packages/[A-Za-z0-9._-]+\.tar$")
 _REMOTE_OUTBOX_ROOT = "/var/lib/magnet-media/outbox"
+_SSH_STREAM_IDLE_TIMEOUT_SECONDS = 120.0
+_SSH_STREAM_TOTAL_TIMEOUT_SECONDS = 25.0 * 60.0
+_INBOX_PACKAGE_RETENTION = 3
 
 
 def _get(url: str) -> bytes:
@@ -106,36 +111,96 @@ def _ssh_get(target: str, identity: Path, known_hosts: Path, remote_path: str) -
     return process.stdout
 
 
-def _ssh_stream_package(target: str, identity: Path, known_hosts: Path, remote_path: str, destination: Path) -> tuple[str, int]:
+def _stop_process(process: subprocess.Popen[bytes]) -> None:
+    if process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=5)
+
+
+def _ssh_stream_package(
+    target: str,
+    identity: Path,
+    known_hosts: Path,
+    remote_path: str,
+    destination: Path,
+    *,
+    idle_timeout_seconds: float = _SSH_STREAM_IDLE_TIMEOUT_SECONDS,
+    total_timeout_seconds: float = _SSH_STREAM_TOTAL_TIMEOUT_SECONDS,
+) -> tuple[str, int]:
+    if idle_timeout_seconds <= 0 or total_timeout_seconds <= 0:
+        raise RuntimeError("compute handoff SSH stream timeout must be positive")
     process = subprocess.Popen(
         _ssh_command(target, identity, known_hosts, remote_path),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
     if process.stdout is None or process.stderr is None:
-        process.kill()
+        _stop_process(process)
         raise RuntimeError("compute handoff SSH stream could not start")
     digest = hashlib.sha256()
     size = 0
+    stderr_buffer = bytearray()
+    selector = selectors.DefaultSelector()
+    selector.register(process.stdout, selectors.EVENT_READ, "stdout")
+    selector.register(process.stderr, selectors.EVENT_READ, "stderr")
+    started_at = time.monotonic()
+    last_progress_at = started_at
     try:
         with destination.open("wb") as output:
-            while True:
-                chunk = process.stdout.read(1024 * 1024)
-                if not chunk:
-                    break
-                output.write(chunk)
-                digest.update(chunk)
-                size += len(chunk)
-        stderr = process.stderr.read(64 * 1024)
-        returncode = process.wait(timeout=60)
+            while selector.get_map():
+                now = time.monotonic()
+                total_remaining = total_timeout_seconds - (now - started_at)
+                idle_remaining = idle_timeout_seconds - (now - last_progress_at)
+                if total_remaining <= 0:
+                    raise RuntimeError("compute handoff SSH stream exceeded total timeout")
+                if idle_remaining <= 0:
+                    raise RuntimeError("compute handoff SSH stream stalled")
+                events = selector.select(timeout=min(1.0, total_remaining, idle_remaining))
+                for key, _mask in events:
+                    chunk = os.read(key.fileobj.fileno(), 1024 * 1024)
+                    if not chunk:
+                        selector.unregister(key.fileobj)
+                        continue
+                    if key.data == "stdout":
+                        output.write(chunk)
+                        digest.update(chunk)
+                        size += len(chunk)
+                        last_progress_at = time.monotonic()
+                    elif len(stderr_buffer) < 64 * 1024:
+                        stderr_buffer.extend(chunk[: 64 * 1024 - len(stderr_buffer)])
+        returncode = process.wait(timeout=15)
     except BaseException:
-        process.kill()
-        process.wait()
+        _stop_process(process)
         raise
+    finally:
+        selector.close()
     if returncode != 0:
-        message = stderr.decode("utf-8", errors="replace")[-1000:].strip()
+        message = bytes(stderr_buffer).decode("utf-8", errors="replace")[-1000:].strip()
         raise RuntimeError(f"compute handoff SSH stream failed: {message or returncode}")
     return digest.hexdigest(), size
+
+
+def _prune_inbox_packages(output: Path, *, keep: int = _INBOX_PACKAGE_RETENTION, protected: set[str] | None = None) -> list[str]:
+    protected = protected or set()
+    packages = sorted(
+        (path for path in output.glob("*.tar") if path.is_file()),
+        key=lambda path: (path.stat().st_mtime_ns, path.name),
+        reverse=True,
+    )
+    keep_names = set(protected)
+    keep_names.update(path.name for path in packages[: max(0, keep)])
+    deleted: list[str] = []
+    for path in packages:
+        if path.name in keep_names:
+            continue
+        path.unlink(missing_ok=True)
+        deleted.append(path.name)
+    return deleted
 
 
 def _load_pointer(pointer_bytes: bytes) -> dict[str, object]:
@@ -213,7 +278,8 @@ def main() -> int:
     pointer_tmp = output / f".current.{uuid.uuid4().hex}.tmp"
     pointer_tmp.write_bytes(pointer_bytes)
     os.replace(pointer_tmp, output / "current.json")
-    print(json.dumps({"status": "pass", "transport": "ssh" if use_ssh else "http", "run_id": pointer.get("run_id"), "package_path": str(package_path), "package_sha256": digest, "package_size": package_size, "reused": reused}, ensure_ascii=False, sort_keys=True))
+    pruned_packages = _prune_inbox_packages(output, protected={package_path.name})
+    print(json.dumps({"status": "pass", "transport": "ssh" if use_ssh else "http", "run_id": pointer.get("run_id"), "package_path": str(package_path), "package_sha256": digest, "package_size": package_size, "reused": reused, "pruned_packages": pruned_packages}, ensure_ascii=False, sort_keys=True))
     return 0
 
 

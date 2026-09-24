@@ -341,3 +341,19 @@ def test_finalize_publish_surfaces_aliyun_failure_when_recovery_fails(tmp_path: 
 
     assert events == ["r2-promote", "aliyun-promote", "recovery-failed"]
     assert not (config.state_root / "status" / "compute-finalizer-state.json").exists()
+
+
+def test_prune_finalizer_runs_keeps_latest_three(tmp_path: Path) -> None:
+    finalizer_root = tmp_path / "finalizer"
+    runs_root = finalizer_root / "runs"
+    runs_root.mkdir(parents=True)
+    for index in range(6):
+        run = runs_root / f"run-{index}"
+        run.mkdir()
+        (run / "payload").write_bytes(b"x")
+        timestamp = 100 + index
+        import os
+        os.utime(run, (timestamp, timestamp))
+    deleted = finalize._prune_finalizer_runs(finalizer_root, keep=3)
+    assert set(deleted) == {"run-0", "run-1", "run-2"}
+    assert {path.name for path in runs_root.iterdir()} == {"run-3", "run-4", "run-5"}

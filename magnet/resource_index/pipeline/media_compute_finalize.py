@@ -23,6 +23,9 @@ from magnet.resource_index.publish.worker_bridge import WorkerR2PublisherBackend
 from magnet.resource_index.release.builder import MediaReleaseConfig, build_media_release
 
 
+_FINALIZER_RUN_RETENTION = 3
+
+
 def _fail(message: str, **context: Any) -> None:
     raise ResourceIndexError(CONFIG_ERROR, message, context)
 
@@ -54,6 +57,22 @@ def _validate_handoff_time(status: dict[str, Any], config: MediaDailyConfig) -> 
             finished_at=raw_finished_at,
             max_age_hours=config.compute_handoff_max_age_hours,
         )
+
+
+def _prune_finalizer_runs(finalizer_root: Path, *, keep: int = _FINALIZER_RUN_RETENTION) -> list[str]:
+    runs_root = finalizer_root / "runs"
+    if not runs_root.exists():
+        return []
+    run_dirs = sorted(
+        (path for path in runs_root.iterdir() if path.is_dir()),
+        key=lambda path: (path.stat().st_mtime_ns, path.name),
+        reverse=True,
+    )
+    deleted: list[str] = []
+    for path in run_dirs[max(0, keep):]:
+        shutil.rmtree(path)
+        deleted.append(path.name)
+    return deleted
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -118,6 +137,7 @@ def finalize_compute_handoff(
         _fail("Aliyun compute finalizer must use the local filesystem mirror backend")
     root = config.state_root.resolve()
     finalizer_root = root / "finalizer"
+    pruned_finalizer_runs = _prune_finalizer_runs(finalizer_root)
     run_token = uuid.uuid4().hex[:12]
     run_dir = finalizer_root / "runs" / run_token
     input_dir = run_dir / "input"

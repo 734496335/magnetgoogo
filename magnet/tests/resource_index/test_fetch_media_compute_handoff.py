@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -100,3 +101,33 @@ def test_validate_ssh_inputs_requires_absolute_existing_files(tmp_path: Path) ->
     fetcher._validate_ssh_inputs("ubuntu@161.153.78.129", identity, known_hosts)
     with pytest.raises(RuntimeError, match="target is invalid"):
         fetcher._validate_ssh_inputs("ubuntu@host;touch-x", identity, known_hosts)
+
+
+def test_prune_inbox_packages_keeps_latest_and_protected(tmp_path: Path) -> None:
+    packages = []
+    for index in range(5):
+        path = tmp_path / f"p{index}.tar"
+        path.write_bytes(str(index).encode("ascii"))
+        path.touch()
+        packages.append(path)
+    for index, path in enumerate(packages):
+        os.utime(path, (100 + index, 100 + index))
+    deleted = fetcher._prune_inbox_packages(tmp_path, keep=2, protected={"p0.tar"})
+    assert set(deleted) == {"p1.tar", "p2.tar"}
+    assert {path.name for path in tmp_path.glob("*.tar")} == {"p0.tar", "p3.tar", "p4.tar"}
+
+
+def test_ssh_stream_package_rejects_non_positive_timeouts(tmp_path: Path) -> None:
+    identity = tmp_path / "id"
+    known_hosts = tmp_path / "known_hosts"
+    identity.write_text("x", encoding="utf-8")
+    known_hosts.write_text("x", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="timeout must be positive"):
+        fetcher._ssh_stream_package(
+            "ubuntu@161.153.78.129",
+            identity,
+            known_hosts,
+            "/var/lib/magnet-media/outbox/packages/a.tar",
+            tmp_path / "out.tar",
+            idle_timeout_seconds=0,
+        )

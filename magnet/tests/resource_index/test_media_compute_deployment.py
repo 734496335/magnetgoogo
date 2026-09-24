@@ -56,7 +56,10 @@ def test_finalizer_wrapper_streams_handoff_then_runs_containerized_finalizer() -
     runner = (LINUX / "run-media-compute-finalizer.sh").read_text(encoding="utf-8")
     assert "_stream_package" in fetcher
     assert "_ssh_stream_package" in fetcher
-    assert "process.stdout.read(1024 * 1024)" in fetcher
+    assert "selectors.DefaultSelector" in fetcher
+    assert "os.read(key.fileobj.fileno(), 1024 * 1024)" in fetcher
+    assert "compute handoff SSH stream exceeded total timeout" in fetcher
+    assert "compute handoff SSH stream stalled" in fetcher
     assert "StrictHostKeyChecking=yes" in fetcher
     assert "package_bytes = _get" not in fetcher
     assert "/usr/bin/python3.11" in runner
