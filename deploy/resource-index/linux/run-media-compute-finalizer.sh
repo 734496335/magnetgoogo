@@ -10,6 +10,7 @@ SSH_IDENTITY=${MAGNET_MEDIA_COMPUTE_SSH_IDENTITY:-/home/admin/.ssh/travel-oracle
 SSH_KNOWN_HOSTS=${MAGNET_MEDIA_COMPUTE_SSH_KNOWN_HOSTS:-/home/admin/.ssh/known_hosts}
 IMAGE=${MAGNET_MEDIA_FINALIZER_IMAGE:-magnet-media-finalizer:latest}
 MODE=${MAGNET_MEDIA_FINALIZER_MODE:-candidate}
+STATUS_FILE=${MAGNET_MEDIA_FINALIZER_STATUS_FILE:-/var/lib/magnet-media/status/latest-compute-finalizer-${MODE}.json}
 
 case "$MODE" in
   candidate|publish|force) ;;
@@ -30,7 +31,7 @@ package_name=$(/usr/bin/python3.11 -c 'import json,sys; from pathlib import Path
 package="$INBOX/$package_name"
 [[ -f "$package" ]] || { echo "downloaded compute handoff is missing: $package" >&2; exit 2; }
 
-args=(--config "$CONFIG" --package "$package")
+args=(--config "$CONFIG" --package "$package" --status-file "$STATUS_FILE")
 if [[ "$MODE" == "publish" || "$MODE" == "force" ]]; then
   args+=(--publish)
 fi

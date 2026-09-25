@@ -68,6 +68,8 @@ def test_finalizer_wrapper_streams_handoff_then_runs_containerized_finalizer() -
     assert "--ssh-known-hosts" in runner
     assert "--entrypoint python" in runner
     assert "--publish" in runner
+    assert "--status-file" in runner
+    assert "latest-compute-finalizer-${MODE}.json" in runner
     assert "MAGNET_MEDIA_FINALIZER_MODE" in runner
 
 
@@ -82,12 +84,29 @@ def test_finalizer_timer_retries_but_same_service_cannot_overlap() -> None:
     assert "magnet-media-oracle-outbox-tunnel.service" not in service
 
 
+def test_compute_audit_uses_latest_oracle_handoff_without_publishing() -> None:
+    service = (LINUX / "magnet-media-compute-audit.service").read_text(encoding="utf-8")
+    timer = (LINUX / "magnet-media-compute-audit.timer").read_text(encoding="utf-8")
+    runner = (LINUX / "run-media-compute-audit.sh").read_text(encoding="utf-8")
+    assert "run-media-compute-audit.sh" in service
+    assert "EnvironmentFile=-/etc/magnet-media/finalizer.env" in service
+    assert "MAGNET_MEDIA_FINALIZER_MODE=candidate" in runner
+    assert "latest-compute-audit.json" in runner
+    assert "run-media-compute-finalizer.sh" in runner
+    assert "Sun *-*-* 14:30:00 Asia/Shanghai" in timer
+    assert "Unit=magnet-media-compute-audit.service" in timer
+
+
 def test_aliyun_finalizer_installer_preserves_old_crawler_timer_until_cutover() -> None:
     script = (LINUX / "install-media-aliyun-finalizer.sh").read_text(encoding="utf-8")
     assert "old Aliyun crawler timer must remain enabled before finalizer cutover" in script
     assert 'old_crawler_enabled=0' in script
     assert '[[ "$FINALIZER_MODE" != "publish" ]] || ! systemctl is-enabled --quiet magnet-media-compute-finalizer.timer' in script
     assert "post-cutover finalizer timer must remain enabled" in script
+    assert "post-cutover compute audit timer must remain enabled" in script
+    assert "legacy Aliyun-local audit timer must be disabled after compute cutover" in script
+    assert "magnet-media-compute-audit.timer" in script
+    assert "systemctl disable --now magnet-media-audit.timer" in script
     assert "systemctl is-enabled --quiet magnet-media-daily.timer" in script
     assert "systemctl disable --now magnet-media-daily.timer" not in script
     assert "FINALIZER_MODE=${FINALIZER_MODE:-candidate}" in script
@@ -99,6 +118,16 @@ def test_aliyun_finalizer_installer_preserves_old_crawler_timer_until_cutover() 
     assert "systemctl enable --now magnet-media-oracle-outbox-tunnel.service" not in script
     assert 'if [[ "$APP_RELEASE" == "$release_link" ]]' in script
     assert "in-place finalizer release must be a real directory" in script
+
+
+def test_media_status_prefers_compute_architecture_after_cutover() -> None:
+    script = (LINUX / "media-status.sh").read_text(encoding="utf-8")
+    assert "latest-compute-finalizer-publish.json" in script
+    assert "latest-compute-audit.json" in script
+    assert "architecture=oracle-compute-finalizer" in script or "ARCHITECTURE=oracle-compute-finalizer" in script
+    assert "magnet-media-compute-finalizer.timer" in script
+    assert "magnet-media-compute-audit.timer" in script
+    assert "legacy-aliyun-daily" in script
 
 
 def test_aliyun_finalizer_build_is_native_amd64_and_build_only() -> None:

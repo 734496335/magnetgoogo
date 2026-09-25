@@ -20,7 +20,10 @@ FINALIZER_MODE=${FINALIZER_MODE:-candidate}
 for path in \
   "$APP_RELEASE/deploy/resource-index/linux/magnet-media-compute-finalizer.service" \
   "$APP_RELEASE/deploy/resource-index/linux/magnet-media-compute-finalizer.timer" \
+  "$APP_RELEASE/deploy/resource-index/linux/magnet-media-compute-audit.service" \
+  "$APP_RELEASE/deploy/resource-index/linux/magnet-media-compute-audit.timer" \
   "$APP_RELEASE/deploy/resource-index/linux/run-media-compute-finalizer.sh" \
+  "$APP_RELEASE/deploy/resource-index/linux/run-media-compute-audit.sh" \
   "$APP_RELEASE/deploy/resource-index/fetch-media-compute-handoff.py" \
   "$APP_RELEASE/deploy/resource-index/finalize-media-compute.py"; do
   [[ -f "$path" ]] || { echo "missing required finalizer file: $path" >&2; exit 2; }
@@ -60,17 +63,23 @@ else
   ln -sfn "$APP_RELEASE" "$release_link"
 fi
 ln -sfn "$release_link" "$APP_LINK"
-chmod 0755 "$APP_LINK/deploy/resource-index/linux/run-media-compute-finalizer.sh"
+chmod 0755 \
+  "$APP_LINK/deploy/resource-index/linux/run-media-compute-finalizer.sh" \
+  "$APP_LINK/deploy/resource-index/linux/run-media-compute-audit.sh"
 
 printf 'MAGNET_MEDIA_FINALIZER_IMAGE=%s\nMAGNET_MEDIA_FINALIZER_MODE=%s\nMAGNET_MEDIA_COMPUTE_SSH_TARGET=ubuntu@161.153.78.129\nMAGNET_MEDIA_COMPUTE_SSH_IDENTITY=/home/admin/.ssh/travel-oracle-tunnel\nMAGNET_MEDIA_COMPUTE_SSH_KNOWN_HOSTS=/home/admin/.ssh/known_hosts\nMAGNET_MEDIA_COMPUTE_INBOX=/var/lib/magnet-media/compute-inbox\n' "$IMAGE" "$FINALIZER_MODE" > "$CONFIG_ROOT/finalizer.env"
 chmod 0600 "$CONFIG_ROOT/finalizer.env"
 
 install -m 0644 "$APP_LINK/deploy/resource-index/linux/magnet-media-compute-finalizer.service" /etc/systemd/system/magnet-media-compute-finalizer.service
 install -m 0644 "$APP_LINK/deploy/resource-index/linux/magnet-media-compute-finalizer.timer" /etc/systemd/system/magnet-media-compute-finalizer.timer
+install -m 0644 "$APP_LINK/deploy/resource-index/linux/magnet-media-compute-audit.service" /etc/systemd/system/magnet-media-compute-audit.service
+install -m 0644 "$APP_LINK/deploy/resource-index/linux/magnet-media-compute-audit.timer" /etc/systemd/system/magnet-media-compute-audit.timer
 systemctl daemon-reload
 systemd-analyze verify \
   /etc/systemd/system/magnet-media-compute-finalizer.service \
-  /etc/systemd/system/magnet-media-compute-finalizer.timer
+  /etc/systemd/system/magnet-media-compute-finalizer.timer \
+  /etc/systemd/system/magnet-media-compute-audit.service \
+  /etc/systemd/system/magnet-media-compute-audit.timer
 systemctl disable --now magnet-media-oracle-outbox-tunnel.service >/dev/null 2>&1 || true
 if [[ "$ENABLE_FINALIZER_TIMER" == "1" ]]; then
   [[ "$FINALIZER_MODE" == "publish" ]] || { echo "finalizer timer may only be enabled in publish mode" >&2; exit 2; }
@@ -79,9 +88,18 @@ else
   systemctl disable --now magnet-media-compute-finalizer.timer >/dev/null 2>&1 || true
 fi
 if [[ "$old_crawler_enabled" == "1" ]]; then
+  systemctl disable --now magnet-media-compute-audit.timer >/dev/null 2>&1 || true
   systemctl is-enabled --quiet magnet-media-daily.timer || { echo "old crawler timer changed unexpectedly" >&2; exit 2; }
 else
+  [[ "$FINALIZER_MODE" == "publish" ]] || { echo "post-cutover finalizer must remain in publish mode" >&2; exit 2; }
+  systemctl disable --now magnet-media-audit.timer >/dev/null 2>&1 || true
+  systemctl enable --now magnet-media-compute-audit.timer
   systemctl is-enabled --quiet magnet-media-compute-finalizer.timer || { echo "post-cutover finalizer timer must remain enabled" >&2; exit 2; }
+  systemctl is-enabled --quiet magnet-media-compute-audit.timer || { echo "post-cutover compute audit timer must remain enabled" >&2; exit 2; }
+  if systemctl is-enabled --quiet magnet-media-audit.timer; then
+    echo "legacy Aliyun-local audit timer must be disabled after compute cutover" >&2
+    exit 2
+  fi
 fi
 
 printf '%s\n' \
@@ -90,5 +108,6 @@ printf '%s\n' \
   "mode=$FINALIZER_MODE" \
   "transport=direct-ssh-stream" \
   "finalizer_timer_enabled=$ENABLE_FINALIZER_TIMER" \
-  "old_crawler_timer=still_enabled" \
+  "old_crawler_timer=$(if [[ "$old_crawler_enabled" == "1" ]]; then echo still_enabled; else echo already_disabled; fi)" \
+  "compute_audit_timer=$(if [[ "$old_crawler_enabled" == "1" ]]; then echo deferred_until_cutover; else echo enabled; fi)" \
   "production_secrets=remain_on_aliyun"

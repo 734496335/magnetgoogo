@@ -1,4 +1,35 @@
 ---
+Date/Time: 2026-09-25 11:30 (UTC+8)
+Version: v0.2.8-media-crawler-finalizer-observability-fix
+Scope: Diagnose the apparent media crawler stall, repair post-Oracle-cutover audit authority and finalizer observability, and verify current dual-plane production without weakening release quality gates.
+Modules: Oracle media compute / Aliyun finalizer / compute audit / structured finalizer status / media-status / production systemd
+
+### Root cause
+- Oracle compute was not hung: natural run `20260924T190109Z-6053ad7a` completed successfully at the normal 03:00 Asia/Shanghai window and produced a verified ~87.7 MB handoff.
+- On 2026-09-24, Aliyun finalizer retries correctly rejected a regressed candidate with the existing release regression gate. This was fail-closed protection, not a crawler crash, and no force-publish override was used.
+- A later externally stopped finalizer exited 137 and temporarily left the R2 publisher lock; the existing 30s heartbeat + 10-minute stale recovery recovered safely on a later retry. The lock threshold remains unchanged to avoid unsafe concurrent promotion.
+- The actual migration defect was observability: legacy `magnet-media-audit.timer` still ran the frozen Aliyun-local crawler state. After Oracle became compute authority, that stale state (421 movies / 538 series / 6663 resources) was guaranteed to look like a regression against newer production and produced false red audits.
+
+### Fix
+- Added `magnet-media-compute-audit.service/.timer` and `run-media-compute-audit.sh`; weekly audit now consumes the latest Oracle SSH handoff in candidate-only mode and never publishes.
+- Post-cutover finalizer installer now disables the legacy Aliyun-local audit timer and enables the compute audit timer while preserving the old crawler units/state solely for rollback.
+- `finalize-media-compute.py` now atomically writes structured success/failure status (including ResourceIndexError code/context) before returning or reraising; publish and audit use separate status files.
+- `media-status.sh` now auto-detects the Oracle compute/finalizer architecture, reports `latest-compute-finalizer-publish.json` + `latest-compute-audit.json`, and no longer displays stale legacy soak/audit state after cutover.
+- Production isolated release `/opt/magnet-media-finalizer/releases/crawlerfix-20260925` and image `magnet-media-finalizer:crawlerfix-20260925` are active; previous `c7cc217` release/image remain intact for rollback.
+
+### Production verification
+- Current revision52 / `20261030T000000Z-c9b41bd0` remains unchanged: 476 movies / 737 series / 8026 magnet resources.
+- R2, Aliyun China mirror and Aliyun local `current.json` are byte-identical, SHA `5ee7a43b...0cc1e9`; both public manifests are byte-identical, SHA `6054b688...3c5d2`; both pointer signatures + manifest hashes verify PASS inside the production finalizer image.
+- Manual new compute audit PASS on latest Oracle handoff: `already_finalized=true`, `published=false`, `no_change=true`, revision52. Manual formal finalizer idempotency run also PASS with no pointer mutation.
+- Timers now: Oracle compute enabled; Aliyun compute-finalizer enabled; new compute-audit enabled; legacy Aliyun crawler and legacy audit timers disabled/inactive.
+- Full Resource Index: 547 passed / 2 skipped. Targeted compute/finalizer/publish suite: 45 passed / 1 skipped. `python magnet/validate_enum.py`: rules=241 / ALL VALID. Shell syntax checks PASS.
+- Existing unrelated in-flight changes in `normalize/media.py`, `media_aggregate.py` and their tests were preserved and not modified by this repair.
+
+### Decision
+- CH-014 is now `solved ✅`: multiple natural compute/finalizer cycles have run since cutover, revision52 is converged on both public planes, and the last migration-era false-audit authority has been removed.
+- A release regression failure remains an intentional stop signal. Do not weaken the regression gate or use force publish merely to make automation green.
+---
+---
 Date/Time: 2026-09-10 18:20 (UTC+8)
 Version: v0.2.8-media-oracle-production-cutover
 Scope: Complete Oracle compute-only production cutover, Aliyun finalizer deployment, formal publish, first post-cutover production cycle and rollback-safe timer transition.

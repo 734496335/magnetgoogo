@@ -1,24 +1,26 @@
-TASK: media crawler compute migration from Aliyun to Oracle ARM64
-STATUS: PRODUCTION_CUTOVER_COMPLETE / FIRST_POST_CUTOVER_MANUAL_CYCLE_PASS / FIRST_NATURAL_SCHEDULED_CYCLE_PENDING
-DATE: 2026-09-10 UTC+8
+TASK: Oracle media crawler/finalizer production hardening after apparent crawler stall
+STATUS: FIXED / PRODUCTION_HEALTHY / CH-014_SOLVED
+DATE: 2026-09-25 UTC+8
 
 PRODUCTION NOW:
-- Oracle is compute-only; Aliyun is lightweight signer/finalizer + China static mirror; R2 remains primary public plane.
-- Live pointer revision42 / release 20261030T000000Z-64a9354f.
-- 421 movies / 539 series / 6672 magnet resources.
-- R2 + Aliyun live pointer SHA: 96fdc8d3ef5daf36641167cb25d55692a7f9402aa59cb2e0285cfe4312715c96.
-- Oracle compute timer enabled+active; Aliyun finalizer timer enabled+active; old Aliyun crawler timer disabled+inactive but preserved for rollback.
-- Oracle has no production signing private key and no R2 upload token; Travel remains healthy.
+- Authority topology remains Oracle compute-only -> Aliyun signer/finalizer -> R2 primary + Aliyun China mirror.
+- Latest natural Oracle run: 20260924T190109Z-6053ad7a, success; next compute remains ~03:00 Asia/Shanghai.
+- Live pointer: revision52 / 20261030T000000Z-c9b41bd0; 476 movies / 737 series / 8026 magnet resources.
+- R2 + CN mirror + Aliyun local pointer SHA=5ee7a43b6fedad231f1004186daa941825c18516800b242d32a64ea6f90cc1e9.
+- Both public manifests SHA=6054b688686b40cf1e7d4c74375d921426831dd64c5a704e9044c453e9a3c5d2; signature/hash verification PASS.
 
-IMPLEMENTED / VERIFIED:
-- Direct Aliyun->Oracle SSH handoff streaming with strict known_hosts, SHA/size/path validation, atomic inbox install and exact existing-package reuse.
-- Handoff max-age/timezone/future-skew gate; repeat finalizer runs report published=false.
-- Candidate revision41 passed with zero public mutation; formal revision41 publish passed.
-- Post-cutover Oracle compute produced run 20260910T092021Z-ed7c0acb against revision41; Aliyun finalizer consumed it and automatically published revision42.
-- Finalizer P3 fault injection covers tamper, duplicate/missing/extra members, stale/aged handoff, bad quality, pointer race, R2->Aliyun ordering, Aliyun promotion recovery and idempotency.
-- Full Resource Index 538 passed / 2 skipped; enum 241 ALL VALID; compile/shell/diff PASS.
-- App revision42 live network/signature/hash chain, media-security, resource-feed M1-M7 and release-build contract PASS; M8 remains fixture-only SKIP.
+ROOT CAUSE / FIX:
+- Oracle crawler itself was healthy; 2026-09-24 finalizer correctly withheld regressed candidates via release regression gate.
+- A later killed finalizer left a publish lock; existing heartbeat+10m stale recovery safely cleared it on a later retry; lock safety threshold was not weakened.
+- Real migration bug: legacy magnet-media-audit still audited frozen Aliyun crawler state, causing permanent false regression failures after Oracle cutover.
+- Added magnet-media-compute-audit service/timer: weekly candidate-only audit consumes latest Oracle handoff and never publishes.
+- Legacy magnet-media-audit.timer is now disabled/inactive; compute audit timer enabled/active.
+- Finalizer now writes structured success/failure status files; media-status.sh detects Oracle architecture and ignores legacy stale status/soak.
+- Production release /opt/magnet-media-finalizer/releases/crawlerfix-20260925 and image magnet-media-finalizer:crawlerfix-20260925 are active.
 
-REMAINING OBSERVATION:
-- CH-014 stays piloting until the first natural scheduled Oracle 03:00 -> Aliyun 04:30 cycle passes; manual post-cutover full production cycle already PASS.
-- Rollback remains: disable new timers -> enable old Aliyun magnet-media-daily.timer -> verify both public pointers.
+VERIFICATION:
+- New compute audit systemd run PASS; latest handoff already_finalized=true / published=false / no_change=true.
+- Formal finalizer idempotent run PASS on revision52 with no pointer mutation.
+- Resource Index full suite: 547 passed / 2 skipped; enum rules=241 ALL VALID.
+- Targeted finalizer/deployment/publish suite: 45 passed / 1 skipped; shell syntax PASS.
+- Existing unrelated normalize/media.py + media_aggregate.py worktree changes were preserved and not modified by this repair.

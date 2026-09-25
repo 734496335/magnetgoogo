@@ -42,21 +42,22 @@
 | [CH-011](#challenge-011--aliyun源包续期传播依赖人工同步) | Aliyun 源包续期传播依赖人工同步 | **high** | solved ✅ | 2026-08-11 authority+GitHub API+crypto/freshness/cohort 自动同步上线 |
 | [CH-012](#challenge-012--影视双端promotion硬断电一致性窗口) | 影视双端 promotion 硬断电一致性窗口 | **blocker** | solved ✅ | 2026-08-11 R2-first + 双端签名恢复 + revision不可重绑上线 |
 | [CH-013](#challenge-013--green源包gateway备用入口缺失) | green 源包 Gateway 备用入口缺失 | low | abandoned | 2026-08-11 合规版暂时弃用，普通版 full-only 成为唯一生产 SLA |
-| [CH-014](#challenge-014--影视计算迁移后aliyun静态镜像跨主机发布) | 影视计算迁移后 Aliyun 静态镜像跨主机发布 | **blocker** | piloting | 2026-09-10 已完成生产切换+首轮手工生产闭环，待首次自然定时周期 |
+| [CH-014](#challenge-014--影视计算迁移后aliyun静态镜像跨主机发布) | 影视计算迁移后 Aliyun 静态镜像跨主机发布 | **blocker** | solved ✅ | 2026-09-25 多轮自然周期、revision52双端发布、迁移后审计切换全部闭环 |
 
 ---
 
 ## CHALLENGE-014 — 影视计算迁移后Aliyun静态镜像跨主机发布
 
 - **严重程度**：blocker
-- **状态**：piloting
+- **状态**：solved ✅
 - **首次记录**：2026-09-10
 - **业务影响**：旧媒体发布器把 Aliyun 镜像实现为本机 `FilesystemPublisherBackend(public_root)`；计算从 Aliyun 迁到 Oracle 后若原样运行，会把所谓 Aliyun 数据写到 Oracle 本地，并可能先推进 R2 pointer、再因 Aliyun 公网验证失败形成双端 revision 分裂。
-- **当前方案 & 缺陷**：最终架构已收敛为 `Oracle compute-only -> Aliyun SSH stream handoff -> Aliyun signer/finalizer -> R2 + Aliyun static mirror`。Oracle 不持有生产签名私钥和 R2 token；Aliyun 使用既有 pinned Travel SSH identity 通过非 PTY `cat -- <exact outbox path>` 流式读取 handoff，不再申请 18766 port-forward 权限。handoff 做 exact path/SHA/size/member-set/age 校验，Aliyun finalizer 再验证 freshness/quality/covers/counts 后签名；pointer 仍严格 R2-first、Aliyun-second、+1 revision、same-revision 不可重绑。
+- **当前方案**：最终架构已收敛为 `Oracle compute-only -> Aliyun SSH stream handoff -> Aliyun signer/finalizer -> R2 + Aliyun static mirror`。Oracle 不持有生产签名私钥和 R2 token；Aliyun 使用既有 pinned Travel SSH identity 通过非 PTY `cat -- <exact outbox path>` 流式读取 handoff。handoff 做 exact path/SHA/size/member-set/age 校验，Aliyun finalizer 再验证 freshness/quality/covers/counts 后签名；pointer 仍严格 R2-first、Aliyun-second、+1 revision、same-revision 不可重绑。2026-09-25 修复迁移后遗留的观测缺口：旧 `magnet-media-audit.timer` 不再审阿里云冻结 crawler state，改由 `magnet-media-compute-audit.timer` candidate-only 审最新 Oracle handoff；finalizer 成功/失败写独立结构化状态文件，`media-status.sh` 自动识别新架构。
 - **已尝试**：2026-09-10 native Oracle ARM64 compute 成功；candidate revision41 签名/2831对象深验 PASS；P3 故障注入覆盖 tamper、stale/aged、duplicate/missing/extra members、bad quality、pointer race、R2→Aliyun 顺序、Aliyun promotion recovery 和重复幂等。17:01 正式发布 revision41 并完成 timer cutover；随后按新生产链手工触发首轮 compute，Oracle run `20260910T092021Z-ed7c0acb` 经 SSH handoff 被 Aliyun finalizer 自动发布为 revision42，R2/Aliyun pointer SHA `96fdc8d3...15c96` 完全一致，421/539/6672。最终 Resource Index 538 passed / 2 skipped，enum 241 ALL VALID；revision42 App live network/security/resource-feed/release-build PASS。
 - **候选方案**：当前方案已进入生产，不再使用 Oracle→Aliyun SSH publisher 作为主链，也不扩大 Travel key 的 `permitopen`。旧 Aliyun crawler unit/image/state 保留作为即时 rollback；废弃 18766 media tunnel 已 disabled/inactive。
-- **下一步**：仅剩观察第一次自然定时周期：Oracle 约 03:00 compute，Aliyun 04:30 起 finalizer retry。该周期 PASS 后才把 CH-014 从 `piloting` 标记为 `solved`。若失败，立即停新 timers、恢复旧 Aliyun `magnet-media-daily.timer` 并核对双端 pointer。
-- **更新日志**：2026-09-10 —— 生产切换完成，revision41 formal publish 与 post-cutover revision42 全链闭环均 PASS；详见 `MEDIA-ORACLE-MIGRATION-REVIEW-20260910.md`。
+- **闭环证据**：截至 2026-09-25，Oracle 03:00 自然 compute 与 Aliyun 04:30 起 finalizer 已运行多轮。09-25 最新 Oracle run `20260924T190109Z-6053ad7a` 成功，Aliyun 已发布 revision52 / `20261030T000000Z-c9b41bd0`，476 movies / 737 series / 8026 magnet resources；R2、Aliyun China mirror 与本机 public `current.json` SHA 均为 `5ee7a43b...0cc1e9`，manifest SHA 均为 `6054b688...3c5d2`，两端签名/manifest 验证 PASS。新 compute audit 与正式 finalizer 均对最新 handoff 幂等成功，`published=false / no_change=true / already_finalized=true`。
+- **运行原则**：regression gate 失败是 fail-closed 正常保护，禁止为了“让定时任务变绿”使用 force publish；旧 Aliyun crawler unit/image/state 仅保留 rollback，不再作为 production audit authority。发布进程异常退出留下的 publisher lock 由现有 heartbeat + 10 分钟 stale recovery 安全回收，不降低安全阈值。
+- **更新日志**：2026-09-10 —— 生产切换完成，revision41 formal publish 与 post-cutover revision42 全链闭环均 PASS；2026-09-25 —— revision52 自然生产周期与双端一致性复验 PASS，旧本地 audit 已迁移到 Oracle handoff candidate audit，CH-014 正式 solved。
 
 ---
 

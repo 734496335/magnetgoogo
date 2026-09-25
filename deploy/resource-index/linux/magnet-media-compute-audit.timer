@@ -1,0 +1,11 @@
+[Unit]
+Description=Run MagnetGoogo Oracle media compute handoff audit weekly
+
+[Timer]
+OnCalendar=Sun *-*-* 14:30:00 Asia/Shanghai
+RandomizedDelaySec=10m
+Persistent=true
+Unit=magnet-media-compute-audit.service
+
+[Install]
+WantedBy=timers.target
