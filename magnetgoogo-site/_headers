@@ -1,0 +1,24 @@
+/config.json
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/site-config.json
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/data/status-public.json
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  Content-Type: application/json; charset=utf-8
+
+/sitemap.xml
+  Content-Type: application/xml; charset=utf-8
+
+/sitemap_index.xml
+  Content-Type: application/xml; charset=utf-8
+
+/robots.txt
+  Content-Type: text/plain; charset=utf-8
+
+/style.css
+  Cache-Control: public, max-age=0, must-revalidate
+
+/js/growth-attribution.js
+  Cache-Control: public, max-age=0, must-revalidate
