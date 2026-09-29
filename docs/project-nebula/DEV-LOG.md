@@ -1,4 +1,1775 @@
 ---
+日期/时间：2026-09-29 21:54（UTC+8）
+本次版本：homepage-cache-bust-hotfix-20260929
+本次范围：**修复首页发布后用户端乱版：定位并消除新 HTML 与旧 CSS/JS 浏览器缓存错配，重新部署主域与 CN 镜像，并用本地/公网同机截图像素对比验收。**
+
+### 故障与修复
+- 线上 `index.html` / `style.css` / `growth-attribution.js` 与本地 SHA-256 完全一致，Tailwind runtime 也正常注入；问题不是部署错文件或 CDN 脚本被 CSP 拦截。
+- 根因是生产静态 CSS/JS 原响应 `Cache-Control: public, max-age=14400`，视觉 V1 同时改变 HTML class 结构与 CSS，已有访问用户可能得到“新 HTML + 4小时内旧 CSS”，从而全页乱版；之前发布验收只覆盖冷缓存新会话，漏测 warm-cache 升级路径。
+- 首页改为内容指纹引用：`style.css?v=3c68ec22`、`/js/growth-attribution.js?v=c8addc6b`，强制旧浏览器立即拉取正确资源；SEO Growth 审计同步兼容版本 query。
+- Pages hotfix deployment=`https://d3f45e0f.magnetgoogo-site.pages.dev`；主域已回读两条版本化引用。CN 镜像同步同一 index，并保留 `/home/admin/magnetgoogo-index-pre-cachefix.html` 回滚副本。
+- 同一 Chrome/390×844 同时截 localhost 与公网，平均像素差0.16 / RMS1.73；1440公网与冻结桌面基线平均像素差0.19，确认公网视觉已恢复到用户此前认可版本。
+- 主下载再次 GET 验证为 HTTP302 → `https://api.naoshiquan.com/download/v0.2.8/app-release.apk`；GEO / SEO Growth24/24 core / SEO audit 均 PASS。
+- 新增 BL-063：结构性 HTML+CSS/JS 发布必须版本化资源并验 warm-cache，不得只凭公网200/文件内容一致判定视觉发布成功。
+---
+日期/时间：2026-09-29 22:04（UTC+8）
+本次版本：workspace-process-artifact-cleanup-20260929
+本次范围：**审慎清理官网视觉审查、部署调试与 Analytics 旧续传过程产物；保留正式源码、生产回滚、Growth/DEV/BUG 日志、31日窗口内 verified repair checkpoints 与09-23 deep-repair审计证据。**
+
+### 清理结果
+- 删除 `tmp/` 内一次性发布包、在线/本地截图、调试抓取、旧 patch/audit 临时文件；其中最大单文件为 `media-finalizer-c7cc217.tar.gz` 34.72MB，源码无引用。
+- 删除 `magnetgoogo-site/visual-review/` 两张视觉审查截图；线上/本地像素一致性结论已写入日志，无需长期保存原图。
+- 删除 `admin-server/cache/repair-progress/` 9份 2026-08-29 遗留的未完成续传碎片；源码无直接引用，可由 R2 权威数据重新获取。
+- 删除31日保留窗口之外的 `admin-server/cache/repair-partitions/2026-08-07.json`；严格保留 2026-08-30 之后的 verified checkpoints，尤其 `2026-09-23.json`（7061 / 7061:dd3440c8）。
+- `admin-server/cache` 从约475.1MB降至402.0MB；结合 tmp 与截图共释放约109MB。未删除 `batches.json` / `analytics.json` / `growth.json` / `ops-daily.json` 等当前 LKG/运行缓存。
+- 本地预览端口 `127.0.0.1:18743` 已无监听进程；未停止任何生产/项目常驻服务。
+
+---
+日期/时间：2026-09-29 21:35（UTC+8）
+本次版本：homepage-visual-v1-production-deploy-20260929
+本次范围：**发布已冻结的首页视觉 V1 与备用下载测量补丁，恢复 Cloudflare 写权限并闭合 Analytics deep repair；对主域、CN 镜像、主 APK、GitHub、蓝奏及 SEO/GEO 做生产验收。**
+
+### 发布结果
+- Cloudflare OAuth 重新授权成功；Gateway Worker 发布成功，version=`4e14dfe6-dbdc-4de1-8429-bab02323ec9d`；09-23 checkpoint deep repair 实际执行39 queries / rows read558768 / rows written2663，最终 `PASS_REPAIRED / operational_verified=true / repaired_by_incremental_checkpoint`。
+- Pages 发布成功：deployment=`https://2a179c31.magnetgoogo-site.pages.dev`；主域 `magnetgoogo.com` 已回读 `home-redesign`，style.css 与 growth-attribution.js 均 HTTP200。
+- 阿里云 CN 镜像仅原子替换 index/style/growth-attribution 三文件，远端 SHA 与本地一致；`sudo nginx -t` PASS；服务器侧 `cn.magnetgoogo.com` 新视觉指纹 PASS。回滚备份位于 `/home/admin/magnetgoogo-deploy-20260929T2125/backup`。
+- 主下载生产完整下载=33,637,658 bytes，SHA-256=`2fc09f84e3fc0916cb3ffd82d8a467b1537030d31fe271e7906eb97fa230c27d`，与正式 release APK 完全一致。
+- GitHub `releases/latest` HTTP200 → v0.2.8；GitHub asset 完整下载同大小/同 SHA。蓝奏入口 HTTP200，但动态反自动化桥接未取得可信完整字节，严格记录为 PAGE_REACHABLE，不虚报 full-byte PASS。
+- 主域首页实际引用33个同源资源全部成功、0 broken；正式 verify-deploy 9/9 PASS；GEO / SEO Growth214/214 / SEO audit987-214-773 均 PASS。
+- `EXP-CRO-HOME-TRUST-002` 进入 `BASELINE_COLLECTING_PRODUCTION`；09-29 晚间部署为 partial day，clean baseline 从09-30开始；至少3个完整日后才允许 trust microcopy treatment。
+
+### 注意
+- 视觉 V1、SEO metadata、CTA 位置现在冻结，baseline 期间不得继续改首页。
+- Analytics deep repair 的后续只读调用已稳定返回 `PASS_NOOP / operational_verified=true` 且 exit0。期间发现 Node24/Windows 在成功分支强制 `process.exit(0)` 会触发 libuv assertion，已改为自然结束并新增 BL-062；复测无 assertion、无第二次 D1 写入。
+---
+日期/时间：2026-09-29 21:05（UTC+8）
+本次版本：homepage-visual-refresh-functional-first-local-frozen-20260929
+本次范围：**直接执行官网首页精品化视觉刷新，并以下载便利性为第一优先；冻结 SEO 元数据与主下载语义，严格做桌面/手机真实浏览器审查，不在 Cloudflare OAuth 写权限缺失时虚报生产上线。**
+
+### 视觉与功能结果
+- 首页进入 scoped `home-redesign` 视觉系统：白/浅冷灰/品牌蓝、弱边界/轻阴影/大留白；桌面 Hero 为文案+双 App 界面，移动端只保留单 App 界面，避免样机抢过下载主任务。
+- Hero 主下载仍使用既有 `page=home&placement=hero`，58px 高；GitHub/蓝奏保留，46～48px 高；移动端顶部导航新增始终可见 `placement=nav` 下载按钮，360～430px 为80×44px。
+- 第一轮390px Hero=978px / page=3936px；视觉复核后收敛到854px /3416px，主下载仍在 y≈260、GitHub/蓝奏在 y≈364/418，全部无需滚动即可发现。
+- 360px 小屏专项修正品牌/语言/下载挤压：最终 brand=132×32、lang=80×38、download=80×44，无重叠、无横向溢出。
+- 五视口实测：360×800、390×844、430×932、1280×900、1440×1000 均 `horizontalOverflow=false`；真实 HTTP 载入均 `consoleErrors=[]`、fonts loaded。
+- 截图密度审查后停止继续堆装饰：保持高留白与真实 App 截图作为视觉锚点，不增加粒子、3D、营销徽章等低价值元素；移动端底部大 App icon 已隐藏以缩短路径。
+- 回归：GEO audit PASS；SEO Growth 214/214 PASS；SEO audit 987 HTML /214 indexable /773 noindex /214 canonical PASS。
+- `EXP-CRO-HOME-TRUST-002` 更新为视觉基线+测量前置已本地冻结；trust microcopy **未启动**，必须等视觉刷新与备用下载追踪一起生产上线后重新积累≥3完整日 baseline。
+
+### 生产状态
+- 21:04 再次 `wrangler whoami` 仍因 OAuth/API token 权限/过期失败，`pages:write/workers:write/d1:write` 未恢复；因此本轮没有 Pages deploy。公网首页仍旧版，本地 V1 已验收冻结。
+---
+日期/时间：2026-09-29 19:18（UTC+8）
+本次版本：growth-optimal-execution-local-ready-cf-auth-blocked-20260929
+本次范围：**按当前最优增长方案继续执行：优先准备 Analytics deep repair、补首页备用下载归因、注册新的首页 CRO 测量前置；不改首页 SEO、不改 NSQ winner CTA、不在 Cloudflare 写权限缺失时绕过生产门禁。**
+
+### 执行结果
+- 新增 `cf-gateway/scripts/repair-analytics-shadow-deep.mjs`：只接受当前 `d1_daily_row_read_quota` + failure receive-day exact checkpoint；09-23 R2 checkpoint=`7061 batches / 7061:dd3440c8`，dry-run READY，8914 valid events，conservative physical-write upper bound=10169（<70k工程预算），不走31日 full rebuild。
+- Gateway `readOpsShadowIntegrity` 新增 `shadow_repair_complete` 专用语义；要求 `failureReceivedAt` 精确匹配当前 R2 marker、`r2CheckpointVerified=true`、repairedReceiveDays 覆盖 failure day，才允许 `repaired_by_incremental_checkpoint`。cached unresolved snapshot 命中该修复状态时强制刷新 rows，禁止旧 cache 直接贴 verified 标签。
+- `analytics-ops-failure-contract-tests.mjs` 新增 incremental checkpoint repair contract；cf-gateway targeted test + `npm test` PASS。Wrangler 4.137.0 `deploy --dry-run` PASS，production bindings 解析正常。
+- 首页 `growth-attribution.js` 为 GitHub/蓝奏 `data-backup-download` 增加 sideband click attribution：原 href/target 不变；后台请求 `/go/download`，placement=`backup_github` / `backup_lanzou`，`redirect=manual + keepalive`，不跟随主 APK 302，不复制 raw query/referrer。
+- `geo-audit.js` 增加 mirror tracking contract；GEO audit PASS；SEO Growth 214/214 PASS；SEO audit 987 HTML /214 indexable /773 noindex /214 canonical PASS。
+- `growth-ops/experiments.json` 注册 `EXP-CRO-HOME-TRUST-002`=`MEASUREMENT_PRECONDITION_READY_LOCAL_BLOCKED_CF_AUTH`。trust microcopy treatment 未启动；必须在 measurement patch 生产上线后先积累>=3完整日 clean baseline。
+- BUG-LESSONS 新增 BL-061：备用下载直链绕过归因会系统性低估首页 CVR；永久规则为“记录点击但不改变用户下载去向”。增长总账新增 `EXEC-GROWTH-OPTIMAL-20260929`。
+
+### 生产硬阻塞
+- Cloudflare OAuth 当前缺 `workers:write / d1:write / pages:write` 等写权限；Wrangler v4 `versions list` / `whoami` 均返回权限不足。v3 只显示 `offline_access + connectivity(admin)`。
+- 已实际执行 `wrangler login`，本机成功打开 OAuth 授权页，但120秒内未完成 callback；之后 `whoami` 仍失败。因此本轮**没有**部署 Worker、没有 D1 `--apply`、没有 Pages deploy，生产保持原状，未制造半修复状态。
+
+### 下一固定顺序
+- Cloudflare OAuth 恢复后：Gateway deploy → 09-23 exact deep repair apply → 公网读回 `operational_verified=true / repaired_by_incremental_checkpoint` → Pages deploy backup attribution → 3完整日 baseline → 再决定是否启动首页 trust microcopy。
+---
+日期/时间：2026-09-29 18:23（UTC+8）
+本次版本：growth-home-cro-priority-review-20260929
+本次范围：**基于最新 source×page 转化、既有首页 CRO 失败实验、NSQ hero CTA 与最近 App/渠道增长，裁决首页是否值得优化以及下一阶段增长顺序；本轮只分析与记录，不改生产首页。**
+
+### 裁决
+- 首页值得做 CRO，但不应大改版。最近 09-23～28 major finite-source `page=home` 合计约904 views /280 tracked primary downloads，约31.0%；其中 Baidu=39.15%、Google=53.85%、Direct=36.42%，说明首页本身并非主要转化瓶颈。
+- 现有 `hero` 已是 trusted download click 的绝对主 placement；不增加重复 CTA、不重排 Hero、不动 title/H1/meta。最合适的新实验是一个 evergreen trust microcopy 单变量。
+- 发现 measurement gap：首页 GitHub/蓝奏 `data-backup-download` 当前只直接跳转，没有进入下载归因，因此31%是 primary tracked download 下限。正式 CRO 前先补备用下载 click attribution、UI保持不变，并积累至少3个完整日基线。
+- Proposed `EXP-CRO-HOME-TRUST-002`：只改 Hero CTA 下信任文案，例如“无需注册 · 无广告 · 官方签名 APK”；目标7日 source-stratified homepage CVR relative +15%（约31%→35%+），Baidu/Google/Direct各自不得恶化。
+- 按当前约151 clean home landings/day，绝对CVR +3pp约多4.5 tracked downloads/day，+5pp约多7.5/day；有价值但不足以单独把约300 DAU推到500。
+- NSQ winner CTA 当前方向很强：09-17～22 target page=19 clicks（3.2/day）；变更后的完整日09-24～28=39 clicks（7.8/day，方向约+146%）。尚未满7日且有流量结构混杂，继续冻结其它变量，等7/14日门后再复制赢家模式。
+- 增长优先级保持：Analytics deep repair恢复正式核验 → Baidu高意图流量放大 → NSQ CTA实验成熟后复制 → 首页微CRO → 外部分发 → retention回访理由。mass SEO和搜索核心重做继续HOLD。
+
+---
+日期/时间：2026-09-29 16:52（UTC+8）
+本次版本：growth-analytics-verification-ops-review-20260929
+本次范围：**核验最近 App 埋点、DAU verification failure 与 Growth 渠道数据，从运营层面区分已验证事实、observational 趋势和数据链故障；不删除 marker、不强制 verified、不修改 App 搜索或渠道生产配置。**
+
+### 数据可信度结论
+- 当前 `/api/events?mode=ops_daily&days=31`：`exact_state_authority=true`，但 `operational_verified=false / unresolved_shadow_failure`。唯一未闭合 marker 为 `2026-09-23T23:56:57.731Z`，failure class=`d1_daily_row_read_quota`；不是每天分别发生一次 DAU 采集失败。
+- Admin 现有 fail-closed 逻辑在全局 `shadowHealthy=false` 时会把窗口内所有日级 rows 都标为 partial，因此用户看到的“好多日活核验失败”包含历史展示语义放大。正式 LKG `_growth_kpi.json` 已验证至 2026-09-22，不应因后续 marker 被运营解释成历史数据全部失效。
+- `MagnetGoogo-AnalyticsShadowRecovery` 与 `MagnetGoogo-GrowthDaily` 2026-09-29 最近结果均为1；恢复脚本当前报 `recovery window exceeds 3 receive days; require explicit deep repair`。3日上限本身是安全门，但缺少长期故障的分段 deep-repair 出口，形成稳定未闭合状态；新增 BL-060 固化永久规则。
+- 本轮尝试刷新31日 R2 verified cache与批量抓取09-23～28 receive-day checkpoint均因重型读取超出单次执行窗口，未虚报成功；没有执行任何 D1 `--apply`，也没有删除 failure marker。
+
+### 最近 App 运营趋势
+- 正式 verified LKG 09-17～22：DAU均值256.0 / New Device30.7/day / New DSSU25.8/day。
+- 当前 D1 observational 09-23～28：DAU=`258/258/261/289/306/308`，均值280.0（较前窗约+9.4%）；New Device44.3/day（约+44.6%）；New DSSU36.8/day（约+42.6%）。09-29 当前 DAU179 仅为 partial lower-bound，不参与完整日比较。
+- 09-26～28 三日同时出现 DAU301/day、Search Devices288/day、DSSU245.3/day、New Device48.3/day、New DSSU41.3/day；Search Activation95.7%、DSSU/DAU81.5%、NewDSSU/NewDevice85.5%。多个独立指标同步上涨，且 legacy diagnostic 对 exact identity 的最大 DAU drift 仅5，300+ 更像真实业务增长而不是单一 DAU 重复放大；deep repair 前仍保持 observational 标签。
+- Mature New DSSU 1～7d reuse 最新成熟到09-22；09-15～22加权约39.7%，仍低于45%目标。当前运营结构是“拉新重新增强、首次价值健康，但第二次回来仍偏弱”。
+
+### 渠道解释
+- Web qualified views：09-17～22=`979`（163.2/day）→09-23～28=`1231`（205.2/day），约+25.7%。无 Web→App user-level join，因此只作为与 App 拉新同方向的 aggregate evidence。
+- Baidu：116→235 views（约+103%），attributed downloads47→92，CVR40.52%→39.15%；流量翻倍而质量基本稳定，是最近最明确的规模增量来源。
+- NSQ：views421→420基本不变，但 attributed downloads110→166（约+50.9%），source-level CVR26.13%→39.52%；与09-23 winner hero CTA 上线方向一致，但文章级 denominator 仍不完整，暂记 directionally positive，不写严格因果。
+- Direct：164→284（约+73%），但混有真实直达、Referer丢失和分享，不作为独立渠道成功结论。Google 71→61但CVR升到54.1%；ChatGPT13 views/6 downloads，仍是高意图小规模。
+- 09-25/26 `unknown` download clicks异常为200/183，因此 raw download totals 不用于转化裁决；clean finite-source attribution继续可用。trusted first-party clicks前6日237→最近6日322（约+35.9%），真实下载意图仍同步增强。
+
+### 运营裁决
+- 当前 P0 是 Analytics verification/deep repair，而不是重做搜索核心。Baidu 保持规模收割；NSQ 保持当前 hero CTA 等7/14日窗口；Search core维持；留存/回访理由继续作为产品增长重点。
+- 增长总账新增 `REVIEW-OPS-ANALYTICS-20260929`；BUG-LESSONS 新增 BL-060。后续 deep repair 必须按 R2 receive-day + D1 budget 分段执行，不能扩大普通3日自动恢复门或伪造 verified。
+---
+日期/时间：2026-09-25 14:49（UTC+8）
+本次版本：production-recheck-media-travel-20260925
+本次范围：**按 context-limit 交接复核影视生产链，并定位/核验机票监控真实生产服务；只读生产检查，不重发影视版本、不修改 Travel 阈值或生产配置。**
+
+### 结果
+- 影视：Oracle `magnet-media-oracle-compute.timer` enabled+active，最近自然运行 2026-09-25 03:01 CST 成功、exit0；Aliyun finalizer 与新 compute-audit structured status 均为 success；legacy `magnet-media-audit.timer` 与 `magnet-media-daily.timer` 仍 disabled/inactive。
+- 当前时间早于修复后的下一自然周期：下一次 Oracle compute 为 2026-09-26 ~03:00 CST，Aliyun finalizer 从 04:30 CST 开始，因此本轮不能虚报“修复后下一自然周期已通过”。当前 revision52 未变，双公网 pointer SHA 仍完全一致，双 manifest SHA 均与 pointer 声明一致。
+- 机票监控已定位到 Oracle `Travel Fare Monitor`，不是 Magnet 内部 flight task：容器 `travel-fare-monitor` healthy、连续运行13天、restart=0；scheduler running；国内2026/国际2026 最近一轮均 completed、`last_error=null`。
+- Travel healthcheck / backup / watchdog 三个 timer 全部 enabled+active，最近 service result 均 success；上游探针持续 `HEALTH_OK`（Ctrip calendar、Kiwi domestic、Kiwi MCP 均可用）。
+- 阿里云仅保留 `travel-oracle-tunnel.service`，当前 enabled+active；旧 Travel scanner/healthcheck/backup 全部 disabled/inactive；公网 `/travel/` 未认证返回401，tunnel `/status` 返回200。
+- 最近24小时日志有6次分散的 Kiwi MCP 503 route warning，但没有连续不可用：健康探针仍通过、正式规则扫描仍 completed，因此当前判定为上游瞬时失败而非生产故障；未为“变绿”修改重试、阈值或 provider 配置。
+- 告警出口配置存在（CloudMonitor configured=true），且 Oracle 容器到其 HTTPS 主机的网络/TLS 连接测试 PASS；本轮没有低于阈值的新候选，所以没有人为 POST 测试告警或制造重复通知。
+
+### 下一裁决
+- 影视只等待 2026-09-26 第一轮修复后自然 compute→finalizer 周期；到点后只读复核，除非出现真实失败，否则不改代码、不强制 publish。
+- Travel 当前生产健康；继续观察 Kiwi 503 是否演变为连续 provider failure。若 healthcheck/正式扫描开始失败，再进入修复。
+---
+日期/时间：2026-09-25 11:38（UTC+8）
+本次版本：context-limit-handover-20260925
+本次范围：**建立新对话可直接复制的完整交接文件，固化最新增长状态、9/25 已完成的影视 crawler/finalizer 生产修复，以及仍待定位的机票监控任务；不修改生产代码。**
+
+### 结果
+- 新建根 `HANDOVER_20260925_CONTEXT_LIMIT.md`，包含可直接粘贴到新对话的启动提示、权威必读文件、Git/worktree保护规则、增长/发布/签名状态、Windows增长任务与下一步执行顺序。
+- 交接明确纠正影视状态：Oracle media worktree 最新 `_progress` / DEV-LOG 已于 2026-09-25 11:30 判定 `FIXED / PRODUCTION_HEALTHY / CH-014_SOLVED`；新对话首先应复核下一自然周期，不应从头重复修旧 audit false-regression。
+- 交接记录媒体当前生产 baseline：revision52 / 476 movies / 737 series / 8026 magnet resources；Oracle compute + Aliyun finalizer + new compute-audit 架构已验证，legacy Aliyun audit/crawler timers disabled/inactive。
+- 机票监控仍未闭合：Magnet 根未找到 flight monitor 业务文件，ChatGPT automations 中也未发现当前启用的 flight/airfare 任务；下一对话应优先从 `D:\\lpproduct\\oracle server` 的 Travel 服务/容器/systemd/cron/日志定位，不能把“未在 Magnet 找到”误写成“不存在”。
+- 未触碰主 checkout 大量并行 dirty 修改，不 reset/clean，不泄露任何 key/token。
+
+---
+日期/时间：2026-09-23 23:59（UTC+8）
+本次版本：growth-round2-nsq-conversion-distribution-20260923
+本次范围：**按“增长唯一目标”执行第二轮高期望实验：停止无提升的 NSQ 内链放大，启动 NSQ 最强文章首屏 APK CTA、双站 GSC、第三方分发归因与提交包，并将无产出的社区 Discovery 从4次/日降为1次/日。**
+
+### 结果
+- `EXP-CHANNEL-NSQ-SCALE-001` 改为 `HOLD_NO_LIFT`；保留 NSQ 渠道，不继续重复 09-16 的首页内链放大法。
+- NSQ 最强页 `/blog/cili-search-tools-2026` 首屏新增唯一 `placement=hero_download` 直接 APK CTA，注册 `EXP-NSQ-WINNER-HERO-CTA-001`；不改 title/description/canonical，目标 7/14 日相对可比窗口总下载点击 +30%。
+- GSC ingest 新增 `--site-url/--out/--status-out`，GrowthDaily 现在同时采 `sc-domain:magnetgoogo.com` 与 `sc-domain:naoshiquan.com`；NSQ 首个 final 快照 2026-08-25~09-21 仅 10 rows，`nsq-opportunities` 当前 0 个满足 >=50 impressions + position3~15 的机会，因此 Google→NSQ 只保留测量，不制造 SEO 任务。
+- 新增 `uptodown` / `alternativeto` finite acquisition source：官网 tracker、Gateway allowlist、GEO audit、download contract、referral gate 全部同步；Product Hunt 分类继续保留。
+- 新建 `GROWTH-DISTRIBUTION-SUBMISSION-PACK-20260923.md`，准备 Uptodown / AlternativeTo / Product Hunt 的事实文案、平台独立 `utm_source`、Scale/Kill 门槛；明确站外审核未通过前状态只记 `PREPARED_PENDING_*`。
+- 正式 APK 验证 PASS：0.2.8 / versionCode12 / `com.magnetgoogo.app` / env-only signing；SHA-256=`2fc09f84e3fc0916cb3ffd82d8a467b1537030d31fe271e7906eb97fa230c27d`；33,637,658 bytes。
+- Windows `MagnetGoogo-GrowthDiscovery` 已重注册为每天 13:30 单触发器（trigger_count=1）；approval-only / auto_post=false 不变。
+- 生产部署：Gateway Worker=`b49f553e-862b-416e-9d73-769ed20f0d5f`；Magnet Pages=`a632b855-1d42-4b33-af4a-288fc9ff95c3`；NSQ Pages=`12a564c0-7912-4475-bcfe-3cc640dd84ea`。NSQ winner 单 URL IndexNow HTTP200。
+- 验证：Magnet GEO audit PASS；SEO Growth 214/214 PASS；NSQ Growth SEO 175/175 PASS；Gateway `npm test` PASS；Wrangler 4.137.0 dry-run/deploy PASS。
+- GrowthDaily 手工实跑在 Analytics shadow preflight 被 Cloudflare 当日 D1 `d1_daily_read_quota_exhausted` 阻断；没有绕过门禁。Magnet/NSQ GSC ingest 均已单独实跑 PASS，所以这是平台额度阻塞，不是新代码回归失败。
+
+### 下一裁决
+- 先看 `hero_download` placement 与 NSQ 总下载是否在 7/14 日窗口产生 >=30% 增量；无提升则停止。
+- Uptodown 为最高优先级外部分发，但当前仅资料/APK准备完成，仍需平台账号人工提交与审核；AlternativeTo / Product Hunt 次之。
+- Community Discovery 保持每日一次低成本扫描，不再占主要增长资源。
+
+---
+日期/时间：2026-09-23 21:58（UTC+8）
+本次版本：gsc-oauth-restored-and-seo-rejudge-20260923
+本次范围：**完成 Google Search Console OAuth 重新授权，恢复 fresh final Search Analytics ingest，并用最新 final 数据重新裁决现有 SEO 单变量实验。**
+
+### 结果
+- OAuth 授权成功：`sc-domain:magnetgoogo.com` 与 `sc-domain:naoshiquan.com` 均为 `siteOwner`；新的 refresh token 已写入既有 token 文件。
+- `search-console-ingest.mjs --write` PASS：最新 final snapshot=2026-08-25~2026-09-21，1269 rows，ingest=`OK`；`growth-opportunity-report` READY 且 warnings=[]，原 `BLOCKED_EXTERNAL_AUTH / STALE_LAST_GOOD` 已解除。
+- Google 全体 Search Analytics：08-25~09-06=1324 impressions /93 clicks /CTR7.02% /pos11.22；09-07~09-21=647 /116 /CTR17.93% /pos9.60。窗口长度不同，仅做方向判断；点击/日约7.15→7.73，效率改善但不是流量爆发。
+- `EXP-SEO-ZHONGZI-EVIDENCE-001` 14日阶段无提升：exact query post 09-01~21=7 impressions /1 click /pos39.71；target page post=30 /3 /pos20.30。状态改为 `HOLD_NO_LIFT_14D`。
+- `EXP-SEO-CILIMEI-TITLE-001` 14日阶段无CTR提升：post 09-06~21=20 impressions /0 clicks /0% /pos8.30；状态改为 `HOLD_NO_LIFT_14D`。
+- Fresh机会：`u3c3`=164/11/CTR6.71%/pos9.01；`cilisousou`=82/0/0%/pos6.26；`bt1207`=94/0/0%/pos8.30。下一轮只考虑已有第一页曝光的低CTR单变量实验，不扩URL。
+- 总账已追加 `REVIEW-GSC-RECOVERY-20260923`。
+
+---
+日期/时间：2026-09-23 19:05（UTC+8）
+本次版本：growth-seo-effect-review-20260923
+本次范围：**刷新到 2026-09-22 完整日的生产埋点，从增长视角裁决最近 SEO / NSQ / 百度 / GEO / 社区 / 留存措施是否产生实际效果；不把 Web→App 聚合相关误写成用户级因果。**
+
+### 核心结果
+- 最新完整日 09-22：DAU265 / Search252 / DSSU215 / New29 / NewDSSU23；最近7完整日均值 DAU258.4 / New33.1 / NewDSSU27.7；Search Activation94.5%、DSSU/DAU81.6%、zero-result0.5%，产品质量护栏健康。
+- 放大前 09-12~15 Web qualified=819（204.8/day），09-17~22=979（163.2/day，约-20.3%）；App 同期 New Device 47.5/day→30.7/day（约-35.4%）、New DSSU39.3/day→25.8/day（约-34.2%）。近期措施没有形成净新增增长。
+- NSQ 保持第一可控渠道，但当前 scale tactic 未达标：85.5/day baseline→70.2/day post，未到110/day；source-level download conversion=26.13%。结论 KEEP CHANNEL / HOLD CURRENT SCALE TACTIC。
+- 百度 volume 31.25/day→19.3/day，未达40/day；但 47/116 download conversion=40.52%，且绝大多数落首页，说明主要瓶颈是流量量级而非首页CRO。
+- Google 10.0/day→11.8/day，约+18.3%，download conversion=39.44%；但 GSC 仍 `BLOCKED_EXTERNAL_AUTH / STALE_LAST_GOOD`，不能归因到近期 SEO 单变量实验。
+- GEO ChatGPT 已过方向性门：09-12~22 共13 qualified referrals；09-17~22 11 views / 5 downloads，CVR45.45%。方向性有效但绝对规模仅约1%流量，仍不是主增长引擎。
+- GitHub 09-17~22=21 views / 11 downloads，CVR52.38%，高质量低规模；社区 Discovery 09-23 最新搜71条、0候选、0入队、0发布，相关社区 referral 仍为0。
+- Mature New DSSU 1~7d reuse 从此前38.9%升至42.2%，有改善但仍低于45%目标，暂不改App。
+- 数据质量：clean source-attributed clicks=259，unknown clicks不进入渠道门；NSQ article-level denominator 仍与 Magnet landing page key 语义不一致，且发现少量SQL探测式page-key噪声，精细文章裁决前需清洗/allowlist。
+
+### 决策
+- 不新增 indexable URL，不宣称近期 SEO 已带来净增长；NSQ渠道保留但当前内部入口放大动作暂停继续加码；百度保留但不盲改首页；Google先恢复GSC；GEO做实体权威/真实提及，不批量造内容；社区自动发现保持低成本或降频。
+- 完整裁决已追加 `GROWTH-STRATEGY-LEDGER.md` 的 `REVIEW-GROWTH-SEO-20260923`。
+
+---
+日期/时间：2026-09-18 20:16（UTC+8）
+本次版本：growth-scheduler-dedup-and-purpose-audit
+本次范围：**核对 MagnetGoogo Windows 计划任务的作用与重复关系，以当前 `scripts/register-growth-tasks.ps1` 为权威，删除历史重复任务，保留当前 4 个增长/运营任务。**
+
+### 结果
+- 去重前共 7 个 `MagnetGoogo-*` 任务：Public Status 3 套、Growth Daily 2 套，另有 AnalyticsShadowRecovery 与 GrowthDiscovery。
+- 删除旧任务：`MagnetGoogo-Growth-Daily`、`MagnetGoogo-Public-Status-4H`、`MagnetGoogo-PublicStatusRefresh`。
+- 保留权威任务：`MagnetGoogo-AnalyticsShadowRecovery`（08:05，D1/埋点 shadow 恢复）、`MagnetGoogo-GrowthDaily`（10:15，增长日报/机会报告）、`MagnetGoogo-GrowthDiscovery`（09:30/13:30/17:30/21:30，OpenCLI 搜知乎/X/Reddit，approval-only，不自动发帖）、`MagnetGoogo-PublicStatus-4h`（每4小时，公开可达性/SEO门/Pages状态刷新）。
+- `GrowthDiscovery` 是浏览器自动打开/切换页面的主要来源；其他任务主要启动 PowerShell/Node 进程。
+- 当前 4 个任务均处于 Ready；前三个最近 LastResult=0。`PublicStatus-4h` 最近 LastResult=1，health=`public reachability probe failed: exit=-1073740791`，保留后续单独观察，不用旧重复任务掩盖。
+
+---
+日期/时间：2026-09-16 21:45（UTC+8）
+本次版本：post-cleanup-release-secret-config-audit
+本次范围：**核验 20:29 项目空间清理后，App 打包签名、源发布、Cloudflare、GSC、增长任务与 SEO/IndexNow/百度流程所需的配置/密钥/脚本是否仍完整；只读审计，不回显任何密钥值。**
+
+### 结果
+- App 签名链完整：`magnet/.env` 仍包含 RELEASE_KEY_ALIAS / RELEASE_STORE_PASSWORD / RELEASE_KEY_PASSWORD；`releases/magnetgoogo-release-new.keystore` 存在且 `keytool` 校验 PASS；`npm run test:release-build` PASS（0.2.8 / versionCode12 / env-only signing）。
+- 加密恢复链完整：`releases/secrets.enc` 存在，HMAC 校验通过；内存解密后 `.env` 与 keystore 都与当前文件逐字节一致。注意该文件当前为 Git 未跟踪文件，后续清理必须显式保护，禁止广域 `git clean`。
+- 根 `.env` 仍包含 BAIDU_PUSH_TOKEN / ADMIN_SECRET / GSC OAuth+Token file / MIMO 等配置项；GSC OAuth 与 Token 文件路径均 configured=true 且 file exists=true。当前 GSC 仍是既有的 expired/revoked 外部授权问题，不是文件丢失。
+- Cloudflare `wrangler whoami` PASS，OAuth 登录仍有效，Workers/Pages/D1 等写权限在；`cf-gateway/wrangler.toml`、Gateway 源码和 growth configs 均存在。
+- 源发布链存在：`encrypt_sources.py` / `encrypt_sources_green.py`、source pack push/gate/audit/verifier 脚本、Magnet 站点 encrypted source pack、App bootstrap source pack 均存在；相关 Python 脚本内存 compile PASS。
+- SEO/GEO/运营链实跑：Magnet `seo-audit` PASS（987/214/773/214）、`seo-growth-audit` PASS（214/214 attribution）、`geo-audit` PASS；NSQ `growth-seo-audit` PASS（175/175）。
+- Windows 计划任务 `AnalyticsShadowRecovery/GrowthDaily/GrowthDiscovery/PublicStatus` 均存在且 LastResult=0。
+
+---
+日期/时间：2026-09-16 20:29（UTC+8）
+本次版本：project-space-cautious-cleanup
+本次范围：**审慎清理项目内已经完全无用的旧测试/调试中间产物与可再生构建缓存；不删除源码、当前依赖、正式发布档案、仍注册使用的 worktree、当前增长证据或测试基线。**
+
+### 已确认并删除
+- 移除旧 detached worktree `fu`：基线为 2026-07-30 v0.2.3，唯一未提交改动只是 v0.2.5 版本号与 K30S 强更审计临时硬编码，当前 0.2.8 已完全 supersede；其约 3.9GB 中主要为旧 node_modules / Android build。
+- 删除 `web/.next` 约 246MB；删除 App `dist/.expo`、`tmp_*`（31 个，约22MB）、20个 UIAutomator XML dump、旧 `build-green/0.1.10-green.apk`、0.1.3/0.1.4/0.1.5 测试 APK、旧 app tar/logcat 等明确 ignored 中间物；删除 admin `.test-tmp/_test_*` 旧测试库。
+- 首次 Gradle clean 在 native clean 失败前已清掉 node_modules 下大量旧 Android dependency build cache，使 `magnetgoogo-app` 总体从约16987.9MB降到3163.9MB；当前 node_modules 约319MB且依赖树完整。
+- 删除前后同口径重点目录合计约释放 **17984MB（约17.6GiB）**。
+
+### 审慎保留 / 未强删
+- `releases` 约1.1GB：包含正式/历史发布证据与签名相关档案，保留；`scripts/test-reports` 约6MB、历史 docs 约2MB，空间收益太小且仍有审计价值，保留。
+- `.worktrees/oracle-media-migration-20260909` 约374MB、`.claude/worktrees/media-series-backup` 等仍在 Git worktree 注册表中，保留。
+- 主线 `android/app/build`≈2219.7MB、`.cxx`≈531.6MB 仍在。`:app:clean` 因 stale CMake/autolinking 引用已不存在的 codegen JNI 目录而失败；为避免误删整个 gitignored `android/`，本轮明确不使用广域 `git clean -x` 或系统强删。
+- Windows 特殊名 `NUL/nul` 0字节文件 Git clean 返回 Permission denied；不占空间，保留，不扩大风险。
+
+### Verification
+- `npm ls --depth=0`：当前 Expo/RN/TS 依赖树完整。
+- `npx tsc --noEmit`：PASS，0错误。
+- `git status --short -- magnetgoogo-app web releases admin-server cf-gateway`：未新增任何 tracked 删除；当前 M/?? 均为清理前已有并行开发状态。
+- `git worktree list --porcelain`：`fu` 已从注册表移除，其余 worktree 保持。
+
+---
+日期/时间：2026-09-16 17:54（UTC+8）
+本次版本：growth-strategy-ledger-and-persistent-memory-rule
+本次范围：**把截至当前已经尝试的增长策略、动作、效果、失败/取消项、归因边界与下一裁决点汇总成长期总账，并把“后续所有增长工作持续记录”写入根规则与权威 AI 规则。**
+
+### 增长总账
+- 新建项目根 `GROWTH-STRATEGY-LEDGER.md`，汇总从影视资源入口、搜索供给、Technical SEO/pSEO/多语言、NSQ、IndexNow/百度、下载 CTA、Measurement Truth、SEO 单变量实验、CRO 失败实验、全站归因、GEO、Referral 细分、Broadcast、NSQ/百度当前 scale、第二渠道、source×page×download、留存诊断、GitHub 与事实治理等截至 2026-09-16 的主要增长手段。
+- 每项都记录实际效果与状态，明确区分 `有效 / 方向性有效 / 无明确提升 / 失败或取消 / 观察中 / 仅基础设施`；历史无法用户级归因的上涨只写 aggregate direction，不写因果。
+- 固化当前关键数据：09-15 DAU268 / Search259 / DSSU221 / New54 / NewDSSU45；近期 Search Activation93.4%、DSSU/DAU80.7%、NewDSSU/NewDevice82.7%、zero-result0.4%、mature reuse38.9%；NSQ 09-12~15=342 qualified views、百度=125、GitHub=12、ChatGPT=2。
+- 总账同时保留“不应重复”的失败经验：首页 CRO numerator 污染、旧 GSC 快照冒充实时、宽松 Broadcast 假阳性、伪“实测”内容、无脑扩 SEO URL、把同期 DAU 上涨直接归因 SEO/GEO。
+
+### 永久规则
+- 根 `AGENTS.md` 新增 `[GROWTH MEMORY RULE]`：任何 SEO/GEO/内容/外链/社区/下载漏斗/渠道/留存/转化/推荐/品牌曝光/AI 问答植入/增长自动化任务，执行前先读 `GROWTH-STRATEGY-LEDGER.md`，执行后必须更新假设、动作、基线、结果、归因可信度、结论、Scale/Hold/Kill 和下一裁决点。
+- 权威 `docs/project-nebula/AI-RULES.md` 的长期记忆协议同步新增同一硬规则；失败、取消、无提升、样本不足记录不得删除，禁止未查历史就重复同一增长策略。
+
+---
+日期/时间：2026-09-16 15:44（UTC+8）
+本次版本：growth-500-dau-scale-execution-start
+本次范围：**基于 9/8–9/15 已成熟渠道与 App 埋点，正式启动 500 DAU 增长放大：前瞻 source×page×download 归因、NSQ/百度赢家实验、第二外部渠道 approval-only discovery、New DSSU 复用诊断；继续冻结 SEO URL 数量，不改 App 搜索核心/source health。**
+
+### 生产增长底座
+- 新增 D1 migration `0009_growth_attribution_funnel.sql`，远程 apply PASS；`growth_attribution_daily_dims` 仅保存有限 source/page/day/locale/placement/country 聚合，不含 raw referrer/UTM/query/user/device ID。首个完整干净日固定 2026-09-17，禁止历史点击反推来源。
+- Gateway `/api/growth` 新增 `attribution_funnel.bySource/bySourcePage/bySourcePageDay`；Magnet tracker 用 session-only `mg_acq_source_v1` 把有限 source 传给 `/go/download`，内部导航保持原 acquisition source，未知 UTM 不透传。
+- Gateway production=`6fd97146-d879-436b-94b8-e45b9f278ce5`；Magnet Pages production=`7708b7f7-1695-4e31-b9f5-077804084d54`。GrowthDaily 实跑 READY/PASS，GSC 仍 `BLOCKED_EXTERNAL_AUTH / STALE_LAST_GOOD`。
+
+### 渠道放大与第二引擎
+- 注册 `EXP-CHANNEL-NSQ-SCALE-001`：9/12–15 baseline=342 qualified views / 85.5/day，目标先到110/day；只放大既有赢家，不新建URL、不同时改多个排名变量。
+- NSQ `/blog/` 新增“近期高关注指南”，提升 5 个现有下载赢家内部发现性；NSQ production=`3b7de438-7af7-4981-b4ef-cef8d0a4b93b`；full audit `175/175` PASS；IndexNow core 10 URLs HTTP200。
+- 注册 `EXP-CHANNEL-BAIDU-HARVEST-001`：9/12–15 baseline=125 / 31.25/day，目标40/day；等 conversion gate 成熟后只对既有落地页做单变量优化。
+- 注册 `EXP-CHANNEL-SECOND-ENGINE-001`：知乎/Reddit 自动发现+人工审批；V2EX/酷安/52破解在没有安全 search adapter 前保持 manual。修复 OpenCLI search 未转发 `account_profile`；真实 approval-only smoke=81 searched / 0 new / 0 enqueued / auto_post=false / status=OK。
+- Scheduled discovery 对单平台可恢复错误改为 `PARTIAL + recoverable_platform_errors`，不再把其他平台结果一起判 ERROR；approval-only/tier1=0/14d recency/relevance 门保持不变。
+
+### 留存诊断
+- Growth report 新增自动 retention diagnosis：最近完整窗口 Search Activation=93.4%、DSSU/DAU=80.7%、NewDSSU/NewDevice=82.7%、zero-result=0.4%、成熟1–7d reuse=38.9%。
+- 结论固定为 `RETURN_USE_CASE_GAP_HYPOTHESIS`，`app_retention_change_allowed=false`：激活和结果质量健康、复用低于45%目标，但当前仅能提出“缺少回访理由”假设，禁止因此直接上提醒/推送或重做 App。
+
+### 永久门禁 / Verification
+- 新增 BL-058：source×page conversion 必须前瞻、有限类别、严禁历史 join 猜来源；新增 BL-059：Broadcast profile 必须实际转发，单平台导航失败必须可降级且不自动发帖。
+- Gateway `npm test` PASS；growth-download contract 包含 `source_page_conversion_funnel=true`；Magnet GEO/SEO 三门 PASS（214/214，987/214/773）；Broadcast growth/core/state PASS；GrowthDaily PASS。
+- 当前已启动四条增长线：NSQ scale / Baidu harvest / second-engine discovery / retention diagnosis。下一裁决点：conversion gate >=3完整日+>=20 source-attributed clicks；GEO >=7完整日+>=10 AI referrals；新用户reuse目标45%。
+
+---
+日期/时间：2026-09-12 09:23（UTC+8）
+本次版本：growth-geo-entity-fact-integrity-closure
+本次范围：**在上一阶段 SEO/GEO 已完成并进入观察期的前提下，对 NSQ 既有 175 个 canonical 做全站 Magnet Googo 实体事实清理；不新增 indexable URL、不修改 App/search/source health、不重做上一阶段 SEO。**
+
+### GEO 实体事实与旧内容债务收口
+- 全 sitemap 对抗审查发现旧内容流水线把“像真人测评”误实现为伪第一手证据：固定 `80+/100+` 来源数、GitHub=应用开源/源码可审计、`94/100 queries`、数周/数月使用、设备/带宽/秒数/崩溃/下载成功等叙事；其中中文 `magnet-tools-2026` 甚至写入尚未发生的 `2026-10-15` 测试。
+- 同时发现多语言页面把整篇 Markdown/YAML frontmatter 包进代码围栏并直接发布，生产正文暴露 `canonical_url:`；俄语/日语页已重建为正常 HTML，其他英文页移除 raw frontmatter 与重复 H1。
+- 中英高风险内容已从“伪实测/排名宣传”改为可核验的搜索架构、当前产品状态、上游依赖、平台边界和官方 status/methodology/release evidence；固定来源数量全部改为动态多源语义，GitHub 仅作为项目/Release 活动证据。
+- 中英文博客 index 同步新标题，清除旧 `Tested/实测/测评/100 Queries` 链接文本；sitemap 保持175，不新增URL。
+
+### 永久门禁与内容引擎根修
+- 新增 BL-057。`naoshiquan-site/scripts/growth-seo-audit.js` 现在遍历 sitemap 全量 Magnet 实体页并 fail-closed：固定源数量、错误开源/源码可审计、伪第一手/量化测试、未来日期测试、标题层 `Tested/实测/测评/评测`、raw YAML/frontmatter 均阻断发布。
+- `content-engine` writer/auth/revisor/finalizer/English/locale prompts 与 briefs 收敛为 evidence-first：禁止为“真实性”编造真人体验；动态事实无证据则写未知/省略。
+- `publish_to_naoshiquan.py` 新增 outer Markdown fence 解包；未解析 frontmatter 到达 `md_to_html` 时直接抛错，防止再次把 `canonical_url` 当正文上线。Python compile 与 fenced-frontmatter 自测 PASS。
+
+### Production / Verification
+- NSQ full fact audit：`targets=17 / tracked=17 / sitemap=175 / entity_pages=175`，PASS。
+- Magnet 主站 GEO audit PASS；SEO growth `214/214 attribution`；SEO audit 保持 `987 HTML / 214 indexable / 773 noindex / 214 canonical unique`，说明本轮未改变既有 SEO URL 实验面。
+- Cloudflare Pages 最终 production deployment=`69b8e474-2fa1-4e09-a959-7be3613b79f0`；自定义域名 `naoshiquan.com` 抽查16个中/英/俄/日高风险页面全部HTTP200，旧 `94/100`、raw frontmatter、未来测试日期、错误 open-source、标题层伪实测信号=0。
+- 生产 sitemap=`175`；`/scripts/*` 回读301到首页，Direct Upload 安全边界仍有效；硬编码 token 扫描 PASS。
+- IndexNow 只读取 sitemap 权威 canonical 清单，`all=175`，单批 HTTP200；未推历史/noindex页面。
+- GSC OAuth 外部授权阻塞仍保持 BL-056 语义：`BLOCKED_EXTERNAL_AUTH / STALE_LAST_GOOD`；本轮不依据旧排名数据扩写SEO内容。
+
+### 下一步
+- 继续从2026-09-12收集 AI referral / 细分 referral 的完整运营日证据；达到既定门槛后只放大已证明渠道，不再盲目扩 SEO URL。
+- GEO 下一阶段优先真实第三方实体提及与引用质量；任何新内容或旧页再发布必须先过 BL-057 全 sitemap 事实门。
+---
+日期/时间：2026-09-11 23:16（UTC+8）
+本次版本：growth-geo-safe-outreach-attribution-closure
+本次范围：**在已完成 SEO/GEO 基线之上，收口站外获客语义门、审批-only调度、有限UTM归因与GSC last-good/current-auth证据分离；不新增 indexable URL、不自动发帖、不修改 App/search/source health。**
+
+### Outreach / Referral 收口
+- 实际 dry-run/真实 discovery 发现旧语义会把竞品产品发布帖和“推特相机打不开”等泛故障误判成磁力需求；新增 BL-055，候选必须同时满足：目标帖子本身含磁力/BT/torrent/明确品牌实体、明确求推荐/求替代/不可用需求、<=14天、具备发布时间证据、relevance>=0.65。
+- 原误候选 job #395 / discovered #313 已正式 rejected，关联 task 136 收敛失败；从未外发。新规则真实扫描 61 条结果得到 new=0 / enqueued=0，没有为凑量降门槛。
+- Broadcast 生产配置改为 `approval_required=true`、单轮最多1候选、Reddit Tier1=0、每平台daily cap=3 / min gap=60min；新增 fail-closed policy test，关闭审批或放宽门槛会直接拒绝自动 discovery。
+- 新增 `MagnetGoogo-GrowthDiscovery` 计划任务，09:30/13:30/17:30/21:30 仅发现并生成 awaiting_approval 候选；真实 Task Scheduler 手工触发 LastResult=0，health=`approval_only / auto_post=false`。
+- 只有原模板本来就含 `magnetgoogo.com` 时才把首页链接正规化为对应渠道的 `https://magnetgoogo.com/?utm_source=<finite-category>`；无链接模板不强塞URL，深层证据链接不改写。
+
+### GEO / Attribution / GSC 证据可信度
+- 官网 attribution tracker 增加有限白名单 campaign UTM（reddit/x/github/naoshiquan/zhihu/V2EX等）；即使平台App丢Referer也可前瞻归因。未知 UTM 直接丢弃；上送体仍只有 `page/locale/source`，raw URL/query/UTM/referrer不上传。
+- Pages 最新增长归因部署=`2058815a`；生产脚本回读确认 `CAMPAIGN_SOURCE_ALLOWLIST` 生效。
+- GSC OAuth 当前 `expired or revoked`。新增 BL-056 与独立 ingest status：最后授权成功的 final snapshot（through 2026-09-06）保留为 `STALE_LAST_GOOD` 历史证据，当前状态明确 `BLOCKED_EXTERNAL_AUTH`；旧快照不再冒充实时数据，也不把缺失解释为0流量。
+- GrowthDaily 真实重跑保持 `READY / blockers=[]`，health 同时写 `search_console=BLOCKED_EXTERNAL_AUTH`、`search_console_evidence_status=STALE_LAST_GOOD`、warning=`GSC_EXTERNAL_AUTH_BLOCKED_USING_LAST_GOOD`。
+
+### 已验证赢家与生产门禁
+- NSQ 已验证赢家 `cili-search-tools-2026` 只更新事实证据与官方交叉引用，不改变关键词意图、不新建URL；IndexNow 单页 HTTP200；NSQ growth audit=17/17 / sitemap175。
+- Magnet GEO audit PASS：5 AI来源 + 12 actionable referral类别 + finite campaign UTM + crawler/entity/privacy门；SEO growth audit=214/214 attribution；SEO audit=987 HTML / 214 indexable / 214 canonical unique。
+- `npm run test:admin` 最终全绿，并正式包含 `test:broadcast-growth` 与 `test:growth-gsc`：Analytics真实cache/Chromium、Broadcast runtime/state/core/interrupt、控制面、fail-closed、cache recovery、growth read、partition recovery全部PASS；浏览器 pageErrors=0 / consoleErrors=0。
+- `git diff --check`无错误，仅既有 LF→CRLF warning。项目级 `python magnet/validate_enum.py` 仍因并行中的 source metadata 老问题失败：`meta.total_rules declared=234 actual=371`；本增长阶段未修改 source health/rules，不为过门禁篡改并行数据。
+- 下一证据窗口：Referral细分从2026-09-12开始，至少3个完整日+>=20 categorized views再放大赢家；GEO至少7个完整日+>=10 AI-referred qualified views才做方向性判断。GSC恢复授权前不依据旧排名继续改SEO实验。
+---
+日期/时间：2026-09-11 20:47（UTC+8）
+本次版本：growth-geo-measurable-ai-discovery-production
+本次范围：**基于上一轮 SEO 后首个可决策全覆盖窗口执行增长收割，并把 GEO 从“内容概念”升级为可测量的 AI 搜索/问答品牌发现链；不新增 indexable URL，不修改 App/search/source health。**
+
+### 增长裁决
+- 9/8～9/10 已满足渠道 gate：3 个完整运营日、647 qualified landing views；sourceTotal 与 landingTotal 逐日一致，`channel_mix_decision_ready=true`。
+- 决策窗口来源：referral=241、direct=220、baidu=103、internal=48、google=20、yandex=10、360=3、brave=2。上一轮增长资产正在继续抬升，但当前最大外部可见入口是 referral + 百度，不是 Google。
+- App 同期完整日：09-08 DAU252/New57/DSSU198/NewDSSU48；09-09 240/47/188/41；09-10 254/40/198/27。三日 DAU 均值≈248.7、新设备=48.0；09-04～07 对照均值约227.5/41.0，仅作 aggregate direction，不宣称 user-level Web→install 因果。
+- New DSSU 1-7d satisfied reuse 最新加权=39.7%，说明下一阶段不应再大规模铺 SEO 页面，而应收割已有排名/外链并继续加厚回访。
+- Search Console 刷新实测失败：OAuth refresh token `expired or revoked`；保留 2026-09-06 final snapshot 作为现有 SEO 实验证据，外部认证恢复前禁止把缺失新数据解释为 0 流量。
+
+### GEO 可发现性与品牌实体
+- 官网不新增页面；把既有首页与 `/about` 收敛到稳定实体：`https://magnetgoogo.com/#organization` + `#software`，统一 Magnet Googo / 磁力古哥命名并 `sameAs` 官方 GitHub。
+- `/about` 新增中英文一句话事实说明，并链接 `/methodology/`、`/status/`、`/reports/`、GitHub，作为 AI Search 可核验引用源；不写动态版本号/资源数量。
+- `robots.txt` 显式允许 `OAI-SearchBot` 与 `PerplexityBot`，继续保留 `User-agent: * / Allow: /`；未增加 `llms.txt` 等非必要 GEO 魔法文件。
+- acquisition tracker 新增 `chatgpt/perplexity/copilot/gemini/claude` 五类；支持 ChatGPT Search 官方 `utm_source=chatgpt.com` 在浏览器本地折叠为 `chatgpt`。原始 URL/query/UTM/搜索词不会上传。
+- 由于 clean window 最大渠道仍是 generic referral=241/647（37.25%），继续把后续 referral 前瞻拆为 `naoshiquan/github/reddit/zhihu/v2ex/coolapk/52pojie/bilibili/telegram/producthunt/x/youtube` 十二个有限类别；历史 referral 不猜测回填。第一个完整日同样为 2026-09-12，3 个完整日且 categorized referral views>=20 后才允许放大赢家。
+- Gateway 同步扩充有限来源白名单；GEO 只前瞻统计，历史 referral/direct 禁止猜测回填。基线部署=2026-09-11 20:47+08，第一个完整日=2026-09-12，7 个完整日且 AI referred views>=10 才允许方向性 GEO 结论。
+- 新增 BL-054 与 `magnetgoogo-site/scripts/geo-audit.js`，真实运行 tracker 分类器并锁定隐私边界、AI crawler、实体 ID、sameAs、证据链接。
+
+### Production / Verification
+- Gateway Wrangler 4.131.0 deploy PASS；最终 Version ID=`e6dd52cc-2232-4bf0-bf7e-5da25ef600c1`。
+- Cloudflare Pages direct upload PASS；最终 deployment=`784acf9c`。自定义域名公开回读已出现新 OAI/Perplexity robots 规则、`#software` JSON-LD、AI referral 与 actionable referral tracker。
+- `geo-audit.js` PASS：5 AI sources + 12 actionable referral categories、ChatGPT UTM、raw query not transmitted、实体 ID / GitHub sameAs / evidence links 全绿，sitemap URL 仍为214。
+- `seo-growth-audit.js` PASS：214/214 attribution tracked；`seo-audit.js` PASS：987 HTML / 214 indexable / 214 canonical unique；无新增 indexable URL。
+- `cf-gateway npm test` + `growth-download-contract-tests.mjs` PASS；`node --check` 对 tracker / Gateway / Growth report PASS。
+- Growth report 已刷新：status=READY / blockers=[]；`geo_attribution.status=BASELINE_COLLECTION`、历史不重分类。
+- 发现/刷新提交：IndexNow 对现有 sitemap 214/214 canonical URL 提交 HTTP 200；百度普通收录仅对首页/About/Methodology/Status/Reports 5 个既有权威页定向推送，5/5 成功、当日剩余配额5；未创建任何新 URL。
+- 真实 crawler 可达性：生产 `/about` 以 `OAI-SearchBot/1.0`、`PerplexityBot/1.0`、Googlebot 与普通浏览器 UA 请求均 HTTP200 / 12091 bytes，确认不是“robots 允许但 WAF 拦截”的假 GEO 上线。
+---
+日期/时间：2026-09-07 09:18（UTC+8）
+本次版本：media-crawler-production-monitoring-and-alert-scope
+本次范围：**继续 SEO/Growth 收口，同时核验生产影视爬虫真实运行状态并修复 supplemental degraded 误触发 P2 redundancy 的监控语义；不修改 sources.json health.status，不改变 App 搜索/字段治理。**
+
+### 影视爬虫生产健康
+- `magnet-media-daily.timer` active；2026-09-07 03:33 CST 日更于04:31正常结束，service exit=0；下一次计划2026-09-08 03:34。weekly audit 2026-09-06 同样 exit=0；无残留 media/resource_index 进程。
+- latest publish revision36→37，396 movies / 498 series / 6280 magnet resources；R2 `media.magnetgoogo.com` 与 Aliyun `cn.magnetgoogo.com/media` current pointer 完全一致。
+- series freshness=4/4：meijumi / sixv-series / bitba-series / mjf-series，min_fresh=2；`required_degraded_sources=[]`、`failed_freshness_groups=[]`。唯一 degraded=`dytt8899 249/250`，属于 supplemental，不阻断发布。
+- App production live-full compatibility PASS：28 catalogs / 894 cards / 396 movies / 498 series / 6280 resources / 6280 magnets / 821 covers；双端全对象 byte-identical，catalog/detail/resource parser 全绿。
+- `release_id=20261030T000000Z-3afd2890` 的未来日期来自 release builder 的 business-data content watermark；生产 feed 中电影《猫鼬 / The Mongoose》`release_date=2026-10-30`，不是定时器时间漂移或 crawler 跑到未来。
+
+### 监控误报修复
+- 发现真实 `media-source-redundancy` P2 虽 series freshness 4/4 仍 open，连续失败8次；根因是旧 `media-alert.sh` 只要全局 `degraded_sources` 非空就开 P2，把非 quorum supplemental dytt8899 误判为冗余缺口。
+- media 分支提交 `d9b35c2 fix(media): scope redundancy alerts to freshness groups` 已推 `release-origin/fix/media-series-backups-20260902`。
+- 新规则仅在 freshness group `fresh_count < member_count` 且仍 `>= min_fresh` 时开 P2；低于 min_fresh 继续走 P1；group 4/4 时 supplemental degraded 不再开 P2。新增 BL-053。
+- 不可变 host release 已切到 `/opt/magnet-media/releases/d9b35c2`，`media-alert.sh` 生产 SHA=`753aae7a...c51e3` 与提交完全一致；爬虫 Docker image 继续保持已验证的 `magnet-media-daily:54983b4`，未为监控修复重建 crawler runtime。
+- 因直接执行真实 success helper 会触发 CloudMonitor recovery 通知，被安全层阻断；改用隔离临时 state + `MAGNET_ALERT_TRANSPORT=disabled` 对真实 latest-publish 做生产语义 smoke，freshness/redundancy/publish 三项均 success，临时 state 已删除。真实 P2 不人工篡改，将由下一次正常 daily success hook 自然关闭。
+- 已建立每日影视爬虫 condition watch：正常不提醒；若 daily 失败/卡死、>36h无成功 publish、freshness gate 失败、双端 pointer 不一致、资源明显回退或 App full-compat 失败则通知。
+
+### SEO/Growth 复验
+- `seo-growth-audit` PASS：214/214 acquisition-tracked；`seo-audit` PASS：987 HTML / 214 indexable / 214 canonical unique。
+- Growth report 仍 `READY / blockers=[]`；channel attribution 正确保持 `BASELINE_COLLECTION`，100% tracker 首个干净完整运营日=2026-09-08，当前 complete_day_count=0 / decision-ready=false。
+
+### Verification
+- media alert targeted/deployment：25 passed；完整 Resource Index：452 passed / 1 skipped；enum=241 / ALL VALID。
+- `media-live-full-compat-tests.mjs`：PASS revision37 / 6280 magnets / mirrored_all_objects=true。
+- 未 reset/clean，未修改 source health；App 0.2.8 发布与冻结搜索治理未触碰。
+---
+日期/时间：2026-09-07 00:24（UTC+8）
+本次版本：seo-acquisition-full-coverage
+本次范围：**把隐私安全渠道归因从局部覆盖扩展到全站 indexable 214/214，并建立只使用全覆盖后完整运营日的 fail-closed 渠道决策门；不修改任何 SEO 可见实验变量、不新增 indexable URL、不触碰 App/search/source health。**
+
+### Acquisition 全覆盖
+- 本地 sitemap 214 个 indexable URL 已全部加载 `/js/growth-attribution.js`：25/214 → 214/214；`seo-growth-audit.js` 新增 `attribution_tracked_all=214/214` 硬门。
+- Pages production deployment=`f8388a52`；公网全量 crawl：214/214 HTTP200、214/214 canonical exact、214/214 tracker present，无失败页。
+- Tracker 隐私边界保持 BL-051：只发送来源类别，不发送完整 Referer、query/search term、cookie/storage/visitor ID；本轮未改变 title/description/H1/body/canonical/CTA 等 SEO 实验变量。
+
+### 渠道决策防污染
+- 复审确认“静态覆盖=100%”仍不能立即使用历史 `bySource` 做全站占比，因为此前 11.7% 覆盖期已混入选择偏差样本；新增 BL-052。
+- Gateway `growthAggregateRows` 增加 `byPlacementDay`，生产 `/api/growth.landing_views.acquisition_sources` 新增 `bySourceDay`；Version ID=`82c1918f-d6bf-4afc-8f46-8d291eb26b4e`，生产 `available=true / complete=true`。
+- 全覆盖实际部署时间=`2026-09-07T00:24:38+08:00`；部署当天包含部署前流量，故第一个干净完整运营日固定为 `2026-09-08`（UTC+8）。渠道决策至少需要 3 个完整日且累计 >=200 qualified views，并逐日要求 sourceTotal == landingTotal。
+- 当前报告保持 `READY / blockers=[]`，但 `channel_attribution=BASELINE_COLLECTION / channel_mix_decision_ready=false`；历史 diagnostic 仅为 direct=15/google=5/baidu=8/internal=8/referral=50/yandex=1，不用于全站渠道占比结论。
+- 最新生产 Growth：qualified landing views=840 / trusted first-party clicks=274；现阶段仍不宣称 SEO 渠道份额或 SEO→安装因果。
+
+### Verification
+- `node scripts/seo-growth-audit.js && node scripts/seo-audit.js` PASS：987 HTML / 214 indexable / 214 canonical unique / acquisition-tracked 214/214。
+- `cf-gateway npm test` PASS；`growth-download-contract-tests.mjs` PASS，包含 `post_full_coverage_source_window=true`；`node --check src/index.js` PASS。
+- 公网 sitemap full crawl PASS：214/214 200 + canonical exact + tracker present。
+- Growth report gate：static coverage=100%，first full day=2026-09-08，complete days=0，decision-ready=false（正确 fail-closed）。
+---
+日期/时间：2026-09-06 22:40（UTC+8）
+本次版本：seo-final-url-full-convergence
+本次范围：**完成全站 final URL 收敛、公网全量验证与增长报告刷新；不新增 indexable URL，不修改 App/search/source health。**
+
+### Final URL 收敛
+- 复审发现 canonical/sitemap 虽已全绿，但 72 个 indexable 页面仍存在 382 个 same-site `.html` 内链，`alt/index` 单页 147 个；已只改 URL 后缀，不改正文/实验变量。
+- generator 源头同步改为 extensionless internal href；`seo-audit.js` 新增全部 indexable 页面 same-site `.html` href=0 硬门，BL-034 升级为 canonical+sitemap+hreflang+internal-link 一体治理。
+- Cloudflare Pages final deployment=`e189e496`；公网 sitemap 全量 crawl：214/214 final URL HTTP200、214/214 canonical exact、live same-site `.html` href=0、125/125 legacy `.html` HTTP308 且 Location 精确回 final URL。
+- `alt/index.html` 一次本地整文件传输编码异常被 audit 预部署拦截；以当前生产完好页面恢复后仅用精确文本 edit 重做 147 条链接，最终 UTF-8 replacement=0，未把损坏页面部署到生产。
+
+### Growth / 口径收口
+- `growth-opportunity-report` 刷新并落盘：`READY / blockers=[]`，qualified landing views=816，trusted first-party clicks=268。
+- 渠道样本：google=5 / baidu=6 / referral=36 / direct=8 / internal=7 / yandex=1；覆盖仍仅 25/214=11.7%，继续 `channel_mix_decision_ready=false`，禁止推断全站渠道占比。
+- 原 homepage trust 31.86% 已明确为 `CANCELLED_INVALID_BASELINE_AND_POLICY_CONFLICT` 的历史错误口径，不再作为有效 baseline；最新 matched home 811/227=27.99% 仅作诊断观察。
+- SEO growth audit=24/24 tracked；无新增 indexable URL；`种子搜索`、`bt1207`、`磁力妹妹` 的既定单变量实验策略不变。
+
+### Verification
+- `node scripts/seo-growth-audit.js && node scripts/seo-audit.js` PASS：987 HTML / 214 indexable / 214 canonical unique / growth-critical 24/24 / same-site `.html` href=0。
+- 公网 full crawl PASS：214/214 200 + canonical exact；125/125 legacy 308 + exact Location。
+- `growth-ops/latest-opportunity-report.json` JSON parse PASS；report status=`READY`。
+---
+日期/时间：2026-09-06 15:10（UTC+8）
+本次版本：seo-growth-evidence-first-acquisition-attribution
+本次范围：**恢复 Analytics 权威读面、修复 recovery 僵死叠加、集中优化已有 Top10 SEO 机会并上线隐私安全渠道归因；不新增 indexable URL，不修改 App/source health。**
+
+### 数据可信度与恢复
+- 发现 08:05 / 10:15 / 14:26 三组 Analytics recovery 同时残留，均卡在 `npx wrangler d1 execute` 子树；仅终止对应 recovery 进程，未触碰 DevSpace/其他项目。
+- verified 31-day R2 snapshot 后按 2026-09-04～09-06 做 bounded incremental replay，无 full backfill；生产恢复 `operational_verified=true / shadow_healthy=true / repaired_by_backfill`，legacy drift=`0/0`。
+- recovery 永久加固：跨入口 lock + stale-lock、直接 local Wrangler CLI、D1 chunk 90s timeout、最终生产 readback 3 次网络重试。新增 BL-050。
+- 最新权威完整日 2026-09-05：DAU=206 / Search Devices=198 / DSSU=167 / New Device=39 / New DSSU=33；New DSSU 1-7d reuse=40.1%；D1 write estimate=17179/70000，conservative safe DAU≈839。
+- `growth-opportunity-report` 已从 `GATED` 恢复为 `READY / blockers=[]`。
+
+### SEO 最优策略执行
+- 不新增 indexable URL；继续 `种子搜索` 单变量 evidence 实验，`bt1207` 在 2026-09-08 前只做 canonical reset 观察，不提前改 snippet。
+- 新增 `EXP-SEO-CILIMEI-TITLE-001`：基线 63 impressions / 1 click / CTR 1.59% / pos 6.90；只改 title 为 `磁力妹妹打不开？原因与替代搜索方案 — 磁力古哥`，description/H1/body/CTA/canonical 保持固定。
+- `磁力链接` `.html`/extensionless signal 收敛：canonical、sitemap、内部链接和生成器源头统一 extensionless；公网 `.html`=308。
+- 首页 trust 原 681 qualified views / 217 trusted clicks / 31.86% 已复核为 page-key 污染的无效口径，状态为 `CANCELLED_INVALID_BASELINE_AND_POLICY_CONFLICT`；该数值只保留作 invalidated evidence，禁止再作为有效 baseline。原“展示 App 版本号”变量同时与 BL-049 冲突，未来只能以全新 matched baseline + evergreen trust treatment 重开。
+- SEO audit：987 HTML / 214 indexable / 214 canonical unique PASS；当前 growth audit：24/24 growth-critical tracked / stale=0。
+
+### Acquisition attribution
+- 上线 `/js/growth-attribution.js` 到主首页、10 locale 首页和 3 个当前 SEO 实验页；Gateway 复用 `landing_view.placement=qualified_view:<source>`，无 D1 schema migration。
+- 来源仅允许 `google/baidu/bing/sogou/360/shenma/yahoo/yandex/duckduckgo/brave/ecosia/direct/internal/referral/unknown`；浏览器只解析 referrer hostname，Gateway 再次白名单。
+- 明确不发送/保存完整 Referer URL、query/search term、cookie、localStorage/sessionStorage/visitor ID；旧历史 view 不猜来源。新增 BL-051。
+- Gateway deploy Version ID=`973c16e1-a2d0-4011-bbe2-85c217c6e1ac`；生产 `/api/growth`=`available/complete=true` 且已暴露 `landing_views.acquisition_sources`，D1 仍 verified；上线后首条真实新归因已出现 `referral=1`（qualified views 753→754），未注入 synthetic event。
+- Pages deployment=`27a423a3`；公网首页/英文页/3 个实验页 tracker=200、无可见 App semver；sitemap=214。
+- IndexNow fail-closed contract PASS；只提交 `cilimei-alternative` 与 `cili-lianjie-zenme-yong`，HTTP 200。Google Search Console OAuth 仍 readonly，不伪称即时提交；sitemap 当前记录无 errors/warnings，但 lastDownloaded 仍为 2026-05-16，继续观察。
+
+### Verification
+- Gateway `npm test` PASS；growth-download / download-range / source-upstream targeted PASS。
+- SEO audit + SEO growth audit PASS；14 个重点页面 tracker contract PASS；tracker `node --check` PASS。
+- 公网 canonical/title/redirect/sitemap/tracker/privacy 回读 PASS；Growth report=`READY / blockers=[]`。
+---
+日期/时间：2026-09-06 13:50（UTC+8）
+本次版本：app-0.2.8-production-optional-release
+本次范围：**完成 0.2.8 可选更新全链发布，并把 SEO 站点文案改为永久不显示 App 版本号。**
+
+### 发布结果
+- `latest_version=0.2.8`，`min_version=0.2.5`；0.2.5/0.2.6/0.2.7 为可选更新，0.2.4 及以下继续走既有强制更新门。
+- 更新说明最终为：`修复搜索输入异常和资源大小显示错误。蓝奏云密码：8888。`
+- 蓝奏云：`https://wwbdy.lanzn.com/irjy846y787c`，密码 `8888`。
+- 正式 APK SHA-256：`2fc09f84e3fc0916cb3ffd82d8a467b1537030d31fe271e7906eb97fa230c27d`；R2、GitHub Release、阿里云稳定下载、官网动态下载均为同一二进制。
+- mg-data config 已推送；6 个 config 端点最终全部返回 0.2.8 / min 0.2.5 / 新蓝奏云 / 带 8888 的更新说明；jsDelivr 经 purge 后收敛。
+- GitHub `v0.2.8` Release 由 tag-trigger Action 从 R2 下载、先校验固定 SHA 后发布，Action success。
+- K30S 再次安装生产同 SHA APK，0.2.8/code12；冷启动搜索 289ms，前后台恢复正常，App crash scan=0。
+
+### SEO 永久规则
+- SEO 用户可见文本不再写 `v0.x.x`；按钮统一为“免费下载 / Free Download / 最新版”等长期文案。
+- `generate-i18n-pages.js` 不再读取 `latest_version` 生成页面文字；主站 JSON-LD 也不再硬编码 `softwareVersion`。
+- 现有主站、多语言首页、状态页、工具页、站点页公开回读均 `visibleVersion=false`。
+- 静态旧蓝奏云链接清零；旧 0.2.7 GitHub APK 直链清零；SEO GitHub CTA 改用 `releases/latest`。
+- 新增 BL-049：版本信息只属于发布 config/release metadata，不属于 SEO 用户文案。
+
+### Verification
+- 6/6 config endpoints：PASS（0.2.8 / min 0.2.5 / announcement includes 8888 / new Lanzou）。
+- APK public SHA：R2/GitHub/Aliyun/website-go 一致。
+- SEO visible HTML/JS `v0.x.x`：0 命中；generator hard-version：0 命中。
+- Cloudflare Pages final deployment：PASS。
+---
+日期/时间：2026-09-06 11:05（UTC+8）
+本次版本：app-0.2.8-search-lifecycle-simple-reliable
+本次范围：**把搜索生命周期从 route-owner/dirty-draft/ABA 多状态治理收敛为“当前输入 → 新 generation → 只接受当前 generation 结果”的最小可靠模型；不重做已完成的搜索字段治理。**
+涉及模块：SearchScreen / searchLifecycle / 首页与历史入口 / 影视与收藏搜索入口 / background search / K30S Debug diagnostics
+
+### 简化结果
+- SearchScreen 删除内部 `router.setParams(q=...)`，路由只作为外部输入，不再制造自己的 route echo。
+- 删除 `committedQueryRef / queryDraftDirtyRef / currentSelfRouteOwner / knownSelfOwners / classifyRouteIntent / maySnapshotReplaceDraft` 等为自回声服务的状态机。
+- 输入框只允许用户输入或一次明确外部导航设置；background snapshot、旧搜索 result/progress/completion **永远不能写输入框**。
+- 每次提交先递增 generation、在首个 await 前 abort/失效旧 session；所有 result/progress callback 继续执行 session+generation 双 fence。
+- 源尚未就绪时只保留一个 `pendingSearch`，后提交覆盖前提交；源就绪后只启动最后一次。
+- 搜索结果文件名直接 `doSearch(title)`；首页、历史、影视“搜索更多”、影视资源文件名、收藏继续统一 canonical navigation intent。
+- 首页补齐 100 Unicode code-point 输入契约，避免 RN `maxLength=100` 按 UTF-16 导致 emoji 等补充字符实际只能输入约50个。
+
+### K30S 真机
+- 当前 Debug=`0.2.8/code12`，11:00:13 覆盖安装；强制 Metro 重打1431 modules，arm64 Debug BUILD SUCCESSFUL。
+- 冷启动 `Inception`：先 `pending_sources generation=1`，源就绪后仅启动 Inception。
+- `Inception → Interstellar`：旧 A 仍运行时明确 commit B，无旧 route 抢回。
+- `Interstellar → ubuntu`：draft 改为 ubuntu 后等待10秒再提交，旧搜索期间输入未被覆盖，最终 commit ubuntu。
+- `delta → background/foreground → epsilon`：delta snapshot 在 epsilon draft 已存在时连续回传，输入仍保持 epsilon，最终 commit `epsilon / previous delta`；epsilon 提交后未再接受 delta snapshot。
+- crash scan：无 `FATAL EXCEPTION / AndroidRuntime / ReactNativeJS Error`。
+
+### 门禁
+- `npm run test:search-lifecycle`=`27/27 PASS`；从此前66条/1498断言缩减为直接覆盖用户规则的最小永久门。
+- TypeScript=`0 error`；App adversarial=`65/65 PASS`；Fluency=`17/17 PASS`。
+- release-build contract PASS：0.2.8/code12；source-v027 contract PASS：371 canonical rules。
+- targeted `git diff --check` PASS（仅 LF→CRLF warning）；新契约 trailing-whitespace PASS；本轮 targeted high-confidence secret scan PASS；最终 K30S crash scan PASS。
+- forbidden-complexity scan PASS：SearchScreen 不含 `router.setParams / classifyRouteIntent / currentSelfRouteOwnerRef / knownSelfRouteOwnersRef / queryDraftDirtyRef / setQuery(snapshot.query)`。
+- 新增 `SEARCH-LIFECYCLE-CONTRACT-0.2.8.md` 与 BL-048，明确以后禁止为了 URL 同步把异步状态重新接回输入框。
+
+### 正式 Release 二进制终验（2026-09-06 11:37～11:41 UTC+8）
+- 使用当前 10:56 后的简化源码重新生成正式签名 Release；新 APK=`android/app/build/outputs/apk/release/app-release.apk`，mtime=`2026-09-06 11:37:53 +0800`，33,637,658 bytes，SHA256=`2fc09f84e3fc0916cb3ffd82d8a467b1537030d31fe271e7906eb97fa230c27d`，确认不再是 9/5 23:18 的旧二进制。
+- 二进制 aapt：`com.magnetgoogo.app / 0.2.8(code12) / minSdk24 / targetSdk36`；native libs 仅 `arm64-v8a`；`assets/index.android.bundle` Hermes magic=`c61fbc03`。
+- `apksigner --print-certs`：Signer SHA-256=`475fc1647359524cef27e180421ef17401171f476e4ab41f8b423746ef0ef49d`，与备案正式证书一致。
+- Release HBC 直接扫描：旧 route-owner 状态字符串 `self_synced / stale_self / already_handled` 均不存在；简化生命周期所需 `pending_sources / snapshot_apply` 存在，证明新生命周期代码已进入正式字节码。
+- K30S 正式包覆盖安装成功，`lastUpdateTime=2026-09-06 11:38:52`；`magnetgoogo://search?q=Inception` COLD 启动=`258ms`，MainActivity resumed。
+- 正式包运行态再次执行输入新词搜索 + Home→前台恢复，MainActivity 持续 resumed；清空 logcat 后 App crash scan=`0 FATAL / 0 ReactNativeJS error`。
+- 二进制终验后再次运行 lifecycle=`27/27 PASS`、TypeScript=`0 error`、release-build contract=`PASS`、source-v027 contract=`371 canonical rules PASS`。
+
+### 当前裁决
+- **SEARCH_LIFECYCLE_SIMPLE_RELIABLE=PASS / RELEASE_READY_0_2_8=PASS。** 当前正式 APK 已包含最终简化搜索代码并完成备案签名、字节码、K30S 运行态终验；字段治理继续维持既有 PASS。本轮只完成发布门，不执行线上分发。
+---
+
+---
+日期/时间：2026-09-05 22:58（UTC+8）
+本次版本：app-0.2.8-search-result-field-contract-closure
+本次范围：**彻底治理搜索结果标题/大小/时间/fileCount/seed/leech/BTIH 字段语义，建立 App + Python 统一最终契约、跨源证据去相关和 K30S 全源真实审计门。**
+涉及模块：App searchEngine/searchRunner/dedup/background cache / size+title+date normalization / Python crawler result_fields / K30S diagnostics
+
+### 根因与修复
+- SSBC 新旧索引混用 KiB/bytes，旧 App 把 `7969178` 当 bytes，导致同 hash 列表约8MB、K30S 迅雷约7.5GB；0.2.8 按索引世代+标题显式证据统一为约7.6GB。
+- detail-follow 旧 selector 会把文件列表第一个 `.label-warning` 的2GB误当 torrent 总大小；现“总大小/单文件大小”分离解析，fileCount 成为一等字段。
+- 同 BTIH 旧合并按 host/source 数量投票，镜像共享同一脏索引可伪造多数。现按 evidence group 去相关：同 pool 一票，`seed8/zzb + cilibao/clb` 共享旧索引进一步合并；同组内部>25%冲突整组失效，独立 group 才能形成共识，无法裁决则 size 留空。
+- live/background search 共用 `searchResultContract`，缓存恢复再次 sanitize；Python Tier0/Tier1/Tier2 全部结果统一经过 `result_fields.py`，达到 unique limit 后仍吸收后续同-hash证据。
+- 标题清理覆盖 hash/Unknown/详情占位、乱码、GBK/Shift-JIS 强证据回退及 SEO 详情页尾巴；日期严格验证日历；counter 支持 `1.2k/2万` 且禁止提前 parseInt 丢语义。
+
+### K30S 真实矩阵
+- 0.2.8 / versionCode12 / arm64-v8a Debug 已真机安装；每组 `benchmark=1 + cold=1`。
+- Inception：162/162源，491 raw / 152 final，finalIssueCount=0，1 upstream warning。
+- ubuntu：162/162源，483 raw / 179 final，finalIssueCount=0，1 upstream warning。
+- One Piece：162/162源，711 raw / 343 final，finalIssueCount=0，1 upstream warning。
+- 流浪地球：162/162源，332 raw / 124 final，finalIssueCount=0。
+- GTA V：162/162源，483 raw / 189 final，finalIssueCount=0。
+- 总计：810 source-runs / 2500 raw / 987 final unique / **0 final field issues**。
+- 迅雷交叉真值：`b73c932d...` 0.2.8=2.4MB、迅雷=2.3MB，错误8276GB离群值被剔除；`8efc1d36...` 上游2GB/6.69GB但迅雷21.4GB/4 files，0.2.8正确保留fileCount=4并把无法证明的size留空。
+
+### 最终门禁
+- App adversarial=`65/65 PASS`；Fluency=`17/17 PASS`；TypeScript=`0 error`。
+- Python crawler=`88 passed, 2 deselected`；字段定向=`20/20 PASS`；`validate_enum.py=ALL VALID`。
+- Release build contract PASS：version=0.2.8 / code=12；source contract PASS：371 canonical rules。
+- K30S cold启动后 crash scan：无 `FATAL EXCEPTION / AndroidRuntime / ReactNativeJS Error`。
+- 正式 Release 构建 PASS：`android/app/build/outputs/apk/release/app-release.apk`，33,631,078 bytes，SHA256=`27850698dac41837db4cdd29aec336a06e07e0cdd83af41b0e40c08621c0fae8`；aapt=`com.magnetgoogo.app / 0.2.8(code12) / arm64-v8a only`，Hermes magic=`c61fbc03`，备案证书 SHA-256=`475fc1647359524cef27e180421ef17401171f476e4ab41f8b423746ef0ef49d`。
+- `git diff --check` 无 error（仅既有 LF→CRLF warning）；tracked diff + 新字段文件高置信 secret scan PASS。主 checkout 同时存在其他并行 dirty 改动，因此未把无关内容强行混入本次单一 commit。
+- K30S 正式 Release 已完成安装：`com.magnetgoogo.app / 0.2.8(code12) / arm64-v8a`；安装目标精确为 `000-0-MagnetGoogo-v0.2.8-release.apk`。
+- 正式 Release 使用 `magnetgoogo://search?q=Inception` 冷启动 PASS：MainActivity 320ms 启动并保持 resumed；连续两次 crash scan 均无 `FATAL EXCEPTION / AndroidRuntime / ReactNativeJS Error`。
+- 新增 `SEARCH-RESULT-FIELD-CONTRACT-0.2.8.md` 与 BL-047；后续新增 source/handler 必须通过统一字段 contract + K30S audit，不允许复制第二套 parser。
+
+### 当前裁决
+- **SEARCH_RESULT_FIELD_CONTRACT_0_2_8=PASS / K30S_FIELD_MATRIX=PASS / FINAL_USER_FIELD_ISSUES=0。**
+---
+
+---
+日期/时间：2026-09-03 15:18（UTC+8）
+本次版本：media-meijumi-parser-production-fix-20260903
+本次范围：**彻底修复 meijumi 99/100 长期 degraded；确认根因并非 CAPTCHA，而是单个 ED2K 非 HTTP 链接触发 Python 3.11 `urlparse` 方括号 host 校验异常。**
+涉及模块：Meijumi parser / safe movie source recovery / media freshness quorum / Aliyun immutable release
+
+### 根因与修复
+- 生产 durable 状态唯一 unresolved 为 `https://www.meijumi.net/27336.html`；页面从阿里云当前可稳定 HTTP 200 返回约99KB，并含正常 `.single-content` 与有效 magnet，不是持续验证码页。
+- 用生产同一 `MeijumiLiveCrawler + parse_series_detail` 稳定复现：页面含 `ed2k://|file|[V2]Godless...`，旧 `_cloud_provider()` 对所有非-magnet href 无条件执行 `urlparse(url).hostname`；Python 3.11 将 `[V2]` 当 bracketed host 并抛 `ValueError: 'V2' does not appear to be an IPv4 or IPv6 address`，导致整条详情失败。
+- `_cloud_provider()` 现先安全解析并捕获 `ValueError`，且只接受 `http/https + valid hostname` 进入云盘 provider 判断；ED2K/无效 href 被忽略，magnet 继续正常提取。
+- 新增真实形态回归：`ed2k://|file|[V2]...` 与合法 magnet 同页时 parser 不崩溃，只保留合法 magnet。
+
+### 生产恢复与验证
+- 定向 production recovery 使用修复 parser 仅发出1个详情请求，即把 meijumi 从 99/100 恢复为 `100/100 / failed=0 / unresolved=[] / job_status=success / publish_ready=true`；剩余当日请求预算109。
+- 新镜像 `magnet-media-daily:605f5c9`=`sha256:44ce41d5e671a80b5dbddd103b52f003aa6765f6188618710f2a46b2c463abc0`；旧 production image 已保留 `backup-pre-meijumi-605f5c9` rollback tag。
+- 不可变代码 release 已建立 `/opt/magnet-media/releases/605f5c9`，`/opt/magnet-media/app` 已原子切换；`latest` 已指向新镜像。
+- 部署后 systemd audit PASS：candidate revision34 / published=false / 372 movies / 433 series / 5645 magnet；series freshness **4/4 PASS**，meijumi magnet-bearing items=77 / magnet resources=1498；release quality 无 regression/duplicate/cross-season/unknown-series。
+- 当前全局 degraded 仅剩历史 `dytt8899 249/250` supplemental，meijumi 已从 degraded_sources 清除；公网 revision33 未被 audit 改写。
+
+### 代码与门禁
+- 修复提交：`605f5c9`（`fix(media): ignore malformed non-http meijumi links`），已推送 `release-origin/fix/media-series-backups-20260902`。
+- `test_meijumi.py=4 passed`；完整 Resource Index=`451 passed, 1 skipped`；enum=`241 / ALL VALID`；`git diff --check` PASS。
+- 新增 BL-046：外部资源 href 必须先按协议/host 验证，不能把任意非 magnet href 直接交给 `urlparse().hostname` 后假设不会抛异常。
+
+### 当前裁决
+- **MEIJUMI=RECOVERED / SERIES_FRESHNESS=4_OF_4 / PRODUCTION_FIX_DEPLOYED。** 原先所谓“验证码异常”已证实是解析器误判；当前无需 CAPTCHA 绕过，也不需要降低 freshness 门槛。
+---
+
+---
+日期/时间：2026-09-03 09:05（UTC+8）
+本次版本：media-series-redundancy-production-closure-20260903
+本次范围：**消除 meijumi 单点 freshness 阻塞，接入可产出 magnet 的独立剧集备份源，完成 App 0.2.7 兼容、生产发布、不可变部署与全链终验。**
+涉及模块：Resource Index / media-daily / Bitba / MJF / freshness quorum / Aliyun production / App media protocol / alert runtime
+
+### 生产结果
+- 正式公网已晋级 revision33 / release `20260902T000000Z-b1a91833`，pointer SHA=`0737b96d1f6051b7f241d4362c97c037b46fd34477cd18f30b33dfde2e9bd003`；R2 与阿里云两个端点 current/manifest 身份一致。
+- 当前内容为 372 movies / 428 series / 5608 resources；最终发布资源全部为合法 magnet。
+- 剧集 freshness authority 改为 `meijumi + sixv-series + bitba-series + mjf-series`，`min_fresh=2`。当前实际 3/4 PASS：sixv-series / Bitba / MJF 新鲜，meijumi 因 CAPTCHA/partial 保持 degraded，但不再阻断发布。
+- Bitba 阿里云真实新版压力：50/50、461 magnets、0 empty；国家字段归一化到现有 App 0.2.7 频道可识别值。MJF：50/50、48 magnet-bearing items；无资源条目由 magnet-only gate 丢弃。
+- DYTT-series 虽 100/100 抓取成功，但实际资源为 m3u8/FTP、0 magnet，因此保留为非 freshness-authority supplemental，不拿“爬虫成功”冒充最终资源健康。
+
+### 关键修复与永久门禁
+- freshness group 只有“当前 target feed 确实含有效 magnet”的成员才计入 fresh_count；旧 durable library 不能替当前空 feed 兜底。
+- 生产首次切换暴露 BL-045：刚完成真实成功抓取后，下一次调度被 `minimum_interval` 主动跳过，旧逻辑错误把 `publish_ready=false` 当 freshness failure。现仅允许 `skipped + minimum_interval + durable success + covered_count>=target` 作为 `recent_success_within_minimum_interval`；daily_budget/failure_backoff/partial/under-covered/no-magnet 仍 fail-closed。
+- 真实生产克隆验证该连续时序后，Bitba/MJF 分别以 50/48 current magnet items 进入 freshness，meijumi 单挂时 group 3/4 PASS，不触发 15 分钟无意义 recovery。
+- 告警分级：P1 `media-source-freshness` 已恢复；P2 `media-source-redundancy` 对 meijumi 单源降级保持 open；`media-publish` success。CloudMonitor transport 已启用，重复 P2 按去重策略 suppress，避免刷屏。
+
+### App 0.2.7 兼容终验
+- 新增供给兼容测试，直接使用 App 当前 `parseCatalog / parseDetail / parseResources / parseResourceFeed / resourceDisplayTitle`；Bitba/MJF schema、国家字段、SxxExx 标题与 magnet 均通过。
+- 新增 live-full compatibility gate：对 revision33 **双端逐对象**读取并比较字节，验证 26 catalogs / 800 details / 800 resource objects / 731 covers 的 size/hash；全部通过 App 0.2.7 parser。
+- 线上整包结果：5608/5608 为 magnet，series resource titles 全部可渲染，两个 endpoint 全对象 byte-identical。
+- 正式 APK 从 `https://cn.magnetgoogo.com/download/magnetgoogo.apk` 验证为 `0.2.7 / versionCode 11 / com.magnetgoogo.app / arm64-v8a`，备案签名证书 SHA-256=`475fc1647359524cef27e180421ef17401171f476e4ab41f8b423746ef0ef49d`。
+- K30S 已重新在线，但正式 APK 安装被 MIUI 用户确认门拒绝：`INSTALL_FAILED_USER_RESTRICTED`。没有绕过设备安全设置；因此实体 UI 点击安装/刷新仍需用户在设备上允许 USB 安装，但协议与线上完整 release 已全量实测。
+
+### 可复现部署与验证
+- 生产代码提交：`0b19e6b9f14f3b46b0bbe14ab1dc63cbdcad1d1d`，分支 `fix/media-series-backups-20260902` 已推送 `release-origin`。
+- 服务器已从旧 release 原地 overlay 修正为不可变目录：`/opt/magnet-media/releases/0b19e6b`，`/opt/magnet-media/app` 原子指向该目录。
+- production image `magnet-media-daily:0b19e6b`=`sha256:43afbe3c6f5ac0312cb9d118847b5ba84d7537c58ffe2f2c234ccfd6d4ad5646`，原镜像 rollback tags 保留。
+- 不可变 symlink 后真实 `magnet-media-audit.service` PASS：13秒完成、candidate revision34、published=false、372/428/5608、series freshness 3/4、release quality 全绿；公网 revision33 未被 audit 改写。
+- Resource Index final=`450 passed, 1 skipped`；media 分支 enum=`241 / ALL VALID`；主仓正式 CI=`validate_enum.py ALL VALID`、crawler_v3=`73 passed, 2 deselected`、App `tsc=0`。
+- staged secret scan / diff-check PASS；未 reset/clean，未修改 sources.json health.status。
+
+### 当前裁决
+- **MEDIA_SERIES_REDUNDANCY=PRODUCTION_COMPLETE。** meijumi 现在是可观测的 P2 冗余降级，不再是影视日更单点。
+- 下一次正常 timer 已启用并 active，计划 2026-09-04 03:30 左右运行；无需人工维持本轮修复。
+---
+日期/时间：2026-09-02 12:12（UTC+8）
+本次版本：analytics-d1-write-budget-optimized-20260902
+本次范围：**继续处理 D1 Free 限额影响，量化真实 steady-state/full-rebuild 写预算，削减热路径无效写，增加容量预警与 full-apply 预算门，并重新部署生产 Gateway。**
+
+### 限额影响与容量裁决
+- Cloudflare 当前 Workers Free D1 硬限为 `5M rows read/day + 100k rows written/day`，00:00 UTC 重置；本轮当前 blocker 明确是 `d1_daily_row_write_quota`。R2 durable ingest 仍正常，因此 App 搜索/源/更新与原始埋点耐久写不受影响；受影响的是 D1 shadow、Admin exact verified 状态及其上的 Growth KPI/Opportunity，均保持 fail-closed。
+- 新增 `analytics-ops-write-budget-audit.mjs`，对 verified 2026-09-01 cache 实测：5265 batches / 210 receive-day devices / 5001 batch-local search upsert groups / 1597 unique search_id。
+- 热路径优化后保守写预算≈15913 rows/day，仅约 Free 100k 的15.9%；70%工程预算下 conservative safe≈923 DAU，提前 Paid-review trigger≈742 DAU。
+- 同强度5000 DAU投影≈378881 rows/day / 11366430 rows/30d：明确不属于 Free 容量，但低于当前 Workers Paid 包含的50M D1 writes/month。最终策略：当前规模继续Free；约700～900 DAU提前评审Paid；5000 DAU优先Paid，不为死守Free牺牲exact/fail-closed或引入高风险异步聚合重构。任何付费切换仍需用户明确批准。
+
+### 已落写放大优化
+- live shadow **停止写非权威 `ops_daily` legacy counters**；经营查询本来就直接从 exact compact tables 聚合，`ops_daily` 仅由 verified backfill/repair 重建作历史诊断，因此删除热路径 counter 不改变DAU authority。
+- 稳定 schema-v2 canonical alias 增加 SQL `WHERE`：同 alias→canonical 映射重复 batch 变真正 no-op。9/1 由284 strong-alias batch对应仅35 unique alias，避免重复索引写。
+- `ops_searches` UPSERT 增加 semantic-state `WHERE`：只有更早submit、更晚/更完整completion、action 0→1、身份/版本/国家变化才写；重复 lifecycle 不再改表。9/1 原5001 upsert groups中保守可避免约1692组重复写。
+- Growth event 删除未被任何读面消费的 `growth_read_model_last_write_ts` 每事件meta UPDATE；freshness继续由aggregate `last_ts`提供。
+- backfill library 全部 compact UPSERT 增加 semantic no-op WHERE；`ops_daily` backfill只有字段变化才更新。真实103432-batch full-state本地回放：首次51247 logical row changes；完全相同第二次回放 compact changes=0，仅`backfill_complete` metadata 1行。
+
+### 防再次打爆 Free
+- `backfill-analytics-ops.mjs --apply` 默认拒绝无界full apply；即使加`--allow-full-apply`，当前verified state估算 empty-DB physical write lower bound=`177320`，仍被70k工程预算门拒绝；只有显式`--force-over-free-budget`才能进入经批准的Paid/灾难恢复路径。
+- Growth KPI新增 `d1_write_capacity`：每日输出 estimated writes / Free limit / 70k engineering budget / safe DAU / Paid review trigger / 5000 DAU投影与Paid included判断；GrowthDaily runtime同步写容量状态。
+- 新增 BL-044：`5000 DAU logical correctness != D1 Free billable capacity`，以后容量门必须同时给 correctness + billable 两套结论。
+
+### 验证与生产状态
+- `cf-gateway npm test` 全PASS；5000 devices×125k raw batches correctness gate继续PASS；incremental repair identical replay compact writes=0；D1 write-capacity单测 PASS（estimate15836 / safe928 / trigger742 / 5k Free=false / Paid included=true）。
+- `admin-server npm test` 全PASS，真实cache=103432；Analytics/Chromium/Broadcast/control-plane/fail-closed/growth-read/partition recovery全绿。
+- full-replay audit PASS：103432 source batches / searches38327 / second identical replay compact writes=0。
+- 最新生产 Gateway=`59784ed4-ba1a-452f-ae21-0711bbbc1f92`。
+- 当前生产仍因今天已消耗完的历史 Free write quota 正确返回 `operational_verified=false / failure_class=d1_daily_row_write_quota`；recovery继续 `BLOCKED_PLATFORM_QUOTA / exit=2`，GrowthDaily在KPI前exit2，不伪恢复。
+- 最终项目门禁新鲜复验：`validate_enum.py=ALL VALID`；crawler v3=`73 passed, 2 deselected`；App `npx tsc --noEmit`=0 error；`git diff --check`无error（仅既有LF→CRLF warning）；tracked diff + 本轮新增容量脚本高置信secret scan均PASS；`_progress.txt`=24行。
+- 真实Admin Chromium故障态复验PASS：31 rows / verifiedDays=0 / latest 9/2 DAU lower-bound=101 partial / `pageErrors=0 / consoleErrors=0 / shadowVerified=false / expectedUnverified=true`。Task Scheduler：PublicStatus最近=0；AnalyticsShadowRecovery最近=2（同UTC配额日的预期fail-closed）；GrowthDaily最近计划运行=0，三任务均仍注册下一次运行。
+
+### 当前裁决
+- **限额问题已从“未知硬阻塞”变为“可预算、可降写、可提前扩容、可增量恢复”的受控容量机制。**
+- 今日已耗尽的账户级Free额度只能等待平台UTC重置，不能用代码诚实地即时恢复；但重置后的实时shadow将运行在本轮低写放大版本上，且full rebuild已被永久预算门拦截。
+---
+日期/时间：2026-09-02 10:48（UTC+8）
+本次版本：growth-d1-write-quota-recovery-20260902
+本次范围：**P0→P6 收口后的最终 readback 捕获新的 D1 Free row-write 配额故障；完成 fail-closed 验证、增量 receive-day repair、配额感知自动恢复与真实调度测试。**
+
+### 新生产事实
+- 10:34 后新的 R2 shadow marker=`failedAt 2026-09-02T02:34:38.659Z / batchReceivedAt 02:34:37.308Z`，明确错误=`D1 free tier daily row write limit`；不是 BL-042 stale-cache 复发。
+- 原因是本轮31日 full backfill 18 chunks 与实时 shadow 共用 Free 日写额度；full backfill 本身将当日写额度耗尽。9/1此前出现的是 row-read quota，说明读/写两侧都必须纳入预算。
+- 生产仍严格 R2 durable-first；新事件继续进入 R2，D1 缺口只影响可重建 shadow。当前 `/api/events?mode=ops_daily` 正确 `operational_verified=false / shadow_healthy=false / unresolved_shadow_failure`，不得删 marker 或伪 verified。
+
+### 永久修复
+- Gateway 新增 quota failure class 与 `last_failure_received_at`；生产版本更新为 `c9ff47e4-1463-4942-9f6f-686152609567`。
+- 新增 `cf-gateway/scripts/repair-analytics-ops-day.mjs`：要求 verified 31日 base + exact receive-day checkpoint，只对该日 state 做 append/upsert replay，再重算 compact `ops_daily` 与推进 verified metadata；禁止 DELETE。
+- 真实 9/2 dry-run：base=253 batches，checkpoint=275，新增22；repair state=401 events / 30 device-days / 99 searches；仅8 SQL / 1 chunk。
+- 新增 `growth-ops/scripts/analytics-shadow-recover.mjs`：同一 UTC quota day 检测到 read/write quota 直接 `BLOCKED_PLATFORM_QUOTA`；重置后先刷新 verified 31日 R2 cache，再只修 failure receive-day→current UTC day，最多3日。
+- 新增 `scripts/analytics_shadow_recovery.ps1`；Task Scheduler 注册 `MagnetGoogo-AnalyticsShadowRecovery` 每天08:05（00:00 UTC重置后5分钟）。GrowthDaily 10:15 增加同一 recovery preflight，未恢复则在 KPI 前停止。
+
+### 验证
+- Gateway full `npm test` PASS；新增 quota marker 分类 contract PASS。
+- 增量 repair 内存 SQLite contract PASS：baseline devices 1→repair 2；跨batch search lifecycle merge；同 checkpoint 重放状态幂等；无DELETE。
+- recovery self-test PASS：UTC reset guard + 最多3日窗口。
+- 真实当前 quota 故障执行 recovery=`BLOCKED_PLATFORM_QUOTA / exit=2 / retry_after_utc=2026-09-03T00:00:00Z`，未尝试继续写 D1。
+- 新计划任务本体已手动触发并得到预期 `LastTaskResult=2`，NextRun=`2026-09-03 08:05`；证明 trigger→script→fail-closed 状态链真实成立。
+- GrowthDaily 当前实测同样 exit=2 并在第1/5步停止；不会继续生成不可信 KPI/Opportunity。
+- Admin `/api/events/ops-refresh` 已刷新到当前故障态：latest 9/2=partial；真实 Chromium `--expect-unverified` PASS，31 rows / verifiedDays=0 / pageErrors=0 / consoleErrors=0 / shadowVerified=false。
+- 新增 BL-043，扩展 Analytics 专项索引到 BL-042～043。
+
+### 当前裁决
+- **代码/恢复自动化/故障展示：COMPLETE / PRODUCTION / FAIL-CLOSED。**
+- **当前 D1 exact operational read：BLOCKED_PLATFORM_QUOTA，属于平台硬额度，不允许在本响应内伪恢复。** Cloudflare Free 日额度于 2026-09-03 00:00 UTC（UTC+8 08:00）自然重置；已注册的本机生产任务 08:05 将按最小 receive-day replay 执行，GrowthDaily 10:15 再做第二道 preflight。
+- 正常 steady-state 继续使用 compact/no-op/indexed shadow；31日 full backfill 从此不再作为普通日常 repair 路径。
+---
+日期/时间：2026-09-02 10:32（UTC+8）
+本次版本：growth-p0-p6-production-closure-20260902
+本次范围：**严格按根 HANDOVER 第8节完成 P0→P6 Growth 生产闭环；不重新设计、不 reset/clean、不改 App/source/update 主线。**
+
+### P0/P1 — Authority / OAuth
+- Google Search Console OAuth 已真实 `AUTHORIZED`；`sc-domain:magnetgoogo.com` 权限为 `siteOwner`，无需重复授权。
+- 凭证/运行态均保持 Git 忽略；高置信凭证扫描 PASS，`.env`、Search Console token/status/raw snapshot 未进入 tracked diff。
+
+### P2 — Search Console
+- `search-console-sitemap-status.mjs` PASS：`https://magnetgoogo.com/sitemap.xml` 存在、errors=0、warnings=0、pending=false。
+- `search-console-ingest.mjs --write` PASS：final 数据 `2026-08-04..2026-08-31`，883 rows，dimensions=`date/query/page/country/device`；只作为 Search Console top-row 数据，不伪称 exhaustive。
+- 当前 OAuth scope 为 readonly，因此没有伪报重新 submit sitemap；Google sitemap/robots 可发现性正常。
+
+### P3 — Measurement Truth / D1 Recovery
+- Growth D1 read model 已逐日 R2→D1 rebuild 并 finalize；`/api/growth` 当前 `available=true / complete=true`。
+- Analytics 31日 R2 inventory repair PASS：verified snapshot=`2026-09-02T02:14:07.544Z`，`103432 batches`；补齐 8/31、9/1、9/2 receive-day 分区。
+- verified R2→Analytics D1 backfill `--apply` 完成18 chunks；remote `backfill_complete` 已更新，`PRAGMA quick_check=ok`。
+- 新发现 BL-042：旧30min edge snapshot 会在 backfill 完成后继续携带旧 metadata，把已修复 shadow 错判 unresolved。修复为：只有 cached unresolved 时读取1行最新 backfill meta；若 verified repair 已覆盖 marker，则绕过旧 snapshot、从 D1 重算并覆盖 cache，禁止给旧 rows 直接贴 verified。
+- Gateway full tests PASS；production deploy=`638d9bbe-3a55-4d42-84f5-f65d43fab416`。真实生产 `/api/events?mode=ops_daily`：`operational_verified=true / shadow_healthy=true / integrity_status=repaired_by_backfill / snapshot_cache.hit=false`。
+
+### P4 — Public Freshness Automation
+- Public reachability self-test PASS；production status watchdog PASS，`freshness_hours=6`，本轮 age≈1.86h；SEO production deploy 9/9 PASS。
+- Windows Task Scheduler authority 保持 `MagnetGoogo-PublicStatus-4h`；最近结果=0。Direct Upload 仍是实际 Pages 发布拓扑，不把未验证 GitHub workflow 当生产 authority。
+
+### P5 — KPI / Opportunity / Experiment Gate
+- `growth_daily.ps1` PASS；随后通过 `MagnetGoogo-GrowthDaily` **任务本体**再次执行成功，`LastTaskResult=0`。
+- 最新 complete day `2026-09-01`：DAU=216 / Search=205 / DSSU=178 / New Device=51 / New DSSU=43；New DSSU 1-7d satisfied reuse=38.8%。
+- L1 GSC=OK；L2 Growth=OK（851 download clicks / 45 trusted-first-party / 121 qualified landing views）；L3 App=`operational_verified=true`。
+- Opportunity Report 状态=`GATED` 的唯一 blocker=`CRO_BASELINE_COLLECTION`，这是证据阈值等待而非系统故障；不自动发布页面修改。
+- Experiment Registry 已严格收敛为3个既有URL：home CRO、`种子搜索` ACTIVE、`bt1207` canonical-reset prerequisite；`new_indexable_urls_allowed=false`。
+
+### P6 — Final Verification
+- `cf-gateway npm test` PASS；新增 stale-cache→newer-backfill recovery contract PASS。
+- `admin-server npm test` PASS：真实cache=103432 batches；Analytics/Chromium/Broadcast/control-plane/fail-closed/growth-read/partition recovery 全绿。
+- 真实 Admin 3800 Chromium PASS：31 rows / 26 verified days / 8/26-8/29 partial / current partial / `shadowVerified=true` / `pageErrors=0 / consoleErrors=0 / opsRefreshOnly=true`。
+- 项目 CI：`validate_enum.py=ALL VALID`；crawler v3 `73 passed, 2 deselected`；App `npx tsc --noEmit` 0 error。
+- SEO：987 HTML / 214 indexable / 773 noindex / 214 canonical unique；Growth core=23/23 tracked；public watchdog/self-test、SEO audits、production verify 9/9 全PASS。
+- Remote D1 `PRAGMA quick_check=ok`；`git diff --check` 无 error（仅既有 LF→CRLF warning）；高置信 tracked/untracked secret scan PASS。
+
+### 最终裁决
+- **该10:32裁决已被10:48的新 row-write quota finding 覆盖。** P0→P6代码与自动化闭环完成，但当前D1运营读面必须保持 `BLOCKED_PLATFORM_QUOTA / FAIL-CLOSED`，以10:48条目为最新权威状态。
+- Growth 证据窗口逻辑不变：CRO 继续收集到 ≥200 qualified views 且 clicks门满足后再判断；Search Console/7-14-28d窗口继续自然积累，禁止提前宣称因果 WIN。
+---
+日期/时间：2026-09-02 08:34（UTC+8）
+本次版本：context-limit-handover-20260902
+本次范围：**为下一对话生成根目录 `HANDOVER_2026-09-02_CONTEXT_LIMIT.md`，完整交接 Growth 三Bet实施、D1 growth read model 0007、Public Status freshness、growth-ops/Search Console OAuth现状、生产验证边界与下一步精确执行顺序。**
+
+### 交接要点
+- 下一对话不得重新设计增长战略，直接按handover第8节 P0→P6执行；优先确认 `growth-ops/runtime/search-console-auth-status.json` 的真实OAuth状态，再继续Search Console ingest。
+- 交接前remote D1复核：`0007_growth_read_model.sql` 已应用，`wrangler d1 migrations list ... --remote` 返回 `No migrations to apply`。
+- Gateway增长改造曾部署生产版本 `059ca145-38a0-4f35-ad91-de1a1cecf03d`；后续必须重新确认是否已有更新版本，不把该ID当永久最新。
+- 当前workspace高度dirty，明确禁止reset/clean；Growth/OAuth/Public Status相关未完成生产闭环及测试已逐项写入handover。
+- handover 536行，`git diff --check -- HANDOVER_2026-09-02_CONTEXT_LIMIT.md` 无错误。
+---
+日期/时间：2026-09-01 14:28（UTC+8）
+本次版本：growth-adversarial-data-driven-final-20260901
+本次范围：**基于修正后的真实D1用户数据重新设计增长主线，并按“单视角占满推理预算→Integrator修订→下一角色”连续完成14轮对抗性审查，将方案从大而全SEO/自动化收敛为三个可执行主赌注。**
+
+### 最新增长事实
+- 8/30 exact：DAU=246、New Device=61、Search Devices=226、DSSU=201；8/31：212/56/194/172。8/18～8/25健康期平均New≈43.3/日，8/30～8/31≈58.5/日，存在真实抬升但不能在没有归因前宣称由SEO造成。
+- 健康New DSSU cohort：exact-day D7合计约5.5%，但首次后的1～7天至少再次发生一次Magnet Action约38%；因此新增获客质量主阀升级为`New DSSU 7-day satisfied reuse`，D7 exact保留为严格辅助。
+- 健康地域cohort：CN New DSSU激活77.4%、reuse7=40.8%；known non-CN=61.3%/28.6%。结论调整为“CN主规模引擎 + 海外受控探索”，保留11-locale架构但暂停新增locale。
+
+### 14轮单视角对抗Review
+- 串行完成：增长经济学→因果数据→Technical SEO→SERP/Intent→Information Gain→CRO→留存质量→国际增长→Digital PR→Automation→SEO/品牌Red Team→Competitor→Zero-Based→Investment Committee。
+- 每个角色结束后均先由Integrator修改权威增长方案，再进入下一角色；禁止多角色同轮浅评。
+- 最终裁决=`EXECUTE_WITH_GATES`，Top 3 Bets：Measurement Truth(45%)、Public Freshness + Historical Data Moat(30%)、Existing Winner Optimization(25%)。
+- Top 3 Kill：新locale/批量翻译/entity扩张；复杂AI内容/PR常驻平台；无证据Technical SEO/Head-term/CRO重构。
+
+### 审查发现的真实新问题
+- `status-public.json`声明freshness_hours=6，但本轮仍停在2026-08-26，说明Public Status producer/watchdog闭环缺失；冻结Status/Sites/Report扩张直到freshness恢复。
+- Admin `/api/growth` 本轮返回`available=false / fetch failed / total=0`；0不能代表“没有SEO下载”，CRO/Opportunity结论必须在Growth Read Model恢复后再做。
+- 当前sideload APK不存在安全可靠的web→具体安装用户join；归因明确分L1 Search Console、L2 `/go/download`、L3国家/时间窗App增量，禁止伪exact attribution。
+- Technical SEO新鲜复验仍健康：987 HTML / 214 indexable / 773 noindex / 214 canonical unique；21/21增长安全核心tracked；production sitemap/robots/core URLs全200。因此不再把全站技术SEO重构列为主线。
+- Google 2026-08-28最新spam policy复核后，明确禁止Opportunity Engine自动抓Google SERP做rank bot；scaled thin content、doorway、back-button hijack、第三方SEO寄生内容、自动评论外链继续作为Red Team否决项。
+
+### 权威方案与下一阶段
+- 权威增长MD：`SEO-GROWTH-BREAKTHROUGH-STRATEGY-20260816.md`，新增第27～29章：最新基线、自动化方案、单视角工作流、14轮实际审查和最终投资委员会执行计划。
+- 前14天：先修Growth read + Public Status freshness；建立最小Search Console ingest/Experiment Registry/Opportunity Report；开始不可变历史快照；只对最多3个已有页面做单变量实验，**不新增indexable URL**。
+- 30天扩张门：至少出现一个L2下载改善且L3 New Device/New DSSU方向一致的可重复WIN，Public freshness稳定，7-day reuse不恶化，Red Team无高风险。
+- 新增`BUG-LESSONS`：BL-037 Public freshness、BL-038 growth unavailable≠0、BL-039 D7 exact≠工具类获客留存。
+
+### 验证
+- 生产D1逐日exact/new/search/DSSU、地域cohort、New DSSU 7-day reuse均用remote D1直接SQL重算；8/26～8/29继续排除为partial。
+- `node scripts/seo-audit.js` PASS；`node scripts/seo-growth-audit.js` PASS；生产`verify-deploy.ps1` 9/9 PASS。
+- 本轮仅修改增长战略/长期记忆文档，没有发布新SEO页面、没有改变App/source/生产内容。
+---
+日期/时间：2026-08-30 11:31（UTC+8）
+本次版本：analytics-reliability-version-distribution-final-20260830
+本次范围：**完成运营后台App版本分布、5000+ DAU二次可靠性审查、D1写放大优化、shadow完整性fail-closed、当前日verified catch-up、repair证据保留与最终全量回归。**
+
+### 生产功能与数据口径
+- 运营后台新增`App版本分布 · 活跃设备`，直接读取D1 `ops_device_latest`；最近31个UTC+8运营日内，每个匿名device只按最后一次服务端接收的`app_v/version_code`计1次，禁止用Legacy batch数量冒充版本渗透率。
+- D1审计快照版本分布=1,845台活跃设备/15个版本桶；Top：0.2.5=503、0.2.6(code10)=496、0.2.7=259。最终重启后的真实3800 Chromium快照已继续增长到1,846台/15桶，证明shadow在生产持续增量；查询命中`idx_ops_device_latest_last_seen_day`，migration核验`missing_day=0`。
+- 8/30 verified repair checkpoint=461 batches；通过严格repair overlay将D1历史catch-up authority推进到95,949 batches，而不把未重新验证的旧31日cache伪装成更新快照。
+
+### 二次可靠性Review与新增永久门禁
+- BL-027：历史`backfill_complete`不能证明后续shadow持续完整。D1 shadow有界重试仍失败后，R2持久化unresolved marker；`ops_daily`每次读取结合marker撤销`operational_verified`，Admin自动把数据降级partial，防止静默少数继续指导运营。
+- BL-028：版本分布按device latest identity去重；版本升级只移动设备，不增加设备总数；同设备重复batch不放大；较旧乱序batch不能把新版本回退为旧版本。
+- BL-029：容量门禁升级为5,000 devices×25 batches=125,000 raw batches/day；后续120,000个同日无状态变化device更新在真实SQLite中`total_changes=0`，避免D1写放大再次打满辅助层。
+- BL-030：成功R2 promotion后不再`rm -rf repair-partitions`；当前31日窗口内verified checkpoints保留作为D1 rebuild/审计证据，只清理窗口外stale checkpoint。1205-object恢复测试已固定断言“verified checkpoint retained”。
+- `BUG-LESSONS.md`顶部新增Analytics专项索引：未来任何埋点/DAU/D1/R2/Admin/版本分布改动必须先复核BL-018～BL-030。
+
+### D1 / Gateway生产状态
+- migrations 0001/0002/0003/0004全部remote apply成功；0004新增`last_seen_day`运营日索引并完成现存数据回填；`PRAGMA quick_check=ok`。
+- 最终Gateway production version=`826db661-4813-4904-ac9a-e9ddc0237e98`，100%流量。
+- 生产`operational_verified=true / shadow_healthy=true`；R2仍是不可变事实源和App成功边界，D1仍是可重建shadow/read model。
+
+### 最终验证
+- `cf-gateway npm test` PASS；5000 DAU、125k raw batch、120k no-op write、duplicate/replay、completed-before-submitted、global install_id、version out-of-order、D1/R2故障矩阵均PASS。
+- `admin-server npm test` PASS；Analytics、Chromium、Broadcast、Control Plane、fail-closed、cache recovery、1205-object partition recovery全链PASS。
+- 真实3800 Chromium：D1 source/R2 audit、31 rows、29 verified historical days、8/26 partial、current partial、版本图1,846 devices/15 buckets、`pageErrors=0 / consoleErrors=0 / opsRefreshOnly=true`。
+- `git diff --check`无error；仅既有LF→CRLF warning；未reset/clean，未触碰无关dirty工作。
+
+### 最终裁决
+- Analytics 5000+ DAU架构：**COMPLETE / PRODUCTION / FAIL-CLOSED**。当前无需App transport v3；未来只有明确需要端到端batch ACK/服务端重放协议时再升级。
+- 唯一保留非Analytics安全债务：`ADMIN_SECRET`仍为Cloudflare普通Environment Variable；仅允许通过批准的凭证通道迁为Secret binding。
+---
+日期/时间：2026-08-30 10:31（UTC+8）
+本次版本：analytics-dau-d1-primary-final-20260830
+本次范围：**完成 HANDOVER 的 P0→P4：31日历史R2恢复、D1 shadow/backfill、Admin主读迁移、5000 DAU容量/故障门禁，并执行独立review、生产终验与文档收口。**
+
+### 最终生产状态
+- P0完成：31个receive-day全部通过remote inventory `count + fingerprint`验证后才原子切换正式cache；当前verified R2快照`_inventoryVerified=true / _inventoryDays=31 / 95,793 batches / cachedAt=2026-08-30T02:03:36.819Z`。
+- P1完成：D1 `maggoogo-analytics-index` 已生产启用，0001 trigger-free基础schema与0002全局install_id唯一索引均remote apply成功；`PRAGMA quick_check=ok`。
+- Gateway生产版本=`4f70b513-ebcb-4dd4-8bde-37c87f436d77`，100%流量。采集成功边界仍是`await R2.put`，D1只在`ctx.waitUntil`中做可重建shadow；D1失败不会把已耐久R2写变成App 5xx。
+- P2完成：verified R2→D1 backfill真实`--apply` 16/16完成；最新`backfill_complete`=`inventoryVerified=true / inventoryDays=31 / sourceBatchCount=95793`。D1当前609 installs=609 distinct install_id。
+- P3完成：Admin经营总览/每日活跃主读=`D1 exact operational index`；R2仅作为raw audit与显式`/api/events/refresh`深度重建。普通20分钟刷新及“刷新运营数据”只请求D1，31日查询不随R2 object数线性增长。
+- 3800已通过PID/父进程确认后安全替换为当前项目代码。真实浏览器终验：31 rows、29 verified days、8/26 partial、当前日partial、partial点与verified折线断开，`pageErrors=0 / consoleErrors=0`，按钮只POST `/api/events/ops-refresh`。
+
+### DAU与完整性结论
+- 正确经营主口径不是旧Legacy `daily.devices`，而是跨版本D1/R2-executive口径。10:31最终生产刷新时8/20~8/29：216、224、218、227、226、232、163(partial)、84、64、129（已结束日期仍允许迟到队列事件继续小幅修正）。
+- 8/18~8/25完整历史的观测正常带为196~232，median=224.5；该段总体平稳，不支持“SEO后持续强增长”的旧结论。8/26已确认历史入口缺失风险，标为partial；R2只能恢复已耐久写入的事件，未进入R2的数据无法凭空还原。
+- 8/27/8/28当前R2/D1完整性验证为verified，低值不能再归因于Admin少读；需作为真实业务/采集行为变化继续观察，而不是自动补成100+。
+
+### 独立Review新增修复
+- BL-022：首版D1 `CREATE TRIGGER` migration在Wrangler remote被statement splitting截断；改为trigger-free显式幂等rollup，并增加remote schema/quick_check门禁。
+- BL-023：真实uptime-like `installation_time=2580891395`会污染1970物理安装；Admin/Gateway/backfill统一增加2000-01-01 epoch下界与first_open+5min上界。
+- BL-024：Legacy daily口径曾被误当真实跨版本DAU；主读authority固定为D1，并逐日对账verified R2 `executive.daily.activeDevices`。
+- BL-025：物理安装唯一边界升级为全局install_id；0002 unique index + “先晚后早”跨日冲突测试确保只在最早合法安装日计1次。
+- BL-026：Windows backfill修正`cmd /c`参数传递并为幂等SQL chunk增加受控重试；最终真实16/16 apply通过。
+
+### 验证
+- `cf-gateway npm test` PASS：download/growth/source/partition/analytics-ops全绿；5000 distinct device-days精确，单device 100 replay不增DAU；completed-before-submitted、duplicate batch、D1失败/R2成功、R2失败fail-closed全部PASS。
+- `admin-server npm test` PASS：Analytics真实cache、Chromium、Broadcast、control-plane、fail-closed、cache recovery、1205-object partition recovery全绿。
+- `npm run test:analytics:full + test-analytics-live-browser.py` PASS；生产D1 source badge/raw R2 audit、partial/unknown展示和D1-only refresh均通过。
+- `git diff --check`无error；`node --check`覆盖Admin/Gateway核心JS无语法错误。全仓仅存在既有LF→CRLF提示，未修改无关工作。
+
+### 剩余非阻断债务
+- `ADMIN_SECRET`当前Cloudflare binding仍是普通Environment Variable而非Secret binding；本轮自动凭证迁移动作受执行安全层限制，未绕过。Analytics功能/数据完整性不受影响，但后续应通过批准的凭证通道迁为Secret并验证binding type。
+- App transport v3当前**不需要**：现有0.2.6/0.2.7 payload已满足5000 DAU架构，瓶颈已从raw-object查询迁出；仅当未来需要更强批次ACK/服务端重放协议时再设计v3。
+---
+日期/时间：2026-08-29 20:18（UTC+8）
+本次版本：analytics-dau-recovery-handover-20260829
+本次范围：**为下一会话封装Analytics历史DAU修复与5000+ DAU迁移完整上下文；不宣称历史已修、不执行新的生产切换。**
+
+### 当前事实
+- 用户再次截图确认运营后台历史折线仍是旧值。3800实际仍返回`analytics-v2-admin-7`旧缓存：`_cachedAt=2026-08-29T09:28:15.125Z`、`_totalLocalBatches=22134`，没有`_inventoryVerified`，因此UI未变化是因为31日repair尚未完成最终原子切换，而不是Chart渲染问题。
+- R2逐日inventory已证明旧Admin严重少读：8/20=5445、8/21=4756、8/22=5371、8/23=4853、8/24=3530、8/25=4473、8/26=819、8/27=567、8/28=462、8/29=691。此前看似正常的100~140 DAU日也不能继续当完整基线。
+- 当前verified repair checkpoints已推进到8/23~8/29共7天；正式`batches.json/analytics.json`仍保持last-known-good，符合fail-closed设计。
+- 生产Gateway active=`b7375249-fdf3-4e78-a302-bcc1e291c09e`，已具备R2 durable-first、Analytics KV热路径移除、1s batch限频、cursor inventory/data page读取；大分区8/22=5371/8/23=4853已可稳定inventory。
+- 面向5000+ DAU的新D1运营索引已在本地实现：D1库`maggoogo-analytics-index`已创建，`0001_analytics_ops_index.sql`、`OPS_DB` binding、R2→D1 shadow index、`mode=ops_daily`均已落代码；D1 schema/契约与Gateway全套`npm test`最新均PASS。**但remote migration尚未apply、含D1的Gateway本地源码尚未生产deploy、历史backfill/Admin主读均未做。**
+
+### Handover
+- 新增完整交接文档：`docs/project-nebula/HANDOVER-ANALYTICS-DAU-RECOVERY-20260829.md`（约20KB），记录根因、生产身份、R2真实对账、checkpoint、D1设计、测试、禁止事项和P0→P4严格执行顺序。
+- `_progress.txt`已切换到该主线并指向handover。下一会话第一目标必须是完成31日verified repair并让正式`analytics.json`出现`_inventoryVerified=true`，然后再做D1 shadow/backfill/主读迁移与5000 DAU容量门禁。
+---
+日期/时间：2026-08-29 09:45（UTC+8）
+本次版本：admin-analytics-refresh-singleflight-20260829
+本次范围：**彻底修复运营后台“数据分析→拉取最新”偶发HTTP 409；仅修改Admin刷新状态机/UI/测试与项目文档，不修改App/source/source health。**
+
+### 症状与根因
+- 用户点击“拉取最新”出现`刷新失败: HTTP 409`。唯一Analytics 409来源位于`refreshAnalyticsCache()`：后台启动10秒首刷或每20分钟自动刷新占用`cacheFetchingNow`时，手动`throwOnError:true`调用直接抛`Analytics refresh already in progress`。
+- 该场景不是R2/Gateway冲突，而是本地把“同一份数据已经正在刷新”错误建模成业务冲突；此前fail-closed测试覆盖上游失败，但没有构造auto/manual重叠。
+
+### 修复
+- 用`analyticsRefreshInFlight` Promise替代布尔互斥；首个调用拥有唯一上游fetch，后续自动/手动/多Tab调用全部join同一Promise。
+- 严格失败语义保持：后台调用失败可以保留last-known-good缓存；用户手动严格调用即使join，也会收到真实Gateway错误，不能伪报成功。
+- `/api/events/refresh`增加`_refreshJoined`；Dashboard对joined成功显示“已复用正在进行的R2刷新”。前端自身再加single-flight，快速重复调用只发1个POST；错误提示读取后端`error/message`。
+
+### 验证
+- 函数级：两并发refresh仅1 upstream fetch；joined success PASS；background+strict joined failure仍返回原始503 PASS。
+- HTTP级：真实Express同时POST两次`/api/events/refresh`，仅1 upstream fetch，两个响应均200，第二个`_refreshJoined=true`。
+- Chromium：重复调用force refresh仅1 POST；`pageErrors=0 / consoleErrors=0`，Analytics主图/V2/Legacy图继续正常。
+- `npm test`全PASS，覆盖Analytics真实cache、Chromium、Broadcast、control-plane、fail-closed、cache-recovery。
+- 真实Gateway烟测：HTTP 200；一次手动刷新新增897 batches、耗时约37.3s；独立新代码实例返回`_refreshed=true / _refreshJoined=false`。
+- 运行态继续发现第二个问题：旧3800实例未被真正替换，因为`start-admin.bat`继承当前DevSpace通用`PORT=17676`，新Admin尝试占17676后被单实例门禁拒绝，浏览器仍连接旧3800。已改为启动器只认`ADMIN_PORT`（默认3800）并显式映射`PORT=%ADMIN_PORT%`；control-plane测试加入启动器端口契约。
+- 已通过PID+父进程确认旧3800确属本项目`start-admin.bat`后安全终止；新3800当前由新启动器常驻。真实手动刷新恰与10秒后台首刷重叠，最终返回`HTTP 200 / _refreshed=true / _refreshJoined=true`，直接复现原409时序并证明修复生效。
+- 新增`BUG-LESSONS.md` BL-018/BL-019；`TECH-CHALLENGES.md` CH-018追加刷新并发永久门禁。
+---
+日期/时间：2026-08-26 19:47（UTC+8）
+本次版本：seo-growth-phase2-independent-final-audit-20260826
+本次范围：**独立终审Phase2生产闭环；不修改App/source、不重复提交IndexNow、不扩大SEO页面范围。**
+
+### 独立复验
+- 本地三门禁新鲜PASS：Magnet `seo-audit.js`=987 HTML / 214 indexable / 773 noindex / 214 canonical unique；`seo-growth-audit.js`=19/19 core tracked；NSQ `growth-seo-audit.js`=17/17 tracked / sitemap175。
+- 公网重新抓取：Magnet sitemap=214/214 unique、NSQ=175/175 unique；两站`/scripts/indexnow-push.js`均301；19个Magnet增长核心URL+17个NSQ高意图URL全部200/canonical/tracking/stale规则PASS。
+- 两站IndexNow key文件均公网`200 + exact=true`；不重复向真实IndexNow提交，沿用本轮已经取得的Magnet214=200、NSQ175=200发布证据。
+- 生产App/source冻结字节再次从`magnetgoogo.com`读取并SHA256核对，`config.json / sources.enc.json / sources-green.enc.json`三项与15:34冻结值逐字节一致。
+- Gateway `npm test`全PASS；Admin `npm run test:admin`全PASS，真实cache=24,241 batches，Chromium `pageErrors=0 / consoleErrors=0`，Broadcast require仍read-only且显式start/stop。
+
+### 新Finding与裁决
+- 新发现BL-017：两个IndexNow脚本未来遇到非`200/202`时会打印失败，但没有可靠非零退出码；这不推翻本次真实200提交，因此Phase2不回滚，但“HTTP失败自动阻断发布”门禁尚有自动化债务。
+- 已新增`BUG-LESSONS.md` BL-017并更新`TECH-CHALLENGES.md` CH-017剩余风险；下一次IndexNow/SEO发布前必须补mock contract test与fail-closed退出码。
+- **最终裁决：`PASS_WITH_DEBT`**。Phase2生产发布/SEO技术闭环保持PASS；Day14/Day28真实增长效果仍是主线时间证据。
+- **报告：** `docs/project-nebula/REVIEW-20260826-SEO-GROWTH-PHASE2-PRODUCTION-CLOSURE.md`。
+---
+日期/时间：2026-08-26 15:34（UTC+8）
+本次版本：seo-growth-phase2-production-closure-20260826
+本次范围：**按“已有排名优先 / 高意图直接下载转化优先 / 不扩薄页”完成Magnet + naoshiquan第二阶段增长SEO生产闭环；不修改App、source health或源业务逻辑。**
+
+### Phase2增长策略与实现
+- Magnet继续保持214个canonical不扩量；11 locale首页以及`free-magnet-search / magnet-search-engine / torrent-search / best-magnet-search-2026`等高意图资产统一接入页面级`/go/download`归因。增长门禁最终19/19 core tracked；49个非核心历史indexable旧CTA保留为warning，由Gateway `legacy_cta_recovered`自动302最新版并记录，不机械全站改写。
+- 三个英文高意图Guide删除0.2.6硬编码下载与“always available/sub-second”等过度承诺，改用当前匿名生产证据：completed search有结果率91.7%，TTFR P50约679ms/P95约5.4s，并补Status/Methodology证据入口。
+- 中文`best-magnet-search-2026`保留既有URL权重，从静态“Top 10站点榜单”改为实时状态+单站/多源选择框架+最新版APK转化，避免站点域名变化后迅速过期。
+- naoshiquan只强化17个接近安装决策的高意图页，不把普通技术文章商业化；补回已有自然排名但漏sitemap的`/blog/cili-search-tools-2026`，sitemap由174→175且175/175 unique。本轮仅17个真实修改页更新`lastmod=2026-08-26`。
+- 内容质量审计修复Hindi页面整篇Markdown源码展示、英文备用方案/BT状态/Android App Review与阿语App Review的frontmatter源码残留；同步修复错误GitHub仓库、HTTP官网链接与“80+/100+/数百源”等易过期固定口径。
+
+### Direct Upload安全与IndexNow闭环
+- naoshiquan复用Magnet的Pages安全门禁：`/scripts/* -> / 301`；旧批量SEO脚本发现1处硬编码百度凭证，已改为只读`BAIDU_TOKEN_NSQ`环境变量，最终字面量凭证扫描=0。历史百度站长凭证仍需平台侧轮换，轮换前继续禁止百度主动推送。
+- IndexNow收口首次发现NSQ共享Magnet旧key时，key文件虽然公网200 exact，但单URL/175 URL均返回`403 UserForbiddedToAccessSite`；同时旧`all`模式扫描全部HTML而非canonical sitemap，存在误推历史/noindex页风险。
+- 永久修复：NSQ改为独立主机key；`all`模式改为直接读取`sitemap.xml`并去重。新key生产文件200 exact，单URL先返回202 Accepted，随后175 URLs批量提交=200；Magnet 214 URLs提交=200。新增`BUG-LESSONS.md` BL-016作为永久门禁。
+
+### Production与终验
+- Magnet Production=`a6e99e31-7db3-4686-95ad-67655c0a68be`；Phase2前回滚点=`cac245db-6828-4394-98e6-668013b07f64`。生产15个核心路由全部`200 / tracked=true / stale=false`，sitemap=214/214 unique，`/scripts/*`=301。
+- naoshiquan Production=`9afe8497-e2e4-41c1-bb0b-65fa28f166ab`；独立key修复前即时回滚点=`798bdc3d-ea68-4406-b360-be32deea0768`，Phase2前回滚点=`19afc1e3-41d9-42fa-a0f4-4383fabea673`。生产高意图抽查全部200/tracked/raw-markdown=false，sitemap=175/175 unique，`/scripts/*`=301。
+- Magnet最终`seo-audit.js`：987 HTML / 214 indexable / 773 noindex / 214 canonical unique / PASS；`seo-growth-audit.js`：19/19 growth-critical tracked / 0 blocking error。
+- App/source防回滚再次通过：`config.json=4ff7e25e98bceab323f4ba4f9b60f54cea6972fa84e3827cef17402f6e3c6bed`；`sources.enc.json=4536b2ac89b99d079d5eb75a212fc9b91fb3a99ac31b336dd5afb5b326ea7502`；`sources-green.enc.json=4bf88e741826f616974eb029e67c453168304ef30de5960e8f9078642b449793`，生产字节精确匹配。
+- 本阶段完整回归已通过：Gateway download-range/growth-download/source-upstream全PASS；Admin真实24,241 batches全套PASS，Chromium pageErrors=0/consoleErrors=0，Broadcast普通打开不启动传播引擎。
+
+### 结论
+- Phase2已完成生产闭环；当前唯一后续不是开发阻塞，而是时间证据：继续按T0=2026-08-17 22:07观察Day14/Day28非品牌曝光→下载点击→0.2.7激活质量和国际增量，再决定是否扩大某类高意图资产。
+---
+日期/时间：2026-08-25 21:19（UTC+8）
+本次版本：admin-analytics-v2-ops-readout-20260825
+本次范围：**只读刷新生产Analytics V2并从增长、激活、留存、搜索体验、资源页、源供给和0.2.7发布后早期采用视角做运营分析；不修改App/source/health。**
+
+### 新鲜生产快照
+- 增量刷新到`2026-08-25 21:19:07 UTC+8`，新增284 batches；schema=`analytics-v2-admin-7`。
+- 30日跨版本active unique=817，今日active=137；V2 active=227，今日V2=93；V2物理安装观测30日91、今日17。
+- V2搜索设备210/227=92.5%；181/227设备发生Magnet Action=79.7%；903 completed search中91.7%有结果，TTFR P50=679ms/P95=5.392s；source sync=99.4%。
+- first_open 100中96%进入搜索、81%首日发生Magnet Action；completed first search中97.2%有结果。search lifecycle terminal配对仍仅43.6%，继续禁止把其当业务完成率。
+- 8/21 R2收到0 batch、8/24仅39 batch，为采集缺口日；剔除坏日后，8/22+23+25相对8/18+19+20，V2日活均值约+68%、物理安装均值约+65%、搜索设备约+68%、动作设备约+63%，但跨版本DAU均值近似持平，当前更像获客/升级扩张而非稳定留存抬升。
+- SEO等长7日：active unique 235→411(+74.9%)、first-observed 94→204(+117%)；非CN first-observed约15→42(+180%)，方向与国际SEO一致但缺install referrer，不能做因果归因。
+- 资源页187 view（movie139/series48）；137 refresh成功率100%，64.2%有变化；P50=7.115s/P95=18.447s。
+- 今日Zero Result上升主要来自0.2.6 CJK：0.2.6 150 completed中24 zero，其中20个为CJK；0.2.7今日release样本31 completed全部有结果、TTFR P50≈387ms，但仅9台release设备且含K30S内部验收，当前仅能判“无早期回归信号”。
+- source_sample累计52,509次调用：ok13.5% / empty32.3% / fail54.2%；`btmulu.net`、`so2.btsow.top`等继续承担主要有效供给，Knaben/MagnetDL/TGX等多域名高失败仅作为运营候选证据，不自动改health。
+- V2搜索量集中度较8/19明显下降：top2设备submitted占比由46.6%降至20.5%，说明数据正从少量超级用户向更广用户群扩散。
+
+### 运营判断
+- 当前最强信号是“获客/升级和搜索激活增强”，而不是已证明的留存增长；跨版本DAU仍在约110–140有效日区间。
+- 产品激活质量强：搜索启动率、结果率、Magnet Action均高；供给效率与尾部源失败率仍是主要成本问题。
+- 下一观察窗口应锁定0.2.7发布后24h/48h：外部采用、CJK Zero Result、TTFR、Magnet Action、resource refresh和source_sample；同时补search terminal埋点与渠道归因。
+---
+日期/时间：2026-08-25 18:47（UTC+8）
+本次版本：app-0.2.7-final-rc6-release-freeze
+本次范围：**完成0.2.7最终发布前真机搜索矩阵、Full版内容中立性修正、元数据/分类收口、固定正式构建入口与最终APK冻结；生产配置尚未切换，等待用户上传蓝奏云并提供URL/密码。**
+
+### 最终真机与修复
+- RC4/RC5/RC6在K30S连续实搜One Piece / The Office / Ubuntu / Inception / Breaking Bad，检查标题、大小、日期、类型、排序、Hash/乱码、重复与崩溃；未发现Hash标题、亿级MB、非法日期或崩溃。
+- 撤销RC4的kind-based同分排序：Full版不按成人/动漫/影视/软件类别加减分，只按字面relevance与query在标题中的显著性排序；`COMPLIANCE_MODE=false`，59/59门禁保证Full版不做内容类别过滤/降权。
+- RC5真机发现`Breaking Bad S01…S05`独立单季token仍显示“其他”；RC6新增高置信`S0N` TV识别并用`Galaxy S24`反例防误判。最终K30S：S01/S02/S03/S04/S05均显示“剧集”。
+- `BUG-LESSONS.md`新增BL-013（Full版内容中立性）、BL-014（CRC/季范围/发布组分类边界）、BL-015（独立S0N季标记）。
+
+### 最终门禁
+- TypeScript PASS；App adversarial 59/59；fluency 17/17；resource-auto-sync 8/8；resource-feed/media cache/security/network/source-v027/release-build/update-download全部PASS。
+- `validate_enum.py`=ALL VALID；crawler_v3=73 passed / 2 deselected；git diff --check无错误。
+- live media双端点revision25 / release `20260825T000000Z-f32299fa` / 334 movies / 335 series / 4719 resources，pointer SHA一致。
+- canonical=371 rules；154 static GREEN / 58 static pools；0.2.7额外8 runtime-gated rules / 8 pools；未因当前设备代理状态修改任何health.status。
+
+### 最终正式字节
+- 新增固定正式构建入口`scripts/build_release.ps1`：从忽略的`magnet/.env`加载备案签名，固定production + arm64-only + R8 + shrinkResources，并强制重跑Metro/Hermes bundle。
+- 最终APK=`magnetgoogo-app/android/app/build/outputs/apk/release/app-release.apk`；33,594,350 bytes；SHA256=`c2fbe02d14407473be968a75335c55fe0c13dfa4f356d4d1ae69a0782064e090`。
+- package/version=`com.magnetgoogo.app / 0.2.7 / code11`；native-code=`arm64-v8a`；Hermes bundle SHA256=`1af29457099840f7ad468072325b88b87e73bd60c793a17c5092279f9668c982`且APK内完全一致；Hermes magic=`c61fbc03c103191f`。
+- 备案签名SHA256=`475fc1647359524cef27e180421ef17401171f476e4ab41f8b423746ef0ef49d` / MD5=`df1e684bf483ceffe49062d285b17c06`。
+- `adb install -r`最终RC6=Success；K30S安装时间`2026-08-25 18:45:59`；设备`base.apk` SHA256与本地最终APK逐字节一致；最终Fatal/ANR/ReactNativeJS/native crash扫描为空。
+---
+日期/时间：2026-08-22 20:35（UTC+8）
+本次版本：app-0.2.7-rc4-metadata-and-semantic-tiebreak
+本次范围：**在RC3最终包K30S实搜基础上继续审计标题/大小/日期/类型/排序等可见质量，发现日期格式混用及exact=100同分语义误排；完成通用修复、门禁扩展和RC4正式构建。生产尚未切换。**
+
+### K30S真实发现
+- Avatar异常size与Inception REPACK两项RC3修复真机已确认：Avatar显示正常GB，`www.UIndex.org - Inception ... REPACK ...`实际显示“电影 · 7.6 GB · 2026-08-10”，无亿级MB/游戏误判。
+- Ubuntu正式搜索190条，`.iso`正确识别“程序”，5.78GB/4.59GB/2.53GB合理；但同一列表混用`2024-09-24`、`4-21-2023`、`9-21-2020`日期格式。
+- One Piece正式搜索270条与The Office正式搜索254条暴露结果层语义问题：泛AI/成人/普通视频因标题完整包含查询被打exact=100，并在旧relevance-only同分规则下压过明确动漫/剧集资源。
+
+### RC4修复
+- `cleanDateLabel()`现在把`YYYY/M/D`、`M-D-YYYY`、`M/D/YYYY`统一到`YYYY-MM-DD`；非法月日、纯数字、纯时间不强行显示，纯小数字日期仍按既有语义转fileCount。
+- 新增`getKindSpecificity()`；UI relevance仍为绝对第一排序键，只有relevance完全相同时，明确语义类型（movie/tv/anime/software等）>通用格式类型（video/audio/archive/image/document）>`other`。不对片名做任何特判。
+- `BUG-LESSONS.md`新增BL-011（日期格式一致性）和BL-012（exact lexical同分需要语义可信度tie-break）。
+- App adversarial扩展至58/58 PASS，新增The Office语义同分、日期统一、非法日期/纯时间、0/N/A size、date/fileCount隔离门禁；fluency 17/17 PASS，PROD契约同步要求relevance优先且kind只能同分介入。
+
+### 全门禁与RC4字节
+- TypeScript PASS；resource-auto-sync 8/8；resource-feed 8/8；media cache/security/live network PASS；update-download/release-build/source-v027 PASS；crawler_v3 73 passed/2 deselected；validate_enum ALL VALID；git diff --check PASS。
+- 强制`:app:createBundleReleaseJsAndAssets --rerun-tasks`，Metro从空缓存重建1424 modules；再按arm64-only + R8 + shrinkResources +备案签名`assembleRelease` BUILD SUCCESSFUL。
+- RC4 APK=`magnetgoogo-app/android/app/build/outputs/apk/release/app-release.apk`；33,593,410 bytes；SHA256=`0bdcf1ad218f274ae86923e4cb15a7cefda4fa48c204a994458ddaa0dcf2b2a4`。
+- package/version=`com.magnetgoogo.app / 0.2.7 / code11`；native-code=`arm64-v8a`；Hermes bundle SHA256=`9d56409904664300a4019978dce5e81499c525de26ab68c21d7d291c65d788ac`且APK内完全一致；Hermes magic=`c61fbc03c103191f`；备案签名SHA256=`475fc1647359524cef27e180421ef17401171f476e4ab41f8b423746ef0ef49d` / MD5=`df1e684bf483ceffe49062d285b17c06`。
+- sourcemap已确认包含`getKindSpecificity(b.kind) - getKindSpecificity(a.kind)`与日期padding归一化代码；RC4已推到K30S`/sdcard/Download/000-MagGoogo-v0.2.7-RC4.apk`，设备SHA与本地一致。
+- 当前执行平台仍禁止代替用户`adb install -r`；用户覆盖RC4后需完成One Piece/The Office/Ubuntu/Inception真机最终复测再冻结蓝奏/生产字节。
+---
+日期/时间：2026-08-22 17:41（UTC+8）
+本次版本：app-0.2.7-rc3-forced-hermes-bundle-proof
+本次范围：**针对“最后两项展示修复是否真的进入APK”的一致性疑点做最终构建链闭环；不接受仅源码/测试通过作为证据，强制重建Release JS/Hermes bundle并与APK内bundle做字节级对齐。**
+
+### 最终证明
+- `:app:createBundleReleaseJsAndAssets --rerun-tasks`在加载`magnet/.env`正式签名变量后真实执行：Metro cache empty重建，1424 modules，重新写入Release bundle与sourcemap；不是UP-TO-DATE。
+- 强制生成的Hermes bundle SHA256=`b5ab78178f579733d018331919652dba6289fe460709a934989209ae907f9d3e`；APK内`assets/index.android.bundle` SHA256完全相同，Hermes magic均=`c61fbc03c103191f`。
+- 新sourcemap `sourcesContent`明确包含两项修复：REPACK不再单独判game（仅FitGirl/DODI等明确游戏语义命中），以及异常size `labeledBytes > 1024 ** 5`纠错；`parseSizeBytes`同样使用该纠错，覆盖展示+累加器+dedup排序。
+- 强制bundle后再`assembleRelease` BUILD SUCCESSFUL；最终APK保持33,592,534 bytes / SHA256=`bbac3a4fb521a5a54b60660f6be9b3b1fb49b9807f3c7eb2625b890921b8b7c2`，说明17:09 RC3已包含当前修复字节，而本次通过强制重建消除了构建缓存疑点。
+- RC3已重新推到K30S `/sdcard/Download/magnetgoogo-v0.2.7-final.apk`，设备侧SHA与PC一致；执行平台仍禁止ADB install/input tap，最后一次可见UI复测需用户确认覆盖安装后执行。
+
+### 验证
+- `npx tsc --noEmit` PASS；`app-adversarial-tests.mjs` 56/56 PASS，其中M1覆盖REPACK分类、M3覆盖异常size显示与排序解析。
+- 最终APK签名/ABI/source bootstrap沿用RC3已验证结果：0.2.7/code11、arm64-only、备案签名、371/154/58/8。
+---
+日期/时间：2026-08-22 17:12（UTC+8）
+本次版本：app-0.2.7-final-rc3-release-candidate
+本次范围：**在RC2正式包K30S主流程终验基础上继续查漏补缺，修复异常size单位污染展示/排序与REPACK电影误判游戏，统一size parser，完成新源/排序终验、全自动化门禁和最终备案签名RC3构建。生产尚未切换，等待蓝奏云地址。**
+涉及模块：`magnetgoogo-app/src/core/{types.ts,dedup.ts,searchQuality.ts,sourceStats.ts,searchRunner.ts}`、`scripts/app-adversarial-tests.mjs`、`sources.json`、`docs/project-nebula/{BUG-LESSONS.md,_progress.txt,DEV-LOG.md}`
+
+### RC2真机主流程与新发现
+- 已安装正式`com.magnetgoogo.app 0.2.7/code11`的RC2在K30S完成：资源页/详情/2条真实资源、复制/打开入口、Inception=146条、1秒Inception→Avatar最终Avatar=268条且旧请求不回写、设置页源同步/版本/检查更新、前后台切换，未发现Fatal/ANR/native fatal。
+- 资源自动更新失败态已在断网真机直接看到“更新失败，当前显示缓存内容”，缓存可继续浏览；checking中间态在正常网络下pointer过快难以用UIAutomator抓帧，但U5B状态机门禁覆盖持续checking/updated/failed。
+- 真机发现`4861400881.14 MB`异常体积和`Inception ... REPACK ...`误标“游戏”。前者不仅影响显示，原dedup独立parser还可能将伪PB体积用于排序；后者源于把跨领域`REPACK`当成游戏强特征。
+
+### RC3修复与防再犯
+- `parseSizeLabel/parseSizeBytes`统一对“数值像raw bytes但单位导致>1PiB”的脏输入恢复为真实字节量级；`dedup.ts`删除第二套parser，直接复用共享`parseSizeBytes`，避免UI修了但排序仍错。
+- `guessKind`不再用裸`REPACK`判游戏，仅FitGirl/DODI/游戏平台等高特异性上下文强化游戏；电影`year+quality+REPACK`保持movie。
+- `BUG-LESSONS.md`新增BL-008/009/010：外部size跨展示+排序统一防御；分类关键词必须正例+跨领域反例；最终Release必须显式锁定arm64/R8/shrink/signing并核验最终字节。
+- App adversarial仍为**56/56 PASS**，M3新增异常size直接parser与dedup排序验证，M1新增电影REPACK反例与游戏repack正例。
+
+### 新源与排序终验
+- K30S当前真实网络/代理下exact handler分批重跑：AniLibria 4/7+9/9、AniRena 3/3+3/3、BlueRoms 3/3+3/3、BTDig 10/10+7/10、Mikan 30/30+30/30、Snowfl 30/30+30/30、Bangumi 30/30+30/30、Shana 0/0+2/2、Zamunda 8/8+8/8、World-Torrent 2/2+3/3，**10/10 handler PASS**。
+- 排序最终结构：release-time `quality.score` + query-profile benchmark + pool role + per-device success/empty/fail/relevance/precision/latency learning；失败率最高扣30并有额外fail/slow-low-success惩罚，慢但高成功只轻罚；0.2.7 replacement handler完全屏蔽旧parser benchmark。
+- SQ3B/SQ3C纯函数门禁继续PASS：slow+reliable > fast+unreliable；同可靠性fast > slow；release score在fresh-install有实质影响但不会压过后续本机学习。
+
+### 完整门禁
+- `npx tsc --noEmit` PASS；App adversarial 56/56；resource-auto-sync 8/8；resource-feed 8/8；media cache/security/live network PASS。
+- update-download PASS；release-build contract PASS；source-v027 contract PASS；fluency extreme 17/17 PASS。
+- `python validate_enum.py`=ALL VALID；`python -m pytest magnet/tests/crawler_v3 -m "not integration" -q`=73 passed/2 deselected；`git diff --check` PASS。
+- clean阶段曾触发RN New Architecture CMake clean顺序问题（codegen目录先删、App clean仍引用），未手工删目录绕过；随后标准`assembleRelease`从缺失生成物恢复并BUILD SUCCESSFUL，证明当前构建链可自恢复。
+
+### RC3最终正式字节
+- APK：`magnetgoogo-app/android/app/build/outputs/apk/release/app-release.apk`
+- package/version：`com.magnetgoogo.app / 0.2.7 / code11`
+- bytes：`33,592,534`
+- SHA-256：`bbac3a4fb521a5a54b60660f6be9b3b1fb49b9807f3c7eb2625b890921b8b7c2`
+- ABI：`arm64-v8a` only；R8与shrinkResources实际执行；Hermes magic=`c61fbc03c103191f`。
+- 备案签名：SHA-256=`475fc1647359524cef27e180421ef17401171f476e4ab41f8b423746ef0ef49d`；MD5=`df1e684bf483ceffe49062d285b17c06`。
+- APK内`assets/source-bootstrap/bootstrap-sources.enc.json`实际解密：371 rules / 154 static GREEN / 58 static pools / 8 runtime-gated rules / 8 runtime pools；issued/expires envelope有效。
+- RC3已推送到K30S `/sdcard/Download/magnetgoogo-v0.2.7.apk`且设备侧SHA一致；执行平台仍拦截`adb install -r`，需用户手动确认覆盖。生产latest_version/稳定APK/GitHub/R2/蓝奏配置均未切换。
+---
+日期/时间：2026-08-22 14:02（UTC+8）
+本次版本：app-0.2.7-resource-auto-sync-visible-feedback-rc2
+本次范围：**处理0.2.7正式候选K30S真机新发现的资源页UX缺陷：旧缓存秒开后后台自动刷新需数十秒，但期间无任何用户可见反馈；补齐checking/updated/failed三态提示、回归门禁并重新构建最终备案签名arm64 Release。生产尚未切换。**
+涉及模块：`magnetgoogo-app/app/(tabs)/resources.tsx`、`src/core/{resourceFeed.ts,resourceCopy.ts}`、`scripts/app-adversarial-tests.mjs`、`docs/project-nebula/{BUG-LESSONS.md,_progress.txt,DEV-LOG.md}`
+
+### 真机问题与根因
+- K30S已实际安装`com.magnetgoogo.app 0.2.7/code11`，firstInstallTime=`2026-08-22 13:47:08`。用户确认进入资源页时会先显示旧缓存，后台最终能更新到最新内容，但几十秒刷新期间没有toast/banner/spinner，容易误判为资源仍旧。
+- 根因：自动`focus -> autoSync() -> syncResourceFeed()`没有独立UI状态；`refreshingKind`仅绑定用户主动下拉刷新，因此技术上自动更新成功但UX完全静默。
+- 修复：每次真正开始auto sync立即展示持续型`checking`提示“正在检查并更新最新资源…”；`refreshSucceeded && changed`后显示“资源已更新”2.4s；远端检查失败显示“更新失败，当前显示缓存内容”3.2s；成功但revision未变化则自动收起，不制造“已更新”假提示。
+- `ResourceFeedLoadResult`增加`changed`，沿用底层immutable release判定；缓存可用、远端检查成功、实际release变化继续严格分离。
+- 自动同步提示与复制toast采用不同垂直位置，避免重叠；movie/series提示按kind隔离并清理timer，切频道/卸载不会留下幽灵toast。
+
+### 防再犯与验证
+- `BUG-LESSONS.md`新增BL-007：offline-first慢同步必须具备用户可感知三态，不能把“最终会更新”当成完整UX成功。
+- App adversarial新增U5B，当前**56/56 PASS**；专门断言checking/updated/failed、`loaded.changed`和toast避让。
+- `npx tsc --noEmit` PASS；resource-auto-sync **8/8 PASS**；resource-feed **8/8 PASS**；media-cache/security/live-network PASS；release-build与source-v027 contract PASS。
+- live media双端点当前revision23 / `20260822T000000Z-8dc47333`，318 movie / 328 series / 4630 resources，pointer SHA一致。
+
+### RC2正式包
+- 最终参数：arm64-v8a only + R8 + shrinkResources + Hermes + 备案签名。
+- APK：`magnetgoogo-app/android/app/build/outputs/apk/release/app-release.apk`
+- package/version：`com.magnetgoogo.app / 0.2.7 / code11`
+- bytes：`33,592,622`
+- SHA-256：`31b9b65f0da66892858ea304e4fe375c2c331b350b53d8a1aedbadad9d45f4c3`
+- signer SHA-256：`475fc1647359524cef27e180421ef17401171f476e4ab41f8b423746ef0ef49d`；MD5=`df1e684bf483ceffe49062d285b17c06`
+- Hermes magic：`c61fbc03c103191f`
+- RC2已推到K30S `/sdcard/Download/magnetgoogo-v0.2.7.apk`，设备侧SHA与本地一致；小米文件管理器“最近”页已显示该33.59MB APK。当前执行平台阻止代替用户点击/`adb install -r`，待用户手动点第一项并确认覆盖后继续真机终验。
+- 未切生产`latest_version`、未覆盖稳定APK、未创建正式GitHub Release/生产配置切换。
+---
+日期/时间：2026-08-20 21:35（UTC+8）
+本次版本：app-0.2.7-resource-focus-revalidate-fix-20260820
+本次范围：**修复用户现场发现的资源页“服务端已有新revision但重新进入仍显示旧缓存”问题，并举一反三修正offline cache被误记为网络refresh成功的语义；不发布生产。**
+涉及模块：`magnetgoogo-app/app/(tabs)/resources.tsx`、`src/core/{resourceAutoSync.ts,resourceFeed.ts,mediaReleaseClient.ts}`、`scripts/{resource-auto-sync-tests.mjs,app-adversarial-tests.mjs,media-cache-policy-tests.mjs}`、`docs/project-nebula/{TECH-CHALLENGES.md,_progress.txt}`
+
+### 根因与修复
+- 根因1：`ResourceAutoSyncGate`成功后60秒cooldown同时阻断下一次Tab focus；若新revision恰在窗口内发布，用户离开再进入资源页也不会检查`current.json`。修复后显式Resource Tab focus总是绕过cooldown执行轻量pointer revalidate；App foreground仍保留60秒节流；in-flight仍single-flight。
+- 根因2：远端`current.json`全部不可用时`syncMediaFeed()`正确返回旧cache以保证offline-first，但上层曾把“拿到cache”误判成“本次refresh成功”并启动cooldown。新增`syncMediaFeedWithStatus()`返回`remoteChecked/changed`；只有真正远端pointer检查成功才`refreshSucceeded=true`。
+- 旧缓存/新release判等继续使用不可变`remote_release_id`，未退回时间戳/条目数猜测。
+
+### K30S与线上实证
+- K30S当前安装仍为0.2.6/code10。检查设备缓存时发现`media-release-cache-v2/index.json`仍为pointer revision17 / release `20260815T000000Z-b6b1a79a`。
+- live network test确认两个生产资源端点均已是revision21 / release `20260821T000000Z-e76c93e0`，306电影/324剧/4590资源，pointer SHA256一致。
+- 通过真实deep link进入K30S Resource路由后，旧0.2.6在cooldown外成功把设备cache升级为revision21，证明服务端发布、网络链和cache commit均健康，故用户现象定位到focus freshness gate而非服务端。
+
+### 验证
+- `resource-auto-sync-tests.mjs` 8/8 PASS；新增覆盖focus bypass cooldown、forced-focus仍single-flight、manual refresh后重新入页仍可revalidate。
+- `resource-feed-tests.mjs` 8/8 PASS；`media-cache-policy-tests.mjs` PASS；`media-release-security-tests.mjs` PASS。
+- `media-release-network-tests.mjs` PASS，生产双端点revision21一致；App adversarial 53/53 PASS；`npx tsc --noEmit` PASS；release-build contract PASS。
+- arm64 standalone Debug重新构建`BUILD SUCCESSFUL`；最终APK路径仍`android/app/build/outputs/apk/debug/app-debug.apk`，版本0.2.7/code11。
+- `adb install -r`在本会话被平台安全层直接拦截，命令未下发，因此无法声称0.2.7 APK-on-K30S focus生命周期已最终闭环；未发布。
+---
+日期/时间：2026-08-20 16:35（UTC+8）
+本次版本：app-0.2.7-source-provider-recovery-20260820
+本次范围：**在不破坏现有0.2.6的前提下，为剩余独立池增加0.2.7原生provider能力并用K30S真实网络复核；构建0.2.7/code11 Debug候选。执行环境阻止APK安装，因此未发布、未把0.2.7-only候选写入production runtime-green。**
+涉及模块：`magnetgoogo-app/src/core/{secureSourceStore.ts,searchEngine.ts,searchProvidersV027.ts}`、`magnetgoogo-app/{app.json,package.json,package-lock.json,android/app/build.gradle}`、`magnetgoogo-app/scripts/{source-v027-contract-tests.mjs,source-v027-k30s-harness.mjs,release-build-contract-tests.mjs}`、`magnetgoogo-app/plugins/with-source-bootstrap.js`、`sources.json`、`docs/project-nebula/SOURCE-0.2.7-POOL-RECOVERY-2026-08-20.md`
+
+### 核心恢复结果
+- 0.2.7新增可复用能力：POST JSON、二阶段API、redirect Location、动态JS token、Base64 magnet、XML/Torznab、`.torrent -> bencode info -> SHA1`、cookie继承和有界detail follow。
+- exact `searchProvidersV027.ts` + K30S网络已通过11个修复池：`AniLibria / AniRena / BlueRoms / BTDig / MagnetDownload / Mikan / Shana Project / Snowfl / Zamunda RIP / BangumiMoe / World-Torrent`。
+- 11池均补到两组明确相关诱饵：示例 BTDig=10/10+7/10、Mikan=30/30+30/30、Snowfl=30/30+30/30、Bangumi=30/30+30/30、Zamunda=8/8+8/8；sample hash overlap均0。
+- Snowfl exact handler首次0结果，定位为API session段`mg02701`错误；改用当前站点接受的`mgpool01`后30/30+30/30，通过。说明新harness能发现真实实现缺陷。
+- ACG.RIP当前K30S `.torrent` 为0 bytes；OneJAV当前`.torrent`缺顶层`info` dictionary，搜索/详情又无magnet/hash备用字段；两者属于当前站点侧退化，未伪修复。
+- 原20池当前技术上限为**18/20**：此前6个新池+6v已有0.2.6 App-on-K30S证据；另11池为最终0.2.7 TypeScript handler+K30S网络证据。由于0.2.7 APK未能安装，不能声称后11池已完成App-on-K30S终验。
+
+### 0.2.6兼容与版本隔离
+- `secureSourceStore`增加`runtime_green_from_app_version`识别：仅0.2.7可运行时激活对应yellow规则；旧0.2.6仍只加载普通green。
+- 0.2.7-only新候选当前仍只在`tmp/k30s_0_2_7_candidates.json`，不进入canonical production；生产静态计数仍363 rules / 154 green rules / 148 unique green hosts / 58 pools。
+- BTDig/Mikan canonical green rule加入新handler名后，在仍安装`0.2.6/code10`的K30S上重新推完整包并实测Ubuntu：154 rules/58 pools、233/233相关、Hash placeholder=0、completed PASS，证明0.2.6未受影响。
+
+### 构建与门禁
+- 最终Debug APK：`android/app/build/outputs/apk/debug/app-debug.apk`；badging=`com.magnetgoogo.app.debug / 0.2.7 / code11`；最终bundle确认包含新runtime gate与provider逻辑。
+- `npx tsc --noEmit` PASS；source-v027 contract PASS；release-build contract PASS；App adversarial 53/53 PASS；crawler_v3 73 passed/2 deselected；`validate_enum.py` PASS；Gradle standalone Debug BUILD SUCCESSFUL。
+- 当前执行环境安全层拦截`adb install`及系统安装页拉起，因此K30S仍是0.2.6/code10。这是执行环境阻断，不是APK构建/设备安装失败证据。
+- 未发布0.2.7、未改远端production config、未发布0.2.7-only源规则。
+---
+日期/时间：2026-08-20 15:40（UTC+8）
+本次版本：source-0.2.6-integration-green-promotion-20260820
+本次范围：**在用户明确批准升GREEN后，将20个K30S provider候选进一步按0.2.6 App本体做集成资格；只提升真正通过双诱饵、标题相关、hash差异和完整包回归的新池，不把外部curl/provider通过等同App可用。未发布生产源包。**
+涉及模块：`sources.json`、`scripts/{push_k30s_source_pack.py,test_k30s_search.py}`、`docs/project-nebula/SOURCE-INDEPENDENT-POOL-EXPANSION-2026-08-20.md`、`tmp/k30s_0_2_6_*.json`
+
+### 正式升GREEN结果
+- 新增并升GREEN 6个独立池：`internetarchive / subsplease / nekobt / mypornclub / xxxclub / sosulki`；均为此前旧28严格池之外的新pool，pool/host均零重合。
+- 当前静态库存变为：**363 rules / 154 GREEN rules / 148 unique GREEN hosts / 58 effective GREEN pools**。
+- 上午严格真实可用基线为60 unique hosts / 28 pools；六个新池全部有0.2.6 K30S双诱饵证据，因此当前严格有证据下限提升为**66 unique usable hosts / 34 usable pools**。静态148/58仍不能等价成全部当前可用。
+- `Internet Archive`：Ubuntu 30/30 + Blender 30/30；`SubsPlease`：One Piece 30/30 + Naruto 30/30；`NekoBT`：One Piece 20/20 + Bleach 20/20。
+- `MyPornClub`、`XXXClub`：Japanese/Amateur均各5/5；`Sosulki`：Inception 1/1 + Avatar 1/1。六池App报告sample hash overlap均0.0，Hash placeholder均0。
+
+### 0.2.6兼容边界
+- 原20候选全部经过K30S provider/network层验证，但不是20个都能被当前0.2.6配置/解析引擎直接消费。
+- 明确不直接兼容/未通过的类别：AniLibria二阶段动态API；AniRena Location重定向+App detail超时；BlueRoms Base64 data-link；MagnetDownload数值ID二次JSON；Mikan data-clipboard-text+App超时；Shana/ACG.RIP/OneJAV torrent文件；Bangumi POST JSON；Zamunda XML Torznab；World-Torrent App超时；BTDigg App `EMPTY_SEARCH_RESPONSE`；Snowfl App当前空结果。
+- 因此禁止对外表述为“新增20个均已0.2.6可用”；准确口径为：20个均做过K30S provider验证，**本轮6个进一步通过0.2.6 App并升GREEN**。
+
+### 最终回归与门禁
+- K30S最终恢复当前完整Debug包：363 rules / 154 GREEN rules / 58 pools；Ubuntu完整包搜索67.3s完成，236/236高相关，20源有结果/26 empty/19 error，Hash placeholder=0；Internet Archive为结果最多新源。
+- `python validate_enum.py` PASS；`pytest magnet/tests/crawler_v3 -m "not integration"`=73 passed / 2 deselected；`magnetgoogo-app npx tsc --noEmit`=PASS；`git diff --check`=PASS。
+- 新增测试工具支持临时overlay、only-pool/exclude-id及App临时自定义query；用于隔离K30S资格，不修改生产分发文件。
+- 本轮只修改工作区`sources.json` health/规则并推K30S Debug完整包验证；**未执行生产多端点源发布**。
+---
+日期/时间：2026-08-20 12:15（UTC+8）
+本次版本：source-independent-pool-expansion-k30s-20260820
+本次范围：**复盘历史源发现方法，结合2026-08当前维护的provider/indexer定义，在K30S真实网络下发现并严格验证20个新增独立可用池；不修改source health、不发布。**
+涉及模块：`scripts/k30s_independent_pool_discovery.py`、`docs/project-nebula/SOURCE-INDEPENDENT-POOL-EXPANSION-2026-08-20.md`、`tmp/k30s_independent_pool_*.json`、`tmp/k30s_6v_semantic_*.json`
+
+### 核心结果
+- 严格可用基线为28 pools；本轮最终新增20个unique pool_id，和基线交集=0，因此当前“已有真实证据的候选能力”为28→48；新增20尚未接入正式`sources.json`。
+- 20个中16个为新库存、4个旧池复活：`acgrip / btdig / mikan / 6v-dytt`。
+- A级13个（双查询均相关且hash overlap<0.8）：`anilibria / anirena / blueroms / btdig / internetarchive / magnetdownload / mikan / mypornclub / shanaproject / snowfl / subsplease / xxxclub / zamundarip`。
+- B级7个（至少一个专项词明确相关且标题正常，另一词为空/失败）：`acgrip / bangumimoe / nekobt / onejav / sosulki / world-torrent / 6v-dytt`。
+- 强证据示例：Snowfl Inception 131/131、Ubuntu 123/123；Zamunda RIP 33/33 + 47/47；SubsPlease 90/90 + 90/90；InternetArchive 46/46 + 45/45，以上跨查询hash overlap均接近0。
+- `6v-dytt`纠正了旧语义假阴性：旧Inception搜索实际返回中文译名“盗梦空间”却被字面算法记为0；K30S改搜“盗梦空间”后`6v520.com`为1/1明确相关、正常标题。
+
+### 方法升级
+- 复用过去文档结论，停止低ROI的合成域名盲扫/镜像堆数/PC单出口简单HTTP判断，改为`Salvage/Revive -> 当前维护provider/indexer目录 -> API/RSS/detail-follow/.torrent -> K30S`。
+- 临时只读参考当前实现：TorrentSearch `7d9ae6c6...`、qBittorrent plugins `860c2b1e...`、Prowlarr Indexers v11 `15e03786...`（2026-08-19同步Jackett）；仅位于`tmp/external-*`，不是生产依赖。
+- 新增只读验证器支持K30S网络请求、JSON/XML/HTML、detail-follow、二进制torrent抓取和内存bencode infohash计算；标题hash-placeholder硬拒绝、相关性硬门、双查询overlap门；不落torrent、不保存magnet、不自动改health。
+- 多批失败候选（TLS/超时/0结果/同结果/无关标题/旧接口/慢站/同后端镜像）均未计入，未为达到20降低门槛。
+
+### 边界
+- 本轮没有修改`sources.json` health、没有把20个候选升green、没有执行源包生产发布，也没有修改App业务代码。
+- 完整报告：`docs/project-nebula/SOURCE-INDEPENDENT-POOL-EXPANSION-2026-08-20.md`。
+- 后续应优先把A级13池接入现有App parser/handler并用正式App路径重新K30S验证；B级7池补第二个相关诱饵后再考虑普通查询首发。
+---
+日期/时间：2026-08-20 10:02（UTC+8）
+本次版本：source-real-usability-k30s-audit-20260820
+本次范围：**结合近几周源健康/历史K30S/运行侧证据，对当前green与yellow做K30S真实搜索可用性审计；严格以关键词相关性、正常标题和跨查询差异为准；不修改source health、不发布。**
+涉及模块：`sources.json`（只读）、`scripts/test_k30s_search.py`、`magnet/source_qualification.py`（只读审阅）、`magnet/crawler_v3/quality.py`（只读审阅）、`docs/project-nebula/SOURCE-K30S-REAL-USABILITY-AUDIT-2026-08-20.md`、`tmp/k30s_*.json`
+
+### 核心结果
+- 当前库存357 rules：148 green / 143 yellow / 66 gray；green=142 unique hosts / 52 pools，yellow=52 pools。
+- K30S全量green：Inception尝试148 hosts，57有相关结果/47 empty/44 error-timeout/702结果；流浪地球尝试148 hosts，35有结果/65 empty/48 error-timeout/247结果；Hash placeholder均0。
+- 双词合并后58 unique green hosts / 26 pools通过；对偏科源补One Piece、進撃の巨人、Breaking Bad、GTA V、代码型双诱饵后，AnimeTosho与JavBus补充通过，最终**60 unique hosts / 28 pools**有当前真实可用证据。
+- 24个当前green pools在通用词+必要专项词后仍无真实可用证据；另有13个“pool可用但该host已坏”的镜像，适合host级降级而非整池删除。
+- yellow按52个内容池去重并补代表/fallback，K30S实际覆盖54 hosts、52/52 pools；仅`0cili.com`通过：Inception 1/5相关、流浪地球5/5相关、跨查询hash overlap=0.0、正常标题、Hash placeholder=0。
+- 其余51个yellow pools当前无升绿证据；proxyit历史假GREEN结论继续成立。
+- 29份本轮K30S报告Hash placeholder总命中=0；当前质量债已由“Hash假标题”转为“green但empty/timeout/error/不相关”。
+- 历史趋势：MagnetDL、Mikan及部分Knaben/Nyaa/TPB旧镜像较7月明显退化；btmulu/wuji/0cili/seed8等曾被简单HTTP健康检查误判，但本轮K30S证明仍可用。
+- 资格逻辑技术债：`source_qualification.py` / `crawler_v3/quality.py`仍主要按双查询hash差异判GREEN，尚未把语义相关性设为硬门；本轮审计采用了更严格的真实用户标准。
+
+### 边界与恢复
+- yellow测试仅通过临时加密Debug包将待测host临时视作green，仓库`source health`未改、未发布。
+- 测试结束已恢复K30S为当前静态库存生成的357/148 green/52 pools新鲜Debug源包，`repository_distribution_files_modified=false`。
+- 未编辑`magnetgoogo-app/**`业务代码、未修改生产`source health`、未执行源发布。
+
+### 证据与后续
+- 审计报告：`docs/project-nebula/SOURCE-K30S-REAL-USABILITY-AUDIT-2026-08-20.md`。
+- 原始K30S证据：`tmp/k30s_source_audit_20260820_green.json`、`tmp/k30s_green_exhaustive_zh_20260820.json`、`tmp/k30s_green_special_*.json`、`tmp/k30s_yellow_*.json`。
+- 后续如人工确认，可按报告执行host级health重基线；建议自动资格门升级为“标题绑定+标题正常+搜索相关性+双查询差异”，仍保持report-only。
+---
+日期/时间：2026-08-19 15:40（UTC+8）
+本次版本：admin-analytics-v2-ops-readout-20260819
+本次范围：**只读审阅当前0.2.6+真实埋点缓存，从数据可靠性与用户增长/激活/搜索/资源使用视角做运营判断；未修改App/source/Analytics代码。**
+
+### 当前真实快照与运营判断
+- cache截止`2026-08-19 15:26:20 UTC+8`：19,150 batches；V2=1,112；30日活跃685；V2活跃59；Session165；V2物理安装30日21、今日9。
+- 同一时点同比昨日：总活跃99 vs 76（+30.3%）；V2活跃约47 vs 21（+123.8%，主要含升级采用）；跨版本首次出现31 vs 22（+40.9%）；V2观测到的当日物理安装9 vs 3（+200%，样本仍小）。
+- V2设备漏斗：59活跃→52搜索（88.1%）→37有completed终态→33获得结果→30搜索后Magnet Action；完成搜索中有结果率94.2%、Zero Result 5.8%、TTFR P50 662ms/P95 6.389s；全部V2 Magnet Action设备43（72.9%）。
+- 数据可靠性强项：schema_v=2全量，device/install/session/installation_time无缺失；invalidTs=0；重复V2 event均为完全一致的重传副本，后台按event_id去重可用；上传延迟P50 6.6s/P95 23.1s；remote source sync成功率99.5%。
+- 关键口径风险：494 submitted仅226 completed，3小时以上仍约一半无terminal；结合App代码确认新搜索替换旧session、background ownership lost等路径会直接return而不补`search_completed`，因此44.5%/49.1%“完成率”不能当搜索业务成功率，orphan主要是埋点生命周期缺口。
+- 流量浓度：前2个V2设备贡献46.6% submitted、43.8% Magnet Action；无法从现有字段判断是否内部测试/超级用户，因此总搜索次数不适合做增长核心KPI，优先用唯一搜索设备/结果设备/动作设备。
+- 版本采用与真实获客必须分离：25个first_open中安装→V2首次观测中位42.9h，11个安装已超过7天，说明大量是老用户升级；今日17个first_open中仅9个是24h内真实新安装。当前V2 D1样本仅8个首次观测用户/2回访（25%），真实新安装D1只有3个样本/1回访（33.3%），均不足以下稳定结论。
+- SEO equal-window（41.3h）方向性信号为活跃+50%、first-observed +138.7%，但0.2.6升级潮与SEO同时发生，且App埋点无安装referrer/下载来源，当前不能因果归因给SEO。
+- 源侧产品信号：226个completed search总体有结果率94.2%，但14,662次源调用仅12.5% ok、33.6% empty、53.9% fail，说明少数强源在支撑整体结果；当前样本中`cilimo.com`/`btmulu.net`/`so2.btsow.top`表现明显较好，多个Knaben/BTDig/YTS/MagnetDL等域名100% fail，仅作为运营候选证据，绝不自动改source health。
+- 资源页：48次tab view；34次refresh全部成功，67.6%刷新有内容变化；movie 37 view/series 11 view，当前样本显示影视资源页更新链体验正常但样本仍小。
+
+### 建议的运营KPI优先级
+1. 核心增长：日活唯一设备、当日物理安装、安装后首次启动、D1/D3（仅真实新安装cohort）。
+2. 核心激活：搜索设备率、获得结果设备率、搜索后Magnet Action设备率、TTFR。
+3. 核心供给：每搜索命中源数、源fail/empty率、强源覆盖率、P95慢源；不要只看“全源平均成功率”。
+4. 暂缓使用：submitted→completed率、first_open当新安装、总搜索次数、SEO→安装直接归因。
+---
+日期/时间：2026-08-18 晚间（UTC+8）
+本次版本：admin-control-plane-fail-closed-third-audit-20260818
+本次范围：**对整个运营后台做第三轮举一反三审计，不只修Analytics/Broadcast表面Bug，而是系统性加固控制面、失败语义、Git发布边界、缓存灾难恢复、任务状态机与急停/暂停竞态；不修改App和source。**
+涉及模块：admin-server/{server.js,package.json,broadcast/{index.js,executor.js,discovery.js,test_m2_m3.js},scripts/{test-admin-control-plane.js,test-admin-fail-closed.js,test-admin-cache-recovery.js,test-broadcast-state-machine.js,test-executor-interruption.js,...}}, admin_templates/dashboard.html, docs/project-nebula/{TECH-CHALLENGES.md,_progress.txt,DEV-LOG.md}
+
+### 第三轮审计新增关键Bug与修复
+1. **Admin控制面暴露过宽**：默认监听所有网卡+CORS过宽+多数写API无统一浏览器动作门。现默认绑定`127.0.0.1`；Dashboard `no-store`并注入每进程随机`X-Admin-Action`；浏览器写请求必须携带Action Token，Broadcast再叠加`ADMIN_SECRET`；默认不开放跨域读取，本机无Origin CLI兼容保留；占用端口时默认拒绝第二实例。
+2. **旧Admin会破坏新config schema**：保存配置曾重建固定小对象，当前真实`announcement_i18n`会被静默删除。现改成merge-preserve并校验semver、`min_version<=latest_version`、download/source expiry/schema；config未成功加载时保存按钮与API链路均fail-closed。
+3. **后台Git发布边界失控**：`push-config/publish`曾`git add -A`，且commit成功/push失败后再次点击会误判“无变更”。现统一`pushScopedGitFile`：只commit白名单文件；若upstream ahead含其它路径则拒绝push；已提交但未推送的同一路径commit可安全重试。
+4. **Analytics刷新会把上游故障伪装成成功**：Gateway非2xx/非JSON/缺`batches[]`、并发刷新均改为fail-closed；用户强制刷新失败不再返回`_refreshed=true`；无有效meta时完整恢复30天而不是14天；raw/processed缓存独立恢复并使用原子rename写入。
+5. **Feedback/外部依赖拖累首页且失败冒充空数据**：Feedback改为按Tab懒加载并显示明确错误态；Overview/Sources/Diagnostics等读取统一检查HTTP状态；Admin初始化只加载本地必要摘要。
+6. **Broadcast状态机与急停存在旁路**：`auto_start=false`真正创建draft；start/pause/approve/reject/delete增加后端状态硬约束；queued/running不能直接删除。kill/global disabled在Discovery网络动作前阻断；executor每次retry前和等待中实时读取config/job/task/runtime generation，kill/pause/cancel能阻止下一次外部动作。
+7. **其它同类问题**：Legacy日期筛选统一UTC+8；health-check/任务创建/模板创建均single-flight；`saveAndPush`保存失败不继续push；模板批量操作逐项检查HTTP结果；多平台任务部分成功会明确列出已创建平台；Broadcast router/DB按需懒加载，普通Admin启动甚至不打开`broadcast.db`；密钥认证删除同步`prompt()`回退，只保留非阻塞自定义Modal。
+
+### 验证
+- `npm test` ✅：Analytics synthetic/identity-timezone/真实cache/server集成/Dashboard静态/runtime smoke/Chromium、Broadcast runtime/state/core/interruption、control-plane、fail-closed、cache-recovery全部PASS。
+- 真实Chromium：schema=`analytics-v2-admin-7`，30日活跃614、V2设备20、Session31、source_sample68；经营2图+V2 2图+Legacy 6图均非空，`pageErrors=0 / consoleErrors=0`；Feedback失败显示错误而不是空列表；普通启动/Analytics/reload不触发Broadcast。
+- Executor对抗：第一次外发失败后再开启kill switch或暂停父任务，第二次外部动作均为0；job分别回到queued/paused。
+- 控制面：loopback bind/no-store token/跨站写403/CLI兼容/第二实例拒绝启动均PASS；缓存损坏恢复与Git push失败安全重试均PASS。
+- 新增`CH-020`：运营后台控制面边界过宽与失败语义失真，状态solved ✅。
+- 本轮没有编辑`magnetgoogo-app/**`、`sources.json`、source health或source发布逻辑；未执行生产部署。
+---
+日期/时间：2026-08-18 20:25（UTC+8）
+本次版本：admin-analytics-v2-admin7-final-reconnect-verification-20260818
+本次范围：**devspace重连后完成Analytics admin-7与Broadcast安全默认OFF的最终封板；补齐临时DB测试隔离、重复打开后台零传播副作用、任务范围安全扫描。**
+
+### 最终封板
+- `npm run test:admin` 全绿：真实cache + server集成 + Dashboard静态 + runtime smoke + Chromium真实Canvas + Broadcast runtime生命周期全部PASS。
+- Chromium最终实测：schema=`analytics-v2-admin-7`；30日活跃=614、V2设备=20、V2已观测物理安装=7、Session=31、source_sample=68；经营2图/V2 2图/Legacy 6图均非空，`pageErrors=0 / consoleErrors=0`。
+- 普通打开Dashboard、进入Analytics、整页reload均为`0 /api/broadcast/*`请求；主动进入传播页并认证后仅GET读取，Broadcast runtime/Discovery/Auto-scan仍全部inactive。
+- Admin集成/runtime/Chromium测试全部使用临时`BROADCAST_DB_PATH`；不会修改真实`broadcast.db`，也禁用测试进程Analytics后台刷新。
+- `git diff --check`任务范围PASS；收紧边界后的高危凭证模式扫描`0命中`；`localhost:3800`无旧Admin监听进程。
+- 未修改App、sources.json、source health或source发布链；未执行生产部署。
+---
+日期/时间：2026-08-18 14:38（UTC+8）
+本次版本：admin-analytics-v2-browser-reliability-broadcast-safe-runtime-20260818
+本次范围：**对运营后台数据分析做真实浏览器级全面返工，修复空白图表/新Tab空白/生产0.2.6 schema错配，并消除“打开后台自动运行传播任务”的模块级副作用；不修改App与source。**
+涉及模块：admin-server/{analytics-v2.js,server.js,package.json,broadcast/index.js,scripts/test-analytics-v2.js,scripts/test-admin-analytics-integration.js,scripts/test-analytics-dashboard.js,scripts/test-admin-runtime-smoke.js,scripts/test-analytics-browser.py,scripts/test-broadcast-runtime.js}, admin_templates/{dashboard.html,vendor/*}, docs/project-nebula/{TECH-CHALLENGES.md,_progress.txt,DEV-LOG.md}
+
+### 关键Bug与根因
+1. **图表/Tab空白不是“无数据”**：真实Chromium抓到Chart.js隐藏Tab动画销毁竞态`Cannot read properties of null (reading 'save')`；另一次运行Alpine CDN未初始化，动态Tab整体不可用。此前HTTP200/静态DOM测试不足以证明页面可用。
+2. **管理端解析落后于0.2.6正式payload**：真实生产已经是`schema_v=2`，带`device_id/install_id/legacy_did/session_id/first_open/query_type/source_summary/source_sample/resources_tab_view/resource_feed_refresh_result`；旧管理端仍假设`source_rollup`，导致源质量等区域天然空白并误报未知事件。
+3. **安装口径曾错误**：真实8个`first_open`中，`installation_time`有的早于事件数天甚至约72天，证明老用户升级也会产生V2 first_open；first_open不能直接叫“新安装”。
+4. **传播引擎存在模块加载写副作用**：`broadcast/index.js`被server require时顶层直接`startExecutor(20)`、启动Discovery cron与5分钟Auto-scan；此前测试仅require server就曾实际恢复running job并调度cron。
+
+### 修复与口径
+- Analytics schema封板为`analytics-v2-admin-7`；服务端schema为单一权威并注入Dashboard，旧server/browser cache自动失效重建。
+- Chart/Alpine/Tailwind关键运行时全部本地化；Chart改为销毁→DOM稳定→双requestAnimationFrame→禁动画重建，主趋势/事件分布同时提供表格降级。
+- 经营总览严格使用最近30个UTC+8运营日；`legacy_did`衔接旧did避免升级设备重复；跨午夜search terminal归回submitted日；经营事件分布按event_id去重。
+- first_open改称“V2首次观测”；物理安装只按`installation_time`，且明确是“V2已观测安装”而非全量安装。当前真实cache：8 first_open / 8有效安装时间 / 最近30运营日7个V2已观测物理安装 / 今日3个。
+- 0.2.6真实数据可见：约17.7k raw batches中137个V2批次、20个V2设备、31个Session、48个search submitted、29个completed、68个source_sample源行；source_summary/source_sample/resources/query_type均已正常展示。
+- Broadcast runtime改为**默认OFF**：模块加载、启动admin-server、打开/刷新Dashboard或Analytics均不启动executor/cron/auto-scan；新增显式runtime start/stop/status。只有用户明确启动引擎、启动/批准任务或创建auto-start/queued工作才可启动；kill switch/global disabled会停止runtime。
+- Broadcast UI新增运行态、Executor/Discovery Cron/Auto-scan状态与“启动/停止传播引擎”按钮；普通页面不访问Broadcast API，主动打开传播页仅做GET读取也不会启动runtime。
+- 所有Admin/浏览器测试使用临时`BROADCAST_DB_PATH`，不会碰真实传播DB；测试进程禁用后台Analytics自动R2刷新，避免测试改真实运营cache。
+
+### 验证
+- `npm run test:admin` ✅：Analytics synthetic/身份时区对抗/真实cache/server集成/Dashboard静态/runtime smoke/真实Chromium/Broadcast runtime生命周期全部PASS。
+- Chromium真实页面：schema=`analytics-v2-admin-7`，30日活跃614、V2设备20、V2已观测30日物理安装7、Session31、源样本68；经营2图 + V2 2图 + Legacy 6图均有非空canvas像素，连续Tab切换/刷新后`pageErrors=0 / consoleErrors=0`。
+- Broadcast浏览器门禁：普通打开+整页reload=0个`/api/broadcast/*`请求；主动进入传播页认证后仅GET，runtime仍inactive；runtime unit test确认require=0 executor start/0 discovery/0 scan。
+- `git diff --check`任务范围通过；新增脚本尾随空格扫描0；未修改`magnetgoogo-app/**`、`sources.json`、source health或源发布链；未生产部署。
+- 封板时`localhost:3800`无旧Admin进程，因此无需终止用户进程；下一次`start-admin.bat`即使用安全默认OFF实现。
+
+### 后续观察
+- 当前真实0.2.6 search terminal配对率仍偏低，这是埋点/搜索生命周期的真实产品数据质量信号，应继续通过“3h沉淀完成率 + orphan”观察，不再由后台错误聚合掩盖。
+- V2 physical installation指标仅覆盖已经被0.2.6 first_open观测到的install_id；后台已显式标注，不能当作全量安装统计。
+---
+日期/时间：2026-08-18 10:51（UTC+8）
+本次版本：admin-analytics-v2-growth-ops-dashboard-20260818
+本次范围：**在不修改App、不修改source的边界下，将运营后台数据分析升级为0.2.6 Analytics V2增长决策体系，同时完整保留Legacy历史口径，并建立SEO后验与数据质量门。**
+涉及模块：admin-server/{analytics-v2.js,server.js,package.json,scripts/test-analytics-v2.js,scripts/test-admin-analytics-integration.js,scripts/test-analytics-dashboard.js,scripts/test-admin-runtime-smoke.js}, admin_templates/dashboard.html, docs/project-nebula/{TECH-CHALLENGES.md,_progress.txt,DEV-LOG.md}
+
+### 核心实现
+1. **严格分离0.2.6 Analytics V2与Legacy**
+   - 新增`admin-server/analytics-v2.js`；`app_v>=0.2.6`才进入V2，已知低版本进入Legacy，未知版本不冒充任一版本口径。
+   - 旧后台继续保留原Legacy视图；不再把legacy `search/src_ok/src_fail`与V2 `search_submitted/search_completed/source_rollup`直接混算。
+   - 统一API同时返回`executive / v2 / seoGrowth / dataQuality / legacy`，旧顶层字段仍对应Legacy以保证历史UI兼容。
+2. **运营后台五层分析架构**
+   - 数据分析Tab新增：`经营总览 / Analytics V2·0.2.6+ / SEO Growth / 数据质量 / Legacy≤0.2.5`。
+   - V2支持：活跃与首次出现设备、搜索激活、唯一search_id提交/终态、有结果/Zero Result/abort、P50/P95 TTFR与总耗时、Magnet Action、国家漏斗、首见设备质量、D1/D3/D7/D14/D30 Cohort、`source_rollup`源质量。
+   - “首次出现设备”明确标注不是安装量，而是当前滚动历史第一次看到匿名did。
+   - Sources诊断页检测到0.2.6 `source_rollup`后优先使用V2真实用户生产数据；无V2时安全回退Legacy sourcePerf。
+3. **SEO Growth防伪归因**
+   - SEO生产marker固定为`2026-08-17 22:07 UTC+8`。
+   - 活跃设备/首次出现设备/国家增量采用跨版本稳定语义；搜索完成率/有结果率/Zero Result/TTFR/Magnet Action仅使用0.2.6+。
+   - 若SEO上线前没有V2可比健康基线，后台显示“0.2.6+上线前健康基线不可比”，相关V2变化值为`—`，不制造0→增长的伪结论；前后窗口等长且最长7天。
+4. **数据质量门与缓存迁移**
+   - 检测submitted→completed覆盖率、orphan submitted/completed、重复终态、缺search_id、未知V2事件、V2重复event id、V2 batch >32KB及上传延迟。
+   - 历史raw cache重复event id继续保留诊断，但不会触发V2红色告警。
+   - 分析schema升级为`analytics-v2-admin-3`；server发现旧schema会从本地raw batches重建，浏览器localStorage旧schema自动失效。
+
+### 真实数据审计
+- 当前本地raw analytics cache：18,115 batches；版本分布最高为0.1.14/0.2.3/0.2.5，**当前0.2.6 batches=0**。
+- 历史raw事件含`search_submitted=6744 / search_completed=3478 / source_sync_result=7678`等，但这些来自旧版本，不被冒充为0.2.6 V2。
+- 当前新schema缓存：`total=18115 / legacy=18115 / v2=0 / V2 warnings=0`；历史raw duplicate event id=588，V2 duplicate=0。
+- 18,115真实批次完整聚合约440ms，满足本地运营后台实时重建需求。
+
+### 验证结果
+| 验收项 | 结果 |
+|---|---|
+| `node --check`：analytics-v2/server/4个测试脚本 | ✅ PASS |
+| `npm run test:analytics` | ✅ PASS：合成V2 + 18,115真实缓存 + server集成 + Dashboard静态 + runtime smoke |
+| 合成V2 | ✅ 版本分流、漏斗、source_rollup、重复/孤儿search_id、SEO等长窗口与基线状态均通过 |
+| 真实缓存集成 | ✅ 18,115批，Legacy=18,115，V2=0，聚合约440ms |
+| Dashboard静态审计 | ✅ 5个子Tab存在；Analytics区DOM平衡；inline JS可编译 |
+| 真实运行时烟测 | ✅ Dashboard HTTP200；`/api/events/analytics` HTTP200；schema=`analytics-v2-admin-3` |
+| 任务范围凭证模式扫描 | ✅ 0命中 |
+| App/source边界 | ✅ 本任务未修改`magnetgoogo-app/**`、`sources.json`、source health或source发布逻辑；未生产部署 |
+
+### 关键结论 / 后续
+- 新埋点管理端不是“多几个事件卡片”，而是必须与Legacy做语义隔离，否则经营和增长判断会失真；已登记`TECH-CHALLENGES.md#CH-018`。
+- 当前没有0.2.6真实生产批次，因此新版页面显示等待态是正确结果，不应拿旧版本已存在的新事件名提前填充V2。
+- 0.2.6真实批次进入后，第一轮生产数据审计重点为：版本覆盖率、search配对、payload大小、首搜有结果率/TTFR、Magnet Action、国家漏斗与D1/D3/D7。
+---
+
+日期/时间：2026-08-17 22:07（UTC+8）
+本次版本：seo-global-production-release-and-security-hardening-20260817
+本次范围：**对全球多语言SEO P0/P1做发布前二次终审，保护App配置/源镜像不回滚，正式发布magnetgoogo.com，并在上线后追加静态构建脚本暴露安全修复。**
+涉及模块：magnetgoogo-site/{sources.enc.json,sources-green.enc.json,data/status-public.json,_redirects,_headers,scripts/push-baidu.js,**}, scripts/probe-public-reachability.js, docs/project-nebula/{TECH-CHALLENGES.md,_progress.txt,DEV-LOG.md}
+
+### 发布前终审与防回滚
+- 发现 `magnetgoogo-site/sources.enc.json` / `sources-green.enc.json` 是旧镜像，若直接整站发布会真实覆盖当前Cloudflare Pages源包；因此未直接发布旧文件。
+- 生产端点核验：正式 `sources.enc.json` 哈希在 magnetgoogo.com / jsDelivr / API Gateway / Workers Dev 一致；`sources-green.enc.json` 线上与当前权威生产字节一致。
+- 先从当前 `magnetgoogo.com` 下载并验哈希，再把站点目录两个镜像同步为**当前线上完全相同字节**，只做镜像保护，不修改 `sources.json`、health状态、加密逻辑或源发布链。
+- `config.json` 本地站点 / mg-data / 线上三方字节完全一致；Cloudflare项目边界确认 `magnetgoogo-site` 仅绑定 magnetgoogo.com 与 pages.dev，naoshiquan.com 属于独立 `naoshiquan-site`。
+- 发布前刷新只读Status快照至 `2026-08-17T13:57:38.629Z`：20 brands / 30 observations / 17 reachable / 2 degraded / 1 unreachable；只表示公开入口HTTP可达性。
+
+### 生产发布
+- 初次生产部署：`0670c3f5-b5a7-4bfb-8a52-9562bcceb03f`。
+- 上线后安全复核发现 `magnetgoogo-site/scripts/` 构建工具会被Direct Upload当静态资产公开，且历史 `push-baidu.js` 曾内嵌百度站长主动推送凭证。
+- `push-baidu.js` 已改为只读 `BAIDU_PUSH_TOKEN` 环境变量；`.assetsignore` preview实证对Pages Direct Upload无效，因此不依赖该机制。
+- `_redirects` 新增 `/scripts/* / 301`；preview `bdf168d6...` 实测三个构建脚本URL均301到首页，同时legacy SEO 301保持正确。
+- 安全修复后最终生产部署：`eba245a2-6132-4606-bc67-5e254c1dc2a2`；原发布前回滚参考点 `d40a482e-f35d-408a-a102-70e919161e8f`。
+- 214个sitemap URL已提交IndexNow，API返回HTTP 200。
+
+### 线上验收
+| 验收项 | 结果 |
+|---|---|
+| 根页 / Status / EN Status / Reports / Methodology / Magnet Parser / BTSOW Entity | ✅ 全部HTTP 200 |
+| sitemap | ✅ 214 loc / 214 unique，包含Status/Reports/Entity |
+| legacy `/alt/btsow-alternative.html` | ✅ 301 → `/sites/btsow/` |
+| `/scripts/push-baidu.js` 当前生产 | ✅ 301 → `/`，正文不再公开 |
+| Status JSON | ✅ 新快照；`Cache-Control: no-store, no-cache, must-revalidate, max-age=0` |
+| config.json | ✅ 发布前后SHA256完全一致 |
+| sources.enc.json | ✅ 发布前后SHA256完全一致 |
+| sources-green.enc.json | ✅ 发布前后SHA256完全一致 |
+| naoshiquan.com | ✅ 独立项目，发布后HTTP 200 |
+| SEO audit | ✅ 987 HTML / 214 indexable / 773 noindex / 214 canonical / 0 error |
+| 本次SEO scoped `git diff --check` | ✅ PASS；全仓旧尾随空格仅存在于无关既有改动 |
+| 静态站高危凭证模式扫描 | ✅ 当前工作副本0命中 |
+
+### 风险与后续
+- 新增 CH-017：Pages整站Direct Upload不能把工作目录默认视为纯公开目录；构建/管理工具必须从公开面隔离。
+- 历史Pages deployment URL可能仍保存旧百度站长凭证，因此必须在百度站长平台轮换该凭证；轮换完成前不执行百度主动推送。
+- Status前端已有6小时stale保护，超过窗口会明确标记为历史观测；后续建立定期只读刷新与安全发布节奏。
+- 本轮未写 `sources.json`、未修改source health/发布逻辑、未修改 `magnetgoogo-app/**`。
+---
+
+日期/时间：2026-08-16 23:07（UTC+8）
+本次版本：seo-global-p0-p1-status-report-complete-20260816
+本次范围：**在不修改App、不修改source的硬约束下，完成全球多语言SEO P0/P1仓库实施：索引集合收敛、11语言数据资产、只读状态快照、首批实体、原创报告、方法学与legacy迁移。**
+涉及模块：scripts/{probe-public-reachability.js,generate-i18n-pages.js,generate-seo-pages.js,generate-guide-pages.js,generate-i18n-guide-pages.js}, magnetgoogo-site/{index.html,sitemap.xml,_redirects,data/status-public.json,status/**,sites/**,reports/**,methodology/**,incidents/**,tools/**,*/{index.html,status/**,reports/**,methodology/**,tools/**},scripts/{seo-common.js,seo-audit.js,generate-sitemap-clean.js,generate-sitemap-baidu.js,add-noindex.js,generate-seo-pages.js,generate-tool-pages.js}}, docs/project-nebula/{SEO-GROWTH-BREAKTHROUGH-STRATEGY-20260816.md,TECH-CHALLENGES.md,_progress.txt,DEV-LOG.md}
+
+### 关键改动
+1. **索引面完成单一可信集合**
+   - 从实施前 285 indexable、355 sitemap loc / 195 unique / 160 duplicate，最终收敛为 987 HTML 中 214 indexable / 773 noindex，sitemap 恰为 214 个唯一 canonical；indexable↔sitemap 0 missing / 0 extra。
+   - `seo-audit.js` 升级为同时检查 Homepage / Status / Reports / Methodology / Tools / Magnet Parser 六组 × 11 locale 的 self-canonical、reciprocal hreflang、x-default，并阻断任何 indexable canonical 缺 sitemap。
+   - 旧SEO/Guide/i18n生成器停止直接追加/覆盖主sitemap；`generate-sitemap-clean.js` 成为主sitemap唯一权威生成路径。
+2. **全球11语言第一手数据资产落地**
+   - zh-CN/en/ja/ko/ru/es/pt/de/fr/ar/hi 均具备 Homepage + Status + Reports + Methodology + Tools + Magnet Parser；首页已将 Status/Reports/Tools 提升为一级入口，中文另含 Sites/Guides。
+   - 22个Tools页面提供浏览器本地 Magnet URI解析、BTIH提取和Hex/Base32互转；不上传用户输入，roundtrip/parser测试PASS。
+   - 新增只读 `scripts/probe-public-reachability.js`：读取根 `sources.json` 但从不写回，只探测公开入口并通过allowlist投影脱敏聚合字段；self-test覆盖allowlist/aggregate/redaction。
+3. **Status / Entity / Report / Incident证据体系完成**
+   - 最新公开快照 `2026-08-16T14:50:01.178Z`：20 brands / 30 observations / 16 reachable / 1 degraded / 3 unreachable，freshness=6h；状态含义仅为公开入口HTTP可达性，不宣称完整搜索功能；`/data/status-public.json` 已配置 `no-store/no-cache`，避免CDN缓存突破新鲜度语义。
+   - 首批20个 `/sites/{brand}/` 仅基于本轮新鲜证据建立；静态正文固定为基线观测，动态面板读取最新脱敏快照，避免“latest”静态文本随后过期。
+   - 13个已有新实体的旧alt品牌族配置永久301，并同步把对应legacy alternative页设为noindex；未具备新鲜实体证据的旧品牌不强制迁移。
+   - 11语言首份原创公开可达性报告与11语言方法学完成；`/incidents/` 已预留但保持 `noindex,follow` 且不进sitemap，至少2次独立探测+跨入口/镜像佐证+持续窗口+规则/人工确认后才发布事故。
+
+### 验证结果
+| # | 验收项 | 结果 |
+|---|---|---|
+| 1.1 | JS syntax（SEO/locale/status/entity/probe生成与校验脚本） | ✅ 全部 PASS |
+| 1.2 | `probe-public-reachability.js --self-test` | ✅ PASS；source只读、public allowlist与redaction门禁有效 |
+| 1.3 | `seo-audit.js` 最终门禁 | ✅ 987 HTML / 214 indexable / 773 noindex / 214 unique canonical / 0 error |
+| 1.4 | sitemap集合一致性 | ✅ 214 loc / 214 unique；indexable↔sitemap 0 missing / 0 extra |
+| 1.5 | legacy迁移 | ✅ 13组301，所有目标实体存在；对应旧alternative页noindex |
+| 1.6 | public status脱敏 | ✅ 0 URL/origin/selector/handler/search_path/sample/weight敏感字段命中 |
+| 1.7 | Incident安全门 | ✅ index noindex；0 incident URL进入sitemap；单点失败未生成事件 |
+| 1.8 | 11 locale首页一级入口 | ✅ Status/Reports/Tools无缺失；20实体无陈旧“latest”静态措辞 |
+| 1.9 | App/source边界 | ✅ 本任务未对 `magnetgoogo-app/**`、任何 `sources.json`、源健康状态或发布链路执行写操作；未部署生产 |
+
+### 关键发现 / 教训
+- 权威 `sources.json` 的历史health时间戳不足以直接称为“实时状态”；必须另做只读新鲜探测，并把“入口可达”与“搜索功能正常”分层表达。
+- 完整 `health_check.py` 在本轮只读尝试中受连接/耗时限制未形成可用整体验收，因此不能拿其缺失结果做SEO事实；专用轻量reachability探测更适合作为Status第一层证据。
+- 301迁移必须与noindex/sitemap三者同时收敛，否则会出现“页面仍声明可索引但边缘永久跳转”的矛盾信号；最终validator已把这一点固化。
+- 关联难点：`TECH-CHALLENGES.md#challenge-016--seo索引资产同质化与sitemap信号污染`；仓库P0/P1已完成，剩余风险转为生产部署后28天索引/流量证据验证。
+---
+
+日期/时间：2026-08-16 21:32（UTC+8）
+本次版本：seo-growth-p0-multilingual-tools-mvp-20260816
+本次范围：**正式启动全球多语言SEO实施：完成P0索引面收敛、统一sitemap权威链路并交付首个11-locale可引用Tools资产；App与source保持冻结。**
+涉及模块：magnetgoogo-site/{index.html,sitemap.xml,sitemap_index.xml,*/index.html,tools/**,scripts/{seo-common.js,seo-audit.js,generate-sitemap-clean.js,generate-sitemap-baidu.js,add-noindex.js,generate-seo-pages.js,generate-tool-pages.js}}, scripts/{generate-i18n-pages.js,generate-seo-pages.js,generate-guide-pages.js,generate-i18n-guide-pages.js}, docs/project-nebula/{TECH-CHALLENGES.md,_progress.txt,DEV-LOG.md}
+
+### 关键改动
+1. **P0 canonical/indexability/sitemap门禁落地**
+   - 新增 `seo-common.js` / `seo-audit.js`；首次基线发现183项错误，主要为hreflang缺口、Hindi主页缺失和sitemap重复。
+   - 主sitemap从355 loc / 195 unique / 160 duplicate收敛为173个唯一canonical URL；页面lastmod仅在HTML存在明确修改日期时输出，不再统一伪造构建日。
+   - `add-noindex.js`改为质量门策略：98个中文`-down/-latest`薄查询变体与漏网外语薄页降为noindex，同时明确保护所有locale主页与`seo-quality=approved`页面。
+2. **全球11-locale基础设施补齐**
+   - 新增 `hi/index.html`；zh-CN/en/ja/ko/ru/es/pt/de/fr/ar/hi主页全部具备自canonical、完整互惠hreflang和x-default。
+   - 中文首页语言选择改为真实独立locale URL；locale生成器补齐Hindi、读取0.2.6版本配置，并停止直接改sitemap。
+3. **首个多语言可引用Tools资产**
+   - 新增11语言 `/tools/` 与 `/tools/magnet-link-parser/` 共22页；使用显式`seo-quality=approved`进入索引。
+   - 浏览器本地解析Magnet URI，提取BTIH Info Hash/dn/xl/trackers，并支持40位Hex与32位Base32转换；不上传用户输入。
+   - 中文首页增加Tools/Guides主导航，全部locale首页增加本语言Tools入口。
+4. **消除sitemap多写者回归风险**
+   - 旧SEO/Guide/i18n生成器全部停止追加或覆盖主`sitemap.xml`；唯一写入权收敛到`generate-sitemap-clean.js`。
+   - 百度专项生成器不再覆盖`sitemap_index.xml`，改用`sitemap_baidu_index.xml`，并移除薄变体分片的新生成入口。
+5. **P1只读Status projector已起步**
+   - 新增`build-public-status.js`：source仅作为只读输入，公开模型只允许brand/slug/status/last_verified_at/evidence_grade/observation count，禁止输出origin/search path/selectors/handler/sample等内部细节。
+   - 6小时freshness硬门下，当前116条内部记录得到0条新鲜观测；dry-run不写文件，`--write`在0 fresh时会拒绝覆盖已有公开输出，因此当前没有生成虚假“实时Status”。
+
+### 验证结果
+| # | 验收项 | 结果 |
+|---|---|---|
+| 1.1 | `node magnetgoogo-site/scripts/seo-audit.js` | ✅ 932 HTML / 173 indexable / 759 noindex / 173 unique canonical / 0 error |
+| 1.2 | `node magnetgoogo-site/scripts/generate-sitemap-clean.js` | ✅ 173 unique canonical URL，重复0 |
+| 1.3 | Magnet tool Hex↔Base32 roundtrip + URI parser | ✅ PASS，dn/xl/tr解析正确 |
+| 1.4 | 相关JS `node --check` | ✅ i18n/SEO/guide/tool/sitemap脚本全部通过 |
+| 1.5 | sitemap写入点扫描 | ✅ 主sitemap仅canonical generator写入；百度使用独立index |
+| 1.6 | App/source冻结 | ✅ 本轮未对`magnetgoogo-app/**`、任何`sources.json`、source健康状态或source发布链路执行写入/编辑；未生产部署 |
+| 1.7 | Status projector synthetic redaction/freshness test | ✅ fresh mixed状态聚合正确，内部URL/search path不出现在公开模型；真实snapshot dry-run=0 fresh/116 records，未写公开文件 |
+
+### 关键发现 / 教训
+- “把URL从sitemap删掉”不足以解决索引污染；必须同时收紧页面robots和生成器写入权，否则历史内链/旧脚本会把薄页重新带回索引面。
+- 多语言可以规模化，但需要显式质量门。功能型Tools属于可复用能力+本地化任务表达，适合11 locale同步；普通翻译内容继续noindex直到有真实本地信息增益。
+- 当前source文件内健康时间戳存在明显陈旧样本，因此P1 Status不能直接把source静态字段冒充实时状态；下一步必须做只读、脱敏、带新鲜度阈值的public SEO projector。
+- 关联难点：`TECH-CHALLENGES.md#challenge-016--seo索引资产同质化与sitemap信号污染`。
+---
+
+---
+日期/时间：2026-08-16 21:18（UTC+8）
+本次版本：seo-growth-breakthrough-strategy-20260816
+本次范围：**重新审视现有增长/SEO体系，将突破方向从批量关键词页面收敛为第一手实时数据权威，并按用户新增原则固化“全球多语言P0 + 暂时不动App”的90天执行边界。**
+涉及模块：docs/project-nebula/{SEO-GROWTH-BREAKTHROUGH-STRATEGY-20260816.md,TECH-CHALLENGES.md,_progress.txt,DEV-LOG.md}, magnetgoogo-site/{scripts/generate-seo-pages.js,scripts/generate-sitemap-clean.js,scripts/add-noindex.js,sitemap.xml,index.html}, scripts/crisis_hijack.py, content-engine/**, admin-server/cache/analytics.json
+
+### 关键改动
+1. **新增并再次提升SEO/增长二次终审战略**（`docs/project-nebula/SEO-GROWTH-BREAKTHROUGH-STRATEGY-20260816.md`，1614行）
+   - 战略核心由“继续扩大Programmatic SEO薄页”转为“真实监测数据→Status/Brand Entity/Incident/Report/Tools→搜索/AI/媒体引用→App获客”。
+   - 二审补充机器可读Status数据产品、Incident多证据发布阈值、SEO页面信息增益闸门、产品漏斗健康阀、28天扩量Gate和90天执行路线。
+   - 用户新增硬约束已写入：全球多语言从Day 1作为P0，现有11个locale（zh-CN/en/ja/ko/ru/es/pt/de/fr/ar/hi）统一进入SEO架构；90天增长改造暂不动App，不新增App埋点/Deep Link/安装归因/UI/搜索逻辑或发布依赖。
+   - 国际章节升级为Multilingual-by-design：全部locale统一URL/hreflang/x-default/语言切换；采用“事实层共享+表达层独立”；按投入密度而非语言是否存在进行分层；补充多语言任务簇、RTL、locale级Programmatic SEO质量门、各语言分发地图、Google/Bing/Yandex/Naver/百度/AI Search和language×country×asset-type KPI。
+2. **登记新的长期增长技术难点CH-016**（`docs/project-nebula/TECH-CHALLENGES.md`）
+   - 本地盘点确认站点911 HTML、721 alt、626 noindex、285 indexable；当前sitemap 355 loc仅195 unique，重复160条。
+   - 将SEO索引资产同质化与sitemap信号污染定为high，下一步先做P0索引面重构而非扩页。
+3. **刷新长期进度**（`docs/project-nebula/_progress.txt`，27行）
+   - 记录战略冻结、国际P0、App freeze、下一实施Gate、CH-014/015既有产品阻碍和Analytics V2数据边界。
+
+### 验证结果
+| # | 验收项 | 结果 |
+|---|---|---|
+| 1.1 | Google 2026官方AI Search/Spam规则复核 | ✅ unique/non-commodity/first-hand方向成立，query fan-out批量造页/doorway/expired-domain作弊不作为策略 |
+| 1.2 | SEO战略文档存在且完整 | ✅ 1614行，包含诊断、全球11-locale多语言架构、App freeze、信息架构、Status、Incident、Report、Tools、归因、KPI、90天路线与停止项 |
+| 1.3 | `_progress.txt` 行数门禁 | ✅ 27行 ≤ 30行 |
+| 1.4 | 国际SEO官方规则复核 | ✅ Google当前仍建议独立语言URL + hreflang/显式语言切换，不使用IP自动跳转；多语言扩张采用真实本地化而非模板翻译矩阵 |
+| 1.5 | App冻结边界 | ✅ 本次新增/编辑仅为项目战略与追踪文档；SEO执行计划不要求任何App改动 |
+| 1.6 | sitemap静态盘点 | ✅ 355 loc / 195 unique / 160 duplicate，作为CH-016实施基线 |
+
+### 关键发现 / 教训
+- 现阶段最大的SEO杠杆不是更多关键词页，而是把项目已经付出最高工程成本的源发现、健康验证、域名变化、性能与历史序列安全投影为不可复制的第一手公开数据。
+- 获客并非唯一瓶颈；SEO扩量必须同时观察现有first-search/first-result/D1/D7趋势，但冻结期内不能为了改善归因去修改App。
+- 国际化不能等同于翻译。真正应复制的是Status/Report/Tool的数据模型和验证机制，再按locale重写意图与语境；现有11个locale全部从P0进入架构，市场证据只决定投入密度与页面深度，不再决定某语言是否启动。
+- 关联难点：`TECH-CHALLENGES.md#challenge-016--seo索引资产同质化与sitemap信号污染`。
+---
+
+---
+Date/Time: 2026-08-14 22:20 (UTC+8)
+Version: resource-autorefresh-second-audit-analytics-v2-integration-and-sixv-degraded-diagnosis
+Scope: Re-audit Resource auto-revalidation adversarially, merge the hardened fix into the real Analytics V2 candidate, and independently diagnose why current 6vhao updates are absent from production media.
+Modules: magnetgoogo-app/{app/(tabs)/resources.tsx,src/core/resourceFeed.ts,src/core/resourceAutoSync.ts,scripts/*}, D:\lpproduct\m023 Analytics V2 candidate, Aliyun media daily runtime, docs/project-nebula/{TECH-CHALLENGES.md,_progress.txt,DEV-LOG.md}
+
+### Resource auto-refresh second audit
+- Found a real secondary state-machine defect: a failed manual force refresh can fall back to an older memory object whose historical `origin` is still `network`; the screen then falsely treated the current attempt as successful and started the 60-second auto-sync cooldown.
+- Added explicit per-call `ResourceFeedLoadResult.refreshSucceeded`; it is true only when the current live `syncResourceFeed` completed and false for every cache/bundle fallback. Resource UI no longer infers current request success from content origin. Hardened fix commit `1992b30` is pushed on `fix/resource-auto-refresh-v025-20260814`.
+- Found a second production-realistic identity bug: revision13 and revision14 both use `published_at=2026-08-13T00:00:00Z`, and their manifests can share the same `generated_at`. Therefore `timestamp + item count` is not a valid release identity; a same-count new revision could be downloaded and then discarded by the UI. Auto-sync now compares immutable item `remote_release_id`; fix `18806c9` is pushed.
+- Ported the complete focus/foreground revalidation + both hardening fixes into the actual 0.2.6 Analytics V2 candidate `D:\lpproduct\m023`, removing the old `backgroundSyncStarted` one-shot logic there.
+- Verification: clean fix branch auto-sync 8/8 + TypeScript PASS + adversarial 36/36; current dirty root auto-sync 8/8 + TypeScript PASS + adversarial 53/53; Analytics V2 candidate analytics PASS + auto-sync 8/8 + TypeScript PASS + adversarial 54/54.
+
+### 0.2.6 Analytics V2 finding
+- Dedicated candidate exists on `feature/analytics-v2-device-id-k30s`: hashed app-scoped device ID, install ID/legacy migration, deterministic first-open, debounced/byte-bounded queueing, event/batch idempotency, compact sampled search-source summaries, Debug exclusion, R2 cursor completeness and Asia/Shanghai operations aggregation.
+- R2 `events/` 30-day lifecycle is already production-enabled; App/Gateway/Admin candidate code is still not production-deployed. K30S is online now, so the old ADB-offline blocker is gone.
+- The broader operating-funnel review remains only partially implemented: explicit session-duration/session-start semantics, unified search-terminal, full update funnel, `resources_tab_view`, `media_load_result` and `resource_feed_refresh_result` still need implementation/decision before claiming the whole V2 operations model is complete.
+
+### Sixv production diagnosis
+- Aug14 daily service itself succeeded and published revision14 / `20260813T000000Z-c1a40f98` (282 movies, 309 series, 4383 magnets), so this is not a dead scheduler or failed whole pipeline.
+- The sixv movie sub-job actually failed with `LIVE_EMPTY_RESULT: 6V latest-movie listing returned no candidates`, then used `last_known_good_database` at `stale_hours=23.98`; overall success masked the source-level freshness failure and therefore did not trigger daily retry/alerting.
+- At ~22:10, a read-only one-page probe using the exact production image/parser succeeded with one HTTP request and parsed 20 items, including Aug14/Aug13 entries such as `街角少年`, `寻爱四次方`, `尸水4` and `南方编年史`. The published revision14 aggregate lacks those items, proving the stale Resource result is upstream publication content, not the client refresh fix.
+- Exact historical response cause cannot be proven because the fallback path did not preserve HTTP/body fingerprint/selector-hit evidence. CH-015 records the required degraded-state retry, freshness alert and failure-evidence hardening. No production media data was mutated during this audit.
+---
+
+---
+Date/Time: 2026-08-14 (UTC+8)
+Version: app-resource-focus-auto-revalidation
+Scope: Fix v0.2.5 Resource tab stale-cache behavior that required users to discover pull-to-refresh before newly published media became visible.
+Modules: magnetgoogo-app/app/(tabs)/resources.tsx, src/core/resourceAutoSync.ts, scripts/resource-auto-sync-tests.mjs, app adversarial tests, current dirty release workspace
+
+### Root cause / fix
+- `backgroundSyncStarted` permanently marked a media kind before the network result. A transient first failure therefore disabled later automatic retries for the lifetime of the mounted Resource tab; a success also allowed only one automatic check per mount.
+- Expo Router tabs remain mounted, so revisiting Resource hours/days later could keep serving memory/disk feed indefinitely while manual pull-to-refresh was the only reliable network path.
+- Replaced the one-shot marker with stale-while-revalidate behavior: cached content renders immediately, every Resource focus and foreground return revalidates in background, and failure keeps old content visible.
+- Added `ResourceAutoSyncGate`: per-kind single-flight, 60s cooldown only after success, immediate retry after failure, clock rollback safety, and shared cooldown after manual refresh success.
+
+### Verification
+- Isolated fix branch behavior tests 6/6, TypeScript PASS, clean-prebuild App adversarial 36/36; resource-feed M1-M7 PASS and release-build contract PASS.
+- The same runtime fix was then applied to the actual dirty release workspace without overwriting unrelated changes: behavior tests 6/6, TypeScript PASS, current App adversarial suite 53/53 PASS.
+- Exact fix commit `66376ba` was built from short path `D:\lpproduct\ar`: full arm64 Android Debug/Hermes/Kotlin/Java/C++ `BUILD SUCCESSFUL`. Production-signed K30S app was never uninstalled or overwritten; side-by-side test APK reached the MIUI install confirmation and was canceled on-device.
+- Clean media-network/security suites require a historical untracked release fixture and could not enter assertions. `validate_enum.py` currently fails a pre-existing `meta.total_rules` mismatch in both clean/current trees; no sources data was changed here.
+- Durable branch: `fix/resource-auto-refresh-v025-20260814`, code `66376ba`, docs tip `475e618`.
+---
+
+---
+Date/Time: 2026-08-11 15:02 (UTC+8)
+Version: production-media-source-r2-operations-audit
+Scope: Re-audit Aliyun media crawling/publishing, encrypted search-source runtime health, and recent R2 analytics from an operations perspective
+Modules: Aliyun systemd/media state, mg-data source authority, public source endpoints, R2-backed analytics cache/API, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Media production
+- `magnet-media-daily.timer` is active and triggered on Aug11, but both the scheduled publish and its automatic retry ended with exit 1. The weekly audit also fails for the same reason.
+- Crawling/aggregation is still healthy and fresh: the latest run produced 274 movies, 299 series and 4238 magnet resources; cover audits and rating stages passed. The failure happens after content generation.
+- The blocker is a stale unpromoted revision-11 staging pointer created on Aug5. The pipeline calculates the next pointer as public revision 10 + 1, then correctly rejects assigning revision 11 to a different new release.
+- R2 and Aliyun public control planes are still consistent at revision 10 / `20260805T000000Z-8013b446`, so production is available but has not received fresh media updates since Aug5.
+
+### Source runtime
+- The source-envelope bot refreshed again in mg-data commit `9992a83` on Aug9. Current authority is SHA `427d490a56eb...`, 357 rules / 148 GREEN, valid until Aug12 09:04Z.
+- Endpoint verifier passed required 3/3 and optional 2/3; Raw, magnetgoogo.com, api.naoshiquan.com, jsDelivr and workers.dev all return exact authority bytes. The prior source-authority repair is holding for the five-endpoint main path.
+- Direct inspection on the Aliyun host found `cn.magnetgoogo.com` still serving the Aug7 `c7b2644f...` full pack and `63fa91a1...` curated pack, both static files unchanged since Aug7; the full envelope expired Aug10. This optional backup still needs automated propagation after renewal.
+- v0.2.5 R2 telemetry shows source sync 99.67% success with a 1.74s median. However 16 of 52 materially observed pools produced zero relevant hits in the Aug8+ window, indicating runtime source-quality debt without implying main-path transport failure.
+
+### R2 operations review
+- Analytics cache refreshed at 14:51 CST and contains 42,161 batches (~135MB). Full-day raw API calls for Aug8-10 still stop exactly at 898 batches while the accumulated cache holds 1600-1770/day; the API still exposes no completeness flag.
+- Absolute DAU/search totals therefore remain directional rather than audit-grade. Deduped cached full-day DAU is roughly 118-160 anonymous install IDs/day for Aug5-10, and v0.2.5 is the dominant current version.
+- v0.2.5 Aug8+ funnel: 1917 submitted searches, 937 completions (48.9%), 8.2% zero-result among completions, median TTFR ~499ms, median 44 results; 50.1% of submitted searches had an open/copy action, 31.7% an open and 20.9% a copy.
+- Product weakness is long-tail completion rather than first-result usefulness: full-search p50 57.8s / p95 348.8s, with Aug10 p95 near 997s. Debug/test traffic remains unlabelled and event-ID duplicates remain a data-quality concern.
+
+### Boundary
+- No production media pointer, source health status, Worker, App, or analytics data was mutated. Local mg-data was only fast-forwarded to the already-published authority commit for verification.
+---
+
+---
+Date/Time: 2026-08-07 22:31 (UTC+8)
+Version: source-renewal-authority-production-recovery
+Scope: Recover the expired source distribution in production, eliminate static-site rollback of renewed envelopes, and close the K30S production acceptance gate
+Modules: source-authority-worker/**, cf-gateway/src/index.js, magnetgoogo-app/src/core/secureSourceStore.ts, contract tests, Aliyun source files, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Durable production repair
+- Confirmed the renewal bot itself never stopped: encrypted-envelope commits continued on 2026-07-28, 07-30, 08-02, 08-04 and 08-07. The failure was the split authority between auto-renewed `mg-data` and stale static site copies.
+- Deployed isolated Worker `maggoogo-source-authority` only on `magnetgoogo.com/sources.enc.json*` and `sources-green.enc.json*`. It directly fetches GitHub Raw authority with `no-store/no-cache`, so future whole-site Pages deployments cannot roll the public source endpoint back to an old envelope.
+- Did not redeploy the existing dirty Gateway. Because its current source path fetches `magnetgoogo.com` first, the new route automatically makes both `api.naoshiquan.com` and the workers.dev endpoint serve the renewed authority bytes.
+- Synchronized both encrypted packs to Aliyun by server IP and verified SHA-256; purged both jsDelivr aliases so the CDN converged to the current authority.
+
+### Production verification
+- Latest authority full pack: `c7b2644faf97cc9c8ef51ad56b0587078237818336c6d8c9832a32a8615f1213`, 357 rules / 148 GREEN, expires `2026-08-10T03:17:30.856538Z`.
+- Public source verifier moved from required 0/3 during the incident to required 3/3 PASS. GitHub Raw, magnetgoogo.com, api.naoshiquan.com, jsDelivr and workers.dev all returned the exact authority SHA; cn.magnetgoogo.com remained unresolved only from this PC environment, while the Aliyun server-side files matched exactly.
+- `magnetgoogo.com/sources.enc.json` now returns `X-Source-Authority: github-raw` and `Cache-Control: no-store, no-cache, must-revalidate`.
+
+### K30S acceptance and code persistence
+- K30S `a1ea223a` returned online. Formal production v0.2.5/code9 cold-started in 302ms; Settings showed a successful source sync at 22:26 and a manual refresh advanced the timestamp to 22:29 with no sync error.
+- A cold `Inception` production search returned real matching results; post-test Fatal/ANR grep was empty.
+- Isolated repair code and regression contracts were pushed on `fix/source-renewal-authority-20260807` through `bd188ad`; the follow-up also routes `sources-green.enc.json` through the same future Gateway authority path. Existing unrelated dirty-root changes were not deployed.
+---
+
+---
+Date/Time: 2026-08-07 21:58 (UTC+8)
+Version: app-source-sync-root-cause-closure-and-k30s-gate
+Scope: Independently prove the public v0.2.5 failure mechanism, rule out alternate causes, prepare a minimal production source-pack recovery, and execute the required K30S pre-deploy gate
+Modules: public v0.2.5 APK, mg-data/sources*.enc.json, magnetgoogo-site/sources*.enc.json, isolated worktree {magnetgoogo-app/src/core/secureSourceStore.ts,cf-gateway/src/index.js,contract tests}, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Causality closure
+- Re-downloaded the exact public v0.2.5 APK from R2 and verified `38,510,706` bytes / SHA-256 `642447c18e12f81b167f5a9b711726a6ced28079d7f078678151d05bdea9da70`. Its Hermes bundle contains the production hard-expiry code strings `expired at`, `disk source cache`, `debug source pack`, and `remote source pack from`, proving expiry rejection is present in the shipped artifact rather than inferred from dirty source.
+- Decrypted the APK-native bootstrap pack: signature valid, 357 rules / 147 GREEN, issued `2026-08-05T00:24:37.475Z`, expires `2026-08-08T00:24:37.475Z`. The App also applies a separate seven-day first-use bootstrap lifetime, so long-lived installations can lose this safety net while remote delivery is stale.
+- Config/version gate is not involved: Pages, Raw and both Gateways report `latest_version=0.2.5` and `min_version=0.1.10`; public v0.2.5/code9 is above the minimum.
+- Representative live direct probes disproved simultaneous source death: Knaben and knaben.org returned 48/41 magnets for Inception/Spider-Man, TPB mirrors returned 30/30, and BTSOW returned live HTTP/magnet evidence. Some GREEN parser drift remains separate quality debt but cannot produce source-sync failure.
+- Concurrent endpoint timing reproduced the production hazard: stale jsDelivr can respond before fresh Raw; Pages/both Gateways are also stale. A fresh Raw request additionally showed transient TLS failure during the formal verifier, reproducing the exact condition where all valid fallbacks disappear on a mainland-like path.
+- Formal latest-pack verifier at `2026-08-07T13:56:21Z` returned `required_ok=false`, `required_matched=0/3`, `optional_matched=0/3`; Pages/Gateways were expired, jsDelivr expired, Raw hit TLS EOF, and cn endpoint was unresolved. This fully explains the user-visible zero-source sync failure without requiring any second application defect.
+
+### Prepared fix and gates
+- Prepared the production website source files only: `magnetgoogo-site/sources.enc.json = c7b2644f...` and `sources-green.enc.json = 63fa91a1...`, byte-identical to fresh mg-data; no deployment was executed.
+- In an isolated clean worktree, added per-candidate decrypt/freshness validation before `Promise.any` resolution and changed Gateway source authority to GitHub Raw first / Pages fallback. Source-sync contract PASS; Gateway authority contract and `node --check` PASS.
+- Root dependency-complete checkout `npx tsc --noEmit` PASS. A clean-worktree TSC attempt failed only because that isolated worktree has no node_modules / `expo/tsconfig.base`; this environment failure is recorded under `_failures/20260807-2145-clean-worktree-tsc-env.log` and is not counted as a code regression.
+
+### K30S hard stop
+- Windows currently enumerates the exact Redmi K30S Ultra USB device and `ADB Interface` with serial `A1EA223A`, but every tested adb 1.0.41/1.0.40 server enumerates zero devices.
+- Restarted adb servers and removed PC Suite process contention; the ADB handshake still did not appear. Windows PnP restart of the ADB interface requires administrator privilege and returned access denied.
+- Because the user explicitly required K30S PASS before production push, no Pages/Gateway/Aliyun deployment was performed. Production recovery remains staged, not claimed.
+---
+
+---
+Date/Time: 2026-08-07 21:35 (UTC+8)
+Version: app-source-sync-expiry-race-and-gateway-authority-fix
+Scope: Diagnose the APP source-sync outage reporting all source endpoints unavailable, reproduce the live delivery split, harden the App endpoint race, and correct Gateway source authority ordering
+Modules: magnetgoogo-app/{src/core/secureSourceStore.ts,scripts/app-adversarial-tests.mjs}, cf-gateway/{src/index.js,package.json,scripts/source-upstream-contract-tests.mjs}, mg-data/sources*.enc.json, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Root cause
+- The source inventory itself is healthy: the latest mg-data envelope contains 357 rules / 148 GREEN and was auto-refreshed in commit `d542743`, issued `2026-08-07T03:17:30Z` and valid until `2026-08-10T03:17:30Z`.
+- Live distribution is split. GitHub Raw serves the fresh `c7b2644f...` pack, while Cloudflare Pages plus `api.naoshiquan.com` and the workers.dev Gateway still serve `e90ecc...`, expired on 2026-07-31. jsDelivr still serves `d176ede0...`, expired earlier on 2026-08-07.
+- `cf-gateway.fetchUpstream()` claimed GitHub primary in comments but actually fetched Cloudflare Pages first, so the Gateway propagated the stale Pages envelope even though GitHub Raw was fresh.
+- App `raceFetchOk()` previously resolved on the first HTTP-OK response and only decrypted/validated freshness after `Promise.any` had already chosen a winner. A fast stale endpoint could therefore poison Tier 1 despite a slightly slower fresh endpoint being available.
+- Existing App P1B coverage only asserted that expired packs are rejected; it did not test the stale-fast/fresh-slow mixed race. The mg-data renewal workflow also validates local envelopes but does not enforce six-endpoint convergence.
+
+### Fix
+- `secureSourceStore.ts` now validates decryption and envelope freshness inside each race candidate before it may satisfy `Promise.any`; stale or corrupt fast responders can no longer win the race.
+- `cf-gateway/src/index.js` now treats auto-renewed GitHub Raw as source authority and Cloudflare Pages only as fallback.
+- Added App regression P1C for stale-fast/fresh-slow endpoint racing and a Gateway source-upstream contract test that enforces GitHub-before-Pages ordering.
+- Fast-forwarded the clean local `mg-data` checkout to `origin/main` commit `d542743`; no source health/status values were changed.
+
+### Verification
+- App adversarial suite: 53/53 PASS; `npx tsc --noEmit` PASS; release-build contract PASS with 148 GREEN / 52 pools.
+- Gateway source-upstream contract PASS, download-range contract PASS, and `node --check src/index.js` PASS.
+- `python validate_enum.py` reports `ALL VALID`.
+- Live source-pack convergence intentionally remains FAIL until production deployment: required endpoints match 1/3, with only GitHub Raw on the fresh pack. This task does not claim production recovery yet.
+
+### Boundary
+- No production Gateway/Pages/Aliyun deployment, App build publication, source health mutation, commit, or push was performed from the root repository.
+- Pre-existing unrelated dirty-worktree changes were preserved and not folded into this source-sync fix.
+---
+
+---
+Date/Time: 2026-08-05 11:46 (UTC+8)
+Version: anonymous-device-id-and-analytics-system-audit
+Scope: Design a reinstall-stable anonymous user identity and review the complete App analytics event model, ingestion, aggregation, privacy and operating dashboard
+Modules: magnetgoogo-app/{src/core/analytics.ts,src/core/crashReporter.ts,src/core/SourceContext.tsx,app/search.tsx,app/movie/[movieId].tsx,app/privacy.tsx}, cf-gateway/src/index.js, admin-server/{server.js,cache/*.json}, admin_templates/dashboard.html, magnetgoogo-site/privacy.html, docs/project-nebula/{REVIEW-20260805-匿名设备标识与埋点体系整体审计.md,_progress.txt,DEV-LOG.md}
+
+### Device identity decision
+- Recommend `device_id_v2` as an app-scoped SHA-256 derivation of Android `ANDROID_ID`; on Android 8+ it is scoped to device/user/signing key and normally survives uninstall/reinstall under the same release signer.
+- Reclassify the existing AsyncStorage `mg_device_id` as `install_id`, allowing anonymous users, installs and reinstalls to be measured separately.
+- Plan a two-release dual-write migration with `legacy_did`, `device_id_v2`, `install_id`, `build_type`, `distribution`, package and version-code fields; Debug/internal/test traffic must be excluded from production KPIs.
+
+### Event-system audit
+- Keep and redesign app/session, search submitted/terminal, copy/open and source-sync events; retain legacy `search/src_ok/src_fail/src_empty/verify` only for backward-compatible reads.
+- Add P0 first-open/install, foreground sessions and active time, exactly-one search terminal, update funnel and media browsing/conversion funnel. Add crash/startup/config/feed telemetry as P1.
+- Do not collect raw magnets, hashes, titles, high-frequency UI actions, per-source-per-request events or raw queries by default.
+- Current `search_completed` payloads are heavy: median 12,748 bytes, P95 15,402 and max 25,033; a multi-event batch can approach the 32KB ingestion limit and permanently block the queue without byte-aware splitting.
+
+### Infrastructure and privacy findings
+- Ingestion ignores client `batch_id` and event IDs, R2 replay silently truncates near 898 objects, UTC is unlabeled, and product/technical events are mixed.
+- Recommend R2 for 30-day raw audit data and D1 for durable device/install/session indexes, idempotency keys and daily aggregates.
+- Privacy policy promises 30-day automatic deletion, but the analytics bucket has no `events/` expiration rule; only the default incomplete-multipart-abort rule exists. This must be fixed before claiming compliant retention.
+- CrashReporter is local-only and hardcodes App version `1.0.0`.
+
+### Boundary
+- This turn produced architecture and event-taxonomy decisions only. No production App, Worker, bucket lifecycle, dashboard or privacy page was changed.
+---
+
+---
+Date/Time: 2026-08-05 09:35 (UTC+8)
+Version: v0.2.5-public-release-delivery
+Scope: Publish the signed v0.2.5 APK, update all website/config/download channels and validate the real public v0.2.3→v0.2.5 K30S upgrade
+Modules: magnetgoogo-site/**, mg-data/config.json, maggoogo-sources/config.json, scripts/{generate-i18n-pages.js,sync-download-mirrors.js}, docs/project-nebula/{RELEASE-20260805-v0.2.5全链路公开发布记录.md,DEV-LOG.md,_progress.txt,_failures/*v025-release*}
+
+### Delivery
+- Published the 38,510,706-byte APK with SHA-256 `642447c18e12f81b167f5a9b711726a6ced28079d7f078678151d05bdea9da70` to GitHub Release, R2 and Aliyun stable/versioned paths; Lanzou landing `iWEhg40m9q5c` is live with password 8888.
+- Published `latest_version=0.2.5`, optional `min_version=0.1.10`, three short update lines and Lanzou→GitHub mirrors through Pages, mg-data, maggoogo-sources, both Gateways, jsDelivr and Aliyun.
+- Fixed the download-sync generator to replace historical versioned `api.naoshiquan.com/download/vX/...` URLs; audited 911 HTML files and reduced old 0.2.3 R2/GitHub/Lanzou links to zero.
+
+### Verification
+- GitHub Chinese and English update sections each contain exactly three bullets; the release asset matches local/R2/Aliyun bytes and SHA.
+- Formal v0.2.3 on K30S displayed the public v0.2.5 prompt, downloaded from R2, opened MIUI installer, completed user-confirmed upgrade and retained firstInstallTime plus media ratings/cache. Fatal/ANR and residual services were zero.
+- Aliyun website rollback points: `magnetgoogo-site.pre-v025-20260805T091305` and `magnetgoogo-site.pre-v025-linkfix-20260805T092436`.
+---
+
+---
+Date/Time: 2026-08-05 09:20 (UTC+8)
+Version: analytics-r2-consistency-and-metric-validity-audit
+Scope: Independently compare dashboard daily metrics with fresh R2-backed raw event batches and judge DAU, installation IDs, new users, search, copy and start reliability
+Modules: cf-gateway/src/index.js, admin-server/{server.js,cache/*.json,scripts/fetch-analytics.js}, admin_templates/dashboard.html, magnetgoogo-app/src/core/analytics.ts, docs/project-nebula/{REVIEW-20260805-R2埋点一致性与核心用户指标可信度审计.md,_progress.txt,DEV-LOG.md}
+
+### R2 versus dashboard
+- Screenshot/cache 2026-08-04 was DAU72, new7, search35, copy129, open709, start142 and 6024 events.
+- Fresh R2-backed reads exposed DAU72, legacy search35, search_submitted287, search_completed202, copy136, open711, start144 and 6049 visible events.
+- The local cache was missing 24 currently visible R2 batches, including 16 batches received on 08-04 before the cache refresh; this is not normal refresh lag.
+
+### Root causes and metric judgment
+- Worker raw retrieval has a 900-subrequest ceiling and returned exactly 898 prior-day objects after two list calls. Admin fetches multiple days in one request and accepts silent truncation without a cursor/completeness flag.
+- Dashboard still counts only legacy `search`, ignoring the current `search_submitted/search_completed` schema. Search35 is invalid; visible starts are at least322 including legacy, with202 completions.
+- Client sends `batch_id` and unique event IDs, but ingestion ignores batch_id and aggregation does not dedupe event IDs. Current-ID events show a 2.05% duplicate rate in the local window.
+- `newDevices` is derived from first event in retained batches. All seven IDs labeled new on 08-04 were created earlier; actual ID creation was UTC0 / China-day1.
+- DAU is an anonymous AsyncStorage installation-ID count grouped by UTC, includes known unreleased-v0.2.5 internal traffic, and cannot distinguish Debug/test builds. It is directional only, not a true user or physical-device count.
+
+### Boundary
+- No production data, Worker, App or dashboard code was changed. The audit records P0/P1 fixes; current metrics should not be used for external reporting or precise business decisions.
+---
+
+---
+Date/Time: 2026-08-05 08:26 (UTC+8)
+Version: admin-server-port-eacces-fix
+Scope: Fix start-admin.bat instant flash-close crash, handle Windows OS excluded port range EACCES binding failure, implement dynamic port fallback and browser auto-launch
+Modules: start-admin.bat, admin-server/server.js, docs/project-nebula/{_progress.txt,DEV-LOG.md}
+
+### Root cause identified
+- Windows Hyper-V / winNAT dynamic port reservation blocked TCP port 3800 (`3738-3837`), causing `node server.js` to fail with `Error: listen EACCES: permission denied 0.0.0.0:3800`.
+- `start-admin.bat` did not capture exit codes or pause on failure, causing the cmd window to flash shut instantly when `server.js` crashed.
+
+### Implementation & Verification
+- Updated `admin-server/server.js` to support `process.env.PORT` and listen error handling. On `EACCES` or `EADDRINUSE`, it automatically jumps outside the OS reserved range (`3738-3837` → `3880` or increments port) and binds successfully.
+- Added browser auto-launch inside `server.js` upon successful HTTP listen instead of blindly calling `start` on port 3800 before node start.
+- Updated `start-admin.bat` to include `%errorlevel%` error trapping and `pause` on exit, preventing any flash-closing.
+- Verified cleanly via `node server.js` (switched 3800 -> 3880 automatically and started) and `node -c`.
+---
+
+---
+Date/Time: 2026-07-30 18:40 (UTC+8)
+Version: k30s-china-update-install-e2e
+Scope: Execute a real domestic-network K30S update from 0.2.1 to 0.2.2, identify the production installer blocker, verify the permission fix with a same-signature candidate, and separate server Range support from true client resume capability
+Modules: magnetgoogo-app/{app.json,android/app/src/main/AndroidManifest.xml,scripts/release-build-contract-tests.mjs}, cf-gateway/{src/index.js,package.json,scripts/download-range-contract-tests.mjs}, docs/project-nebula/{TEST-RESULT-20260730-K30S国内更新下载与安装链路.md,_progress.txt,DEV-LOG.md}
+
+### Real production-path finding
+- Downgraded K30S from signed v0.2.2/code6 to signed v0.2.1/code5 with data retained, then confirmed the live prompt and link order: Lanzou first, GitHub second.
+- The live R2 primary downloaded the 33,562,462-byte APK on domestic Wi-Fi, but the published package lacked `REQUEST_INSTALL_PACKAGES`; MIUI started and immediately left the installer, so the current production in-App update path is not end-to-end complete.
+- K30S direct curl measured the production custom-domain APK at approximately 3.23 seconds / 10.4 MB/s. `workers.dev` timed out on the same network, confirming the custom domain remains required.
+
+### Candidate closure
+- Added `android.permission.REQUEST_INSTALL_PACKAGES` and a release-contract assertion. Built a signed arm64-only v0.2.1/code5 test candidate with the备案 certificate.
+- The candidate displayed named mirrors (`蓝奏云（推荐）`, then `GitHub`) and completed the complete path: R2 download, MIUI scan,备案 warning, continue install, `0.2.1 → 0.2.2`, package replacement and retained data.
+- K30S finished at public v0.2.2/code6 with the original first-install timestamp, 312ms foreground launch and no Fatal/ANR.
+
+### Range boundary
+- Implemented and tested R2 Range semantics in an isolated Worker: HEAD/full 200, prefix/middle/suffix 206 with correct `Content-Range`, invalid range 416, and full SHA matching the release APK. The test Worker was deleted.
+- Production still returns full 200 for Range and was not changed because the production gateway worktree contains unrelated parallel modifications.
+- Client code deletes partial files after failure and does not persist `DownloadResumable.savable()/resumeData`; therefore true cross-interruption resume remains unimplemented even after server Range support.
+---
+
+---
 Date/Time: 2026-07-30 17:45 (UTC+8)
 Version: app-update-china-r2-fallback
 Scope: Prioritize Lanzou ahead of GitHub in the App update prompt, replace the unstable domestic APK primary with an R2-backed custom-domain path, and add deterministic multi-path download fallback for the next App release

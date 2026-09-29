@@ -1,0 +1,330 @@
+{
+  "schema_version": 2,
+  "updated_at": "2026-09-29T10:23:00Z",
+  "rules": {
+    "max_concurrent_page_experiments": 3,
+    "single_primary_variable_per_experiment": true,
+    "new_indexable_urls_allowed": false,
+    "required_web_signal": "trusted_first_party",
+    "required_app_quality_signal": "New DSSU 1-7 day satisfied reuse",
+    "partial_days_excluded": ["2026-08-26", "2026-08-27", "2026-08-28", "2026-08-29"],
+    "search_console_data_lag_days": 2,
+    "no_user_level_web_to_install_claim": true,
+    "channel_attribution_gate": {
+      "full_coverage_deployed_at": "2026-09-07T00:24:38+08:00",
+      "first_full_coverage_day": "2026-09-08",
+      "day_timezone": "UTC+08:00",
+      "minimum_complete_days": 3,
+      "minimum_qualified_views": 200
+    },
+    "geo_attribution_gate": {
+      "deployed_at": "2026-09-11T20:47:09+08:00",
+      "first_full_coverage_day": "2026-09-12",
+      "day_timezone": "UTC+08:00",
+      "sources": ["chatgpt", "perplexity", "copilot", "gemini", "claude"],
+      "minimum_complete_days": 7,
+      "minimum_ai_referred_views_for_directional_signal": 10,
+      "historical_referral_reclassification_allowed": false
+    },
+    "referral_detail_gate": {
+      "deployed_at": "2026-09-11T20:47:09+08:00",
+      "first_full_coverage_day": "2026-09-12",
+      "day_timezone": "UTC+08:00",
+      "sources": ["naoshiquan", "github", "reddit", "zhihu", "v2ex", "coolapk", "52pojie", "bilibili", "telegram", "producthunt", "uptodown", "alternativeto", "x", "youtube"],
+      "minimum_complete_days": 3,
+      "minimum_categorized_referral_views_for_directional_signal": 20,
+      "historical_referral_reclassification_allowed": false
+    },
+    "conversion_attribution_gate": {
+      "deployed_at": "2026-09-16T15:31:19+08:00",
+      "first_full_coverage_day": "2026-09-17",
+      "day_timezone": "UTC+08:00",
+      "minimum_complete_days": 3,
+      "minimum_source_attributed_download_clicks": 20,
+      "historical_conversion_reclassification_allowed": false
+    }
+  },
+  "experiments": [
+    {
+      "id": "EXP-CRO-HOME-TRUST-001",
+      "kind": "cro_trust",
+      "target_url": "https://magnetgoogo.com/",
+      "status": "CANCELLED_INVALID_BASELINE_AND_POLICY_CONFLICT",
+      "primary_variable": "download_trust_information",
+      "hypothesis": "Evergreen download provenance and installation guidance may improve first-party verified download clicks without reducing downstream New DSSU quality; App version numbers are explicitly excluded by BL-049.",
+      "baseline_start_day": "2026-09-02",
+      "baseline_gate": {
+        "page_key": "home",
+        "metric": "qualified homepage landing views + trusted first-party homepage download clicks",
+        "minimum_qualified_views": 200,
+        "minimum_clicks": 10,
+        "measurement_start_required": true
+      },
+      "invalidated_baseline": {
+        "frozen_at": "2026-09-06T06:40:20Z",
+        "qualified_views": 681,
+        "trusted_clicks": 217,
+        "reported_ctr": 0.3186,
+        "reason": "Cross-origin Referer reduced first-party CTA paths to '/', so clicks from non-home SEO pages contaminated the homepage numerator."
+      },
+      "judge_windows_days": [7, 14, 28],
+      "l1_search_console": "supporting_only",
+      "l2_web": "trusted_first_party download click",
+      "l3_app": ["New Device", "New DSSU", "New DSSU 1-7 day satisfied reuse"],
+      "notes": "Cancelled. The original numerator was page-key contaminated and the original version-number treatment is also prohibited by BL-049. Any future homepage CRO experiment must start from a corrected matched page key and use evergreen provenance/install guidance only."
+    },
+    {
+      "id": "EXP-CRO-HOME-TRUST-002",
+      "kind": "cro_trust",
+      "target_url": "https://magnetgoogo.com/",
+      "status": "BASELINE_COLLECTING_PRODUCTION",
+      "primary_variable": "hero_trust_microcopy",
+      "hypothesis": "One evergreen trust line immediately below the primary Hero download CTA may increase matched homepage download conversion without changing search acquisition or page structure.",
+      "measurement_precondition": {
+        "backup_download_tracking": ["backup_github", "backup_lanzou"],
+        "minimum_clean_complete_days": 3,
+        "page_key": "home",
+        "required_sources": ["baidu", "google", "direct"],
+        "note": "Do not start trust-copy treatment until the visual refresh + backup-link measurement patch are production-live together and a clean post-refresh baseline exists."
+      },
+      "visual_baseline_precondition": {
+        "frozen_at": "2026-09-29T21:05:00+08:00",
+        "scope": "visual hierarchy, responsive layout and download discoverability only",
+        "seo_metadata_changed": false,
+        "hero_trust_treatment_started": false,
+        "mobile_nav_download_visible": true,
+        "validated_viewports": ["360x800", "390x844", "430x932", "1280x900", "1440x1000"]
+      },
+      "production_baseline": {
+        "deployed_at": "2026-09-29T21:35:00+08:00",
+        "first_complete_day": "2026-09-30",
+        "minimum_complete_days": 3,
+        "cloudflare_pages_deployment": "https://2a179c31.magnetgoogo-site.pages.dev",
+        "main_domain_verified": true,
+        "cn_mirror_verified": true,
+        "backup_tracking_live": true,
+        "trust_treatment_started": false
+      },
+      "proposed_treatment": "无需注册 · 无广告 · 官方签名 APK",
+      "success_rule": "7-day source-stratified matched homepage download CVR relative lift >=15%, with no material degradation in Baidu/Google/Direct individually.",
+      "guardrails": ["homepage SEO title unchanged", "meta description unchanged", "H1 unchanged", "Hero CTA position unchanged", "NSQ winner CTA experiment unchanged", "New DSSU 1-7 day satisfied reuse"],
+      "judge_windows_days": [7, 14],
+      "notes": "Homepage visual refresh + backup-download measurement patch are now production-live on both magnetgoogo.com and the cn.magnetgoogo.com mirror. Main-domain deployment completed through Cloudflare Pages; public HTML contains the frozen home-redesign baseline and both backup download exits. 2026-09-29 is a partial deployment day and is excluded from the clean baseline; baseline starts with the first complete day 2026-09-30. Trust-copy treatment has NOT started and must remain frozen until >=3 complete baseline days are available."
+    },
+    {
+      "id": "EXP-SEO-ZHONGZI-EVIDENCE-001",
+      "kind": "seo_information_gain",
+      "target_url": "https://magnetgoogo.com/guide/zhongzi-sousuo",
+      "target_query": "种子搜索",
+      "status": "HOLD_NO_LIFT_14D",
+      "primary_variable": "first_party_reachability_evidence_block",
+      "hypothesis": "Adding a clearly bounded first-party live reachability evidence block will improve the page's information gain and ranking for 种子搜索 without harming CTR or downstream quality.",
+      "change_at": "2026-09-01T14:10:00Z",
+      "post_start_day": "2026-09-02",
+      "baseline": {
+        "source": "Google Search Console Search Analytics API final data",
+        "start_day": "2026-08-03",
+        "end_day": "2026-08-30",
+        "impressions": 201,
+        "clicks": 12,
+        "ctr": 0.0597014925,
+        "position": 7.0199004975
+      },
+      "judge_windows_days": [7, 14, 28],
+      "primary_metric": "Search Console weighted average position for exact query/page",
+      "guardrails": ["Search Console CTR", "Search Console clicks", "page download clicks", "CN New Device", "CN New DSSU", "New DSSU 1-7 day satisfied reuse"],
+      "l1_search_console": "primary",
+      "l2_web": "supporting_direction_only",
+      "l3_app": "aggregate_direction_only",
+      "notes": "Only the first-party public-status evidence block changed. Title, description, canonical and CTA were intentionally left unchanged. Fresh GSC final data through 2026-09-21 shows no ranking lift at the 14-day checkpoint: exact-query post window 2026-09-01..21 had 7 impressions / 1 click / position 39.71 versus 2026-08-25..31 170 / 11 / position 6.82; whole target page post window 30 impressions / 3 clicks / position 20.3 versus pre 186 / 11 / position 7.03. Demand/query-mix confounding means this is HOLD_NO_LIFT rather than a causal failure claim; do not scale the tactic before the 28-day checkpoint."
+    },
+    {
+      "id": "EXP-SEO-BT1207-SNIPPET-001",
+      "kind": "seo_serp_snippet",
+      "target_url": "https://magnetgoogo.com/alt/bt1207-alternative",
+      "target_query": "bt1207",
+      "status": "PREREQUISITE_CANONICAL_RESET",
+      "primary_variable": "serp_snippet_intent_alignment",
+      "hypothesis": "After canonical signals settle on the final extensionless URL, a single intent-aligned SERP snippet change may recover clicks from the current zero-CTR impression base.",
+      "prerequisite": {
+        "canonical_reset_at": "2026-09-01T14:10:00Z",
+        "old_sitemap_url": "https://magnetgoogo.com/alt/bt1207-alternative.html",
+        "final_url": "https://magnetgoogo.com/alt/bt1207-alternative",
+        "earliest_rebaseline_day": "2026-09-08"
+      },
+      "pre_reset_observation": {
+        "start_day": "2026-08-03",
+        "end_day": "2026-08-30",
+        "impressions": 117,
+        "clicks": 0,
+        "ctr": 0,
+        "position": 8.1282051282
+      },
+      "notes": "Do not change title/description during the canonical reset window; rebaseline first so the later CTR experiment is not confounded."
+    },
+    {
+      "id": "EXP-CHANNEL-NSQ-SCALE-001",
+      "kind": "acquisition_channel_scale",
+      "status": "HOLD_NO_LIFT",
+      "channel": "naoshiquan",
+      "primary_variable": "distribution_of_existing_winner_urls_only",
+      "baseline_window": {
+        "start_day": "2026-09-12",
+        "end_day": "2026-09-15",
+        "qualified_views": 342,
+        "daily_avg": 85.5
+      },
+      "winner_pages": [
+        "nsq:cili-search-tools-2026",
+        "nsq:bt-search-engine-status-2026",
+        "nsq:android-magnet-app-review",
+        "nsq:magnet-search-backup-10",
+        "nsq:best-magnet-apps-android-2026"
+      ],
+      "scale_gate": {
+        "target_daily_avg_qualified_views": 110,
+        "minimum_complete_days": 7,
+        "winner_page_download_guardrail": "track existing nsq:* download-click page keys; do not require a fabricated page-view denominator for NSQ articles"
+      },
+      "hard_rules": ["no new indexable URL", "no fabricated test/review claims", "do not change multiple ranking variables on a winner page in one cycle"],
+      "notes": "Held after the first scale cycle: 2026-09-17..22 averaged about 70.2 qualified views/day versus 85.5/day baseline and missed the 110/day target. Keep NSQ as a channel, but do not continue the same internal-discovery tactic."
+    },
+    {
+      "id": "EXP-NSQ-WINNER-HERO-CTA-001",
+      "kind": "nsq_conversion",
+      "status": "ACTIVE",
+      "channel": "naoshiquan",
+      "target_url": "https://naoshiquan.com/blog/cili-search-tools-2026",
+      "primary_variable": "early_direct_apk_cta",
+      "change_at": "2026-09-23T23:40:00+08:00",
+      "baseline": {
+        "page_key": "nsq:cili-search-tools-2026",
+        "diagnostic_total_download_clicks_before_change": 106,
+        "channel_conversion_window": "2026-09-17..2026-09-22",
+        "channel_landing_views": 421,
+        "channel_download_clicks": 110,
+        "channel_conversion_pct": 26.13
+      },
+      "measurement": {
+        "new_placement": "hero_download",
+        "existing_placements": ["where_download", "article_end", "bottom"],
+        "judge_windows_days": [7, 14],
+        "success_rule": "hero_download creates incremental total page downloads without reducing NSQ channel qualified views; target >=30% lift versus the immediately preceding comparable window"
+      },
+      "hard_rules": ["single CTA placement variable only", "no title/description/canonical/body ranking rewrite during the test", "no new indexable URL"],
+      "notes": "Highest-volume proven NSQ download page. The test moves one direct APK action earlier in the reading flow and tracks it with a unique placement key."
+    },
+    {
+      "id": "EXP-NSQ-GSC-HARVEST-001",
+      "kind": "seo_existing_url_harvest",
+      "status": "MEASUREMENT_LOW_SAMPLE",
+      "channel": "naoshiquan_google",
+      "primary_variable": "existing_nsq_query_page_opportunity_harvest",
+      "measurement_started_at": "2026-09-23T23:40:00+08:00",
+      "baseline": {
+        "snapshot_window": "2026-08-25..2026-09-21",
+        "gsc_rows": 10,
+        "eligible_query_opportunities": 0
+      },
+      "hard_rules": ["no new indexable URL", "existing pages only", "single-variable edit only when >=50 impressions and position 3..15 reveal a real opportunity"],
+      "notes": "NSQ Google Search Console is now collected daily, but current Google sample is too small to be a primary growth lever. Keep as measurement, not as a reason to manufacture SEO work."
+    },
+    {
+      "id": "EXP-DISTRIBUTION-UPTODOWN-001",
+      "kind": "external_app_distribution",
+      "status": "PREPARED_PENDING_EXTERNAL_SUBMISSION",
+      "channel": "uptodown",
+      "primary_variable": "new_third_party_android_distribution_surface",
+      "target": {
+        "first_14d_downloads_scale": 100,
+        "strong_channel_daily_downloads": 10,
+        "kill_or_passive_threshold_14d": 20
+      },
+      "hard_rules": ["official signed release only", "no misleading claims", "preserve package com.magnetgoogo.app and signing continuity", "use source-specific landing/download attribution where platform allows"],
+      "notes": "Submission packet is prepared locally. External account submission/review remains a human/platform step and must not be recorded as live until the platform confirms publication."
+    },
+    {
+      "id": "EXP-CHANNEL-BAIDU-HARVEST-001",
+      "kind": "acquisition_channel_harvest",
+      "status": "ACTIVE_MEASUREMENT",
+      "channel": "baidu",
+      "primary_variable": "existing_url_harvest_only",
+      "baseline_window": {
+        "start_day": "2026-09-12",
+        "end_day": "2026-09-15",
+        "qualified_views": 125,
+        "daily_avg": 31.25
+      },
+      "scale_gate": {
+        "target_daily_avg_qualified_views": 40,
+        "minimum_complete_days": 7,
+        "require_source_page_conversion_before_page_edit": true
+      },
+      "hard_rules": ["no new indexable URL", "use existing URLs only", "single-variable page change after source×page conversion gate is ready"],
+      "notes": "Baidu is the strongest search-engine source in the clean window. Hold broad page edits until source×page conversion identifies the landing winners."
+    },
+    {
+      "id": "EXP-CHANNEL-SECOND-ENGINE-001",
+      "kind": "acquisition_channel_discovery",
+      "status": "LOW_PRIORITY_DISCOVERY_DAILY",
+      "channels": ["coolapk", "zhihu", "v2ex", "52pojie", "reddit"],
+      "channel_execution": {
+        "zhihu": "AUTOMATED_DISCOVERY_APPROVAL_ONLY",
+        "reddit": "AUTOMATED_DISCOVERY_APPROVAL_ONLY",
+        "v2ex": "MANUAL_DISCOVERY_PENDING_SAFE_LATEST_TOPIC_ADAPTER",
+        "coolapk": "MANUAL_DISCOVERY_NO_SUPPORTED_SEARCH_ADAPTER",
+        "52pojie": "MANUAL_DISCOVERY_NO_SUPPORTED_SEARCH_ADAPTER"
+      },
+      "primary_variable": "high_intent_approved_participation_only",
+      "baseline": {"qualified_views": 0},
+      "success_gate": {
+        "minimum_complete_days": 3,
+        "minimum_channel_qualified_views": 20,
+        "minimum_source_attributed_download_clicks": 5
+      },
+      "hard_rules": ["approval_required=true", "auto_post=false", "explicit user need + resource entity + recency evidence", "zero candidates is acceptable"],
+      "notes": "No categorized community referral has been observed so far. Keep approval-only discovery as a low-cost option scan, reduced from four browser runs/day to one daily 13:30 run; do not mass-comment or lower intent gates to manufacture volume."
+    },
+    {
+      "id": "EXP-RETENTION-NEW-DSSU-REUSE-001",
+      "kind": "retention_diagnosis",
+      "status": "BASELINE_DIAGNOSIS",
+      "primary_metric": "New DSSU 1-7 day satisfied reuse",
+      "baseline": {
+        "mature_through": "2026-09-09",
+        "weighted_pct": 38.6
+      },
+      "target": {"weighted_pct": 45.0},
+      "guardrails": ["Search Activation >= 92%", "DSSU/DAU >= 80%", "no increase in zero-result rate"],
+      "hard_rules": ["no App retention feature change before aggregate diagnosis identifies a plausible return-use case", "no user-level web-to-install join"],
+      "notes": "Activation is already strong; diagnose why satisfied new users do not return before introducing a single retention variable."
+    },
+    {
+      "id": "EXP-SEO-CILIMEI-TITLE-001",
+      "kind": "seo_serp_title",
+      "target_url": "https://magnetgoogo.com/alt/cilimei-alternative",
+      "target_query": "磁力妹妹",
+      "status": "HOLD_NO_LIFT_14D",
+      "primary_variable": "serp_title_intent_alignment",
+      "hypothesis": "Leading with the exact brand query plus the user's likely 'not working / what now' intent will improve CTR from the current first-page position without changing body content, description, canonical or CTA.",
+      "change_at": "2026-09-06T06:30:40Z",
+      "post_start_day": "2026-09-07",
+      "baseline": {
+        "source": "Google Search Console Search Analytics API final data",
+        "start_day": "2026-08-08",
+        "end_day": "2026-09-04",
+        "impressions": 63,
+        "clicks": 1,
+        "ctr": 0.0158730159,
+        "position": 6.9047619048
+      },
+      "judge_windows_days": [7, 14, 28],
+      "primary_metric": "Search Console CTR for exact query/page",
+      "guardrails": ["Search Console weighted average position", "Search Console clicks", "page download clicks"],
+      "l1_search_console": "primary",
+      "l2_web": "supporting_direction_only",
+      "l3_app": "not_required_for_snippet_judgement",
+      "notes": "Only the HTML title / OG title / Twitter title changed. Meta description, H1/body, canonical and CTA stay fixed. Fresh GSC final data through 2026-09-21 shows no CTR lift at the 14-day checkpoint: exact query/page post 2026-09-06..21 = 20 impressions / 0 clicks / 0% CTR / position 8.30 versus pre 2026-08-25..09-05 = 41 / 0 / 0% / position 6.34. Hold further title changes until the 28-day checkpoint; do not describe the current title as successful."
+    }
+  ]
+}

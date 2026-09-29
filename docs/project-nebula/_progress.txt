@@ -1,26 +1,24 @@
-TASK: App国内更新下载链路优化
-STATUS: REMOTE_CONFIG_LIVE / R2_PRIMARY_PASS / NEXT_APP_FALLBACK_READY
-DATE: 2026-07-30 UTC+8
-
-DONE:
-- 正式0.2.2 APK上传至R2：api.naoshiquan.com/download/v0.2.2/magnetgoogo-v0.2.2.apk。
-- 公网完整回下载：33,562,462字节，SHA-256与正式APK一致。
-- 远程主下载切换R2；备用顺序固定为蓝奏云第一、GitHub最后。
-- mg-data提交并推送：f7b945ee8365c0f2932909ca4ad7ec56ebeb437b。
-- 阿里云、CF Pages、Raw、两个网关、固定CDN配置收敛。
-- CF配置增加no-store/no-cache，消除旧配置边缘缓存。
-- App新增顺序归一、直链自动重试、APK大小/ZIP头校验和失败浏览器回退。
-
-VERIFIED:
-- TypeScript：PASS。
-- update-download策略测试：PASS。
-- release-build契约：PASS。
-- App adversarial：52/52 PASS。
-- R2 APK完整字节校验：PASS。
-
-BOUNDARY:
-- 客户端自动重试代码需随下一版APK生效；当前旧版已即时获得R2主地址和备用顺序。
-- K30S本轮未连接，未做真机点击验证。
-- cn.magnetgoogo.com证书至2026-08-02；续期timer已恢复active，但HTTP-01仍403/重置，未关闭。
-
-EVIDENCE: docs/project-nebula/APP-UPDATE-DOWNLOAD-CHINA-OPTIMIZATION-20260730.md
+MagGoogo / Project Nebula — 2026-09-29 homepage V1 production deploy
+STATUS: HOME_VISUAL=PRODUCTION_LIVE / ANALYTICS=OPERATIONAL_VERIFIED / HOME_CRO=BASELINE_COLLECTING / MEDIA+TRAVEL=HEALTHY.
+Workspace cleanup 22:04: removed ~109MB disposable screenshots/tmp/old repair-progress + stale 08-07 checkpoint; retained current LKG caches, 31d verified checkpoints and 09-23 audit checkpoint.
+Homepage V1 visual baseline is live on magnetgoogo.com and cn.magnetgoogo.com; visual/SEO/CTA geometry now frozen during baseline.
+Cloudflare OAuth restored; Gateway Worker version=4e14dfe6-dbdc-4de1-8429-bab02323ec9d.
+Analytics 09-23 exact checkpoint deep repair PASS_REPAIRED; D1=39 queries /558768 rows read /2663 rows written.
+Gateway readback after repair: operational_verified=true / integrity=repaired_by_incremental_checkpoint; later dry read returned PASS_NOOP true.
+Cloudflare Pages hotfix deployment=https://d3f45e0f.magnetgoogo-site.pages.dev; main domain reads home-redesign + versioned CSS/JS refs.
+Aliyun CN mirror atomically replaced index.html/style.css/js/growth-attribution.js only; local/remote SHA match; sudo nginx -t PASS.
+CN rollback backup=/home/admin/magnetgoogo-deploy-20260929T2125/backup.
+Primary production APK full download=33,637,658 bytes; SHA256=2fc09f84e3fc0916cb3ffd82d8a467b1537030d31fe271e7906eb97fa230c27d; exact match to release APK.
+GitHub releases/latest=HTTP200 -> v0.2.8; GitHub asset full download same bytes/SHA as release APK.
+Lanzou backup page=HTTP200; dynamic anti-automation bridge prevents trustworthy automated full-byte proof, so status=PAGE_REACHABLE only.
+Cache hotfix: style.css?v=3c68ec22 + growth-attribution.js?v=c8addc6b force old browsers off stale 4h assets; BL-063 added.
+Visual proof: same Chrome 390x844 localhost vs public mean pixel diff=0.16/RMS1.73; desktop public vs frozen baseline mean diff=0.19.
+Production verify-deploy=9/9 PASS; GEO PASS; SEO Growth214/214 PASS; SEO audit987 HTML/214 indexable/773 noindex/214 canonical PASS.
+EXP-CRO-HOME-TRUST-002=BASELINE_COLLECTING_PRODUCTION; backup_github/backup_lanzou tracking is production-live.
+2026-09-29 is partial deploy day; clean baseline first full day=2026-09-30; require >=3 complete days before trust-copy treatment.
+Trust microcopy NOT started; homepage title/description/canonical/H1 semantics remain frozen.
+Baidu remains scale channel; NSQ winner CTA remains frozen until its 7/14d gate.
+Deep-repair no-op exit bug fixed: success path now ends naturally; PASS_NOOP returns exit0 on Node24/Windows with no libuv assertion and no second D1 write.
+Growth authority=GROWTH-STRATEGY-LEDGER.md; latest execution=HOTFIX-HOME-CACHE-BUST-20260929.
+Do not reset/clean broad dirty worktree; preserve unrelated changes and secrets.
+NEXT: collect Sep30+ baseline; after 3 complete days evaluate homepage matched CVR and only then decide trust microcopy treatment.
