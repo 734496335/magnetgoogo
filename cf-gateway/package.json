@@ -5,7 +5,15 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "tail": "wrangler tail"
+    "tail": "wrangler tail",
+    "test:download-range": "node scripts/download-range-contract-tests.mjs",
+    "test:growth-download": "node scripts/growth-download-contract-tests.mjs",
+    "test:source-upstream": "node scripts/source-upstream-contract-tests.mjs",
+    "test:analytics-partitions": "node scripts/analytics-partition-contract-tests.mjs",
+    "test:analytics-ops": "node scripts/analytics-ops-contract-tests.mjs && node scripts/analytics-ops-failure-contract-tests.mjs && node scripts/analytics-ops-capacity-tests.mjs && node scripts/analytics-ops-incremental-repair-contract-tests.mjs && python scripts/test-analytics-ops-schema.py",
+    "audit:analytics-write-budget": "node scripts/analytics-ops-write-budget-audit.mjs",
+    "audit:analytics-full-replay": "node scripts/analytics-ops-full-replay-audit.mjs",
+    "test": "npm run test:download-range && npm run test:growth-download && npm run test:source-upstream && npm run test:analytics-partitions && npm run test:analytics-ops"
   },
   "devDependencies": {
     "wrangler": "^3.0.0"

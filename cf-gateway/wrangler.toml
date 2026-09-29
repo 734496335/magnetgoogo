@@ -13,6 +13,7 @@ routes = [
 GITHUB_RAW = "https://raw.githubusercontent.com/734496335/mg-data/main"
 # Cache TTL in seconds (5 minutes — balance between freshness and performance)
 CACHE_TTL = "300"
+# ADMIN_SECRET is configured remotely. Never store credentials in this file.
 
 # KV namespace for anonymous feedback
 # Create with: npx wrangler kv:namespace create FEEDBACK
@@ -34,3 +35,11 @@ binding = "RELEASES"
 [[r2_buckets]]
 bucket_name = "maggoogo-analytics"
 binding = "ANALYTICS"
+
+# Exact operational analytics index. R2 remains the immutable raw source of truth;
+# D1 stores only compact device/day, install/day, session/search state and rollups.
+[[d1_databases]]
+binding = "OPS_DB"
+database_name = "maggoogo-analytics-index"
+database_id = "8a059a4e-d4e3-45af-a858-2c318ec7dcd3"
+migrations_dir = "./migrations"
