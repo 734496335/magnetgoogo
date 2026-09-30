@@ -1,4 +1,22 @@
 ---
+日期/时间：2026-09-30 10:59（UTC+8）
+本次版本：growth-mainline-execution-no-favorites-20260930
+本次范围：**按用户裁决执行当前增长主线：修复09-29 Analytics shadow、刷新 Growth Daily、用满 Baidu 高价值 canonical 收录配额、继续 NSQ 单变量 CTA、锁定首页 baseline，并推进 Uptodown 到认证提交边界；明确取消收藏/追更留存实验。**
+
+### 执行结果
+- Analytics：新 failure=`2026-09-29T23:59:44.417Z`；verified checkpoint=`7384:6d43d524`。deep repair 共41 SQL /2 chunks，最终 `PASS_REPAIRED / operational_verified=true / repaired_by_incremental_checkpoint`，latest_day=`2026-09-30`。
+- Growth Daily：Search Console ingest、NSQ GSC ingest、NSQ opportunities、Growth KPI、Opportunity Report 全部 PASS；刷新后 L3 App=`OK / operational_verified=true`。
+- 首页：`EXP-CRO-HOME-TRUST-002` 继续 production baseline，09-30 是第一个完整 baseline 日；不改视觉、SEO metadata、H1、CTA位置和trust copy，最早10-03评估3完整日基线。
+- Baidu：`push-baidu.js priority-20260830` 4/4 accepted、余额6；`priority-20260830-b` 6/6 accepted、余额0。合计10/10高意图已有 canonical 成功推送；0新URL、0页面改动、首页未触碰。
+- NSQ：`EXP-NSQ-WINNER-HERO-CTA-001` 保持ACTIVE；当前 `nsq:cili-search-tools-2026` source-attributed page-click diagnostic=70。09-30仍在进行中，不提前复制；最早10-01按完整7日窗口裁决。
+- Uptodown：当前 Developers Console 已确认迁至 `https://www.uptodown.dev/` 并在用户电脑打开。0.2.8 APK preflight PASS：package=`com.magnetgoogo.app`、versionCode=12、33,637,658 bytes、SHA-256=`2fc09f84e3fc0916cb3ffd82d8a467b1537030d31fe271e7906eb97fa230c27d`；icon与4张截图存在。平台仍要求认证开发者会话与人工审核，未取得平台回执前不得标记submitted/live。
+- Retention：按用户明确要求，不做收藏/追更留存实验；`EXP-RETENTION-NEW-DSSU-REUSE-001` 改为 `HOLD_NO_FAVORITES_RETENTION_CHANGE`，仅保留诊断数据。
+
+### 下一裁决点
+- 2026-10-01：NSQ hero CTA 7日窗口。
+- 2026-10-03：新版首页 3 个完整 baseline 日后决定是否启动 trust-copy 单变量。
+- Uptodown：只以认证提交后的平台回执/审核状态为准。
+---
 日期/时间：2026-09-29 21:54（UTC+8）
 本次版本：homepage-cache-bust-hotfix-20260929
 本次范围：**修复首页发布后用户端乱版：定位并消除新 HTML 与旧 CSS/JS 浏览器缓存错配，重新部署主域与 CN 镜像，并用本地/公网同机截图像素对比验收。**

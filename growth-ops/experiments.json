@@ -212,6 +212,14 @@
         "success_rule": "hero_download creates incremental total page downloads without reducing NSQ channel qualified views; target >=30% lift versus the immediately preceding comparable window"
       },
       "hard_rules": ["single CTA placement variable only", "no title/description/canonical/body ranking rewrite during the test", "no new indexable URL"],
+      "latest_observation": {
+        "checked_at": "2026-09-30T10:58:00+08:00",
+        "status": "CONTINUE_NO_REPLICATION_YET",
+        "current_source_attributed_page_clicks_diagnostic": 70,
+        "complete_post_change_days_available": 6,
+        "next_eligible_7d_judgment": "2026-10-01",
+        "note": "2026-09-30 is still in progress. Keep the single hero CTA variable frozen and do not copy it to other NSQ pages before the 7-day gate closes."
+      },
       "notes": "Highest-volume proven NSQ download page. The test moves one direct APK action earlier in the reading flow and tracks it with a unique placement key."
     },
     {
@@ -232,7 +240,7 @@
     {
       "id": "EXP-DISTRIBUTION-UPTODOWN-001",
       "kind": "external_app_distribution",
-      "status": "PREPARED_PENDING_EXTERNAL_SUBMISSION",
+      "status": "READY_AUTHENTICATED_SUBMISSION",
       "channel": "uptodown",
       "primary_variable": "new_third_party_android_distribution_surface",
       "target": {
@@ -241,7 +249,20 @@
         "kill_or_passive_threshold_14d": 20
       },
       "hard_rules": ["official signed release only", "no misleading claims", "preserve package com.magnetgoogo.app and signing continuity", "use source-specific landing/download attribution where platform allows"],
-      "notes": "Submission packet is prepared locally. External account submission/review remains a human/platform step and must not be recorded as live until the platform confirms publication."
+      "submission_preflight": {
+        "checked_at": "2026-09-30T10:58:00+08:00",
+        "developers_console": "https://www.uptodown.dev/",
+        "console_opened_on_user_device": true,
+        "authenticated_session_available_to_automation": false,
+        "apk_version": "0.2.8",
+        "version_code": 12,
+        "package": "com.magnetgoogo.app",
+        "apk_bytes": 33637658,
+        "apk_sha256": "2fc09f84e3fc0916cb3ffd82d8a467b1537030d31fe271e7906eb97fa230c27d",
+        "icon_ready": true,
+        "screenshots_ready": 4
+      },
+      "notes": "Submission packet and release artifacts are verified, and the current Uptodown Developers Console was opened on the user's device. Platform publication still requires an authenticated developer session and editorial review; do not record the app as submitted/live until that platform-side action is confirmed."
     },
     {
       "id": "EXP-CHANNEL-BAIDU-HARVEST-001",
@@ -261,7 +282,18 @@
         "require_source_page_conversion_before_page_edit": true
       },
       "hard_rules": ["no new indexable URL", "use existing URLs only", "single-variable page change after source×page conversion gate is ready"],
-      "notes": "Baidu is the strongest search-engine source in the clean window. Hold broad page edits until source×page conversion identifies the landing winners."
+      "latest_action": {
+        "executed_at": "2026-09-30T10:54:00+08:00",
+        "method": "Baidu normal inclusion API",
+        "existing_canonical_urls_submitted": 10,
+        "accepted": 10,
+        "failed": 0,
+        "remaining_daily_quota": 0,
+        "groups": ["priority-20260830", "priority-20260830-b"],
+        "page_changes": 0,
+        "new_indexable_urls": 0
+      },
+      "notes": "Baidu is the strongest search-engine source in the clean window. On 2026-09-30 the full daily quota (10/10) was used to refresh existing high-intent canonical URLs; no homepage or SEO-page variable was changed. Continue measuring rather than manufacturing page edits."
     },
     {
       "id": "EXP-CHANNEL-SECOND-ENGINE-001",
@@ -288,7 +320,7 @@
     {
       "id": "EXP-RETENTION-NEW-DSSU-REUSE-001",
       "kind": "retention_diagnosis",
-      "status": "BASELINE_DIAGNOSIS",
+      "status": "HOLD_NO_FAVORITES_RETENTION_CHANGE",
       "primary_metric": "New DSSU 1-7 day satisfied reuse",
       "baseline": {
         "mature_through": "2026-09-09",
@@ -296,8 +328,8 @@
       },
       "target": {"weighted_pct": 45.0},
       "guardrails": ["Search Activation >= 92%", "DSSU/DAU >= 80%", "no increase in zero-result rate"],
-      "hard_rules": ["no App retention feature change before aggregate diagnosis identifies a plausible return-use case", "no user-level web-to-install join"],
-      "notes": "Activation is already strong; diagnose why satisfied new users do not return before introducing a single retention variable."
+      "hard_rules": ["no App retention feature change before aggregate diagnosis identifies a plausible return-use case", "no user-level web-to-install join", "do not implement favorites/follow-update retention feature in the current campaign"],
+      "notes": "Activation is already strong and reuse remains diagnostic only. On 2026-09-30 the user explicitly declined the proposed favorites/follow-update retention experiment, so no App retention feature change is part of the current growth execution."
     },
     {
       "id": "EXP-SEO-CILIMEI-TITLE-001",

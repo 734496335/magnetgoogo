@@ -638,6 +638,23 @@ OAuth 已过期/撤销。
 
 ---
 
+## 2026-09-30 — 当前增长主线全量执行（排除收藏留存）
+
+- ID：`EXEC-GROWTH-MAINLINE-20260930`
+- 用户裁决：执行当前全部增长主线，但**不做第4项收藏/追更留存实验**；本轮不修改 App 留存功能。
+- Analytics：发现新的 unresolved shadow failure=`2026-09-29T23:59:44.417Z`。使用 verified R2 receive-day checkpoint `7384:6d43d524` 做 exact replay；41 条 SQL 分2块执行，最终 `PASS_REPAIRED / operational_verified=true / repaired_by_incremental_checkpoint`，latest_day=`2026-09-30`。因此增长数据重新恢复正式裁决资格。
+- Growth Daily：09-30 重新执行 Search Console ingest、NSQ Search Console ingest、NSQ opportunities、Growth KPI、Opportunity Report，5/5 PASS；L3 App 状态恢复 `OK / operational_verified=true`。
+- 首页 CRO：`EXP-CRO-HOME-TRUST-002` 继续 `BASELINE_COLLECTING_PRODUCTION`。09-30 是新版首页第一个完整 baseline 日，视觉/SEO metadata/H1/CTA位置/信任文案全部冻结；至少到10-03拥有3个完整日后才允许单独启动 trust-copy treatment。
+- Baidu：执行 `EXP-CHANNEL-BAIDU-HARVEST-001` 的 existing-URL harvest，不新增 URL、不改首页。普通收录 API 两组高意图 canonical 共10条全部 accepted（4/4 + 6/6），当日 quota 10→0；日志保存在 `magnetgoogo-site/.baidu-push-log/`。当前 source×page conversion 仍显示 Baidu 几乎全部价值集中在 home，因此不制造额外页面改动。
+- NSQ：`EXP-NSQ-WINNER-HERO-CTA-001` 保持唯一变量；当前 `nsq:cili-search-tools-2026` source-attributed page-click diagnostic=70。09-30 尚未形成完整 post-change 第7日，故状态继续 ACTIVE、禁止复制到第二/第三页；最早10-01按完整7日窗口裁决。
+- Uptodown：正式 APK preflight PASS：0.2.8(12)、package=`com.magnetgoogo.app`、33,637,658 bytes、SHA-256=`2fc09f84e3fc0916cb3ffd82d8a467b1537030d31fe271e7906eb97fa230c27d`；icon与4张截图存在。平台已迁移至 `https://www.uptodown.dev/`，Developers Console 已在用户电脑打开。当前唯一未闭合步骤是平台认证会话+人工审核；在平台确认前严禁记录为 submitted/live。
+- Retention：`EXP-RETENTION-NEW-DSSU-REUSE-001` 改为 `HOLD_NO_FAVORITES_RETENTION_CHANGE`。保留39.3% reuse诊断数据，但本轮不实现收藏/追更等 App 留存功能。
+- 归因可信度：Analytics / Baidu API / Growth Daily 为强证据；NSQ 仍等待完整7日因果窗口；Uptodown 仅完成本地与入口 preflight，尚无平台 submission receipt。
+- Scale / Hold / Kill：Analytics=`RESTORED`；Homepage=`FREEZE/MEASURE`；Baidu=`SCALE EXISTING URL HARVEST`；NSQ=`KEEP TEST / NO COPY BEFORE GATE`；Uptodown=`READY_AUTHENTICATED_SUBMISSION`；Favorites retention=`HOLD / USER DECLINED`。
+- 下一裁决点：10-01 裁决 NSQ 7日 CTA；10-03 裁决首页3日 baseline 是否足够稳定进入 trust-copy test；Uptodown 以平台实际提交/审核回执为唯一上线依据。
+
+---
+
 ## 8. 长期原则
 
 增长的第一目标不是“做更多动作”，而是找到**可重复、可测量、可扩大的新增 + 复用路径**。

@@ -1,24 +1,21 @@
-MagGoogo / Project Nebula — 2026-09-29 homepage V1 production deploy
-STATUS: HOME_VISUAL=PRODUCTION_LIVE / ANALYTICS=OPERATIONAL_VERIFIED / HOME_CRO=BASELINE_COLLECTING / MEDIA+TRAVEL=HEALTHY.
-Workspace cleanup 22:04: removed ~109MB disposable screenshots/tmp/old repair-progress + stale 08-07 checkpoint; retained current LKG caches, 31d verified checkpoints and 09-23 audit checkpoint.
-Homepage V1 visual baseline is live on magnetgoogo.com and cn.magnetgoogo.com; visual/SEO/CTA geometry now frozen during baseline.
-Cloudflare OAuth restored; Gateway Worker version=4e14dfe6-dbdc-4de1-8429-bab02323ec9d.
-Analytics 09-23 exact checkpoint deep repair PASS_REPAIRED; D1=39 queries /558768 rows read /2663 rows written.
-Gateway readback after repair: operational_verified=true / integrity=repaired_by_incremental_checkpoint; later dry read returned PASS_NOOP true.
-Cloudflare Pages hotfix deployment=https://d3f45e0f.magnetgoogo-site.pages.dev; main domain reads home-redesign + versioned CSS/JS refs.
-Aliyun CN mirror atomically replaced index.html/style.css/js/growth-attribution.js only; local/remote SHA match; sudo nginx -t PASS.
-CN rollback backup=/home/admin/magnetgoogo-deploy-20260929T2125/backup.
-Primary production APK full download=33,637,658 bytes; SHA256=2fc09f84e3fc0916cb3ffd82d8a467b1537030d31fe271e7906eb97fa230c27d; exact match to release APK.
-GitHub releases/latest=HTTP200 -> v0.2.8; GitHub asset full download same bytes/SHA as release APK.
-Lanzou backup page=HTTP200; dynamic anti-automation bridge prevents trustworthy automated full-byte proof, so status=PAGE_REACHABLE only.
-Cache hotfix: style.css?v=3c68ec22 + growth-attribution.js?v=c8addc6b force old browsers off stale 4h assets; BL-063 added.
-Visual proof: same Chrome 390x844 localhost vs public mean pixel diff=0.16/RMS1.73; desktop public vs frozen baseline mean diff=0.19.
-Production verify-deploy=9/9 PASS; GEO PASS; SEO Growth214/214 PASS; SEO audit987 HTML/214 indexable/773 noindex/214 canonical PASS.
-EXP-CRO-HOME-TRUST-002=BASELINE_COLLECTING_PRODUCTION; backup_github/backup_lanzou tracking is production-live.
-2026-09-29 is partial deploy day; clean baseline first full day=2026-09-30; require >=3 complete days before trust-copy treatment.
-Trust microcopy NOT started; homepage title/description/canonical/H1 semantics remain frozen.
-Baidu remains scale channel; NSQ winner CTA remains frozen until its 7/14d gate.
-Deep-repair no-op exit bug fixed: success path now ends naturally; PASS_NOOP returns exit0 on Node24/Windows with no libuv assertion and no second D1 write.
-Growth authority=GROWTH-STRATEGY-LEDGER.md; latest execution=HOTFIX-HOME-CACHE-BUST-20260929.
-Do not reset/clean broad dirty worktree; preserve unrelated changes and secrets.
-NEXT: collect Sep30+ baseline; after 3 complete days evaluate homepage matched CVR and only then decide trust microcopy treatment.
+MagGoogo / Project Nebula — 2026-09-30 growth mainline execution
+STATUS: ANALYTICS=OPERATIONAL_VERIFIED / HOME_CRO=BASELINE_DAY1 / BAIDU=HARVESTED / NSQ=ACTIVE_NO_COPY / UPTODOWN=AUTH_REQUIRED / RETENTION_FAVORITES=HOLD.
+Analytics new shadow failure=2026-09-29T23:59:44.417Z repaired from verified checkpoint 7384:6d43d524.
+Deep repair result=PASS_REPAIRED / operational_verified=true / integrity=repaired_by_incremental_checkpoint / latest_day=2026-09-30.
+Growth Daily rerun PASS: Magnet GSC ingest / NSQ GSC ingest / NSQ opportunities / Growth KPI / Opportunity Report all PASS.
+Homepage V1 remains production-live on magnetgoogo.com + cn.magnetgoogo.com with cache-busted CSS/JS refs.
+EXP-CRO-HOME-TRUST-002=BASELINE_COLLECTING_PRODUCTION; 2026-09-30 is first complete baseline day.
+Freeze homepage visual/SEO metadata/H1/CTA geometry/trust copy through >=3 complete days; earliest baseline decision=2026-10-03.
+Baidu normal inclusion API 2026-09-30: priority group 4/4 accepted + second group 6/6 accepted; daily quota remaining=0.
+Baidu action used existing high-intent canonical URLs only; no new indexable URL and no page/homepage variable changed.
+Current Baidu source×page conversion remains concentrated on home; do not manufacture other page edits without evidence.
+EXP-NSQ-WINNER-HERO-CTA-001 remains ACTIVE; current source-attributed page-click diagnostic for cili-search-tools-2026=70.
+2026-09-30 is still in progress; no NSQ winner replication before earliest 7d judgment on 2026-10-01.
+Uptodown current Developers Console=https://www.uptodown.dev/ opened on user device.
+Uptodown APK preflight: 0.2.8(12), package com.magnetgoogo.app, 33,637,658 bytes, SHA256=2fc09f84e3fc0916cb3ffd82d8a467b1537030d31fe271e7906eb97fa230c27d; icon + 4 screenshots ready.
+Uptodown status=READY_AUTHENTICATED_SUBMISSION; authenticated platform session/editorial review remains the only external boundary; do not claim submitted/live without receipt.
+EXP-RETENTION-NEW-DSSU-REUSE-001=HOLD_NO_FAVORITES_RETENTION_CHANGE per user; no favorites/follow-update App change in current campaign.
+Production APK primary/GitHub download integrity remains previously verified; homepage trust treatment NOT started.
+Growth authority=GROWTH-STRATEGY-LEDGER.md; latest execution=EXEC-GROWTH-MAINLINE-20260930.
+Preserve unrelated dirty worktree; do not broad reset/clean.
+NEXT: obtain Uptodown authenticated submission receipt; judge NSQ on 2026-10-01; judge homepage 3-day baseline on 2026-10-03.
