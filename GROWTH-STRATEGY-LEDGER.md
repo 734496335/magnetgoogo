@@ -655,6 +655,24 @@ OAuth 已过期/撤销。
 
 ---
 
+## 2026-10-01 — NSQ winner Hero CTA 7日裁决
+
+- ID：`REVIEW-NSQ-WINNER-HERO-CTA-7D-20261001`
+- 实验：`EXP-NSQ-WINNER-HERO-CTA-001`
+- 状态：`HOLD_NO_REPLICATION_7D_TRAFFIC_GUARDRAIL`
+- 数据权威：10-01 重新执行 Growth Daily 后，L3 App=`OK / operational_verified=true`，最新完整日=2026-09-30；Growth D1/R2 integrity 无 unresolved shadow failure。Search Console 当次 OAuth 为 `BLOCKED_EXTERNAL_AUTH`，但本实验裁决使用一方 D1/R2 landing/download 数据，不依赖 GSC；GSC 仅保留09-30 last-good，不影响本次 CTA 门禁。
+- 可比窗口：baseline 使用变更前完整日 2026-09-17..22（6日）；09-23 23:40 才上线 CTA，09-23 为混合日故排除；post 使用 2026-09-24..30（7个完整日）。
+- NSQ qualified views：baseline=421（70.17/day）；post=415（59.29/day），日均 **-15.51%**。因此明确违反 success_rule 中“without reducing NSQ channel qualified views”的流量护栏。
+- NSQ channel downloads：baseline=110 / CVR26.13%；post=144 / CVR34.70%，CVR 相对 **+32.80%**，下载日均约 +12.21%。这是正向转化信号，但不能覆盖流量护栏失败。
+- Winner page `nsq:cili-search-tools-2026` downloads：baseline=19（3.17/day）；post=43（6.14/day），日均 **+93.98%**，显著超过 +30% 点击提升目标。
+- 裁决：**7日 gate 不通过，禁止复制 CTA 到第二/第三赢家页**。原因不是 CTA 无效，而是实验合同要求“点击提升 + 渠道 qualified views 不下降”同时成立；当前只满足前者。不得为了追求规模放宽既定门禁。
+- 动作：不新增 indexable URL，不改第二/第三页，不改 title/body/canonical；当前 winner 页继续保持唯一 Hero CTA 变量冻结，等待14日 checkpoint（2026-10-07完整日结束后）再看流量是否恢复。若14日仍未同时满足两项条件，则停止扩量并按实验合同决定撤回/结束；在此之前不叠加新变量。
+- 归因可信度：页面点击/渠道 landing/download 为 production D1 read model + R2 raw audit 的强方向证据；文章级 landing denominator 仍不能伪造，因此 winner 页使用 click/day，渠道流量护栏使用 NSQ source qualified views/day。
+- Scale / Hold / Kill：CTA current winner=`KEEP FROZEN TO 14D`；replication=`HOLD`；new NSQ page changes=`HOLD`。
+- 下一裁决点：2026-10-08 上午，以截至10-07的完整日做14日 checkpoint；不提前复制。
+
+---
+
 ## 8. 长期原则
 
 增长的第一目标不是“做更多动作”，而是找到**可重复、可测量、可扩大的新增 + 复用路径**。

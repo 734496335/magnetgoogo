@@ -1,21 +1,19 @@
-MagGoogo / Project Nebula — 2026-09-30 growth mainline execution
-STATUS: ANALYTICS=OPERATIONAL_VERIFIED / HOME_CRO=BASELINE_DAY1 / BAIDU=HARVESTED / NSQ=ACTIVE_NO_COPY / UPTODOWN=AUTH_REQUIRED / RETENTION_FAVORITES=HOLD.
-Analytics new shadow failure=2026-09-29T23:59:44.417Z repaired from verified checkpoint 7384:6d43d524.
-Deep repair result=PASS_REPAIRED / operational_verified=true / integrity=repaired_by_incremental_checkpoint / latest_day=2026-09-30.
-Growth Daily rerun PASS: Magnet GSC ingest / NSQ GSC ingest / NSQ opportunities / Growth KPI / Opportunity Report all PASS.
-Homepage V1 remains production-live on magnetgoogo.com + cn.magnetgoogo.com with cache-busted CSS/JS refs.
-EXP-CRO-HOME-TRUST-002=BASELINE_COLLECTING_PRODUCTION; 2026-09-30 is first complete baseline day.
-Freeze homepage visual/SEO metadata/H1/CTA geometry/trust copy through >=3 complete days; earliest baseline decision=2026-10-03.
-Baidu normal inclusion API 2026-09-30: priority group 4/4 accepted + second group 6/6 accepted; daily quota remaining=0.
-Baidu action used existing high-intent canonical URLs only; no new indexable URL and no page/homepage variable changed.
-Current Baidu source×page conversion remains concentrated on home; do not manufacture other page edits without evidence.
-EXP-NSQ-WINNER-HERO-CTA-001 remains ACTIVE; current source-attributed page-click diagnostic for cili-search-tools-2026=70.
-2026-09-30 is still in progress; no NSQ winner replication before earliest 7d judgment on 2026-10-01.
-Uptodown current Developers Console=https://www.uptodown.dev/ opened on user device.
-Uptodown APK preflight: 0.2.8(12), package com.magnetgoogo.app, 33,637,658 bytes, SHA256=2fc09f84e3fc0916cb3ffd82d8a467b1537030d31fe271e7906eb97fa230c27d; icon + 4 screenshots ready.
-Uptodown status=READY_AUTHENTICATED_SUBMISSION; authenticated platform session/editorial review remains the only external boundary; do not claim submitted/live without receipt.
-EXP-RETENTION-NEW-DSSU-REUSE-001=HOLD_NO_FAVORITES_RETENTION_CHANGE per user; no favorites/follow-update App change in current campaign.
-Production APK primary/GitHub download integrity remains previously verified; homepage trust treatment NOT started.
-Growth authority=GROWTH-STRATEGY-LEDGER.md; latest execution=EXEC-GROWTH-MAINLINE-20260930.
+MagGoogo / Project Nebula — 2026-10-01 NSQ CTA 7-day judgment
+STATUS: ANALYTICS=OPERATIONAL_VERIFIED / NSQ_CTA=HOLD_NO_REPLICATION_7D_TRAFFIC_GUARDRAIL / HOME_CRO=BASELINE_COLLECTING / RETENTION_FAVORITES=HOLD.
+Growth Daily rerun completed; latest complete operational day=2026-09-30.
+L3 App=OK / operational_verified=true; production growth integrity has no unresolved shadow failure.
+GSC ingest on 2026-10-01 is BLOCKED_EXTERNAL_AUTH and report uses 2026-09-30 last-good; NSQ CTA judgment does not depend on GSC.
+EXP-NSQ-WINNER-HERO-CTA-001 change_at=2026-09-23 23:40 +08; exclude 09-23 mixed day.
+Comparable baseline=2026-09-17..22 (6 complete days); post=2026-09-24..30 (7 complete days).
+NSQ qualified views baseline=421 / 70.17 day; post=415 / 59.29 day; daily change=-15.51%.
+NSQ channel downloads baseline=110 / CVR26.13%; post=144 / CVR34.70%; relative CVR lift=+32.80%.
+Winner page downloads baseline=19 / 3.17 day; post=43 / 6.14 day; daily click lift=+93.98%.
+7-day success rule requires >=30% lift AND no reduction in NSQ qualified views; traffic guardrail failed.
+Decision: HOLD replication. No CTA copied to second/third winner pages; no new indexable URL; no title/body/canonical changes.
+Keep current winner Hero CTA as the only variable and freeze page until 14-day checkpoint after 2026-10-07 complete day.
+If 14-day checkpoint still fails the traffic guardrail, do not scale and close/revert per experiment contract.
+EXP-CRO-HOME-TRUST-002 remains baseline collecting; do not contaminate homepage baseline.
+EXP-RETENTION-NEW-DSSU-REUSE-001 remains HOLD_NO_FAVORITES_RETENTION_CHANGE per user.
+Growth authority=GROWTH-STRATEGY-LEDGER.md; latest review=REVIEW-NSQ-WINNER-HERO-CTA-7D-20261001.
 Preserve unrelated dirty worktree; do not broad reset/clean.
-NEXT: obtain Uptodown authenticated submission receipt; judge NSQ on 2026-10-01; judge homepage 3-day baseline on 2026-10-03.
+NEXT: homepage 3-day baseline judgment 2026-10-03; NSQ CTA 14-day checkpoint after 2026-10-07 complete day; restore GSC OAuth when convenient but it does not invalidate this judgment.

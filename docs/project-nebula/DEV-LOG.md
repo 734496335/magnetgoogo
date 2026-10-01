@@ -1,4 +1,18 @@
 ---
+日期/时间：2026-10-01 09:17（UTC+8）
+本次版本：nsq-winner-hero-cta-7d-judgment-20261001
+本次范围：**执行 EXP-NSQ-WINNER-HERO-CTA-001 完整7日门禁裁决；严格按既定“>=30%增量且NSQ qualified views不下降”双条件判断，不因点击提升而放宽流量护栏。**
+
+### 裁决结果
+- 先刷新 Growth Daily；最新完整日=09-30，L3 App=`OK / operational_verified=true`，production growth integrity 无 unresolved shadow failure。GSC 本轮 OAuth=`BLOCKED_EXTERNAL_AUTH`，使用09-30 last-good；本 CTA 裁决只依赖一方 D1/R2 landing/download 数据，因此不受 GSC 阻塞影响。
+- 09-23 23:40 才上线 CTA，09-23 为混合日排除。可比 baseline=09-17..22（6完整日），post=09-24..30（7完整日）。
+- NSQ qualified views：421 / 70.17 day → 415 / 59.29 day，日均 **-15.51%**；流量护栏失败。
+- NSQ channel downloads：110 / CVR26.13% → 144 / CVR34.70%，CVR相对 **+32.80%**。
+- winner page downloads：19 / 3.17 day → 43 / 6.14 day，日均 **+93.98%**，超过+30%目标。
+- 最终状态=`HOLD_NO_REPLICATION_7D_TRAFFIC_GUARDRAIL`：7日 gate 不通过；**没有复制**到第二/第三赢家页，没有新增 indexable URL，没有修改 title/body/canonical。
+- 当前 winner 页保留单一 Hero CTA 并继续冻结到14日 checkpoint；下一裁决在10-07完整日结束后执行。若届时流量护栏仍不恢复，不扩量，并按实验合同结束/撤回。
+
+---
 日期/时间：2026-09-30 10:59（UTC+8）
 本次版本：growth-mainline-execution-no-favorites-20260930
 本次范围：**按用户裁决执行当前增长主线：修复09-29 Analytics shadow、刷新 Growth Daily、用满 Baidu 高价值 canonical 收录配额、继续 NSQ 单变量 CTA、锁定首页 baseline，并推进 Uptodown 到认证提交边界；明确取消收藏/追更留存实验。**
