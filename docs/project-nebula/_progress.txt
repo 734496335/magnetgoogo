@@ -1,19 +1,21 @@
-MagGoogo / Project Nebula — 2026-10-01 NSQ CTA 7-day judgment
-STATUS: ANALYTICS=OPERATIONAL_VERIFIED / NSQ_CTA=HOLD_NO_REPLICATION_7D_TRAFFIC_GUARDRAIL / HOME_CRO=BASELINE_COLLECTING / RETENTION_FAVORITES=HOLD.
-Growth Daily rerun completed; latest complete operational day=2026-09-30.
-L3 App=OK / operational_verified=true; production growth integrity has no unresolved shadow failure.
-GSC ingest on 2026-10-01 is BLOCKED_EXTERNAL_AUTH and report uses 2026-09-30 last-good; NSQ CTA judgment does not depend on GSC.
-EXP-NSQ-WINNER-HERO-CTA-001 change_at=2026-09-23 23:40 +08; exclude 09-23 mixed day.
-Comparable baseline=2026-09-17..22 (6 complete days); post=2026-09-24..30 (7 complete days).
-NSQ qualified views baseline=421 / 70.17 day; post=415 / 59.29 day; daily change=-15.51%.
-NSQ channel downloads baseline=110 / CVR26.13%; post=144 / CVR34.70%; relative CVR lift=+32.80%.
-Winner page downloads baseline=19 / 3.17 day; post=43 / 6.14 day; daily click lift=+93.98%.
-7-day success rule requires >=30% lift AND no reduction in NSQ qualified views; traffic guardrail failed.
-Decision: HOLD replication. No CTA copied to second/third winner pages; no new indexable URL; no title/body/canonical changes.
-Keep current winner Hero CTA as the only variable and freeze page until 14-day checkpoint after 2026-10-07 complete day.
-If 14-day checkpoint still fails the traffic guardrail, do not scale and close/revert per experiment contract.
-EXP-CRO-HOME-TRUST-002 remains baseline collecting; do not contaminate homepage baseline.
-EXP-RETENTION-NEW-DSSU-REUSE-001 remains HOLD_NO_FAVORITES_RETENTION_CHANGE per user.
-Growth authority=GROWTH-STRATEGY-LEDGER.md; latest review=REVIEW-NSQ-WINNER-HERO-CTA-7D-20261001.
+MagGoogo / Project Nebula — 2026-10-03 homepage trust baseline judgment
+STATUS: ANALYTICS=OPERATIONAL_VERIFIED / HOME_CRO=TREATMENT_ACTIVE_2026-10-03 / NSQ_CTA=HOLD_NO_REPLICATION_7D_TRAFFIC_GUARDRAIL / RETENTION_FAVORITES=HOLD.
+Growth Daily refreshed; latest complete operational day=2026-10-02.
+L3 App=OK / operational_verified=true; no unresolved Analytics shadow failure.
+Homepage clean baseline complete days=2026-09-30, 2026-10-01, 2026-10-02.
+3-day matched home baseline: Baidu 83 views / 51 clicks / 61.45%; Google 17 / 11 / 64.71%; Direct 65 / 47 / 72.31%.
+Daily source CVR is noisy and can exceed 100% because repeated download clicks can follow one landing; treat as matched click-rate contract, not unique-user install CVR.
+Backup trusted measurement observed: backup_github=15, backup_lanzou=8; placement×day not exposed, so use as measurement-health guardrail only.
+Decision: baseline gate passed; start the single Hero trust treatment only.
+Treatment text: 无需注册 · 无广告 · 官方签名 APK.
+Only Chinese Hero trust line changed; title/meta/H1/CTA text+position/visual structure/backup placement remain frozen.
+SEO Growth audit PASS 214/214; GEO audit PASS.
+Cloudflare Pages deployment=https://fff4c7cf.magnetgoogo-site.pages.dev; main domain treatment verified.
+CN mirror index atomically updated; nginx -t PASS; remote SHA=6d66a0001c10764c3ab14545659da647531bfe0339eed9b55c4948140cb55803.
+GSC OAuth remains BLOCKED_EXTERNAL_AUTH; it does not invalidate this first-party baseline/treatment decision.
+Do not judge lift early. Need 7 complete treatment days 2026-10-03..2026-10-09.
+Success rule: source-stratified matched homepage download CVR relative lift >=15%, with no material degradation in Baidu/Google/Direct.
+NSQ winner CTA remains frozen at 7-day HOLD pending its 14-day checkpoint; no replication.
+Retention favorites remains HOLD per user instruction.
 Preserve unrelated dirty worktree; do not broad reset/clean.
-NEXT: homepage 3-day baseline judgment 2026-10-03; NSQ CTA 14-day checkpoint after 2026-10-07 complete day; restore GSC OAuth when convenient but it does not invalidate this judgment.
+NEXT: homepage trust treatment 7-day judgment on/after 2026-10-10; NSQ 14-day checkpoint after 2026-10-07 complete day.

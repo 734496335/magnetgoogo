@@ -1,6 +1,16 @@
 # Magnet Googo 增长策略总账
 
-> 最后更新：2026-09-29 21:35（UTC+8）
+## REVIEW-HOME-TRUST-BASELINE-20261003
+- 假设：新版首页视觉冻结后，3个完整日足以建立 `EXP-CRO-HOME-TRUST-002` 的生产基线；满足门禁后仅测试 Hero 下方一行 evergreen trust microcopy，不改其它变量。
+- 前置核验：2026-10-03 Growth Daily 完成；L3 App=`OK / operational_verified=true`，完整生产日包含 09-30、10-01、10-02，Analytics 无 unresolved shadow failure。GSC OAuth 仍为 `BLOCKED_EXTERNAL_AUTH`，但本裁决依赖一方 D1/R2 web+app 数据，不以 GSC 为前置。
+- 3日 source-stratified matched home baseline：Baidu=83 views / 51 clicks / 61.45%；Google=17 / 11 / 64.71%；Direct=65 / 47 / 72.31%。逐日波动较大，且单次 landing 可产生多次 download click，因此这些 CVR 是点击率型 matched contract，不解释为独立用户安装率；后续 treatment 必须用同一口径比较。
+- Backup measurement：`backup_github=15`、`backup_lanzou=8` trusted first-party clicks 已被生产 read model 捕获，证明备用出口测量链存在；当前 read model 未提供 placement×day 明细，因此只作为测量健康护栏，不拿它构造3日转化率。
+- 裁决：**SCALE_TO_SINGLE_TREATMENT**。3完整日与 required source strata 均可用，启动唯一 treatment=`无需注册 · 无广告 · 官方签名 APK`，只替换中文 Hero trust line；不改视觉层级、title/meta/H1、CTA文案/位置、备用下载位置、NSQ实验。
+- 发布：Cloudflare Pages deployment=`https://fff4c7cf.magnetgoogo-site.pages.dev`；主域已回读 treatment；CN 镜像原子更新 index 并 `nginx -t` PASS。
+- 归因可信度：HIGH for experiment state / MEDIUM for effect size。基线和 treatment 都使用同一 prospective source×page contract；Google strata 样本仅17 views，且日级点击可超过 landing views，故最终效果必须等7个完整 treatment 日，不提前宣称提升。
+- 状态：`EXP-CRO-HOME-TRUST-002=TREATMENT_ACTIVE_2026-10-03`。下一裁决点：2026-10-10（收齐10-03..10-09七个完整 treatment 日后），目标总体 source-stratified matched homepage download CVR 相对提升>=15%，且 Baidu/Google/Direct 不出现 material degradation。
+
+> 最后更新：2026-10-03 09:25（UTC+8）
 > 目标：把所有已经尝试、正在尝试、暂停、失败、取消的增长手段和实际效果长期沉淀，后续增长工作先读本文件，再决定下一步，避免重复试错和凭感觉扩张。
 
 ## 0. 记录规则

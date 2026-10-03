@@ -77,7 +77,7 @@
       "id": "EXP-CRO-HOME-TRUST-002",
       "kind": "cro_trust",
       "target_url": "https://magnetgoogo.com/",
-      "status": "BASELINE_COLLECTING_PRODUCTION",
+      "status": "TREATMENT_ACTIVE_2026-10-03",
       "primary_variable": "hero_trust_microcopy",
       "hypothesis": "One evergreen trust line immediately below the primary Hero download CTA may increase matched homepage download conversion without changing search acquisition or page structure.",
       "measurement_precondition": {
@@ -103,13 +103,29 @@
         "main_domain_verified": true,
         "cn_mirror_verified": true,
         "backup_tracking_live": true,
-        "trust_treatment_started": false
+        "trust_treatment_started": true,
+        "baseline_complete_days": ["2026-09-30", "2026-10-01", "2026-10-02"],
+        "baseline_judged_at": "2026-10-03T09:25:00+08:00",
+        "baseline_source_home": {
+          "baidu": {"landing_views": 83, "download_clicks": 51, "conversion_pct": 61.45},
+          "google": {"landing_views": 17, "download_clicks": 11, "conversion_pct": 64.71},
+          "direct": {"landing_views": 65, "download_clicks": 47, "conversion_pct": 72.31}
+        },
+        "backup_tracking_observed": {"backup_github": 15, "backup_lanzou": 8},
+        "baseline_note": "Three complete post-refresh days are present and Analytics is operational_verified. Source strata are measurable, but daily source CVRs are noisy because one visit may generate multiple download clicks; use the frozen 3-day aggregate as the treatment baseline and judge only against the same matched contract."
       },
       "proposed_treatment": "无需注册 · 无广告 · 官方签名 APK",
+      "treatment": {
+        "started_at": "2026-10-03T09:25:00+08:00",
+        "text": "无需注册 · 无广告 · 官方签名 APK",
+        "scope": "Chinese Hero trust microcopy only",
+        "cloudflare_pages_deployment": "https://fff4c7cf.magnetgoogo-site.pages.dev",
+        "cn_mirror_updated": true
+      },
       "success_rule": "7-day source-stratified matched homepage download CVR relative lift >=15%, with no material degradation in Baidu/Google/Direct individually.",
       "guardrails": ["homepage SEO title unchanged", "meta description unchanged", "H1 unchanged", "Hero CTA position unchanged", "NSQ winner CTA experiment unchanged", "New DSSU 1-7 day satisfied reuse"],
       "judge_windows_days": [7, 14],
-      "notes": "Homepage visual refresh + backup-download measurement patch are now production-live on both magnetgoogo.com and the cn.magnetgoogo.com mirror. Main-domain deployment completed through Cloudflare Pages; public HTML contains the frozen home-redesign baseline and both backup download exits. 2026-09-29 is a partial deployment day and is excluded from the clean baseline; baseline starts with the first complete day 2026-09-30. Trust-copy treatment has NOT started and must remain frozen until >=3 complete baseline days are available."
+      "notes": "Homepage visual refresh + backup-download measurement patch are production-live on both surfaces. Clean baseline days 2026-09-30..2026-10-02 completed with Analytics operational_verified. The single Chinese Hero trust microcopy treatment started 2026-10-03; title/meta/H1/CTA position/visual structure remain frozen. Judge after 7 complete treatment days using the same source-stratified matched homepage conversion contract."
     },
     {
       "id": "EXP-SEO-ZHONGZI-EVIDENCE-001",

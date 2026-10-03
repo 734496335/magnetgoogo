@@ -1,4 +1,17 @@
 ---
+日期/时间：2026-10-03 09:25（UTC+8）
+本次版本：homepage-trust-baseline-judgment-treatment-start-20261003
+本次范围：**执行 EXP-CRO-HOME-TRUST-002 三完整日生产基线裁决；满足门禁后只启动中文 Hero trust microcopy 单变量，并同步主域/CN镜像。**
+
+### 裁决与发布
+- Growth Daily 刷新后 L3 App=`OK / operational_verified=true`；09-30、10-01、10-02 三个完整日均存在，Analytics 无 unresolved shadow failure。GSC OAuth 仍阻塞，但不影响本次一方生产测量裁决。
+- 3日 matched home：Baidu=83/51/61.45%，Google=17/11/64.71%，Direct=65/47/72.31%（views/clicks/CVR）。日级存在 click>landing，说明指标是点击率型 contract 而非独立安装率；后续必须同口径比较，不能把数值解释成用户安装转化。
+- Backup trusted measurement 已观察 `backup_github=15`、`backup_lanzou=8`；生产 read model 暂无 placement×day，因此仅作为测量健康护栏。
+- 裁决=`SCALE_TO_SINGLE_TREATMENT`；仅将中文 Hero note 从 `Android · 无需注册` 改为 `无需注册 · 无广告 · 官方签名 APK`。没有改 title/meta/H1、CTA文案/位置、视觉结构、备用下载位置或其它语言。
+- SEO Growth audit PASS（214/214 attribution tracked）；GEO audit PASS。
+- Cloudflare Pages deployment=`https://fff4c7cf.magnetgoogo-site.pages.dev`；主域已回读 treatment。CN镜像原子替换 index，`nginx -t` PASS，远端 SHA=`6d66a0001c10764c3ab14545659da647531bfe0339eed9b55c4948140cb55803`。
+- `EXP-CRO-HOME-TRUST-002` 状态=`TREATMENT_ACTIVE_2026-10-03`；至少收齐10-03..10-09七个完整 treatment 日后再裁决，不提前宣称 lift。
+---
 日期/时间：2026-10-01 09:17（UTC+8）
 本次版本：nsq-winner-hero-cta-7d-judgment-20261001
 本次范围：**执行 EXP-NSQ-WINNER-HERO-CTA-001 完整7日门禁裁决；严格按既定“>=30%增量且NSQ qualified views不下降”双条件判断，不因点击提升而放宽流量护栏。**
