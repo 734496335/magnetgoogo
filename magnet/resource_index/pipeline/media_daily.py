@@ -1264,19 +1264,24 @@ def run_media_daily(
                 for result_index, source, library_path in recovery_candidates:
                     initial_result = dict(source_results[result_index])
                     try:
-                        retry = run_safe_movie_source(
-                            source_id=source.source_id,
-                            output_dir=source_root,
-                            target_count=source.count,
-                            recovery_retry=True,
-                        )
-                        retry_payload = retry.__dict__
-                        recovered = (
-                            retry.status == "ran"
-                            and retry.job_status == "success"
-                            and retry.covered_count == source.count
-                            and bool(getattr(retry, "publish_ready", retry.job_status == "success"))
-                        )
+                        retry_attempts = 0
+                        while True:
+                            retry_attempts += 1
+                            retry = run_safe_movie_source(
+                                source_id=source.source_id,
+                                output_dir=source_root,
+                                target_count=source.count,
+                                recovery_retry=True,
+                            )
+                            retry_payload = retry.__dict__
+                            recovered = (
+                                retry.status == "ran"
+                                and retry.job_status == "success"
+                                and retry.covered_count == source.count
+                                and bool(getattr(retry, "publish_ready", retry.job_status == "success"))
+                            )
+                            if recovered or retry_attempts >= 2 or retry.job_status != "partial":
+                                break
                         if recovered:
                             recovered_feed = export_source_library_feed(
                                 db_path=retry.db_path,
@@ -1298,11 +1303,13 @@ def run_media_daily(
                                 "magnet_resource_count": magnet_resource_count,
                                 "freshness_magnet_status": "pass" if magnet_item_count > 0 else "fail",
                                 "initial_result": initial_result,
+                                "recovery_attempts": retry_attempts,
                             }
                         else:
                             source_results[result_index]["recovery"] = {
                                 **retry_payload,
                                 "succeeded": False,
+                                "attempts": retry_attempts,
                             }
                     except BaseException as retry_exc:
                         source_results[result_index]["recovery"] = {

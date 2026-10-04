@@ -1136,6 +1136,89 @@ def test_daily_pipeline_recovers_required_source_after_one_fallback_retry(
     assert result["stages"]["crawl"][0]["status"] == "recovered"
     assert result["stages"]["crawl"][0]["reason"] == "fallback_retry"
     assert result["stages"]["crawl"][0]["freshness_magnet_status"] == "pass"
+    assert result["stages"]["crawl"][0]["recovery_attempts"] == 1
+
+
+def test_daily_pipeline_retries_one_partial_recovery_to_finish_tombstone_replacement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    db_path = tmp_path / "state" / "sources" / "sixv_latest_10.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    db_path.write_bytes(b"sqlite-placeholder")
+    _write(
+        tmp_path / "feed.json",
+        {"items": [{"resources": [{"resource_type": "magnet", "info_hash": "a" * 40}]}]},
+    )
+    calls = {"count": 0}
+
+    def run_source(**kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise ResourceIndexError("LIVE_EMPTY_RESULT", "temporary empty listing", {"http_requests": 1})
+        if calls["count"] == 2:
+            return SimpleNamespace(
+                source_id=kwargs["source_id"],
+                status="paused",
+                reason="scheduled_check",
+                target_count=10,
+                invocation_http_requests=1,
+                reserved_requests=10,
+                snapshot_changed=True,
+                job_status="partial",
+                covered_count=9,
+                remaining_daily_requests=83,
+                db_path=str(db_path),
+                feed_path=str(tmp_path / "feed.json"),
+                publish_ready=False,
+            )
+        return SimpleNamespace(
+            source_id=kwargs["source_id"],
+            status="ran",
+            reason="scheduled_check",
+            target_count=10,
+            invocation_http_requests=2,
+            reserved_requests=10,
+            snapshot_changed=True,
+            job_status="success",
+            covered_count=10,
+            remaining_daily_requests=81,
+            db_path=str(db_path),
+            feed_path=str(tmp_path / "feed.json"),
+            publish_ready=True,
+        )
+
+    monkeypatch.setattr(media_daily, "run_safe_movie_source", run_source)
+    monkeypatch.setattr(
+        media_daily,
+        "safe_movie_source_status",
+        lambda **_kwargs: {
+            "job": {
+                "status": "success",
+                "covered_count": 10,
+                "db_path": str(db_path),
+                "completed_at": media_daily._iso(),
+            },
+            "source": {"last_completed_at": media_daily._iso()},
+        },
+    )
+    base = _config(tmp_path)
+    config = MediaDailyConfig(
+        **{
+            **base.__dict__,
+            "sources": (DailySourceConfig("sixv", 10, True),),
+            "source_fallback_retry_delay_seconds": 0,
+        }
+    )
+    result = run_media_daily(config, publish=False)
+    assert calls["count"] == 3
+    assert result["quality_status"] == "healthy"
+    assert result["required_degraded_sources"] == []
+    crawl = result["stages"]["crawl"][0]
+    assert crawl["status"] == "recovered"
+    assert crawl["recovery_attempts"] == 2
+    assert crawl["freshness_magnet_status"] == "pass"
 
 
 def test_daily_pipeline_surfaces_required_source_when_recovery_retry_still_fails(
