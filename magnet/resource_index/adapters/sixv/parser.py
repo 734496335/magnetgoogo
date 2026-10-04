@@ -19,7 +19,7 @@ from magnet.resource_index.normalize.magnets import normalize_magnet_uri
 from magnet.resource_index.normalize.text import normalize_whitespace
 
 SOURCE_ID = "sixv"
-PARSER_VERSION = "sixv-parser/1.0.2"
+PARSER_VERSION = "sixv-parser/1.0.3"
 ORIGIN = "https://www.6v520.com"
 
 _FIELD_LABELS = (

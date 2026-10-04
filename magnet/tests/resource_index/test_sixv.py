@@ -9,7 +9,9 @@ from pathlib import Path
 
 import pytest
 
+from magnet.resource_index.acquisition.policy import LiveFetchPolicy
 from magnet.resource_index.adapters.movie_registry import get_movie_source
+from magnet.resource_index.adapters.sixv.live_crawler import SixVLiveCrawler
 from magnet.resource_index.adapters.sixv.models import (
     SixVListingCandidate,
     SixVMovieDetail,
@@ -22,7 +24,13 @@ from magnet.resource_index.adapters.sixv.parser import (
     parse_latest_listing,
     parse_movie_detail,
 )
-from magnet.resource_index.errors import DETAIL_DOM_DRIFT, LIVE_RATE_LIMITED, ResourceIndexError
+from magnet.resource_index.errors import (
+    DETAIL_DOM_DRIFT,
+    LIVE_HTTP_ERROR,
+    LIVE_RATE_LIMITED,
+    NOT_FOUND,
+    ResourceIndexError,
+)
 from magnet.resource_index.pipeline.latest_crawl import LatestCrawlPaths, read_latest_status
 from magnet.resource_index.pipeline.sixv_latest import SixVLatestRunner
 from magnet.resource_index.store.movie_repository import MovieRepository
@@ -43,6 +51,27 @@ def test_detail_parser_reports_dom_drift_with_stable_error_code() -> None:
         parse_movie_detail("<html><body>unexpected</body></html>", candidate=_candidate(1))
     assert exc_info.value.error_code == DETAIL_DOM_DRIFT
     assert exc_info.value.context["selector"] == "#endText"
+
+
+def test_sixv_crawler_maps_detail_404_to_not_found() -> None:
+    class _NotFoundClient:
+        def get(self, _url: str, **_kwargs):
+            raise ResourceIndexError(LIVE_HTTP_ERROR, "HTTP status 404", {"status": 404})
+
+    crawler = SixVLiveCrawler(
+        policy=LiveFetchPolicy(
+            enabled=True,
+            acknowledged=True,
+            max_pages=1,
+            request_delay_seconds=10,
+            concurrency=1,
+        ),
+        client=_NotFoundClient(),
+    )
+    with pytest.raises(ResourceIndexError) as exc:
+        crawler.crawl_movie_detail(_candidate(1))
+    assert exc.value.error_code == NOT_FOUND
+    assert exc.value.context["status"] == 404
 
 
 def test_movie_title_normalization_removes_listing_noise() -> None:
@@ -258,7 +287,7 @@ def test_detail_parser_falls_back_to_listing_year_when_metadata_omits_year() -> 
     )
     movie = parse_movie_detail(html, candidate=candidate)
     assert movie.year == 2026
-    assert movie.parser_version == "sixv-parser/1.0.2"
+    assert movie.parser_version == "sixv-parser/1.0.3"
 
 
 @pytest.mark.parametrize(

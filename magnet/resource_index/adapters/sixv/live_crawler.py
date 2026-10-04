@@ -6,7 +6,13 @@ from magnet.resource_index.acquisition.http_client import LiveHttpClient, normal
 from magnet.resource_index.acquisition.policy import LiveFetchPolicy, PhysicalRequestBudget
 from magnet.resource_index.adapters.sixv.models import SixVListingCandidate, SixVMovieDetail
 from magnet.resource_index.adapters.sixv.parser import ORIGIN, SOURCE_ID, parse_latest_listing, parse_movie_detail
-from magnet.resource_index.errors import CONFIG_ERROR, LIVE_EMPTY_RESULT, ResourceIndexError
+from magnet.resource_index.errors import (
+    CONFIG_ERROR,
+    LIVE_EMPTY_RESULT,
+    LIVE_HTTP_ERROR,
+    NOT_FOUND,
+    ResourceIndexError,
+)
 
 
 class SixVLiveCrawler:
@@ -88,10 +94,19 @@ class SixVLiveCrawler:
 
     def crawl_movie_detail(self, candidate: SixVListingCandidate) -> SixVMovieDetail:
         self.policy.assert_allowed()
-        response = self.client.get(
-            candidate.detail_url,
-            referer=f"{self.origin}/dy/",
-        )
+        try:
+            response = self.client.get(
+                candidate.detail_url,
+                referer=f"{self.origin}/dy/",
+            )
+        except ResourceIndexError as exc:
+            if exc.error_code == LIVE_HTTP_ERROR and int(exc.context.get("status") or 0) == 404:
+                raise ResourceIndexError(
+                    NOT_FOUND,
+                    "6V detail page no longer exists",
+                    {"detail_url": candidate.detail_url, "status": 404},
+                ) from exc
+            raise
         return parse_movie_detail(
             response.text,
             candidate=candidate,
