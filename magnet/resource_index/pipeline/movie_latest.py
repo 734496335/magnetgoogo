@@ -25,6 +25,7 @@ from magnet.resource_index.errors import (
     CONFIG_ERROR,
     INGEST_CANCELLED,
     LIVE_EMPTY_RESULT,
+    LIVE_HTTP_ERROR,
     LIVE_RATE_LIMITED,
     LIVE_REQUEST_BUDGET_EXHAUSTED,
     LIVE_URL_REJECTED,
@@ -361,6 +362,21 @@ class MovieLatestRunner:
             and int(item.get("attempts") or 0) >= max_attempts
             and item.get("detail_url")
         }
+
+    def _rearm_exhausted_transient_failures(self, job_id: str) -> int:
+        now_s = self.clock().isoformat().replace("+00:00", "Z")
+        cursor = self.repo.conn.execute(
+            """
+            UPDATE latest_crawl_items
+            SET attempts = ?, last_run_id = NULL, updated_at = ?
+            WHERE job_id = ?
+              AND status = 'failed'
+              AND attempts >= ?
+              AND last_error_code = ?
+            """,
+            (self.max_attempts - 1, now_s, job_id, self.max_attempts, LIVE_HTTP_ERROR),
+        )
+        return int(cursor.rowcount or 0)
 
     def _snapshot_payload(
         self,
@@ -989,6 +1005,8 @@ class MovieLatestRunner:
             )
             self.job_store.recover_running(job_id, now=self.clock())
             self._sync_success(job_id, snapshot)
+            if refresh:
+                self._rearm_exhausted_transient_failures(job_id)
             if reparse_incomplete:
                 self._mark_incomplete_pending(job_id)
             job = self.job_store.get_job(job_id)
