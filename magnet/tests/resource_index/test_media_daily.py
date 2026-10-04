@@ -1558,7 +1558,7 @@ def test_skip_crawl_marks_snapshot_only_supplemental_source_degraded(
     assert crawl["job_status"] == "snapshot_only"
 
 
-def test_daily_pipeline_rejects_stale_source_fallback(
+def test_daily_pipeline_recovers_before_rejecting_expired_source_fallback(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1566,13 +1566,96 @@ def test_daily_pipeline_rejects_stale_source_fallback(
     db_path = tmp_path / "state" / "sources" / "sixv_latest_10.db"
     db_path.parent.mkdir(parents=True, exist_ok=True)
     db_path.write_bytes(b"sqlite-placeholder")
+    feed_path = tmp_path / "feed.json"
+    _write(
+        feed_path,
+        {"items": [{"resources": [{"resource_type": "magnet", "info_hash": "a" * 40}]}]},
+    )
+    calls = {"count": 0}
+
+    def run_source(**kwargs):
+        calls["count"] += 1
+        if not kwargs.get("recovery_retry"):
+            return SimpleNamespace(
+                source_id=kwargs["source_id"],
+                status="skipped",
+                reason="failure_backoff",
+                target_count=10,
+                invocation_http_requests=0,
+                reserved_requests=0,
+                snapshot_changed=None,
+                job_status="success",
+                covered_count=10,
+                remaining_daily_requests=120,
+                db_path=str(db_path),
+                feed_path=str(feed_path),
+                publish_ready=False,
+            )
+        return SimpleNamespace(
+            source_id=kwargs["source_id"],
+            status="ran",
+            reason="scheduled_check",
+            target_count=10,
+            invocation_http_requests=2,
+            reserved_requests=10,
+            snapshot_changed=True,
+            job_status="success",
+            covered_count=10,
+            remaining_daily_requests=88,
+            db_path=str(db_path),
+            feed_path=str(feed_path),
+            publish_ready=True,
+        )
+
+    monkeypatch.setattr(media_daily, "run_safe_movie_source", run_source)
     monkeypatch.setattr(
         media_daily,
-        "run_safe_movie_source",
-        lambda **_kwargs: (_ for _ in ()).throw(
-            ResourceIndexError("LIVE_HTTP_ERROR", "temporary DNS failure", {})
-        ),
+        "safe_movie_source_status",
+        lambda **_kwargs: {
+            "job": {
+                "status": "success",
+                "covered_count": 10,
+                "db_path": str(db_path),
+                "completed_at": "2020-01-01T00:00:00Z",
+            },
+            "source": {"last_completed_at": "2020-01-01T00:00:00Z"},
+        },
     )
+    base = _config(tmp_path)
+    config = MediaDailyConfig(
+        **{
+            **base.__dict__,
+            "sources": (DailySourceConfig("sixv", 10, True),),
+            "source_fallback_max_age_hours": 1,
+            "source_fallback_retry_delay_seconds": 0,
+        }
+    )
+
+    result = run_media_daily(config, publish=False)
+
+    assert calls["count"] == 2
+    assert result["status"] == "success"
+    assert result["stages"]["crawl"][0]["status"] == "recovered"
+    assert result["stages"]["crawl"][0]["reason"] == "expired_fallback_retry"
+
+
+def test_daily_pipeline_rejects_stale_source_fallback_after_recovery_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fakes(monkeypatch)
+    db_path = tmp_path / "state" / "sources" / "sixv_latest_10.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    db_path.write_bytes(b"sqlite-placeholder")
+    calls = {"count": 0}
+
+    def run_source(**kwargs):
+        calls["count"] += 1
+        if calls["count"] == 2:
+            assert kwargs.get("recovery_retry") is True
+        raise ResourceIndexError("LIVE_HTTP_ERROR", "temporary DNS failure", {})
+
+    monkeypatch.setattr(media_daily, "run_safe_movie_source", run_source)
     monkeypatch.setattr(
         media_daily,
         "safe_movie_source_status",
@@ -1589,8 +1672,12 @@ def test_daily_pipeline_rejects_stale_source_fallback(
     base = _config(tmp_path)
     config = MediaDailyConfig(**{**base.__dict__, "source_fallback_max_age_hours": 1})
 
-    with pytest.raises(ResourceIndexError, match="fallback database is too old"):
+    with pytest.raises(ResourceIndexError, match="fallback database is too old") as caught:
         run_media_daily(config, publish=False)
+
+    assert calls["count"] == 2
+    assert caught.value.context["recovery_attempted"] is True
+    assert caught.value.context["recovery_error_code"] == "LIVE_HTTP_ERROR"
 
 
 def test_candidate_requires_trusted_previous_public_key_when_configured(

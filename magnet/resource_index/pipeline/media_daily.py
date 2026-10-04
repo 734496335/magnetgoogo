@@ -1012,6 +1012,94 @@ def _source_fallback(
     }
 
 
+def _source_fallback_or_recover(
+    *,
+    source: DailySourceConfig,
+    source_root: Path,
+    error: BaseException,
+    max_age_hours: int,
+    initial_result: dict[str, Any] | None = None,
+) -> tuple[str, dict[str, Any]]:
+    try:
+        db_path, fallback = _source_fallback(
+            source=source,
+            source_root=source_root,
+            error=error,
+            max_age_hours=max_age_hours,
+        )
+    except ResourceIndexError as stale_error:
+        if (
+            stale_error.error_code != LATEST_CRAWL_INCOMPLETE
+            or stale_error.message != "source fallback database is too old"
+        ):
+            raise
+        try:
+            retry = run_safe_movie_source(
+                source_id=source.source_id,
+                output_dir=source_root,
+                target_count=source.count,
+                recovery_retry=True,
+            )
+        except Exception as retry_exc:
+            recovery_error_code = (
+                retry_exc.error_code
+                if isinstance(retry_exc, ResourceIndexError)
+                else type(retry_exc).__name__
+            )
+            raise ResourceIndexError(
+                LATEST_CRAWL_INCOMPLETE,
+                "source fallback database is too old",
+                {
+                    **stale_error.context,
+                    "recovery_attempted": True,
+                    "recovery_error_code": recovery_error_code,
+                    "recovery_error_type": type(retry_exc).__name__,
+                },
+            ) from retry_exc
+        retry_payload = retry.__dict__
+        recovered = (
+            retry.status == "ran"
+            and retry.job_status == "success"
+            and retry.covered_count == source.count
+            and bool(getattr(retry, "publish_ready", retry.job_status == "success"))
+        )
+        if not recovered:
+            raise ResourceIndexError(
+                LATEST_CRAWL_INCOMPLETE,
+                "source fallback database is too old",
+                {
+                    **stale_error.context,
+                    "recovery_attempted": True,
+                    "recovery_status": retry.status,
+                    "recovery_reason": retry.reason,
+                    "recovery_job_status": retry.job_status,
+                    "recovery_covered_count": retry.covered_count,
+                },
+            ) from stale_error
+        recovered_payload = {
+            **retry_payload,
+            "status": "recovered",
+            "reason": "expired_fallback_retry",
+            "freshness_required": source.freshness_required,
+            "freshness_group": source.freshness_group,
+            "expired_fallback": stale_error.context,
+        }
+        if initial_result is not None:
+            recovered_payload["initial_result"] = initial_result
+        elif isinstance(error, ResourceIndexError):
+            recovered_payload["initial_error"] = {
+                "type": type(error).__name__,
+                "error_code": error.error_code,
+                "message": error.message,
+            }
+        return retry.db_path, recovered_payload
+    fallback["freshness_required"] = source.freshness_required
+    fallback["freshness_group"] = source.freshness_group
+    if initial_result is not None:
+        fallback["initial_result"] = initial_result
+    return db_path, fallback
+
+
 def run_media_daily(
     config: MediaDailyConfig,
     *,
@@ -1125,27 +1213,23 @@ def run_media_daily(
                                     "job_status": result_job_status,
                                 },
                             )
-                            db_path, fallback = _source_fallback(
+                            db_path, fallback = _source_fallback_or_recover(
                                 source=source,
                                 source_root=source_root,
                                 error=synthetic,
                                 max_age_hours=config.source_fallback_max_age_hours,
+                                initial_result=result_payload,
                             )
-                            fallback["freshness_required"] = source.freshness_required
-                            fallback["freshness_group"] = source.freshness_group
-                            fallback["initial_result"] = result_payload
                             source_results.append(fallback)
                         else:
                             source_results.append(result_payload)
                     except BaseException as exc:
-                        db_path, fallback = _source_fallback(
+                        db_path, fallback = _source_fallback_or_recover(
                             source=source,
                             source_root=source_root,
                             error=exc,
                             max_age_hours=config.source_fallback_max_age_hours,
                         )
-                        fallback["freshness_required"] = source.freshness_required
-                        fallback["freshness_group"] = source.freshness_group
                         source_results.append(fallback)
                 library_path = run_dir / "library" / f"{source.source_id}.json"
                 library_feed = export_source_library_feed(
