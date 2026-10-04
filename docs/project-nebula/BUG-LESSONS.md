@@ -566,6 +566,15 @@
 - **永久规则**：① 任何 HTML 与 CSS/JS 同时发生结构耦合变化的发布，HTML 引用必须带内容指纹或等价版本化 URL，例如 `style.css?v=<content-hash>`；② 发布验收必须包含 warm-cache/old-cache 场景，不能只用无缓存 curl/headless 新会话；③ 首页生产截图必须和冻结的本地基线做同 viewport 像素/布局一致性对比；④ 版本 query 不得让 SEO/Growth tracker 审计误判，审计器必须允许同一路径的版本 query；⑤ 主下载/备用下载仍需独立回归，不能因视觉修复省略。
 - **本次修复证据**：生产 HTML 已改为 `style.css?v=3c68ec22` 与 `/js/growth-attribution.js?v=c8addc6b`；SEO Growth 审计已兼容版本 query并恢复24/24 core PASS。相同 Chrome/390×844 同时截 localhost 与公网后平均像素差仅0.16（RMS1.73）；1440桌面公网与冻结基线平均像素差0.19，证明线上已恢复为本地认可视觉。
 
+## BL-064 — 定时器 active 不等于影视生产链健康；必须对连续失败与最后成功 revision 做告警
+
+- **版本/时间**：Media production health recheck，2026-10-04。
+- **现象**：`magnet-media-oracle-compute.timer` 一直 `enabled+active`，但 Oracle compute 从 2026-09-26 到 2026-10-03 连续每日退出1；统一被 `meijumi` 的 `LATEST_CRAWL_INCOMPLETE / source fallback database is too old` 挡住，fallback stale 从约191.95h增长到359.95h。Aliyun finalizer 仍按计划启动，但持续重复拉取 2026-09-25 的旧 handoff，并因 `compute handoff is older than maximum age` 失败；weekly compute-audit 也失败。
+- **真实影响**：最后成功生产发布停在 revision53（compute run `20260925T190043Z-2f12da39`），当前公网仍是 484 movies / 749 series / 8127 magnet resources。R2 与 CN pointer SHA 完全一致，说明分发没有 split-brain，但数据已经停止增量更新。
+- **为什么会漏掉**：历史检查把 `timer enabled+active`、双端 pointer 一致和某次自然周期成功当作健康核心证据，却没有把“最近 N 次 service Result/ExecMainStatus”“当前 revision 相对最近成功 compute 的年龄”“finalizer 是否反复复用同一个 handoff”纳入持续生产告警。timer 正常触发反而掩盖了每天业务执行失败。
+- **关键诊断**：同一 Oracle 生产镜像对 `meijumi` 做直接 source-chain probe 仍 PASS（listing=3、detail_attempts=1、magnet=12、2 HTTP requests），所以不能把问题简化为站点死亡，也不能自动降级/删除源。当前证据更指向正式 daily latest-crawl/状态落库路径与 fallback freshness 的失配，需要单独修复并做真实自然周期复验。
+- **永久规则**：① Media health 必须同时检查 timer、最近 service exit、连续失败次数、last successful compute run age、last published revision age、finalizer handoff run_id；② 连续2个自然周期失败或 last-success 超过48h必须告警，不允许仅因 timer active 判健康；③ finalizer 连续复用同一 handoff且 age gate失败必须作为上游 compute hard failure；④ source 直连 probe PASS 但 daily pipeline FAIL 时，禁止自动变更 `health.status`，必须诊断 latest-crawl/state path；⑤ 修复后至少等一轮真实 Oracle compute + Aliyun finalizer 自然周期均 exit0 且 revision前进，才能关闭事故。
+
 ## 使用规则
 
 1. 修复一个影响用户/发布判断的新 Bug 后，必须新增或更新本文件条目，而不是只写 `DEV-LOG.md`。

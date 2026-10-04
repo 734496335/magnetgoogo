@@ -1,4 +1,21 @@
 ---
+日期/时间：2026-10-04 21:30（UTC+8）
+本次版本：media-production-health-recheck-20261004
+本次范围：**只读核验影视资源 Oracle compute → Aliyun finalizer → R2/CN 生产链；发现连续失败并确认公网仍停在最后成功 revision，不修改 source health、不绕过 freshness 门禁。**
+
+### 实测结论
+- Oracle `magnet-media-oracle-compute.timer` 仍 enabled+active，但最近 service=`Result=exit-code / ExecMainStatus=1`。从 09-26 到 10-03 已连续8个自然周期失败，均被 `meijumi` 的 `LATEST_CRAWL_INCOMPLETE / source fallback database is too old` 挡住；stale_hours 从约191.95增长到359.95。
+- Aliyun `magnet-media-compute-finalizer.timer` / `compute-audit.timer` 都 enabled+active，但最新 finalizer 与 audit service 同样 exit1；finalizer 反复取得旧 handoff `20260925T190043Z-2f12da39`，随后被 `compute handoff is older than maximum age` 拒绝。
+- 最后一次成功 publish 为 revision53：484 movies / 749 series / 8127 resources。R2 与 CN `current.json` 字节 SHA 均为 `a769114fdb9a199912af6d0d09a561bbe56210d8a29b38877001a266c599a2e3`，manifest SHA 均为 `3af1d2eaa3b8f168ca28b48521490df87617565594c551d716f1f39fd8b196e6`；当前无 split-brain，但影视数据已停止增量更新。
+- 同一 Oracle 生产镜像对 `meijumi` 的独立 source-chain probe 实测 PASS：listing=3、detail_attempts=1、magnet_count=12、http_requests=2。说明源本身并未完全不可用，不能自动降级/删除；故障更可能位于 daily latest-crawl/状态落库与 fallback freshness 之间。
+- 新增 BL-064：media health 不得只看 timer active；必须同时监控最近 service exit、连续失败、last successful compute/revision age 与 finalizer handoff age。连续2周期失败或last-success>48h必须告警。
+
+### 当前裁决
+- MEDIA=`DEGRADED / NO FRESH PUBLISH SINCE REV53`。
+- 当前公开旧数据仍可读且双端一致，因此不是用户端立即404故障，但新影视资源已约8天未更新。
+- 本轮按用户“查看是否正常”范围不修改爬虫逻辑；后续修复必须先定位 meijumi safe latest-crawl 为什么失败，而 direct source-chain probe 能通过，修复后要求真实 Oracle compute + Aliyun finalizer 自然周期均 exit0 且 revision前进。
+
+---
 日期/时间：2026-10-03 09:25（UTC+8）
 本次版本：homepage-trust-baseline-judgment-treatment-start-20261003
 本次范围：**执行 EXP-CRO-HOME-TRUST-002 三完整日生产基线裁决；满足门禁后只启动中文 Hero trust microcopy 单变量，并同步主域/CN镜像。**

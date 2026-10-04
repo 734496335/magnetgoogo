@@ -1,5 +1,12 @@
-MagGoogo / Project Nebula — 2026-10-03 homepage trust baseline judgment
-STATUS: ANALYTICS=OPERATIONAL_VERIFIED / HOME_CRO=TREATMENT_ACTIVE_2026-10-03 / NSQ_CTA=HOLD_NO_REPLICATION_7D_TRAFFIC_GUARDRAIL / RETENTION_FAVORITES=HOLD.
+MagGoogo / Project Nebula — 2026-10-04 media production health recheck
+STATUS: MEDIA=DEGRADED_NO_FRESH_PUBLISH_SINCE_REV53 / ANALYTICS=OPERATIONAL_VERIFIED / HOME_CRO=TREATMENT_ACTIVE_2026-10-03 / NSQ_CTA=HOLD_NO_REPLICATION_7D_TRAFFIC_GUARDRAIL / RETENTION_FAVORITES=HOLD.
+Media Oracle timer enabled+active but compute service failed every natural cycle 2026-09-26..2026-10-03 (8 consecutive failures), latest ExecMainStatus=1.
+Blocking source=meijumi; daily error=LATEST_CRAWL_INCOMPLETE / source fallback database too old; latest stale_hours≈359.95 (>168h gate).
+Independent meijumi source-chain probe on same production image PASS: listing3 / magnets12 / 2 HTTP requests; do not auto-demote source.
+Aliyun finalizer + compute-audit timers enabled+active but latest services fail because handoff 20260925T190043Z-2f12da39 is older than maximum age.
+Last successful public publish=revision53: 484 movies / 749 series / 8127 resources.
+R2/CN pointers still byte-identical SHA=a769114fdb9a199912af6d0d09a561bbe56210d8a29b38877001a266c599a2e3; no split-brain, but no fresh media increments.
+BL-064 added: media health must monitor service exits/consecutive failures/last-success revision age/handoff age, not timer active alone.
 Growth Daily refreshed; latest complete operational day=2026-10-02.
 L3 App=OK / operational_verified=true; no unresolved Analytics shadow failure.
 Homepage clean baseline complete days=2026-09-30, 2026-10-01, 2026-10-02.
