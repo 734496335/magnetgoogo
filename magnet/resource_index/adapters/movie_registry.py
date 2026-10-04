@@ -50,6 +50,7 @@ class MovieSourceSpec:
     publish_count: int | None = None
     detail_requests_per_item_upper_bound: int | None = None
     parser_epoch: str = "unknown"
+    listing_title_required: bool = True
 
 
 _SPECS: dict[str, MovieSourceSpec] = {}
@@ -233,6 +234,7 @@ def _ensure_builtin_movie_sources() -> None:
                 metadata_priority=300,
                 detail_requests_per_item_upper_bound=1,
                 parser_epoch=MEIJUMI_PARSER_VERSION,
+                listing_title_required=False,
             )
         )
     if "bitba-series" not in _SPECS:

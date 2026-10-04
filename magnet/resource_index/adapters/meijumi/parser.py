@@ -140,8 +140,6 @@ def parse_latest_listing(
         if not re.fullmatch(r"/\d+\.html", path):
             continue
         title = normalize_whitespace(anchor.get_text(" ", strip=True))
-        if not title:
-            continue
         update_status = normalize_whitespace(
             row.select_one("span.zhong").get_text(" ", strip=True)
             if row.select_one("span.zhong")
@@ -165,8 +163,12 @@ def parse_latest_listing(
         episode_label = update_status
         episode_number = _episode_number(update_status or "")
         season_number = _season_number(update_status or "") or _season_number(title)
-        listing_title = " ".join(
-            value for value in (title, update_status, " / ".join(category_labels)) if value
+        listing_title = (
+            " ".join(
+                value for value in (title, update_status, " / ".join(category_labels)) if value
+            )
+            if title
+            else ""
         )
         output.append(
             MovieListingCandidate(
@@ -180,7 +182,7 @@ def parse_latest_listing(
                 highlight_labels=(),
                 quality_tags=extract_quality_tags(listing_title),
                 content_kind="series",
-                series_title=title,
+                series_title=title or None,
                 season_number=season_number,
                 episode_number=episode_number,
                 episode_label=episode_label,

@@ -8,6 +8,7 @@ from magnet.resource_index.adapters.meijumi.parser import (
     parse_latest_listing,
     parse_series_detail,
 )
+from magnet.resource_index.adapters.movie_registry import get_movie_source
 
 LISTING_HTML = """
 <html><body><ol>
@@ -69,6 +70,29 @@ def test_meijumi_listing_extracts_series_update_identity() -> None:
     assert items[0].source_item_key == "/45412.html"
     assert items[0].brand_id == "meijumi"
     assert items[1].episode_number == 2
+
+
+def test_meijumi_listing_keeps_valid_detail_url_when_listing_title_is_temporarily_empty() -> None:
+    html = """
+    <li class="news100">
+      <span class="zuo"><a href="https://www.meijumi.net/45717.html"></a></span>
+      <span class="zhong"></span>
+      <span class="buxianshi"><a>2026新剧</a> | <a>灵异/惊悚</a></span>
+      <span class="you">2026-09-27</span>
+    </li>
+    """
+    items = parse_latest_listing(html, page_url="https://www.meijumi.net/news/")
+
+    assert len(items) == 1
+    assert items[0].detail_url == "https://www.meijumi.net/45717.html"
+    assert items[0].listing_title == ""
+    assert items[0].series_title is None
+    assert items[0].update_date == date(2026, 9, 27)
+    assert get_movie_source("meijumi").listing_title_required is False
+
+    detail = parse_series_detail(DETAIL_HTML, candidate=items[0])
+    assert detail.title == "深信之疑 第一季"
+    assert detail.series_title == "深信之疑 第一季"
 
 
 def test_meijumi_listing_prefers_current_season_and_completed_episode_count() -> None:

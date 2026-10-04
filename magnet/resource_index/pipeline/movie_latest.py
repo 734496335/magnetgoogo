@@ -140,6 +140,7 @@ class MovieLatestRunner:
         self.brand_id = source_spec.brand_id
         self.content_kind = source_spec.content_kind
         self.parser_variant = source_spec.parser_variant
+        self.listing_title_required = source_spec.listing_title_required
         if self.brand_id and self.parser_variant:
             self.endpoints = load_movie_brand_registry().runtime_endpoints(
                 brand_id=self.brand_id,
@@ -312,7 +313,7 @@ class MovieLatestRunner:
                     "movie candidate source keys must be unique",
                     {"source_id": self.source_id, "source_item_key": source_key},
                 )
-            if not normalize_whitespace(candidate.listing_title):
+            if self.listing_title_required and not normalize_whitespace(candidate.listing_title):
                 raise ResourceIndexError(
                     CONFIG_ERROR,
                     "movie candidate title must not be empty",
