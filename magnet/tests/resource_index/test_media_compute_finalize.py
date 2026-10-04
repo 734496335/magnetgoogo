@@ -55,6 +55,8 @@ def _handoff(
     fresh_count: int = 1,
     finished_at: str | None = None,
     include_finished_at: bool = True,
+    magnet_only_resource_count: int = 2,
+    series_audit_resource_count: int = 1,
 ) -> str:
     movie_feed = tmp_path / "movie.json"
     series_feed = tmp_path / "series.json"
@@ -83,8 +85,11 @@ def _handoff(
         "freshness_groups": {"series": {"status": "pass" if fresh_count >= 1 else "fail", "fresh_count": fresh_count, "member_count": 1, "min_fresh": 1}},
         "stages": {
             "aggregate": {"quality": {"status": "pass" if accepted_cross_season_count == 0 else "fail", "bad_label_count": 0, "accepted_cross_season_count": accepted_cross_season_count, "weak_episode_title_count": 0, "empty_resource_item_count": 0}},
-            "magnet_only": {"status": "pass", "total_magnet_resource_count": 2, "total_item_count": 2},
-            "covers": {"movie": {"audit": {"status": "pass"}}, "series": {"audit": {"status": "pass"}}},
+            "magnet_only": {"status": "pass", "total_magnet_resource_count": magnet_only_resource_count, "total_item_count": 2},
+            "covers": {
+                "movie": {"audit": {"status": "pass", "record_count": 1, "resource_count": 1}},
+                "series": {"audit": {"status": "pass", "record_count": 1, "resource_count": series_audit_resource_count}},
+            },
         },
     }
     if include_finished_at:
@@ -145,6 +150,21 @@ def test_finalize_compute_handoff_builds_signed_candidate_without_publish(tmp_pa
     assert result["candidate_verified"] is True
     assert result["candidate_revision"] == 41
     assert result["published"] is False
+
+
+def test_finalize_compute_handoff_accepts_cover_filtered_output_below_magnet_only_count(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    package = _handoff(tmp_path, magnet_only_resource_count=3)
+    _install_fakes(monkeypatch, tmp_path)
+    result = finalize.finalize_compute_handoff(_config(tmp_path), package_path=package, publish=False)
+    assert result["status"] == "success"
+    assert result["candidate_verified"] is True
+
+
+def test_finalize_compute_handoff_rejects_cover_audit_resource_mismatch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    package = _handoff(tmp_path, series_audit_resource_count=2)
+    _install_fakes(monkeypatch, tmp_path)
+    with pytest.raises(ResourceIndexError, match="cover-audited output"):
+        finalize.finalize_compute_handoff(_config(tmp_path), package_path=package, publish=False)
 
 
 def test_finalize_compute_handoff_rejects_stale_compute_package(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -112,13 +112,37 @@ def _validate_compute_status(status: dict[str, Any], config: MediaDailyConfig) -
     resource_count = int(status.get("resource_count") or 0)
     if movie_count < config.min_movies or series_count < config.min_series or resource_count <= 0:
         _fail("compute handoff counts are below publication floor", movie_count=movie_count, series_count=series_count, resource_count=resource_count)
-    if int(magnet_only.get("total_magnet_resource_count") or 0) != resource_count:
-        _fail("compute handoff resource count does not match magnet-only output")
+    magnet_resource_count = int(magnet_only.get("total_magnet_resource_count") or 0)
+    if magnet_resource_count < resource_count:
+        _fail(
+            "compute handoff resource count exceeds magnet-only output",
+            magnet_only_resource_count=magnet_resource_count,
+            resource_count=resource_count,
+        )
     covers = stages.get("covers") or {}
+    cover_resource_count = 0
+    expected_counts = {"movie": movie_count, "series": series_count}
     for kind in ("movie", "series"):
         report = covers.get(kind) or {}
-        if (report.get("audit") or {}).get("status") != "pass":
+        audit = report.get("audit") or {}
+        if audit.get("status") != "pass":
             _fail("compute handoff cover audit did not pass", content_kind=kind)
+        audited_count = int(audit.get("record_count") or 0)
+        audited_resources = int(audit.get("resource_count") or 0)
+        if audited_count != expected_counts[kind]:
+            _fail(
+                "compute handoff count does not match cover-audited output",
+                content_kind=kind,
+                expected=expected_counts[kind],
+                audited=audited_count,
+            )
+        cover_resource_count += audited_resources
+    if cover_resource_count != resource_count:
+        _fail(
+            "compute handoff resource count does not match cover-audited output",
+            expected=resource_count,
+            audited=cover_resource_count,
+        )
     groups = status.get("freshness_groups") or {}
     for group in config.freshness_groups:
         report = groups.get(group.group_id) or {}
