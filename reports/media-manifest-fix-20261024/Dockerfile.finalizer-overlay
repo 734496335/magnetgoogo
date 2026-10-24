@@ -1,0 +1,9 @@
+# Build using the retained, verified production base image:
+# sha256:c830a7918764c97dc27ee704d7a4a3a45ff7e3934f83b8372fe992d16f1993d5
+# Context must contain the four source files from commit a480c5c.
+FROM magnet-media-finalizer:cover-audit-ee3ca0d
+COPY magnet/resource_index/publish/base.py /app/magnet/resource_index/publish/base.py
+COPY magnet/resource_index/publish/worker_bridge.py /app/magnet/resource_index/publish/worker_bridge.py
+COPY magnet/resource_index/publish/orchestrator.py /app/magnet/resource_index/publish/orchestrator.py
+COPY magnet/resource_index/pipeline/media_compute_finalize.py /app/magnet/resource_index/pipeline/media_compute_finalize.py
+RUN chmod 0644 /app/magnet/resource_index/publish/base.py /app/magnet/resource_index/publish/worker_bridge.py /app/magnet/resource_index/publish/orchestrator.py /app/magnet/resource_index/pipeline/media_compute_finalize.py

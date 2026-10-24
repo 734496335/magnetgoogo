@@ -1,0 +1,78 @@
+{
+  "schema_version": "media-manifest-repair-evidence/1",
+  "status": "DEPLOYED_AWAITING_FRESH_COMPUTE_AND_PUBLICATION",
+  "code_commit": "a480c5c4caa3e6e78b717eac56eabe8a65642837",
+  "branch": "codex/media-manifest-cap-20261024",
+  "original_failure": {
+    "status": "PUBLISH_CONFIG_ERROR",
+    "manifest_bytes": 2472375,
+    "limit_bytes": 2097152,
+    "last_success_revision": 67,
+    "failed_at": "2026-10-24T00:20:42Z"
+  },
+  "baseline_handoff": {
+    "compute_run_id": "20261023T190055Z-f54f3f8a",
+    "size_bytes": 133826560,
+    "sha256": "d1ce4d4bca2d371431ddc60a31bcb2568e8c0670958f7312caf05993e782455b",
+    "oracle_aliyun_identical": true
+  },
+  "worker": {
+    "name": "magnetgoogo-media-auto-uploader",
+    "old_version": "d4ac8d0e-e750-4e46-a297-09fa79a9309a",
+    "old_deployed_source_sha256": "a1217d07ecdc6ee74e1fd6b9542b20311d93a83c8496bed3b5f36e22e2acfec2",
+    "new_version": "655af3b8-df3f-4029-bc1e-fd23e894e78b",
+    "deployed_at": "2026-10-24T14:40:19Z",
+    "health_limits": [
+      1048576,
+      8388608
+    ],
+    "unauthorized_http": 401,
+    "bucket": "magnetgoogo-media",
+    "publish_mode": "production-auto",
+    "secret_binding_preserved": true
+  },
+  "finalizer": {
+    "old_image": "magnet-media-finalizer:cover-audit-ee3ca0d",
+    "old_image_id": "sha256:c830a7918764c97dc27ee704d7a4a3a45ff7e3934f83b8372fe992d16f1993d5",
+    "new_image": "magnet-media-finalizer:manifest-cap-a480c5c",
+    "new_image_id": "sha256:6d279292a2b551e8f27f85d4e2e3ae16db0b4b441b8bb3bb5256518ddd181e71",
+    "architecture": "linux/amd64",
+    "production_validator_ast_sha256_both": "4529dc71d4a76c3a3e655d2c3d8627c585485655c0a216683cdb1b759378ccc8",
+    "backup": "/var/backups/magnet-media/20261024-manifest-cap",
+    "source_image_hashes_identical": true
+  },
+  "tests": {
+    "python_passed": 85,
+    "python_skipped": 2,
+    "skip_reasons": [
+      "symlinks unavailable on Windows",
+      "real local M1 release fixture absent"
+    ],
+    "worker_passed": 14
+  },
+  "probes": {
+    "real_manifest": {
+      "key": "v1/releases/20270101T000000Z-c23c9975/manifest.json",
+      "size": 2472375,
+      "sha256": "a508ab3d7fb41d529d6f7739a82ba3f83383ff0c79c4a85659a33dfd247052ce",
+      "uploaded": true,
+      "deep_verified": true
+    },
+    "exact_boundary": {
+      "bytes": 8388608,
+      "sha256": "d9fc008cbb95eaca08d7b958e5b248454ec488b637dd24029f86fea4a5711f42",
+      "uploaded": true,
+      "deep_verified": true,
+      "elapsed_seconds": 45.66
+    },
+    "above_boundary_http": 400,
+    "test_objects_removed_and_absent": true,
+    "pointer_revision_after_probes": 67,
+    "pointer_sha256_after_probes": "dfe669d5a9bae8015915c6260a1e415cd71022569b1263ad78165d764d417da1"
+  },
+  "fresh_compute": {
+    "run_id": "20261024T143623Z-3c1a1265",
+    "service_started_at": "2026-10-24T14:36:21Z",
+    "status": "RUNNING"
+  }
+}
