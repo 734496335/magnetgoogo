@@ -47,7 +47,24 @@ with tempfile.TemporaryDirectory(prefix="media-capacity-contract-") as folder:
     checks = indexed(health.manifest_capacity_checks(root, source))
     assert set(checks) == {"media-publish-capacity-observation"}
 
+document = {"required_degraded_sources": [], "failed_freshness_groups": [],
+            "freshness_groups": {"series": {"status": "pass", "fresh_count": 4, "member_count": 4, "min_fresh": 2}}}
+group = document["freshness_groups"]["series"]
+for fresh, p1, p2 in ((3, "success", "failure"), (1, "failure", "pending"),
+                      (3, "success", "failure"), (4, "success", "success")):
+    group.update(fresh_count=fresh, status="pass" if fresh >= 2 else "failed")
+    checks = indexed(health.source_checks(document, True))
+    assert checks["media-source-freshness"]["state"] == p1
+    assert checks["media-source-redundancy"]["state"] == p2
+document["freshness_groups"]["backup"] = {"status": "pass", "fresh_count": 3, "member_count": 4, "min_fresh": 2}
+group.update(fresh_count=1, status="failed")
+checks = indexed(health.source_checks(document, True))
+assert checks["media-source-redundancy"]["state"] == "pending"
+assert "backup=3/4(min=2)" in checks["media-source-freshness"]["message"]
+group.update(fresh_count=4, status="pass")
+assert indexed(health.source_checks(document, True))["media-source-redundancy"]["state"] == "failure"
+
 live = health.manifest_capacity_checks(sys.argv[2], sys.argv[3])
 assert all(item["state"] == "success" for item in live), live
-print(json.dumps({"status": "PASS", "python": sys.version.split()[0], "offline_contract_cases": 6,
+print(json.dumps({"status": "PASS", "python": sys.version.split()[0], "offline_contract_cases": 6, "source_contract_cases": 6,
                   "symlink_escape_tests": 2, "live_read_only": live, "notifications_sent": 0}, ensure_ascii=False))

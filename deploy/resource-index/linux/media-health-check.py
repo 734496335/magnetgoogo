@@ -81,12 +81,17 @@ def source_checks(document, evidence_ok):
     checks = [observation(prefix + "-observation", "success", "影视源健康证据恢复", "已取得本周期完整来源健康证据。")]
     blocked = bool(required or failed or any(f < minimum or status != "pass" for f, m, minimum, status in parsed))
     redundancy = any(f < m for f, m, minimum, status in parsed)
+    group_detail = ",".join("%s=%s/%s(min=%s)" % (
+        identifier_list([name]) or "unknown", group["fresh_count"], group["member_count"], group["min_fresh"])
+        for name, group in groups.items())
     checks.append(observation(prefix + "-freshness", "failure" if blocked else "success",
                               "影视源新鲜度不足" if blocked else "影视源新鲜度恢复",
-                              "必需源异常=%s；不满足来源组=%s。" % (identifier_list(required) or "无", identifier_list(failed) or ("存在" if blocked else "无"))))
-    checks.append(observation(prefix + "-redundancy", "failure" if redundancy else "success",
-                              "影视来源冗余不足" if redundancy else "影视来源冗余恢复",
-                              "来源组新鲜数量=%s；未修改来源评级。" % ",".join("%s/%s" % (f, m) for f, m, minimum, status in parsed), "P2"))
+                              "必需源异常=%s；不满足来源组=%s；来源组=%s。" % (identifier_list(required) or "无", identifier_list(failed) or ("存在" if blocked else "无"), group_detail)))
+    # BL-053: freshness below its minimum is the P1 incident. Preserve any
+    # open P2 while it is superseded; do not send a duplicate or fake recovery.
+    checks.append(observation(prefix + "-redundancy", "pending" if blocked else ("failure" if redundancy else "success"),
+                              "影视冗余等待新鲜度恢复" if blocked else ("影视来源冗余不足" if redundancy else "影视来源冗余恢复"),
+                              "来源组新鲜数量=%s；未修改来源评级。" % group_detail, "P2"))
     return checks
 
 

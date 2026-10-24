@@ -110,7 +110,7 @@ def test_failed_finalizer_only_emits_safe_error_code(health, field):
     assert "do-not-send" not in body and "example.invalid" not in body
 
 
-def test_quorum_failure_and_redundancy_are_independent(health):
+def test_quorum_failure_preserves_redundancy_until_freshness_recovers(health):
     args = fixture(health)
     group = args["document"]["freshness_groups"]["series"]
     group.update(fresh_count=3)
@@ -120,11 +120,67 @@ def test_quorum_failure_and_redundancy_are_independent(health):
     group.update(fresh_count=1, status="failed")
     checks = indexed(health.evaluate(**args))
     assert checks["media-source-freshness"]["state"] == "failure"
+    assert checks["media-source-redundancy"]["state"] == "pending"
+    group.update(fresh_count=3, status="pass")
+    checks = indexed(health.evaluate(**args))
+    assert checks["media-source-freshness"]["state"] == "success"
     assert checks["media-source-redundancy"]["state"] == "failure"
     group.update(fresh_count=4, status="pass")
     checks = indexed(health.evaluate(**args))
     assert checks["media-source-freshness"]["state"] == "success"
     assert checks["media-source-redundancy"]["state"] == "success"
+
+
+def test_supplemental_degradation_with_full_quorum_never_opens_p2(health):
+    args = fixture(health)
+    args["document"]["degraded_sources"] = ["dytt8899"]
+    checks = indexed(health.evaluate(**args))
+    assert checks["media-source-freshness"]["state"] == "success"
+    assert checks["media-source-redundancy"]["state"] == "success"
+
+
+@pytest.mark.parametrize("prior_p2_open", [False, True])
+def test_p1_quorum_failure_does_not_dispatch_a_p2_change(health, monkeypatch, tmp_path, prior_p2_open):
+    args = fixture(health)
+    args["document"]["freshness_groups"]["series"].update(fresh_count=1, status="failed")
+    p2_state = tmp_path / "media-source-redundancy.json"
+    original = '{"media-source-redundancy":{"alert_open":true,"consecutive_failures":2}}'
+    if prior_p2_open:
+        p2_state.write_text(original, encoding="utf-8")
+    calls = []
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(health.subprocess, "run", fake_run)
+    assert health.dispatch(health.evaluate(**args), Path("notify.py"), tmp_path) == 0
+    keys = [command[command.index("--key") + 1] for command in calls]
+    assert "media-source-freshness" in keys
+    assert "media-source-redundancy" not in keys
+    if prior_p2_open:
+        assert p2_state.read_text(encoding="utf-8") == original
+    else:
+        assert not p2_state.exists()
+    calls.clear()
+    args["document"]["freshness_groups"]["series"].update(fresh_count=3, status="pass")
+    assert health.dispatch(health.evaluate(**args), Path("notify.py"), tmp_path) == 0
+    p2_calls = [command for command in calls if command[command.index("--key") + 1] == "media-source-redundancy"]
+    assert len(p2_calls) == 1 and p2_calls[0][2] == "failure"
+
+
+def test_multigroup_p1_defers_p2_and_reports_all_group_counts(health):
+    args = fixture(health)
+    groups = args["document"]["freshness_groups"]
+    groups["series"].update(fresh_count=1, status="failed")
+    groups["backup"] = {"status": "pass", "fresh_count": 3, "member_count": 4, "min_fresh": 2}
+    checks = indexed(health.evaluate(**args))
+    assert checks["media-source-freshness"]["state"] == "failure"
+    assert checks["media-source-redundancy"]["state"] == "pending"
+    assert "series=1/4(min=2)" in checks["media-source-freshness"]["message"]
+    assert "backup=3/4(min=2)" in checks["media-source-freshness"]["message"]
+    groups["series"].update(fresh_count=4, status="pass")
+    checks = indexed(health.evaluate(**args))
+    assert checks["media-source-freshness"]["state"] == "success"
+    assert checks["media-source-redundancy"]["state"] == "failure"
 
 
 def test_unknown_source_schema_does_not_clear_existing_source_incidents(health):
