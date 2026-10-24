@@ -136,3 +136,24 @@ def test_error_content_not_forwarded(monkeypatch):
     ok, detail = h.probe_http({"url": "http://example.invalid/status", "error_field": "last_error"})
     assert ok is False
     assert "private-token" not in detail
+
+
+def test_job_finishing_during_probe_pass_uses_current_clock(monkeypatch):
+    h = load()
+    clocks = iter(["1000.0 0.0", "1002.0 0.0"])
+    monkeypatch.setattr(h.Path, "read_text", lambda *_a, **_k: next(clocks))
+    monkeypatch.setattr(h, "unit_state", lambda _name: completed(ExecMainExitTimestampMonotonic="1001000000"))
+    checks = h.collect({"jobs": [{"unit": "worker.service", "max_age_seconds": 600}]})
+    assert checks[0]["healthy"] is True
+
+
+def test_future_task_completion_cannot_recover():
+    h = load()
+    value = completed(ExecMainExitTimestampMonotonic="2000000000")
+    assert h.job_finding({"unit": "worker.service"}, value, 1000)["healthy"] is False
+
+
+def test_proc_uptime_rounding_does_not_make_a_finished_task_invalid():
+    h = load()
+    value = completed(ExecMainExitTimestampMonotonic="1000005000")
+    assert h.job_finding({"unit": "worker.service"}, value, 1000)["healthy"] is True

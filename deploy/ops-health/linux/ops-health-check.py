@@ -50,7 +50,7 @@ def job_finding(item, state, uptime):
     except (ValueError, TypeError):
         return finding(key, label, False, "Task state is not readable")
     if active in ("active", "activating"):
-        if not start or start > uptime:
+        if not start or start > uptime + 0.1:
             return finding(key, label, False, "Running task start time is unknown")
         running = max(0, uptime - start)
         limit = int(item.get("max_run_seconds", 7200))
@@ -64,7 +64,8 @@ def job_finding(item, state, uptime):
         if uptime < max_age:
             return finding(key, label, None, "No completed run since boot; awaiting its schedule")
         return finding(key, label, False, "No completed run since boot")
-    if end > uptime:
+    # /proc/uptime has lower precision than systemd's microsecond timestamps.
+    if end > uptime + 0.1:
         return finding(key, label, False, "Task completion time is invalid")
     age = max(0, uptime - end)
     return finding(key, label, age <= max_age,
@@ -117,6 +118,7 @@ def load_finding(item):
 
 
 def collect(config, uptime=None):
+    live_clock = uptime is None
     if uptime is None:
         uptime = float(Path("/proc/uptime").read_text().split()[0])
     results = []
@@ -139,7 +141,11 @@ def collect(config, uptime=None):
         results.append(finding("timer-" + name, item.get("label", name), healthy,
                                "Timer state=%s" % value.get("ActiveState", "unknown")))
     for item in config.get("jobs", []):
-        results.append(job_finding(item, state(item["unit"]), uptime))
+        snapshot = state(item["unit"])
+        # A short job can complete while earlier probes run. Sample the clock
+        # after this unit snapshot, not once before the entire probe pass.
+        observed_uptime = float(Path("/proc/uptime").read_text().split()[0]) if live_clock else uptime
+        results.append(job_finding(item, snapshot, observed_uptime))
     for item in config.get("containers", []):
         name = item["name"]
         code, output = command(["docker", "inspect", "--format", "{{json .State}}", name])
