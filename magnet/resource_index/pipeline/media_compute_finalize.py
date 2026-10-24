@@ -18,7 +18,7 @@ from magnet.resource_index.pipeline.media_daily import (
     _verify_public_control,
 )
 from magnet.resource_index.publish.filesystem import FilesystemPublisherBackend
-from magnet.resource_index.publish.orchestrator import MediaPublishConfig, publish_media_release
+from magnet.resource_index.publish.orchestrator import MediaPublishConfig, build_media_publish_plan, publish_media_release
 from magnet.resource_index.publish.worker_bridge import WorkerR2PublisherBackend
 from magnet.resource_index.release.builder import MediaReleaseConfig, build_media_release
 
@@ -301,6 +301,13 @@ def finalize_compute_handoff(
         allow_current_promotion=True,
         max_attempts=4,
     )
+    # Validate both destinations before writing even unreferenced release data.
+    # The orchestrator and upload still recheck to catch later file/config changes.
+    plan = build_media_publish_plan(publish_config)
+    for backend in (aliyun_backend, r2_backend):
+        backend.healthcheck()
+        for request in plan.requests:
+            backend.validate_upload(request)
     aliyun_publish = publish_media_release(aliyun_backend, publish_config)
     r2_publish = publish_media_release(r2_backend, publish_config)
     expected_sha = hashlib.sha256(previous_current_path.read_bytes()).hexdigest()

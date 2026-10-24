@@ -216,9 +216,10 @@ def test_worker_bridge_rejects_object_larger_than_one_mib(tmp_path: Path) -> Non
         _backend(FakeBridge()).upload(request)
 
 
-def test_worker_bridge_allows_release_manifest_up_to_two_mib(tmp_path: Path) -> None:
+@pytest.mark.parametrize("size", [2 * 1024 * 1024 + 1, 8 * 1024 * 1024])
+def test_worker_bridge_allows_release_manifest_up_to_eight_mib(tmp_path: Path, size: int) -> None:
     path = tmp_path / "manifest.json"
-    path.write_bytes(b"x" * (1024 * 1024 + 1))
+    path.write_bytes(b"x" * size)
     request = UploadRequest(
         key="v1/releases/release-r6/manifest.json",
         source_path=path,
@@ -264,9 +265,9 @@ def test_worker_bridge_rejects_disguised_large_manifest(tmp_path: Path) -> None:
         _backend(FakeBridge()).upload(request)
 
 
-def test_worker_bridge_rejects_manifest_larger_than_two_mib(tmp_path: Path) -> None:
+def test_worker_bridge_rejects_manifest_larger_than_eight_mib(tmp_path: Path) -> None:
     path = tmp_path / "manifest.json"
-    path.write_bytes(b"x" * (2 * 1024 * 1024 + 1))
+    path.write_bytes(b"x" * (8 * 1024 * 1024 + 1))
     request = UploadRequest(
         key="v1/releases/release-r6/manifest.json",
         source_path=path,
@@ -280,6 +281,62 @@ def test_worker_bridge_rejects_manifest_larger_than_two_mib(tmp_path: Path) -> N
 
     with pytest.raises(ResourceIndexError, match="safety limit"):
         _backend(FakeBridge()).upload(request)
+
+
+@pytest.mark.parametrize("remote_limit", [None, 2 * 1024 * 1024, 8 * 1024 * 1024])
+def test_worker_bridge_preflight_checks_deployed_manifest_limit(tmp_path: Path, remote_limit: int | None) -> None:
+    path = tmp_path / "manifest.json"
+    path.write_bytes(b"x" * (2 * 1024 * 1024 + 1))
+    request = UploadRequest(
+        **{**_request(path).__dict__, "key": "v1/releases/release-r6/manifest.json", "object_kind": "manifest"}
+    )
+    calls: list[str] = []
+
+    def transport(method: str, url: str, headers: Mapping[str, str], body: bytes | None) -> BridgeHttpResponse:
+        calls.append(method)
+        assert urllib.parse.urlparse(url).path == "/health"
+        payload: dict[str, object] = {"status": "ok", "currentPromotion": False}
+        if remote_limit is not None:
+            payload.update(maxObjectBytes=1024 * 1024, maxManifestBytes=remote_limit)
+        return BridgeHttpResponse(200, {}, json.dumps(payload).encode())
+
+    backend = WorkerR2PublisherBackend(
+        worker_url="https://example.workers.dev", upload_token="t" * 48,
+        prefix="", allow_production_root=True, transport=transport,
+    )
+    backend.healthcheck()
+    if remote_limit == 8 * 1024 * 1024:
+        backend.validate_upload(request)
+    else:
+        with pytest.raises(ResourceIndexError, match="deployed Worker limit"):
+            backend.validate_upload(request)
+    assert calls == ["GET"]
+
+
+@pytest.mark.parametrize("invalid_limit", [0, -1, True, "8388608", None])
+def test_worker_bridge_rejects_invalid_advertised_limits(invalid_limit: object) -> None:
+    def transport(method: str, url: str, headers: Mapping[str, str], body: bytes | None) -> BridgeHttpResponse:
+        return BridgeHttpResponse(200, {}, json.dumps({
+            "status": "ok", "currentPromotion": False,
+            "maxObjectBytes": 1024 * 1024, "maxManifestBytes": invalid_limit,
+        }).encode())
+    backend = WorkerR2PublisherBackend(
+        worker_url="https://example.workers.dev", upload_token="t" * 48,
+        prefix="m2-test/release", transport=transport,
+    )
+    with pytest.raises(ResourceIndexError, match="invalid size limits"):
+        backend.healthcheck()
+
+
+def test_worker_bridge_preflight_checks_actual_file_size(tmp_path: Path) -> None:
+    path = tmp_path / "object.json"
+    path.write_bytes(b"{}")
+    request = _request(path)
+    path.write_bytes(b"x" * (1024 * 1024 + 1))
+    bridge = FakeBridge()
+    with pytest.raises(ResourceIndexError, match="safety limit"):
+        _backend(bridge).validate_upload(request)
+    assert bridge.calls == []
 
 
 def test_worker_bridge_rejects_non_test_prefix() -> None:
@@ -346,3 +403,25 @@ def test_worker_bridge_production_root_still_forbids_current(tmp_path: Path) -> 
 
     with pytest.raises(ResourceIndexError, match="current.json"):
         backend.upload(_request(path, key="v1/current.json"))
+
+def test_worker_bridge_applies_limit_to_actual_prefixed_key(tmp_path: Path) -> None:
+    path = tmp_path / "manifest.json"
+    path.write_bytes(b"x" * (1024 * 1024 + 1))
+    request = UploadRequest(
+        **{**_request(path).__dict__, "key": "v1/releases/release-r6/manifest.json", "object_kind": "manifest"}
+    )
+    with pytest.raises(ResourceIndexError, match="safety limit"):
+        _backend(FakeBridge()).validate_upload(request)
+
+
+def test_worker_bridge_upload_rechecks_same_size_changed_content(tmp_path: Path) -> None:
+    path = tmp_path / "object.json"
+    path.write_bytes(b"{}")
+    request = _request(path)
+    bridge = FakeBridge()
+    backend = _backend(bridge)
+    backend.validate_upload(request)
+    path.write_bytes(b"[]")
+    with pytest.raises(ResourceIndexError, match="changed before upload"):
+        backend.upload(request)
+    assert bridge.calls == []

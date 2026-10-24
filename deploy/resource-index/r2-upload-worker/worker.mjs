@@ -1,6 +1,7 @@
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const MAX_OBJECT_BYTES = 1024 * 1024;
-const MAX_MANIFEST_BYTES = 2 * 1024 * 1024;
+// Keep this bounded limit in sync with publish/worker_bridge.py.
+const MAX_MANIFEST_BYTES = 8 * 1024 * 1024;
 const RELEASE_MANIFEST_KEY_RE = /^v1\/releases\/[^/]+\/manifest\.json$/;
 const RELEASE_ID_RE = /^\d{8}T\d{6}Z-[0-9a-f]{8}$/;
 const MAX_CURRENT_BYTES = 64 * 1024;
@@ -223,6 +224,8 @@ export default {
         status: "ok",
         currentPromotion: (env.PUBLISH_MODE || "") === "production-auto",
         publishMode: env.PUBLISH_MODE || "m2-test",
+        maxObjectBytes: MAX_OBJECT_BYTES,
+        maxManifestBytes: MAX_MANIFEST_BYTES,
       });
     }
     if (url.pathname === "/promote" && request.method === "PUT") {

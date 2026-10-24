@@ -470,6 +470,14 @@ def publish_media_release(
 
         failed_request: UploadRequest | None = None
         try:
+            for request in plan.requests:
+                failed_request = request
+                backend.validate_upload(request)
+        except Exception as exc:
+            write_failure(exc, "preflight", failed_request)
+            raise
+
+        try:
             if config.max_workers == 1:
                 for request in object_requests:
                     failed_request = request

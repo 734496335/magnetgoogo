@@ -26,19 +26,27 @@ from magnet.resource_index.release.protocol import sha256_file
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504}
 _MAX_OBJECT_BYTES = 1024 * 1024
-_MAX_MANIFEST_BYTES = 2 * 1024 * 1024
+# Keep this bounded limit in sync with r2-upload-worker/worker.mjs.
+_MAX_MANIFEST_BYTES = 8 * 1024 * 1024
+_LEGACY_MAX_MANIFEST_BYTES = 2 * 1024 * 1024
 _RELEASE_MANIFEST_KEY_RE = re.compile(r"^v1/releases/[^/]+/manifest\.json$")
 
 
-def _max_object_bytes(request: UploadRequest) -> int:
+def _max_object_bytes(
+    request: UploadRequest,
+    *,
+    object_limit: int = _MAX_OBJECT_BYTES,
+    manifest_limit: int = _MAX_MANIFEST_BYTES,
+    remote_key: str | None = None,
+) -> int:
     content_type = request.content_type.split(";", 1)[0].strip().lower()
     if (
-        _RELEASE_MANIFEST_KEY_RE.fullmatch(request.key)
+        _RELEASE_MANIFEST_KEY_RE.fullmatch(remote_key if remote_key is not None else request.key)
         and request.object_kind == "manifest"
         and content_type == "application/json"
     ):
-        return _MAX_MANIFEST_BYTES
-    return _MAX_OBJECT_BYTES
+        return manifest_limit
+    return object_limit
 
 
 @dataclass(frozen=True)
@@ -146,6 +154,7 @@ class WorkerR2PublisherBackend(PublisherBackend):
         self.max_attempts = max_attempts
         self.retry_base_seconds = retry_base_seconds
         self._sleep = sleeper
+        self._remote_limits: tuple[int, int] | None = None
 
     @property
     def name(self) -> str:
@@ -233,6 +242,13 @@ class WorkerR2PublisherBackend(PublisherBackend):
             or bool(payload.get("currentPromotion")) is not self.allow_current_promotion
         ):
             _fail(PUBLISH_REMOTE_ERROR, "Worker bridge healthcheck contract mismatch")
+        # Old Workers do not advertise limits. Use their known conservative
+        # contract so a partial rollout fails before uploading the release.
+        object_limit = payload.get("maxObjectBytes", _MAX_OBJECT_BYTES)
+        manifest_limit = payload.get("maxManifestBytes", _LEGACY_MAX_MANIFEST_BYTES)
+        if any(type(value) is not int or value <= 0 for value in (object_limit, manifest_limit)):
+            _fail(PUBLISH_REMOTE_ERROR, "Worker bridge healthcheck returned invalid size limits")
+        self._remote_limits = (object_limit, manifest_limit)
 
     def promote_current(self, current_path: str | Path) -> PublishedObject:
         if not self.allow_current_promotion:
@@ -353,13 +369,14 @@ class WorkerR2PublisherBackend(PublisherBackend):
                 )
         return published
 
-    def upload(self, request: UploadRequest, *, deep_verify: bool = True) -> UploadOutcome:
+    def validate_upload(self, request: UploadRequest) -> None:
+        remote_key = self._remote_key(request.key)
         if not request.immutable:
             _fail(PUBLISH_CONFIG_ERROR, "Worker bridge only accepts immutable objects", key=request.key)
         if not request.source_path.is_file():
             _fail(PUBLISH_CONFIG_ERROR, "Worker bridge local source is missing", path=str(request.source_path))
         actual_size = request.source_path.stat().st_size
-        max_object_bytes = _max_object_bytes(request)
+        max_object_bytes = _max_object_bytes(request, remote_key=remote_key)
         if request.size > max_object_bytes or actual_size > max_object_bytes:
             _fail(
                 PUBLISH_CONFIG_ERROR,
@@ -368,6 +385,28 @@ class WorkerR2PublisherBackend(PublisherBackend):
                 size=actual_size,
                 max_size=max_object_bytes,
             )
+        if self._remote_limits is not None:
+            remote_limit = _max_object_bytes(
+                request,
+                object_limit=self._remote_limits[0],
+                manifest_limit=self._remote_limits[1],
+                remote_key=remote_key,
+            )
+            if max(request.size, actual_size) > remote_limit:
+                _fail(
+                    PUBLISH_CONFIG_ERROR,
+                    "Worker bridge object exceeds the deployed Worker limit",
+                    key=request.key,
+                    size=actual_size,
+                    max_size=remote_limit,
+                )
+
+        if actual_size != request.size:
+            _fail(PUBLISH_VERIFICATION_FAILED, "Worker bridge local source size changed before upload", key=request.key)
+
+    def upload(self, request: UploadRequest, *, deep_verify: bool = True) -> UploadOutcome:
+        self.validate_upload(request)
+        actual_size = request.source_path.stat().st_size
         actual_hash = sha256_file(request.source_path)
         if actual_size != request.size or actual_hash != request.sha256:
             _fail(PUBLISH_VERIFICATION_FAILED, "Worker bridge local source changed before upload", path=str(request.source_path))

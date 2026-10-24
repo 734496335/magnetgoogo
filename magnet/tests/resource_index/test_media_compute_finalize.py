@@ -114,6 +114,14 @@ def _install_fakes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, revision: in
     monkeypatch.setattr(finalize, "build_media_release", build)
 
 
+class _PreflightBackend:
+    def healthcheck(self) -> None:
+        pass
+
+    def validate_upload(self, request: object) -> None:
+        pass
+
+
 def _install_publish_fakes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, config: MediaDailyConfig, events: list[str]) -> None:
     _install_fakes(monkeypatch, tmp_path)
     previous = tmp_path / "previous-current.json"
@@ -121,20 +129,24 @@ def _install_publish_fakes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, conf
     live_local.parent.mkdir(parents=True, exist_ok=True)
     live_local.write_bytes(previous.read_bytes())
 
-    class AliyunBackend:
+    class AliyunBackend(_PreflightBackend):
         def __init__(self, _root: Path) -> None:
             pass
 
         def promote_current(self, _current: Path) -> None:
             events.append("aliyun-promote")
 
-    class R2Backend:
+    class R2Backend(_PreflightBackend):
         def __init__(self, **_kwargs: object) -> None:
             pass
 
         def promote_current(self, _current: Path) -> None:
             events.append("r2-promote")
 
+    monkeypatch.setattr(finalize, "build_media_publish_plan", lambda _config: SimpleNamespace(requests=(
+        SimpleNamespace(key="v1/objects/detail/test.json", object_kind="detail"),
+        SimpleNamespace(key="v1/releases/new/manifest.json", object_kind="manifest"),
+    )))
     monkeypatch.setattr(finalize, "FilesystemPublisherBackend", AliyunBackend)
     monkeypatch.setattr(finalize, "WorkerR2PublisherBackend", R2Backend)
     monkeypatch.setattr(finalize, "publish_media_release", lambda backend, _config: SimpleNamespace(status="pass", backend=type(backend).__name__))
@@ -310,7 +322,7 @@ def test_finalize_publish_recovers_after_aliyun_promotion_failure(tmp_path: Path
         assert publish is True
         return ({"pointer_revision": 41, "release_id": "new"}, manifest, previous, {"status": "pass", "action": "recovered"})
 
-    class FailingAliyunBackend:
+    class FailingAliyunBackend(_PreflightBackend):
         def __init__(self, _root: Path) -> None:
             pass
 
@@ -345,7 +357,7 @@ def test_finalize_publish_surfaces_aliyun_failure_when_recovery_fails(tmp_path: 
         events.append("recovery-failed")
         raise RuntimeError("simulated recovery failure")
 
-    class FailingAliyunBackend:
+    class FailingAliyunBackend(_PreflightBackend):
         def __init__(self, _root: Path) -> None:
             pass
 
@@ -377,3 +389,27 @@ def test_prune_finalizer_runs_keeps_latest_three(tmp_path: Path) -> None:
     deleted = finalize._prune_finalizer_runs(finalizer_root, keep=3)
     assert set(deleted) == {"run-0", "run-1", "run-2"}
     assert {path.name for path in runs_root.iterdir()} == {"run-3", "run-4", "run-5"}
+
+def test_finalize_remote_manifest_limit_fails_before_either_backend_writes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    package = _handoff(tmp_path)
+    config = _config(tmp_path)
+    events: list[str] = []
+    _install_publish_fakes(monkeypatch, tmp_path, config, events)
+    before = (config.public_root / "v1" / "current.json").read_bytes()
+    original_r2 = finalize.WorkerR2PublisherBackend
+
+    class LimitedR2(original_r2):
+        def validate_upload(self, request: object) -> None:
+            if request.object_kind == "manifest":
+                raise ResourceIndexError("PUBLISH_CONFIG_ERROR", "deployed Worker limit", {})
+
+    def must_not_publish(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("neither backend may write before all limits pass")
+
+    monkeypatch.setattr(finalize, "WorkerR2PublisherBackend", LimitedR2)
+    monkeypatch.setattr(finalize, "publish_media_release", must_not_publish)
+    with pytest.raises(ResourceIndexError, match="deployed Worker limit"):
+        finalize.finalize_compute_handoff(config, package_path=package, publish=True)
+    assert events == []
+    assert (config.public_root / "v1" / "current.json").read_bytes() == before
+    assert not (config.state_root / "status" / "compute-finalizer-state.json").exists()

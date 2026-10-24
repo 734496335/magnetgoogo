@@ -55,6 +55,9 @@ class PublisherBackend(ABC):
     def healthcheck(self) -> None:
         raise NotImplementedError
 
+    def validate_upload(self, request: UploadRequest) -> None:
+        """Check backend-specific upload limits before any release objects are written."""
+
     @abstractmethod
     def head(self, key: str) -> PublishedObject | None:
         raise NotImplementedError

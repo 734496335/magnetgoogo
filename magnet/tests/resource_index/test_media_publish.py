@@ -636,6 +636,41 @@ def test_healthcheck_failure_stops_before_any_object_upload(tmp_path: Path) -> N
     assert not client.objects
 
 
+def test_manifest_preflight_failure_stops_before_any_object_upload(tmp_path: Path) -> None:
+    client = FakeS3Client()
+    backend = _backend(client)
+    release = build_media_release(_setup(tmp_path))
+    validated: list[str] = []
+
+    def validate_upload(request: UploadRequest) -> None:
+        validated.append(request.key)
+        if request.object_kind == "manifest":
+            raise ResourceIndexError("PUBLISH_CONFIG_ERROR", "manifest exceeds safety limit", {})
+
+    backend.validate_upload = validate_upload
+    receipt_dir = tmp_path / "receipts"
+    with pytest.raises(ResourceIndexError, match="safety limit"):
+        publish_media_release(
+            backend,
+            MediaPublishConfig(
+                release_dir=Path(release.release_dir),
+                current_path=Path(release.current_path),
+                public_key_path=_setup(tmp_path).public_key_path,
+                receipt_dir=receipt_dir,
+            ),
+        )
+    assert len(validated) > 1
+    assert validated[-1].endswith("/manifest.json")
+    assert not client.objects
+    assert not [event for event in client.events if event[0] == "put"]
+    receipts = list(receipt_dir.glob("*.json"))
+    assert len(receipts) == 1
+    receipt = json.loads(receipts[0].read_text())
+    assert receipt["stage"] == "preflight"
+    assert receipt["failed_key"] == validated[-1]
+    assert receipt["current_promoted"] is False
+
+
 def test_cli_requires_explicit_remote_acknowledgement(capsys: pytest.CaptureFixture[str]) -> None:
     code = cli_main(
         [
