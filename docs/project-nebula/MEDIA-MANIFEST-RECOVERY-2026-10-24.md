@@ -2,10 +2,10 @@
 
 ## 当前状态
 
-DEPLOYED_AWAITING_FRESH_COMPUTE_AND_PUBLICATION。容量修复已部署并经过实机传输验证；完整业务恢复仍以新的 Oracle 计算、阿里云 finalizer 成功、双端公开版本前进和真实微信恢复回执为准。
+FRESH_COMPUTE_PASSED_FINALIZER_RUNNING。容量修复已部署并经过实机传输验证；新的 Oracle 计算已成功，阿里云finalizer于22:57:12 CST启动。完整业务恢复仍以finalizer成功、双端公开版本前进和真实微信恢复回执为准。
 
 - 代码：`codex/media-manifest-cap-20261024`，`a480c5c4caa3e6e78b717eac56eabe8a65642837`。
-- 新 Oracle 任务：`20261024T143623Z-3c1a1265`，22:36:21 CST 启动，当前仍在运行。
+- 新 Oracle 任务：`20261024T143623Z-3c1a1265`，22:36:21 CST服务启动，22:55:21完成计算，22:55:23服务exit0；595电影/1284剧集/12091磁力，freshness4/4、quality和cover审计通过。交接包135,444,480字节，SHA256=`36b844a211c11a4d577b8984d110475ba8880f5a53d5249428128cf2344a6275`。
 - 证据：`reports/media-manifest-fix-20261024/deployment-evidence.json`。
 
 ## 故障与跨机核对

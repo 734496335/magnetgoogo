@@ -1,6 +1,6 @@
 {
   "schema_version": "media-manifest-repair-evidence/1",
-  "status": "DEPLOYED_AWAITING_FRESH_COMPUTE_AND_PUBLICATION",
+  "status": "FRESH_COMPUTE_PASSED_FINALIZER_RUNNING",
   "code_commit": "a480c5c4caa3e6e78b717eac56eabe8a65642837",
   "branch": "codex/media-manifest-cap-20261024",
   "original_failure": {
@@ -8,7 +8,16 @@
     "manifest_bytes": 2472375,
     "limit_bytes": 2097152,
     "last_success_revision": 67,
-    "failed_at": "2026-10-24T00:20:42Z"
+    "failed_at": "2026-10-24T00:20:42Z",
+    "last_published_manifest_bytes": 2088180,
+    "last_published_counts": {
+      "movie": 561,
+      "series": 1007,
+      "resources": 10842,
+      "covers": 1412,
+      "details": 1568,
+      "catalog_objects": 42
+    }
   },
   "baseline_handoff": {
     "compute_run_id": "20261023T190055Z-f54f3f8a",
@@ -39,7 +48,12 @@
     "architecture": "linux/amd64",
     "production_validator_ast_sha256_both": "4529dc71d4a76c3a3e655d2c3d8627c585485655c0a216683cdb1b759378ccc8",
     "backup": "/var/backups/magnet-media/20261024-manifest-cap",
-    "source_image_hashes_identical": true
+    "source_image_hashes_identical": true,
+    "started_at": "2026-10-24T14:57:12Z",
+    "container_started_at": "2026-10-24T14:58:24Z",
+    "received_expected_handoff": true,
+    "runtime_image_verified": true,
+    "run_directory": "4b20548f4336"
   },
   "tests": {
     "python_passed": 85,
@@ -72,7 +86,66 @@
   },
   "fresh_compute": {
     "run_id": "20261024T143623Z-3c1a1265",
-    "service_started_at": "2026-10-24T14:36:21Z",
-    "status": "RUNNING"
+    "started_at": "2026-10-24T14:36:23Z",
+    "finished_at": "2026-10-24T14:55:21Z",
+    "status": "success",
+    "movie_count": 595,
+    "series_count": 1284,
+    "resource_count": 12091,
+    "previous_revision": 67,
+    "content_sha256": "e6f40b6f36376a3a72bf4e4a866618f289207a1eddaa46ef6f5f15ffe1496993",
+    "handoff_package_bytes": 135444480,
+    "handoff_package_sha256": "36b844a211c11a4d577b8984d110475ba8880f5a53d5249428128cf2344a6275",
+    "freshness_quorum": "4/4",
+    "quality_status": "pass",
+    "cover_audits": "pass"
+  },
+  "candidate": {
+    "revision": 68,
+    "release_id": "20270101T000000Z-80c8c6f0",
+    "manifest_bytes": 2502876,
+    "manifest_sha256": "1ba72dabd9d3af3613fbc73cdac661f4dec305574400eb417e53761b18af83ad",
+    "object_count": 5502,
+    "catalog_objects": 48,
+    "covers": 1696,
+    "details": 1879,
+    "movie_count": 595,
+    "series_count": 1284,
+    "resource_count": 12091,
+    "aliyun_immutable_upload_finished_at": "2026-10-24T14:59:33Z",
+    "public_pointer_promoted": false,
+    "pointer_sha256": "6b7d7e955984c48a58feb46dcdc2ef28675691ea7f988bb0e5de54d9086078f7",
+    "full_local_verification": {
+      "status": "pass",
+      "verified_objects": 5502,
+      "regressions": 0,
+      "override_reason": null,
+      "media_id_unique": true,
+      "resource_identity_unique": true,
+      "cross_season_resources": 0,
+      "unknown_series_resources": 0
+    }
+  },
+  "consumer_probe": {
+    "status": "PASS",
+    "parser": "current-app-parseManifest",
+    "manifest_bytes": 2502876,
+    "cn_fetch_elapsed_ms": 522,
+    "app_timeout_ms": 9000,
+    "app_modified_by_this_task": false
+  },
+  "capacity_guard": {
+    "commit": "1efd25a",
+    "deployed_at": "2026-10-24T15:46:53Z",
+    "sha256": "51c06ce9b6aa883cd3660382a64273c5bd361d4c259c79d878ec0ef441828977",
+    "warning_percent": 80,
+    "source": "installed local publisher constant via AST, not a separately configured limit",
+    "scope": "published manifest vs local client limit; remote capacity handled by preflight",
+    "python_tests_passed": 37,
+    "python_tests_skipped": 1,
+    "linux_contract_cases_passed": 6,
+    "linux_symlink_cases": 2,
+    "natural_timer_observed_at": "2026-10-24T15:49:17Z",
+    "publish_incident_still_open_while_running": true
   }
 }

@@ -199,6 +199,16 @@ def test_capacity_warns_at_eighty_percent_without_changing_publish(health, tmp_p
     assert "media-publish" not in checks
 
 
+def test_real_rev67_size_would_warn_before_oct18_capacity_outage(health, tmp_path):
+    # Captured production values: rev67 used 99.57% of the former 2 MiB cap.
+    public, source, pointer, _ = capacity_files(
+        tmp_path, size=2088180, source_text="_MAX_MANIFEST_BYTES = 2 * 1024 * 1024\n")
+    pointer.write_text(json.dumps({"pointer_revision": 67, "manifest_path": "/v1/releases/release-r68/manifest.json"}), encoding="utf-8")
+    checks = indexed(health.manifest_capacity_checks(public, source))
+    assert checks["media-publish-capacity"]["state"] == "failure"
+    assert "99.57%" in checks["media-publish-capacity"]["message"]
+
+
 def test_capacity_reads_installed_multiplier_and_never_executes_source(health, tmp_path):
     public, source, _, _ = capacity_files(tmp_path, source_text="_MAX_MANIFEST_BYTES = 8 * 1024 * 1024\nraise RuntimeError('must not execute')\n")
     checks = indexed(health.manifest_capacity_checks(public, source))

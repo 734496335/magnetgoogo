@@ -1,0 +1,89 @@
+{
+  "schema_version": "media-recurrence-audit/1",
+  "checked_at_utc": "2026-10-24T15:35:38Z",
+  "historical_cap_change": {
+    "commit": "4abd45be8a6184635ff6d4a3a0e656dad484224a",
+    "author_date_cst": "2026-07-30T01:02:46+08:00",
+    "change": "manifest-only 1MiB to 2MiB in both Python and Worker",
+    "boundary_tests_already_existed": true
+  },
+  "last_success": {
+    "revision": 67,
+    "manifest_bytes": 2088180,
+    "limit_bytes": 2097152,
+    "headroom_bytes": 8972,
+    "utilization_percent": 99.57218170166016
+  },
+  "production_failure_receipts": {
+    "error": "manifest_safety_limit",
+    "timezone": "Asia/Shanghai",
+    "failure_count": 27,
+    "by_local_date": {
+      "2026-10-18": 4,
+      "2026-10-19": 3,
+      "2026-10-20": 4,
+      "2026-10-21": 4,
+      "2026-10-22": 4,
+      "2026-10-23": 4,
+      "2026-10-24": 4
+    },
+    "total_failed_r2_stage_hours": 21.39,
+    "first": {
+      "started_at_utc": "2026-10-17T20:31:28Z",
+      "finished_at_utc": "2026-10-17T21:14:30Z",
+      "local_date": "2026-10-18",
+      "duration_seconds": 2582,
+      "release_id": "20270101T000000Z-3994f699",
+      "error": {
+        "context": {
+          "max_size": 2097152,
+          "path": "/var/lib/magnet-media/finalizer/runs/200ce29cbd20/release-candidate/staging/releases/20270101T000000Z-3994f699/v1/releases/20270101T000000Z-3994f699/manifest.json",
+          "size": 2098634
+        },
+        "error_code": "PUBLISH_CONFIG_ERROR",
+        "message": "Worker bridge object exceeds its safety limit"
+      },
+      "failed_key": "v1/releases/20270101T000000Z-3994f699/manifest.json"
+    },
+    "last": {
+      "started_at_utc": "2026-10-23T23:32:35Z",
+      "finished_at_utc": "2026-10-24T00:20:41Z",
+      "local_date": "2026-10-24",
+      "duration_seconds": 2886,
+      "release_id": "20270101T000000Z-c23c9975",
+      "error": {
+        "context": {
+          "max_size": 2097152,
+          "path": "/var/lib/magnet-media/finalizer/runs/88cbb004358b/release-candidate/staging/releases/20270101T000000Z-c23c9975/v1/releases/20270101T000000Z-c23c9975/manifest.json",
+          "size": 2472375
+        },
+        "error_code": "PUBLISH_CONFIG_ERROR",
+        "message": "Worker bridge object exceeds its safety limit"
+      },
+      "failed_key": "v1/releases/20270101T000000Z-c23c9975/manifest.json"
+    }
+  },
+  "lesson_ids": [
+    "BL-045",
+    "BL-046",
+    "BL-053",
+    "BL-064",
+    "BL-065",
+    "BL-066",
+    "BL-093",
+    "BL-094"
+  ],
+  "capacity_guard": {
+    "source_commit": "1efd25a",
+    "deployed_at_utc": "2026-10-24T15:46:53Z",
+    "sha256": "51c06ce9b6aa883cd3660382a64273c5bd361d4c259c79d878ec0ef441828977",
+    "warning_percent": 80,
+    "scope": "published manifest versus installed local publisher source limit",
+    "remote_limit_claimed": false,
+    "python_runtime": "3.6.8",
+    "linux_contract_cases_passed": 6,
+    "symlink_escape_cases_passed": 2,
+    "synthetic_notifications_sent": 0
+  },
+  "recovery_status": "FINALIZER_STILL_RUNNING_AT_LAST_CHECK"
+}
