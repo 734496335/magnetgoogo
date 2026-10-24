@@ -176,3 +176,90 @@ def test_new_host_scripts_are_lf_only():
     folder = ROOT / "deploy/resource-index/linux"
     for name in ("media-health-check.py", "magnet-media-health.service", "magnet-media-health.timer", "media-health.example.env", "install-media-health.sh"):
         assert b"\r\n" not in (folder / name).read_bytes()
+
+def capacity_files(tmp_path, size=799, source_text="_MAX_MANIFEST_BYTES = 1000\n"):
+    public = tmp_path / "public"
+    manifest = public / "v1" / "releases" / "release-r68" / "manifest.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_bytes(b"x" * size)
+    pointer = public / "v1" / "current.json"
+    pointer.write_text(json.dumps({"pointer_revision": 68, "manifest_path": "/v1/releases/release-r68/manifest.json"}), encoding="utf-8")
+    source = tmp_path / "worker_bridge.py"
+    source.write_text(source_text, encoding="utf-8")
+    return public, source, pointer, manifest
+
+
+@pytest.mark.parametrize("size,expected", [(799, "success"), (800, "failure"), (1001, "failure")])
+def test_capacity_warns_at_eighty_percent_without_changing_publish(health, tmp_path, size, expected):
+    public, source, _, _ = capacity_files(tmp_path, size=size)
+    checks = indexed(health.manifest_capacity_checks(public, source))
+    assert checks["media-publish-capacity"]["state"] == expected
+    assert checks["media-publish-capacity"]["severity"] == "P2"
+    assert "1000" in checks["media-publish-capacity"]["message"]
+    assert "media-publish" not in checks
+
+
+def test_capacity_reads_installed_multiplier_and_never_executes_source(health, tmp_path):
+    public, source, _, _ = capacity_files(tmp_path, source_text="_MAX_MANIFEST_BYTES = 8 * 1024 * 1024\nraise RuntimeError('must not execute')\n")
+    checks = indexed(health.manifest_capacity_checks(public, source))
+    assert checks["media-publish-capacity"]["state"] == "success"
+    assert "8388608" in checks["media-publish-capacity"]["message"]
+
+
+@pytest.mark.parametrize("source_text", [
+    "_MAX_MANIFEST_BYTES = True\n",
+    "_MAX_MANIFEST_BYTES = 0\n",
+    "_MAX_MANIFEST_BYTES = -1000\n",
+    "_MAX_MANIFEST_BYTES = int('1000')\n",
+    "_MAX_MANIFEST_BYTES = 128 * 1024 * 1024\n",
+    "_MAX_MANIFEST_BYTES = 1000\n_MAX_MANIFEST_BYTES = 2000\n",
+    "_MAX_MANIFEST_BYTES = 1000\n_MAX_MANIFEST_BYTES += 1\n",
+    "_MAX_MANIFEST_BYTES = 1000\n_MAX_MANIFEST_BYTES: int = 2000\n",
+    "OTHER_LIMIT = 1000\n",
+])
+def test_capacity_unknown_contract_preserves_previous_capacity_incident(health, tmp_path, source_text):
+    public, source, _, _ = capacity_files(tmp_path, source_text=source_text)
+    checks = indexed(health.manifest_capacity_checks(public, source))
+    assert set(checks) == {"media-publish-capacity-observation"}
+    assert checks["media-publish-capacity-observation"]["state"] == "failure"
+
+
+@pytest.mark.parametrize("manifest_path", [
+    "/etc/shadow", "/v1/releases/../manifest.json", "/v1/releases/r68/../../manifest.json",
+    "https://example.invalid/private.json",
+])
+def test_capacity_rejects_untrusted_pointer_paths_without_recovery(health, tmp_path, manifest_path):
+    public, source, pointer, _ = capacity_files(tmp_path)
+    pointer.write_text(json.dumps({"pointer_revision": 68, "manifest_path": manifest_path}), encoding="utf-8")
+    checks = indexed(health.manifest_capacity_checks(public, source))
+    assert set(checks) == {"media-publish-capacity-observation"}
+    assert checks["media-publish-capacity-observation"]["state"] == "failure"
+
+
+def test_capacity_missing_manifest_never_recovers_capacity_incident(health, tmp_path):
+    public, source, _, manifest = capacity_files(tmp_path)
+    manifest.unlink()
+    checks = indexed(health.manifest_capacity_checks(public, source))
+    assert set(checks) == {"media-publish-capacity-observation"}
+
+
+def test_capacity_error_does_not_clear_or_hide_running_publish_incident(health, tmp_path):
+    args = fixture(health, "finalizer")
+    args["unit"].update(ActiveState="activating", SubState="start", ExecMainStartTimestampMonotonic="99000000000")
+    checks = indexed(health.evaluate(**args) + health.manifest_capacity_checks(tmp_path, tmp_path / "missing.py"))
+    assert checks["media-publish"]["state"] == "pending"
+    assert checks["media-publish-capacity-observation"]["state"] == "failure"
+
+
+def test_capacity_manifest_symlink_cannot_escape_public_root(health, tmp_path):
+    public, source, _, manifest = capacity_files(tmp_path)
+    outside = tmp_path / "outside.json"
+    outside.write_text("not-a-public-manifest", encoding="utf-8")
+    manifest.unlink()
+    try:
+        manifest.symlink_to(outside)
+    except OSError:
+        pytest.skip("symlinks unavailable in this Windows environment")
+    checks = indexed(health.manifest_capacity_checks(public, source))
+    assert set(checks) == {"media-publish-capacity-observation"}
+    assert checks["media-publish-capacity-observation"]["state"] == "failure"

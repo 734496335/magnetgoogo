@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Read-only compute/finalizer watchdog. Python 3.6+, no external packages."""
 import argparse
+import ast
 import json
 import os
 import re
@@ -137,6 +138,75 @@ def evaluate(role, document, mtime, unit, timer, now, monotonic_now, max_age_hou
     return checks
 
 
+def manifest_capacity_checks(public_root, publisher_source):
+    """Observe published size against the installed local publisher cap only."""
+    unknown = observation("media-publish-capacity-observation", "failure",
+                          "影视发布容量检查异常",
+                          "无法可靠读取发布端容量或当前公开清单；保留此前容量告警，未判定恢复。", "P2")
+    try:
+        source = Path(publisher_source)
+        if not source.is_file() or source.stat().st_size > 128 * 1024:
+            return [unknown]
+        module = ast.parse(source.read_text(encoding="utf-8"))
+        assignments = []
+        for node in module.body:
+            targets = node.targets if isinstance(node, ast.Assign) else (
+                [node.target] if isinstance(node, (ast.AnnAssign, ast.AugAssign)) else [])
+            if any(isinstance(target, ast.Name) and target.id == "_MAX_MANIFEST_BYTES" for target in targets):
+                assignments.append(node)
+        if (len(assignments) != 1 or not isinstance(assignments[0], ast.Assign)
+                or len(assignments[0].targets) != 1):
+            return [unknown]
+
+        def integer_product(node, depth=0):
+            if depth > 12:
+                raise ValueError("unsupported capacity expression")
+            if isinstance(node, ast.Num) and type(node.n) is int:
+                value = node.n
+            elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
+                value = integer_product(node.left, depth + 1) * integer_product(node.right, depth + 1)
+            else:
+                raise ValueError("unsupported capacity expression")
+            if not 0 < value <= 64 * 1024 * 1024:
+                raise ValueError("invalid capacity")
+            return value
+
+        limit = integer_product(assignments[0].value)
+        root = Path(public_root).resolve()
+        pointer_path = (root / "v1" / "current.json").resolve()
+        pointer_path.relative_to(root)
+        if not pointer_path.is_file() or pointer_path.stat().st_size > 64 * 1024:
+            return [unknown]
+        pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+        manifest_key = pointer.get("manifest_path") if isinstance(pointer, dict) else None
+        revision = pointer.get("pointer_revision") if isinstance(pointer, dict) else None
+        if (not isinstance(manifest_key, str)
+                or not re.fullmatch(r"/v1/releases/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/manifest\.json", manifest_key)
+                or type(revision) is not int or revision < 1):
+            return [unknown]
+        manifest_path = (root / manifest_key.lstrip("/")).resolve()
+        manifest_path.relative_to(root)
+        if not manifest_path.is_file():
+            return [unknown]
+        size = manifest_path.stat().st_size
+        if size <= 0:
+            return [unknown]
+    except (OSError, ValueError, SyntaxError, TypeError, RecursionError):
+        return [unknown]
+    near_limit = size * 100 >= limit * 80
+    message = "公开版本%d，清单%d字节；本机发布客户端上限%d字节，占用%.2f%%。" % (
+        revision, size, limit, 100.0 * size / limit)
+    if near_limit:
+        message += "已达到80%预警线，请在后续增长阻断发布前处理容量；未修改发布门禁。"
+    return [
+        observation("media-publish-capacity-observation", "success", "影视发布容量检查恢复",
+                    "已可靠读取当前公开清单和本机发布客户端上限。", "P2"),
+        observation("media-publish-capacity", "failure" if near_limit else "success",
+                    "影视发布清单容量预警" if near_limit else "影视发布清单容量恢复",
+                    message, "P2"),
+    ]
+
+
 def query_unit(name):
     try:
         result = subprocess.run(["systemctl", "show", name, "--no-page", "--property=" + ",".join(PROPERTIES)],
@@ -199,6 +269,10 @@ def main():
         return 2
     checks = evaluate(args.role, document, mtime, query_unit(unit_name + ".service"),
                       query_unit(unit_name + ".timer"), time.time(), time.monotonic(), max_age)
+    if args.role == "finalizer":
+        checks.extend(manifest_capacity_checks(
+            os.environ.get("MAGNET_MEDIA_HEALTH_PUBLIC_ROOT", "/var/lib/magnet-media/public"),
+            os.environ.get("MAGNET_MEDIA_HEALTH_PUBLISHER_SOURCE", "/opt/magnet-media-finalizer/app/magnet/resource_index/publish/worker_bridge.py")))
     return dispatch(checks, Path(os.environ.get("MAGNET_ALERT_BIN", "/opt/magnet-alerts/magnet-alert.py")),
                     Path(os.environ.get("MAGNET_MEDIA_HEALTH_STATE_DIR", "/var/lib/magnet-alerts")), args.dry_run)
 
