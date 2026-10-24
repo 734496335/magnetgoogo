@@ -8,6 +8,7 @@ VERIFIER="${MAGNET_SOURCE_VERIFIER:-/opt/magnet-source-sync/verify-source-packs.
 TARGET="${MAGNET_SOURCE_TARGET_ROOT:-/var/www/magnetgoogo-site}/sources.enc.json"
 SYNC_STATE="${MAGNET_SOURCE_SYNC_ALERT_STATE:-/var/lib/magnet-alerts/source-sync.json}"
 EXPIRY_STATE="${MAGNET_SOURCE_EXPIRY_ALERT_STATE:-/var/lib/magnet-alerts/source-expiry.json}"
+OBSERVATION_STATE="${MAGNET_SOURCE_EXPIRY_OBSERVATION_STATE:-/var/lib/magnet-alerts/source-expiry-observation.json}"
 
 [[ -x "$ALERT_BIN" ]] || exit 0
 
@@ -21,15 +22,22 @@ if [[ -f "$TARGET" ]]; then
   fi
 fi
 
+# Unknown, malformed and non-finite observations cannot prove recovery.
+remaining="$("$PYTHON_BIN" - "$remaining" <<'PY'
+import math
+import sys
+try:
+    value = float(sys.argv[1])
+    print(value if math.isfinite(value) else "unknown")
+except (ValueError, TypeError):
+    print("unknown")
+PY
+)"
 near_expiry=0
 if [[ "$remaining" != "unknown" ]]; then
   if "$PYTHON_BIN" - "$remaining" <<'PY'
 import sys
-try:
-    value=float(sys.argv[1])
-except Exception:
-    raise SystemExit(1)
-raise SystemExit(0 if value < 24 else 1)
+raise SystemExit(0 if float(sys.argv[1]) < 24 else 1)
 PY
   then
     near_expiry=1
@@ -46,7 +54,6 @@ case "$MODE" in
       --severity P1 \
       --title "普通版源包连续同步失败" \
       --message "阿里云普通版 sources.enc.json 同步失败。连续2次失败才触发本告警；旧文件保持不变。\nsha=$sha\nremaining_hours=$remaining" || true
-    exit 0
     ;;
   success)
     "$ALERT_BIN" success \
@@ -61,6 +68,25 @@ case "$MODE" in
     exit 2
     ;;
 esac
+
+if [[ "$remaining" == "unknown" ]]; then
+  "$ALERT_BIN" failure \
+    --key source-expiry-observation \
+    --state-file "$OBSERVATION_STATE" \
+    --threshold 2 \
+    --repeat-hours 12 \
+    --severity P1 \
+    --title "源包有效期检查失败" \
+    --message "无法确认 sources.enc.json 的有效期。保留已有过期故障，不将未知状态当成恢复。\nsha=$sha" || true
+  exit 0
+fi
+
+"$ALERT_BIN" success \
+  --key source-expiry-observation \
+  --state-file "$OBSERVATION_STATE" \
+  --severity P1 \
+  --title "源包有效期检查已恢复" \
+  --message "已重新取得有效期证据。\nremaining_hours=$remaining" || true
 
 if (( near_expiry == 1 )); then
   "$ALERT_BIN" failure \

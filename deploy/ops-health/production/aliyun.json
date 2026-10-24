@@ -1,0 +1,195 @@
+{
+  "host_label": "阿里云",
+  "services": [
+    {
+      "unit": "nginx.service",
+      "label": "网站网关"
+    },
+    {
+      "unit": "docker.service",
+      "label": "容器引擎"
+    },
+    {
+      "unit": "admin-server.service",
+      "label": "管理后台"
+    },
+    {
+      "unit": "analytics-server.service",
+      "label": "统计服务"
+    },
+    {
+      "unit": "coastime-api.service",
+      "label": "Coastime接口"
+    },
+    {
+      "unit": "travel-oracle-tunnel.service",
+      "label": "低价访问隧道"
+    },
+    {
+      "unit": "kanhai-oracle-tunnel.service",
+      "label": "看海访问隧道"
+    }
+  ],
+  "timers": [
+    {
+      "unit": "magnet-source-sync.timer",
+      "label": "源包同步定时器"
+    },
+    {
+      "unit": "magnet-media-compute-finalizer.timer",
+      "label": "影视发布定时器"
+    },
+    {
+      "unit": "coastime-jobs.timer",
+      "label": "Coastime任务定时器"
+    },
+    {
+      "unit": "coastime-monitor.timer",
+      "label": "Coastime监控定时器"
+    },
+    {
+      "unit": "coastime-publish.timer",
+      "label": "Coastime发布定时器"
+    },
+    {
+      "unit": "coastime-regions-publish.timer",
+      "label": "区域发布定时器"
+    },
+    {
+      "unit": "coastime-maintenance.timer",
+      "label": "Coastime维护定时器"
+    },
+    {
+      "unit": "coastime-backup.timer",
+      "label": "Coastime备份定时器"
+    },
+    {
+      "unit": "acme-cn-magnetgoogo-renew.timer",
+      "label": "证书续期定时器"
+    },
+    {
+      "unit": "magnet-media-compute-audit.timer",
+      "label": "影视审计定时器"
+    },
+    {
+      "unit": "magnet-alert-outbox.timer",
+      "label": "微信发送定时器"
+    },
+    {
+      "unit": "magnet-media-health.timer",
+      "label": "影视巡检定时器"
+    }
+  ],
+  "jobs": [
+    {
+      "unit": "coastime-jobs.service",
+      "label": "Coastime后台任务",
+      "max_age_seconds": 1800,
+      "max_run_seconds": 1200
+    },
+    {
+      "unit": "coastime-monitor.service",
+      "label": "Coastime健康检查",
+      "max_age_seconds": 1800,
+      "max_run_seconds": 1200
+    },
+    {
+      "unit": "coastime-publish.service",
+      "label": "Coastime发布",
+      "max_age_seconds": 7200,
+      "max_run_seconds": 3600
+    },
+    {
+      "unit": "coastime-regions-publish.service",
+      "label": "Coastime区域发布",
+      "max_age_seconds": 10800,
+      "max_run_seconds": 3600
+    },
+    {
+      "unit": "coastime-maintenance.service",
+      "label": "Coastime维护",
+      "max_age_seconds": 10800,
+      "max_run_seconds": 3600
+    },
+    {
+      "unit": "coastime-backup.service",
+      "label": "Coastime备份",
+      "max_age_seconds": 129600,
+      "max_run_seconds": 7200
+    },
+    {
+      "unit": "magnet-source-sync.service",
+      "label": "源包同步调度",
+      "max_age_seconds": 10800,
+      "max_run_seconds": 3600
+    },
+    {
+      "unit": "magnet-media-compute-audit.service",
+      "label": "影视周期审计",
+      "max_age_seconds": 777600,
+      "max_run_seconds": 7200
+    },
+    {
+      "unit": "acme-cn-magnetgoogo-renew.service",
+      "label": "证书续期任务",
+      "max_age_seconds": 259200,
+      "max_run_seconds": 7200
+    },
+    {
+      "unit": "magnet-alert-outbox.service",
+      "label": "微信发送",
+      "max_age_seconds": 600,
+      "max_run_seconds": 150
+    },
+    {
+      "unit": "magnet-media-health.service",
+      "label": "影视巡检",
+      "max_age_seconds": 600,
+      "max_run_seconds": 260
+    }
+  ],
+  "containers": [
+    {
+      "name": "coastime-postgres",
+      "label": "Coastime数据库"
+    },
+    {
+      "name": "searxng",
+      "label": "搜索服务"
+    }
+  ],
+  "disks": [
+    {
+      "path": "/",
+      "label": "系统磁盘",
+      "max_used_percent": 90
+    }
+  ],
+  "peers": [
+    {
+      "host": "161.153.78.129",
+      "port": 22,
+      "label": "Oracle"
+    }
+  ],
+  "http": [
+    {
+      "label": "影视国内站",
+      "url": "https://cn.magnetgoogo.com/"
+    }
+  ],
+  "certificates": [
+    {
+      "host": "cn.magnetgoogo.com",
+      "label": "影视站证书",
+      "min_days": 14
+    }
+  ],
+  "memory": {
+    "min_available_percent": 5
+  },
+  "load": {
+    "max_load_per_cpu": 2
+  },
+  "transport": "xtuis"
+}

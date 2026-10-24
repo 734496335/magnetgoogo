@@ -1,0 +1,20 @@
+[Unit]
+Description=Observe media compute and publish health
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+EnvironmentFile=/etc/magnet-media-health/health.env
+EnvironmentFile=-/etc/magnet-alerts/alert.env
+ExecStart=/usr/bin/python3 /opt/magnet-alerts/media-health-check.py
+TimeoutStartSec=240
+Nice=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/magnet-alerts

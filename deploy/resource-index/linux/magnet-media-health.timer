@@ -1,0 +1,11 @@
+[Unit]
+Description=Check media task health every minute
+
+[Timer]
+OnBootSec=90s
+OnUnitInactiveSec=60s
+AccuracySec=5s
+Unit=magnet-media-health.service
+
+[Install]
+WantedBy=timers.target

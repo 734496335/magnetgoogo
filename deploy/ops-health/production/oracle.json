@@ -1,0 +1,148 @@
+{
+  "host_label": "Oracle",
+  "services": [
+    {
+      "unit": "docker.service",
+      "label": "容器引擎"
+    },
+    {
+      "unit": "kanhai-free-prelaunch.service",
+      "label": "看海接口"
+    },
+    {
+      "unit": "magnet-media-oracle-outbox.service",
+      "label": "影视结果交接服务"
+    }
+  ],
+  "timers": [
+    {
+      "unit": "magnet-media-oracle-compute.timer",
+      "label": "影视爬虫定时器"
+    },
+    {
+      "unit": "travel-oracle-watchdog.timer",
+      "label": "低价守护定时器"
+    },
+    {
+      "unit": "travel-oracle-healthcheck.timer",
+      "label": "低价检查定时器"
+    },
+    {
+      "unit": "travel-oracle-backup.timer",
+      "label": "低价备份定时器"
+    },
+    {
+      "unit": "coastime-refresh.timer",
+      "label": "Coastime采集定时器"
+    },
+    {
+      "unit": "coastime-secondary.timer",
+      "label": "Coastime补充采集定时器"
+    },
+    {
+      "unit": "magnet-alert-outbox.timer",
+      "label": "微信发送定时器"
+    },
+    {
+      "unit": "magnet-media-health.timer",
+      "label": "影视巡检定时器"
+    },
+    {
+      "unit": "magnet-travel-wechat-relay.timer",
+      "label": "低价消息转发定时器"
+    }
+  ],
+  "jobs": [
+    {
+      "unit": "travel-oracle-watchdog.service",
+      "label": "低价守护任务",
+      "max_age_seconds": 600,
+      "max_run_seconds": 240
+    },
+    {
+      "unit": "travel-oracle-healthcheck.service",
+      "label": "低价周期检查",
+      "max_age_seconds": 32400,
+      "max_run_seconds": 3600
+    },
+    {
+      "unit": "travel-oracle-backup.service",
+      "label": "低价备份",
+      "max_age_seconds": 129600,
+      "max_run_seconds": 7200
+    },
+    {
+      "unit": "coastime-refresh.service",
+      "label": "Coastime主采集",
+      "max_age_seconds": 1800,
+      "max_run_seconds": 1200
+    },
+    {
+      "unit": "coastime-secondary.service",
+      "label": "Coastime补充采集",
+      "max_age_seconds": 7200,
+      "max_run_seconds": 3600
+    },
+    {
+      "unit": "magnet-alert-outbox.service",
+      "label": "微信发送",
+      "max_age_seconds": 600,
+      "max_run_seconds": 150
+    },
+    {
+      "unit": "magnet-media-health.service",
+      "label": "影视巡检",
+      "max_age_seconds": 600,
+      "max_run_seconds": 260
+    },
+    {
+      "unit": "magnet-travel-wechat-relay.service",
+      "label": "低价消息转发",
+      "max_age_seconds": 600,
+      "max_run_seconds": 150
+    }
+  ],
+  "containers": [
+    {
+      "name": "travel-fare-monitor",
+      "label": "低价监控容器"
+    }
+  ],
+  "disks": [
+    {
+      "path": "/",
+      "label": "系统磁盘",
+      "max_used_percent": 90
+    },
+    {
+      "path": "/var/lib/magnet-media",
+      "label": "影视数据磁盘",
+      "max_used_percent": 90
+    }
+  ],
+  "peers": [
+    {
+      "host": "47.103.155.154",
+      "port": 22,
+      "label": "阿里云"
+    }
+  ],
+  "http": [
+    {
+      "label": "低价调度器",
+      "url": "http://127.0.0.1:8765/status",
+      "json_checks": {
+        "scheduler_running": true
+      },
+      "error_field": "last_error"
+    }
+  ],
+  "certificates": [],
+  "memory": {
+    "min_available_percent": 5
+  },
+  "load": {
+    "max_load_per_cpu": 2
+  },
+  "transport": "xtuis"
+}

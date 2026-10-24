@@ -16,7 +16,7 @@ def test_failure_threshold_and_continuous_incident_suppression(tmp_path: Path, m
     state = tmp_path / "state.json"
     sent: list[str] = []
 
-    def deliver(title: str, message: str, dry_run: bool = False):
+    def deliver(title: str, message: str, dry_run: bool = False, **_kwargs):
         sent.append(title)
         return True, "test"
 
@@ -50,7 +50,7 @@ def test_recovery_only_sends_after_open_alert(tmp_path: Path, monkeypatch) -> No
     state = tmp_path / "state.json"
     sent: list[str] = []
 
-    def deliver(title: str, message: str, dry_run: bool = False):
+    def deliver(title: str, message: str, dry_run: bool = False, **_kwargs):
         sent.append(title)
         return True, "test"
 

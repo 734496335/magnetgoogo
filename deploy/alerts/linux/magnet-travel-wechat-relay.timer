@@ -1,0 +1,11 @@
+[Unit]
+Description=Relay low-price WeChat notifications
+
+[Timer]
+OnBootSec=40s
+OnUnitInactiveSec=30s
+AccuracySec=2s
+Unit=magnet-travel-wechat-relay.service
+
+[Install]
+WantedBy=timers.target

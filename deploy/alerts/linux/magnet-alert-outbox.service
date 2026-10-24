@@ -1,0 +1,18 @@
+[Unit]
+Description=Deliver queued WeChat monitoring notifications
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/magnet-alerts/alert.env
+WorkingDirectory=/opt/magnet-alerts
+ExecStart=/usr/bin/python3 /opt/magnet-alerts/magnet-alert.py flush --max-messages 4 --strict
+TimeoutStartSec=120
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/magnet-alerts
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

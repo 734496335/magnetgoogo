@@ -1,0 +1,11 @@
+[Unit]
+Description=Flush the WeChat alert outbox
+
+[Timer]
+OnBootSec=45s
+OnUnitInactiveSec=30s
+AccuracySec=2s
+Unit=magnet-alert-outbox.service
+
+[Install]
+WantedBy=timers.target

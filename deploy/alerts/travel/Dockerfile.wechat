@@ -1,0 +1,6 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+USER root
+COPY notify.py wechat_spool.py /app/travel_monitor/
+RUN python -c "import pathlib, shutil, sysconfig; target = pathlib.Path(sysconfig.get_path('purelib')) / 'travel_monitor'; assert target.is_dir(); [shutil.copy2('/app/travel_monitor/' + name, str(target / name)) for name in ('notify.py', 'wechat_spool.py')]"
+USER 1001:1001

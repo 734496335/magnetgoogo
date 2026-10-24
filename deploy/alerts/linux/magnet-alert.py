@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Best-effort production alert state machine for MagnetGoogo.
 
-Primary delivery: Alibaba CloudMonitor external-alert endpoint.
-Fallback delivery: QQ Mail SMTP authorization code.
+Durable WeChat delivery: XTUIS outbox with rate limits and provider receipts.
+Optional legacy delivery: Alibaba CloudMonitor and QQ Mail SMTP.
 
 The script is intentionally fail-open for production workloads: delivery errors are
 reported to stderr but the process exits 0 unless --strict is supplied.
@@ -10,6 +10,8 @@ reported to stderr but the process exits 0 unless --strict is supplied.
 
 import argparse
 import base64
+import contextlib
+import importlib.util
 import hashlib
 import json
 import os
@@ -25,6 +27,13 @@ from pathlib import Path
 
 
 DEFAULT_STATE = Path("/var/lib/magnet-alerts/state.json")
+
+_outbox_spec = importlib.util.spec_from_file_location(
+    "magnet_xtuis_outbox", str(Path(__file__).with_name("xtuis_outbox.py")))
+outbox = importlib.util.module_from_spec(_outbox_spec)
+_outbox_spec.loader.exec_module(outbox)
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
 def _now_epoch():
@@ -100,10 +109,9 @@ def _cloudmonitor_send(title, message):
     try:
         result = json.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, ValueError):
-        result = {}
-    code = str(result.get("code") or "") if isinstance(result, dict) else ""
-    if code and code != "200":
-        return False, "cloudmonitor_code_%s" % code
+        return False, "cloudmonitor_response_invalid"
+    if not isinstance(result, dict) or str(result.get("code")) != "200":
+        return False, "cloudmonitor_response_rejected"
     return True, "cloudmonitor"
 
 
@@ -133,13 +141,20 @@ def _smtp_send(title, message):
     return True, "smtp"
 
 
-def _deliver(title, message, dry_run=False):
+def _deliver(title, message, dry_run=False, event_id=None, stream_key="default", ttl_seconds=86400, now=None):
     if dry_run:
-        print("ALERT_DRY_RUN title=%s" % title)
+        print("ALERT_DRY_RUN")
         return True, "dry_run"
     transport = os.environ.get("MAGNET_ALERT_TRANSPORT", "disabled").strip().lower()
     if transport == "disabled":
         return False, "disabled"
+    if transport in ("xtuis", "mirror", "cloudmonitor+xtuis"):
+        queued, detail = outbox.enqueue(title, message, event_id=event_id,
+            stream_key=stream_key, ttl_seconds=ttl_seconds, now=now)
+        if transport in ("mirror", "cloudmonitor+xtuis"):
+            cloud_ok, cloud_detail = _cloudmonitor_send(title, message)
+            detail = "%s;%s" % (detail, cloud_detail)
+        return queued, detail
     if transport == "cloudmonitor":
         return _cloudmonitor_send(title, message)
     if transport == "smtp":
@@ -162,19 +177,23 @@ def _entry(state, key):
     return value
 
 
-def record_failure(state_path, key, threshold, repeat_hours, severity, title, message, now, dry_run):
+def _record_failure_unlocked(state_path, key, threshold, repeat_hours, severity, title, message, now, dry_run):
     state = _load_state(state_path)
     entry = _entry(state, key)
     previous_status = entry.get("status")
     failures = int(entry.get("consecutive_failures") or 0) + 1 if previous_status == "failed" else 1
     last_alert = int(entry.get("last_alert_epoch") or 0)
     alert_open = bool(entry.get("alert_open"))
+    if previous_status == "success":
+        alert_open, last_alert = False, 0
     repeat_due = alert_open and (now - last_alert >= int(repeat_hours * 3600))
     should_send = failures >= threshold and (not alert_open or repeat_due)
     delivered = False
     provider = "suppressed"
     if should_send:
-        delivered, provider = _deliver(title, message, dry_run=dry_run)
+        delivered, provider = _deliver(title, message, dry_run=dry_run,
+            event_id="failure:%s:%s:%s" % (state_path, key, now),
+            stream_key="%s:%s" % (state_path, key), now=now)
         if delivered:
             alert_open = True
             last_alert = now
@@ -193,22 +212,25 @@ def record_failure(state_path, key, threshold, repeat_hours, severity, title, me
         }
     )
     state[key] = entry
-    _atomic_write(state_path, state)
+    if not dry_run:
+        _atomic_write(state_path, state)
     print(
-        "ALERT_FAILURE key=%s failures=%s threshold=%s sent=%s provider=%s"
+        "ALERT_FAILURE key=%s failures=%s threshold=%s accepted=%s provider=%s"
         % (key, failures, threshold, str(delivered).lower(), provider)
     )
     return delivered, provider
 
 
-def record_success(state_path, key, title, message, now, dry_run):
+def _record_success_unlocked(state_path, key, title, message, now, dry_run):
     state = _load_state(state_path)
     entry = _entry(state, key)
     alert_open = bool(entry.get("alert_open"))
     delivered = False
     provider = "suppressed"
     if alert_open:
-        delivered, provider = _deliver(title, message, dry_run=dry_run)
+        delivered, provider = _deliver(title, message, dry_run=dry_run,
+            event_id="recovery:%s:%s:%s" % (state_path, key, now),
+            stream_key="%s:%s" % (state_path, key), now=now)
         if delivered:
             alert_open = False
     entry.update(
@@ -222,17 +244,38 @@ def record_success(state_path, key, title, message, now, dry_run):
         }
     )
     state[key] = entry
-    _atomic_write(state_path, state)
-    print("ALERT_SUCCESS key=%s recovery_sent=%s provider=%s" % (key, str(delivered).lower(), provider))
+    if not dry_run:
+        _atomic_write(state_path, state)
+    print("ALERT_SUCCESS key=%s recovery_accepted=%s provider=%s" % (key, str(delivered).lower(), provider))
     return delivered, provider
+
+
+@contextlib.contextmanager
+def _state_lock(path, dry_run):
+    if dry_run:
+        yield
+    else:
+        with outbox.file_lock(str(path) + ".lock"):
+            yield
+
+
+def record_failure(state_path, key, threshold, repeat_hours, severity, title, message, now, dry_run):
+    with _state_lock(state_path, dry_run):
+        return _record_failure_unlocked(state_path, key, threshold, repeat_hours,
+                                        severity, title, message, now, dry_run)
+
+
+def record_success(state_path, key, title, message, now, dry_run):
+    with _state_lock(state_path, dry_run):
+        return _record_success_unlocked(state_path, key, title, message, now, dry_run)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("status", choices=("failure", "success", "test"))
-    parser.add_argument("--key", required=True)
-    parser.add_argument("--title", required=True)
-    parser.add_argument("--message", required=True)
+    parser.add_argument("status", choices=("failure", "success", "test", "enqueue", "flush", "status"))
+    parser.add_argument("--key")
+    parser.add_argument("--title")
+    parser.add_argument("--message")
     parser.add_argument("--severity", default="P1")
     parser.add_argument("--threshold", type=int, default=1)
     parser.add_argument("--repeat-hours", type=float, default=24.0)
@@ -240,37 +283,51 @@ def main():
     parser.add_argument("--now-epoch", type=int)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--strict", action="store_true")
+    parser.add_argument("--event-id")
+    parser.add_argument("--ttl-seconds", type=int, default=86400)
+    parser.add_argument("--max-messages", type=int, default=4)
     args = parser.parse_args()
-    if args.threshold < 1:
-        raise ValueError("threshold must be >= 1")
-    if args.repeat_hours < 1:
-        raise ValueError("repeat-hours must be >= 1")
     now = args.now_epoch if args.now_epoch is not None else _now_epoch()
+    if args.status == "status":
+        print(json.dumps(outbox.status(now=now), sort_keys=True))
+        return 0
+    if args.status == "flush":
+        transport = os.environ.get("MAGNET_ALERT_TRANSPORT", "disabled").strip().lower()
+        if not args.dry_run and transport not in ("xtuis", "mirror", "cloudmonitor+xtuis"):
+            result = {"error": "xtuis_transport_disabled", "network_requests": 0}
+        else:
+            result = outbox.flush(max_messages=args.max_messages, dry_run=args.dry_run)
+        print("ALERT_OUTBOX " + json.dumps(result, sort_keys=True))
+        return 2 if args.strict and (result.get("error") or result.get("failed")) else 0
+    if not args.key or not args.title or not args.message:
+        parser.error("--key, --title and --message are required for this operation")
+    if args.threshold < 1 or args.repeat_hours < 1:
+        raise ValueError("invalid alert threshold or repeat interval")
     title = "[%s] %s" % (args.severity, args.title)
     message = "%s\n\nTime: %s\nHost: %s" % (
-        args.message,
-        _iso(now),
-        os.uname()[1] if hasattr(os, "uname") else "unknown",
-    )
+        args.message, _iso(now), os.uname()[1] if hasattr(os, "uname") else "unknown")
     if args.status == "failure":
-        delivered, detail = record_failure(
-            args.state_file,
-            args.key,
-            args.threshold,
-            args.repeat_hours,
-            args.severity,
-            title,
-            message,
-            now,
-            args.dry_run,
-        )
+        delivered, detail = record_failure(args.state_file, args.key, args.threshold,
+            args.repeat_hours, args.severity, title, message, now, args.dry_run)
     elif args.status == "success":
-        delivered, detail = record_success(args.state_file, args.key, "[恢复] " + args.title, message, now, args.dry_run)
+        delivered, detail = record_success(args.state_file, args.key,
+            "[恢复] " + args.title, message, now, args.dry_run)
+    elif args.status == "enqueue":
+        if args.dry_run:
+            delivered, detail = True, "dry_run"
+        else:
+            delivered, detail = outbox.enqueue(args.title, message,
+                event_id=args.event_id, stream_key=args.key, ttl_seconds=args.ttl_seconds, now=now)
+        print("ALERT_ENQUEUE accepted=%s provider=%s" % (str(delivered).lower(), detail))
     else:
-        delivered, detail = _deliver("[测试] " + args.title, message, dry_run=args.dry_run)
-        print("ALERT_TEST sent=%s provider=%s" % (str(delivered).lower(), detail))
+        delivered, detail = _deliver("[测试] " + args.title, message, dry_run=args.dry_run,
+            event_id=args.event_id, stream_key=args.key, ttl_seconds=args.ttl_seconds, now=now)
+        if detail.startswith("xtuis_queued"):
+            print("ALERT_TEST sent=false queued=%s provider=%s" % (str(delivered).lower(), detail))
+        else:
+            print("ALERT_TEST sent=%s provider=%s" % (str(delivered).lower(), detail))
     if args.strict and not delivered:
-        if args.status == "test" or detail not in ("suppressed", "disabled"):
+        if args.status in ("test", "enqueue") or detail not in ("suppressed", "disabled"):
             return 2
     return 0
 
@@ -279,5 +336,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as exc:
-        print("magnet-alert: %s: %s" % (type(exc).__name__, exc), file=sys.stderr)
+        print("magnet-alert: %s" % type(exc).__name__, file=sys.stderr)
         raise SystemExit(2 if "--strict" in sys.argv else 0)

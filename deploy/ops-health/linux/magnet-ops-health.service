@@ -1,0 +1,18 @@
+[Unit]
+Description=Application and host health checks with WeChat alerts
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=-/etc/magnet-alerts/alert.env
+ExecStart=/usr/bin/python3 /opt/magnet-ops-health/ops-health-check.py --config /etc/magnet-alerts/ops-health.json
+TimeoutStartSec=180
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=/var/lib/magnet-alerts
+UMask=0077

@@ -29,7 +29,7 @@ def test_failure_threshold_deduplicates_until_single_recovery(tmp_path: Path, mo
     alert = _load_alert_module()
     deliveries: list[tuple[str, str]] = []
 
-    def deliver(title: str, message: str, dry_run: bool = False):
+    def deliver(title: str, message: str, dry_run: bool = False, **_kwargs):
         deliveries.append((title, message))
         return True, "fake"
 
@@ -268,8 +268,7 @@ def test_source_sync_alert_wires_two_failures_and_two_low_expiry_observations() 
     assert "/var/lib/magnet-alerts/source-sync.json" in helper
     assert "--key source-expiry" in helper
     assert "/var/lib/magnet-alerts/source-expiry.json" in helper
-    assert helper.count("--threshold 2") == 2
-    assert helper.index("exit 0") < helper.index("--key source-expiry")
+    assert helper.count("--threshold 2") == 3
     assert "--repeat-hours 24" in helper
     assert "--repeat-hours 12" in helper
 

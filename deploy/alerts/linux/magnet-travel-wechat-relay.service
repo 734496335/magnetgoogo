@@ -1,0 +1,16 @@
+[Unit]
+Description=Import new low-price notifications into the WeChat outbox
+After=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/magnet-alerts/alert.env
+ExecStart=/usr/bin/python3 /opt/magnet-alerts/travel-wechat-relay.py --spool-dir /opt/apps/travel-fare-monitor/state/wechat-outbox --expected-uid 1001 --max-items 50
+TimeoutStartSec=120
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/magnet-alerts /opt/apps/travel-fare-monitor/state/wechat-outbox
+RestrictAddressFamilies=AF_UNIX

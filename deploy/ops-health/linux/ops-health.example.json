@@ -1,0 +1,16 @@
+{
+  "host_label": "Server",
+  "services": [],
+  "timers": [],
+  "jobs": [],
+  "containers": [],
+  "disks": [
+    {
+      "path": "/",
+      "max_used_percent": 90
+    }
+  ],
+  "peers": [],
+  "http": [],
+  "certificates": []
+}

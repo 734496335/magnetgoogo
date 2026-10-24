@@ -1,0 +1,11 @@
+[Unit]
+Description=Check application and host health every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=60s
+AccuracySec=5s
+Unit=magnet-ops-health.service
+
+[Install]
+WantedBy=timers.target
