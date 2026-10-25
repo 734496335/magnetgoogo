@@ -12,6 +12,24 @@ from pathlib import Path
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
 
+# The original64 publication is an explicitly reviewed smaller source set.
+# Pin the entire canonical payload, not just a lower count floor. Envelope
+# renewal may change dates/IV/signature while this payload remains identical.
+# Evidence: K30S-64-SOURCE-PRODUCTION-REVIEW-2026-10-24.md.
+REVIEWED_SOURCE_PROFILES = {
+    "3f154d667b8b167e419e9a3ec45b0154fbecfc3449f128bef3ae5ecd7a8f25f7": {
+        "name": "original64-20261025",
+        "rules": 64,
+        "green": 48,
+        "min_app_version": "0.2.5",
+    },
+}
+
+
+def canonical_payload_hash(payload):
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
 
 def load_key():
     value = os.environ.get("SOURCE_ENCRYPTION_KEY_HEX", "").strip()
@@ -97,12 +115,26 @@ def validate(path, key, now, min_remaining_hours):
             % (path.name, remaining_hours, min_remaining_hours)
         )
     rule_count, green_count = counts(envelope["payload"])
-    if rule_count < 100 or green_count < 100 or green_count > rule_count:
-        raise ValueError(
-            "%s: source counts are implausible rules=%s green=%s"
-            % (path.name, rule_count, green_count)
-        )
+    payload_sha256 = canonical_payload_hash(envelope["payload"])
+    reviewed = REVIEWED_SOURCE_PROFILES.get(payload_sha256)
+    if reviewed is not None:
+        if (
+            rule_count != reviewed["rules"]
+            or green_count != reviewed["green"]
+            or envelope["min_app_version"] != reviewed["min_app_version"]
+        ):
+            raise ValueError("%s: reviewed source profile contract mismatch" % path.name)
+        source_profile = reviewed["name"]
+    else:
+        if rule_count < 100 or green_count < 100 or green_count > rule_count:
+            raise ValueError(
+                "%s: source counts are implausible rules=%s green=%s"
+                % (path.name, rule_count, green_count)
+            )
+        source_profile = "legacy-count-floor"
     return {
+        "source_profile": source_profile,
+        "payload_sha256": payload_sha256,
         "path": str(path),
         "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         "issued_at": issued_at.isoformat(),
