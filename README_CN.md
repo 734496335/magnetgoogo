@@ -27,7 +27,7 @@
 <p align="center">
   <a href="https://magnetgoogo.com">官网</a> &nbsp;&middot;&nbsp;
   <a href="https://github.com/734496335/magnetgoogo/releases/latest">下载 APK</a> &nbsp;&middot;&nbsp;
-  <a href="https://wwbdy.lanzoue.com/ighZS3pb0h0h">蓝奏云下载</a> &nbsp;&middot;&nbsp;
+  <a href="https://wwbdy.lanzn.com/ixAS64e0ygwb">蓝奏云下载（密码：8888）</a> &nbsp;&middot;&nbsp;
   <a href="https://naoshiquan.com/blog/">技术博客</a> &nbsp;&middot;&nbsp;
   <a href="https://github.com/734496335/magnetgoogo/issues">反馈</a>
 </p>
@@ -67,8 +67,8 @@
 | 渠道 | 链接 | 说明 |
 |------|------|------|
 | **GitHub Releases** | [下载最新版 APK](https://github.com/734496335/magnetgoogo/releases/latest) | 始终最新 |
-| **直接下载** | [快速下载](https://cn.magnetgoogo.com/download/magnetgoogo.apk) | CDN 加速 |
-| **蓝奏云** | [备用下载](https://wwbdy.lanzoue.com/ighZS3pb0h0h) | 国内用户推荐（密码: 8888） |
+| **直接下载** | [下载 v0.2.10](https://api.naoshiquan.com/download/v0.2.10/app-release.apk) | 官方签名 APK |
+| **蓝奏云** | [备用下载](https://wwbdy.lanzn.com/ixAS64e0ygwb) | 国内用户推荐（密码: 8888） |
 | **官网** | [magnetgoogo.com](https://magnetgoogo.com) | 截图和详细介绍 |
 
 > **系统要求**：Android 7.0 及以上
