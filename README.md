@@ -67,7 +67,8 @@ Tired of finding Linux ISOs, public domain documentaries, and open-source resour
 | Channel | Link | Note |
 |---------|------|------|
 | **GitHub Releases** | [Download Latest APK](https://github.com/734496335/magnetgoogo/releases/latest) | Recommended |
-| **Direct Download** | [Fast Download](https://cn.magnetgoogo.com/download/magnetgoogo.apk) | CDN accelerated |
+| **Direct Download** | [Download v0.2.10](https://api.naoshiquan.com/download/v0.2.10/app-release.apk) | Official signed APK |
+| **LanzouCloud** | [Backup download](https://wwbdy.lanzn.com/ixAS64e0ygwb) | **Password: 8888** |
 | **Official Website** | [magnetgoogo.com](https://magnetgoogo.com) | Screenshots and details |
 
 > **Requirements**: Android 7.0+ (API 24)
