@@ -67,7 +67,7 @@
 | 渠道 | 链接 | 说明 |
 |------|------|------|
 | **GitHub Releases** | [下载最新版 APK](https://github.com/734496335/magnetgoogo/releases/latest) | 始终最新 |
-| **直接下载** | [下载 v0.2.10](https://api.naoshiquan.com/download/v0.2.10/app-release.apk) | 官方签名 APK |
+| **直接下载** | [下载 v0.2.10](https://media.magnetgoogo.com/apk/v0.2.10/app-release.apk) | 官方签名 APK |
 | **蓝奏云** | [备用下载](https://wwbdy.lanzn.com/ixAS64e0ygwb) | 国内用户推荐（密码: 8888） |
 | **官网** | [magnetgoogo.com](https://magnetgoogo.com) | 截图和详细介绍 |
 
