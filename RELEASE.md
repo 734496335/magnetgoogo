@@ -1,20 +1,19 @@
-# 磁力古哥 0.3.0 · Magnet Googo 0.3.0
+# 磁力古哥 0.3.1 · Magnet Googo 0.3.1
 
-- 首页搜索按钮使用白字和黑色柔影，收藏夹、吐槽、分享移到首页右上角。
-- 搜索结果支持 4K 筛选。
-- 更新弹窗直接显示蓝奏云备用入口和提取密码。
-- 沿用正式签名，支持覆盖升级并保留本地数据。
+- 新增 70+ 国内直连可用独立搜索池（含 YTS 官方 API、SeaDex 精选动漫、SciOp 开源科学数据、Ubuntu 官方风味与多机构 PeerTube 目录），搜索覆盖大幅提升。
+- 修复多源体积、日期解析与结构化词元/版本号精准匹配，减少误命中与异常字段。
+- 修复同版本启动源包过期窗口问题，保留本地历史与收藏，沿用原正式签名支持直接覆盖升级。
 
-- White search label with a soft shadow and home shortcuts for favorites, feedback and sharing.
-- 4K search results filter.
-- Update dialogs show the LanzouCloud backup and extraction password.
+- Added 70+ direct independent search pools (YTS API, SeaDex curated anime, SciOp open science datasets, Ubuntu official flavors, and institutional PeerTube publishers).
+- Fixed multi-source file size and date parsing along with strict token/version query matching.
+- Fixed bootstrap source window refresh on upgraded builds while preserving local data and release signing.
 
 ## 下载 · Download
 
-- [官方 CDN](https://media.magnetgoogo.com/apk/v0.3.0/app-release.apk)
-- [蓝奏云（密码：8888）](https://wwbdy.lanzn.com/il3n94g1ytdi)
+- [官方 CDN](https://media.magnetgoogo.com/apk/v0.3.1/app-release.apk)
+- [蓝奏云（密码：8888）](https://wwbdy.lanzn.com/iZO7v4hdko0j)
 - [官网](https://magnetgoogo.com/)
 
-Android 7.0+ · arm64-v8a · versionCode 15 · 31,322,078 bytes
+Android 7.0+ · arm64-v8a · versionCode 16 · 31,349,318 bytes
 
-SHA-256: `677a7c360f12837889c261073547c91f36b28b03314889d66a950e7852fab8d8`
+SHA-256: 9308dfb550723f1acadde8ac9495fce04b650e47539d3823b50e06eaee13d606
